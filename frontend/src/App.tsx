@@ -1,38 +1,29 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useCallback } from 'react';
+import LandingPage from "./components/LandingPage";
+import GameBoard from "./components/GameBoard";
+import AuthPage from "./components/AuthPage";
 import './App.css'
 
+type View = "landing" | "login" | "signup" | "game-local" | "game-online";
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [view, setView] = useState<View>("landing");
+  const goHome = useCallback(() => setView("landing"), []);
+  const goLogin = useCallback(() => setView("login"), []);
+  const goSignup = useCallback(() => setView("signup"), []);
+  const goGameLocal = useCallback(() => setView("game-local"), []);
+  const goGameOnline = useCallback(() => setView("game-online"), []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1 className='font-bold underline'>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-        <p>
-          this is new
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div>
+      {view} === "landing" && <LandingPage onLogin={goLogin} onSignup={goSignup} onGameLocal={goGameLocal} onGameOnline={goGameOnline} />
+      {view} === "login" && <div>Login Page - <button onClick={goHome}>Go Home</button></div>
+      {view} === "signup" && <div>Signup Page - <button onClick={goHome}>Go Home</button></div>
+      {(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />
+      )}
+    </div>
   )
 }
 
+export { App }
 export default App
