@@ -10,6 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@babylonjs/core": "^8.40.1",
+    "@babylonjs/inspector": "^8.40.1",
+    "@babylonjs/loaders": "^8.40.1",
+    "lucide-react": "^0.556.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

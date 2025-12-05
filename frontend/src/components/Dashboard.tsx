@@ -1,8 +1,7 @@
 import React from "react";
 import Button from "./ui/Button";
 
-
-function LandingPage({ onLogin, onLocal }: { onLogin: () => void; onLocal: () => void }) {
+function Dashboard({ onLocal }: { onLocal: () => void }) {
   return (
     <main className="p-6 max-w-3xl mx-auto">
       <header className="flex items-center justify-between mb-6">
@@ -16,16 +15,10 @@ function LandingPage({ onLogin, onLocal }: { onLogin: () => void; onLocal: () =>
           <p className="text-sm mb-4">Start a local game to test mechanics.</p>
           <Button onClick={onLocal}>Play Local</Button>
         </div>
-
-        <div className="p-4 rounded-lg border bg-white shadow-sm">
-          <h2 className="mb-2">Online Play</h2>
-          <p className="text-sm mb-4">Connect to other players over the network.</p>
-          <Button onClick={onLogin} className="bg-green-600 hover:bg-green-700">Play Online</Button>
-        </div>
       </section>
     </main>
   )
 }
 
-export { LandingPage };
-export default LandingPage;
+export { Dashboard };
+export default Dashboard;
