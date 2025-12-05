@@ -1,6 +1,42 @@
+/* This is the tailwind entrypoint  */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root{
+    --color-bg: 15 23 42;
+    --color-foreground: 255 255 255;
+    --color-primary: 56 189 248;
+    --color-primary-50: 240 249 255;
+  }
+
+  /* light theme overrides (if you prefer default light, swap) */
+  .light {
+    --color-bg: 255 255 255;
+    --color-foreground: 15 23 42;
+  }
+
+  .dark {
+    --color-bg: 6 8 15;
+    --color-foreground: 229 231 235;
+    --color-primary: 99 102 241;
+  }
+
+  html,body,#root { height: 100%; }
+  body {
+    font-family: var(--font-sans, system-ui);
+    background: rgb(var(--color-bg));
+    color: rgb(var(--color-foreground));
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md font-medium;
+    padding: .5rem 1rem;
+  }
+}
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
