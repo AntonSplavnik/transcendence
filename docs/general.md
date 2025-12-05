@@ -5,3 +5,6 @@ A tool that:
 -Bundles your code for production (combines files, minifies, optimizes)
 -Handles modern JavaScript features your browser might not understand yet
 
+## single page application (SPA)
+
+[expration in react](https://madewithreact.com/built-single-page-app-react/)
