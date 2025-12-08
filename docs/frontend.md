@@ -71,6 +71,18 @@ Start dev server (<http://localhost:5173>)
 npm run dev
 ```
 
+### Development and Testing with the Backend
+
+Development: Run Rust (cargo run) AND React (npm run dev) separately. The Proxy connects them.
+
+or serve files locally with a static server
+
+```
+npm run build
+```
+
+serve the dist/ folder
+
 ### Deployment
 
 Build optimized files for deployment

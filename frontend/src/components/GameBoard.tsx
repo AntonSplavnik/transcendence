@@ -1,4 +1,3 @@
-import React from "react";
 import BabylonCanvas from "./GameBoard/BabylonCanvas";
 import Button from "./ui/Button";
 
