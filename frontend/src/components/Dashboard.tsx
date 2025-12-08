@@ -1,24 +1,37 @@
 import React from "react";
 import Button from "./ui/Button";
+import Card from "./ui/Card";
 
-function Dashboard({ onLocal }: { onLocal: () => void }) {
+export default function Dashboard({ onLocal, onBack }: { onLocal: () => void; onBack: () => void }) {
   return (
-    <main className="p-6 max-w-3xl mx-auto">
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">My Game</h1>
-        <div className="text-sm text-gray-600">Simple starter</div>
+    <main className="p-6 max-w-4xl mx-auto w-full">
+      <header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
+        <div>
+          <h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
+          <p className="text-wood-300">Welcome back, Traveler.</p>
+        </div>
+        <Button onClick={onBack} variant="secondary">Log Out</Button>
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <div className="p-4 rounded-lg border bg-white shadow-sm">
-          <h2 className="mb-2">Quick Play</h2>
-          <p className="text-sm mb-4">Start a local game to test mechanics.</p>
-          <Button onClick={onLocal}>Play Local</Button>
-        </div>
+        <Card>
+          <h2 className="text-xl font-bold mb-2 text-primary">Play Game</h2>
+          <p className="text-sm text-wood-300 mb-4">
+            Jump into a match immediately.
+          </p>
+          <div className="space-y-2">
+            <Button onClick={onLocal} className="w-full">Play Local Match</Button>
+            <Button variant="secondary" className="w-full opacity-50 cursor-not-allowed">Find Online Match (Coming Soon)</Button>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-bold mb-2 text-wood-100">Recent History</h2>
+          <div className="bg-wood-900 rounded p-4 text-center text-wood-400 text-sm italic">
+            No recent battles recorded.
+          </div>
+        </Card>
       </section>
     </main>
-  )
+  );
 }
-
-export { Dashboard };
-export default Dashboard;

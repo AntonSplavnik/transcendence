@@ -1,23 +1,31 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx,html}"],
-  darkMode: "class",
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        primary: { DEFAULT: "rgb(var(--color-primary) / <alpha-value>)" },
-        bg: "rgb(var(--color-bg) / <alpha-value>)",
-        fg: "rgb(var(--color-foreground) / <alpha-value>)",
+        wood: {
+          900: "#1c1917", // Very dark wood (Main Background)
+          800: "#292524", // Dark wood (Panels/Cards)
+          700: "#44403c", // Borders
+          300: "#d6d3d1", // Secondary Text
+          100: "#f5f5f4", // Primary Text
+        },
+        primary: {
+          DEFAULT: "#d97706", // Amber 600 (Varnish/Gold)
+          hover: "#b45309",   // Amber 700
+          text: "#fffbeb",    // Amber 50
+        }
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Inter", "sans-serif"],
       },
+      backgroundImage: {
+        'wood-pattern': "url('https://www.transparenttextures.com/patterns/wood-pattern.png')", // Optional subtle texture
+      }
     },
   },
   plugins: [
-    // In ESM you must import plugins, but Tailwind's docs accept require in many setups.
-    // If you need pure ESM import syntax, you'd `import typography from '@tailwindcss/typography'`
-    // and then include typography in plugins. Many setups still allow require here.
     require("@tailwindcss/typography"),
   ],
 };
