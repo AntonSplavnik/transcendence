@@ -1,4 +1,3 @@
-import React from "react";
 import { Swords } from 'lucide-react';
 import Button from "./ui/Button";
 

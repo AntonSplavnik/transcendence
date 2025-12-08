@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import LandingPage from "./components/LandingPage";
 import GameBoard from "./components/GameBoard";
 import AuthPage from "./components/AuthPage";
-import Dashboard from "./components/Dashboard";
+// import Dashboard from "./components/Dashboard";
 import Layout from "./components/ui/Layout";
 import './App.css'
 
