@@ -3,6 +3,7 @@ import LandingPage from "./components/LandingPage";
 import GameBoard from "./components/GameBoard";
 import AuthPage from "./components/AuthPage";
 import Dashboard from "./components/Dashboard";
+import Layout from "./components/ui/Layout";
 import './App.css'
 
 type View = "landing" | "login" | "signup" | "game-local" | "game-online" | "dashboard";
@@ -17,11 +18,11 @@ function App() {
   // const goGameOnline = useCallback(() => setView("game-online"), []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Layout>
       {view === "landing" && <LandingPage onLogin={goLogin} onLocal={goGameLocal} />}
       {(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />)}
       {view === "login" && <AuthPage onBack={goHome} onSubmit={goDashboard} />}
-    </div>
+    </Layout>
   )
 }
 
