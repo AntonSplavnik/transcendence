@@ -1,3 +1,5 @@
+serve_dir = "../frontend/dist"
+
 [log]
 format = "compact"
 
