@@ -1,11 +1,24 @@
 # Frontend
 
-Frontend Stack:
+## Frontend Stack
+
 ├── React (UI framework)
 ├── Vite (build tool)
 ├── Tailwind CSS (styling)
 ├── WebSocket/Socket.io (connection to Rust backend)
 └── TypeScript (language)
+
+#### why we chose this stack
+
+React: Popular, component-based UI library with a large ecosystem. Good for building interactive UIs. Especially good for our usecase since we wanted to combine 3D graphics with UI elements.
+
+Vite: Modern build tool with fast dev server and optimized production builds. Works well with React and TypeScript.
+
+Tailwind CSS: Utility-first CSS framework that allows rapid styling without writing custom CSS. Good for prototyping and consistent design.
+Allows changing styles from inside components without having to go to a separate CSS file.
+Nice for writing custom templates and themes.
+
+TypeScript: Superset of JavaScript that adds static typing. Helps catch errors early and improves code maintainability.
 
 ### how to set up a project with react + vite
 
