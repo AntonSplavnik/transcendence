@@ -1,82 +1,80 @@
-import { Swords } from 'lucide-react';
+import React, { useState } from "react";
+import { Swords, User, Lock, Mail } from 'lucide-react';
 import Button from "./ui/Button";
+import Card from "./ui/Card";
 
-export default function AuthPage({ onBack, onSubmit }: { onBack: () => void; onSubmit: () => void }) {
+export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
+  const [isLogin, setIsLogin] = useState(true);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Actual Backend logic here
+    onAuthSuccess();
+  };
+
   return (
-    <>
-      {/*
-        This example requires updating your template:
-
-        ```
-        <html class="h-full bg-gray-900">
-        <body class="h-full">
-        ```
-      */}
-      <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <Swords size={64} className="text-amber-800 mx-auto" />
-          <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight text-primary">Sign in to your account</h2>
-        </div>
-
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form action="#" method="POST" className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm/6 font-medium text-gray-100">
-                Email address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-secondary outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm/6 font-medium text-gray-100">
-                  Password
-                </label>
-                <div className="text-sm">
-                  <a href="#" className="font-semibold text-indigo-400 hover:text-indigo-300">
-                    Forgot password?
-                  </a>
-                </div>
-              </div>
-              <div className="mt-2">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text- outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div>
-              <button onClick={onSubmit}
-                type="submit"
-                className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-              >
-                Sign in
-              </button>
-            </div>
-          </form>
-
-          <p className="mt-10 text-center text-sm/6 text-gray-400">
-            No account yet?{' '}
-            {/* TODO:  implement the sign in page*/}
-            <Button onClick={onBack} className="mb-4">Back</Button>
+    <div className="flex items-center justify-center flex-grow p-4">
+      <Card className="w-full max-w-md border-t-8 border-t-primary">
+        <div className="text-center mb-8">
+          <Swords size={48} className="mx-auto text-primary mb-2" />
+          <h2 className="text-2xl font-bold text-wood-100">
+            {isLogin ? "Welcome Back" : "Join the Guild"}
+          </h2>
+          <p className="text-wood-300 text-sm">
+            {isLogin ? "Sign in to access your stats" : "Create an account to start your journey"}
           </p>
-          <Button onClick={onBack} className="mb-4">Back</Button>
         </div>
-      </div>
-    </>
-  )
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-wood-300 mb-1">Username</label>
+              <div className="relative">
+                <User size={18} className="absolute left-3 top-3 text-wood-500" />
+                <input type="text" className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary" placeholder="Sir Woodalot" />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-wood-300 mb-1">Email</label>
+            <div className="relative">
+              <Mail size={18} className="absolute left-3 top-3 text-wood-500" />
+              <input type="email" required className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary" placeholder="you@realm.com" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-wood-300 mb-1">Password</label>
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-3 text-wood-500" />
+              <input type="password" required className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary" placeholder="••••••••" />
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full mt-4">
+            {isLogin ? "Sign In" : "Create Account"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm">
+          <span className="text-wood-300">
+            {isLogin ? "New here? " : "Already have an account? "}
+          </span>
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-primary hover:text-primary-hover font-semibold underline"
+          >
+            {isLogin ? "Create an account" : "Sign in"}
+          </button>
+        </div>
+
+        <div className="mt-8 border-t border-wood-700 pt-4 text-center">
+          <button onClick={onBack} className="text-wood-400 hover:text-wood-100 text-sm">
+            ← Back to Menu
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
 }
