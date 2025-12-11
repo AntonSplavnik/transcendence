@@ -88,13 +88,22 @@ npm run dev
 
 Development: Run Rust (cargo run) AND React (npm run dev) separately. The Proxy connects them.
 
+```
+cd backend && cargo run
+cd frontend && npm run dev
+```
+
 or serve files locally with a static server
 
 ```
 npm run build
+
+
+cd backend && cargo run
 ```
 
 serve the dist/ folder
+means no dynamic reloading, but good for testing production build
 
 ### Deployment
 
@@ -139,3 +148,9 @@ TODO: wrap it manually in a react component. ther eis also the option of downloa
 Babylon needs an HTMLCanvasElement to create a WebGL context and render.
 In React you create a <canvas ref={canvasRef} />, then in useEffect create Engine(canvas, ...), Scene(engine), set up camera/light/meshes, run render loop, and clean up on unmount.
 Keep per-frame updates inside Babylon (requestAnimationFrame) and avoid re-rendering React on every frame.
+
+## React event handling
+
+official react website on the topic: <https://react.dev/learn/responding-to-events>
+
+react uses a synthetic event system that wraps native browser events to provide consistent behavior across different browsers.
