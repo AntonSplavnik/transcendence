@@ -1,36 +1,77 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import LandingPage from "./components/LandingPage";
 import GameBoard from "./components/GameBoard";
 import AuthPage from "./components/AuthPage";
-// import Dashboard from "./components/Dashboard";
+import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
 import './App.css'
 
-type View = "landing" | "login" | "signup" | "game-local" | "game-online" | "dashboard";
+type View = "landing" | "auth" | "game-local" | "game-online" | "home";
 
 function App() {
 	const [view, setView] = useState<View>("landing");
-	const goHome = useCallback(() => setView("landing"), []);
-	const goLogin = useCallback(() => setView("login"), []);
-	// const goSignup = useCallback(() => setView("signup"), []);
+	const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+	// Check if user is already logged in on mount
+	useEffect(() => {
+		const token = localStorage.getItem('authToken');
+		if (token) {
+			setIsAuthenticated(true);
+			setView("home");
+		}
+	}, []);
+
+
+	const goLanding = useCallback(() => setView("landing"), []);
+	const goAuth = useCallback(() => setView("auth"), []);
+	const goHome = useCallback(() => setView("home"), []);
 	const goGameLocal = useCallback(() => setView("game-local"), []);
-	const goDashboard = useCallback(() => setView("dashboard"), []);
-	// const goGameOnline = useCallback(() => setView("game-online"), []);
+	const goGameOnline = useCallback(() => setView("game-online"), []);
+
+	const handleAuthSuccess = useCallback(() => {
+		setIsAuthenticated(true);
+		setView("home");
+	}, []);
+
+	const handleLogout = useCallback(() => {
+		localStorage.removeItem('authToken');
+		setIsAuthenticated(false);
+		setView("landing");
+	}, []);
 
 	return (
 		<Layout>
-			{view === "landing" && <LandingPage onLogin={goLogin} onLocal={goGameLocal} />}
-			{(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />)}
-			{view === "login" && <AuthPage onBack={goHome} onAuthSuccess={goDashboard} />}
-		</Layout>
-	)
-}
+			{view === "landing" && (
+				<LandingPage
+					onLogin={goAuth}
+					onLocal={goGameLocal}
+				/>
+			)}
 
-// {view} === "landing" && <LandingPage onLogin={goLogin} onSignup={goSignup} onGameLocal={goGameLocal} onGameOnline={goGameOnline} />
-// {view} === "login" && <div>Login Page - <button onClick={goHome}>Go Home</button></div>
-// {view} === "signup" && <div>Signup Page - <button onClick={goHome}>Go Home</button></div>
-// {(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />
-// )}
+			{view === "auth" && (
+				<AuthPage
+					onBack={goLanding}
+					onAuthSuccess={handleAuthSuccess}
+				/>
+			)}
+
+			{view === "home" && isAuthenticated && (
+				<Home
+					onLocal={goGameLocal}
+					onOnline={goGameOnline}
+					onLogout={handleLogout}
+				/>
+			)}
+
+			{(view === "game-local" || view === "game-online") && (
+				<GameBoard
+					mode={view === "game-local" ? "local" : "online"}
+					onLeave={isAuthenticated ? goHome : goLanding}  // Return to appropriate screen
+				/>
+			)}
+		</Layout>
+	);
+}
 
 export { App }
 export default App
