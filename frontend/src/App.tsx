@@ -9,21 +9,21 @@ import './App.css'
 type View = "landing" | "login" | "signup" | "game-local" | "game-online" | "dashboard";
 
 function App() {
-  const [view, setView] = useState<View>("landing");
-  const goHome = useCallback(() => setView("landing"), []);
-  const goLogin = useCallback(() => setView("login"), []);
-  // const goSignup = useCallback(() => setView("signup"), []);
-  const goGameLocal = useCallback(() => setView("game-local"), []);
-  const goDashboard = useCallback(() => setView("dashboard"), []);
-  // const goGameOnline = useCallback(() => setView("game-online"), []);
+	const [view, setView] = useState<View>("landing");
+	const goHome = useCallback(() => setView("landing"), []);
+	const goLogin = useCallback(() => setView("login"), []);
+	// const goSignup = useCallback(() => setView("signup"), []);
+	const goGameLocal = useCallback(() => setView("game-local"), []);
+	const goDashboard = useCallback(() => setView("dashboard"), []);
+	// const goGameOnline = useCallback(() => setView("game-online"), []);
 
-  return (
-    <Layout>
-      {view === "landing" && <LandingPage onLogin={goLogin} onLocal={goGameLocal} />}
-      {(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />)}
-      {view === "login" && <AuthPage onBack={goHome} onSubmit={goDashboard} />}
-    </Layout>
-  )
+	return (
+		<Layout>
+			{view === "landing" && <LandingPage onLogin={goLogin} onLocal={goGameLocal} />}
+			{(view === "game-local" || view === "game-online") && (<GameBoard mode={view === "game-local" ? "local" : "online"} onLeave={goHome} />)}
+			{view === "login" && <AuthPage onBack={goHome} onAuthSuccess={goDashboard} />}
+		</Layout>
+	)
 }
 
 // {view} === "landing" && <LandingPage onLogin={goLogin} onSignup={goSignup} onGameLocal={goGameLocal} onGameOnline={goGameOnline} />

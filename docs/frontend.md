@@ -154,3 +154,19 @@ Keep per-frame updates inside Babylon (requestAnimationFrame) and avoid re-rende
 official react website on the topic: <https://react.dev/learn/responding-to-events>
 
 react uses a synthetic event system that wraps native browser events to provide consistent behavior across different browsers.
+
+## Authentication on the frontend
+
+ Use Token for Future Requests:
+
+```jsx
+// When user wants to access protected data: 
+const token = localStorage.getItem('authToken');
+
+const response = await fetch('/api/user/profile', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`,  // ← Send token to prove identity
+  },
+});
+```
