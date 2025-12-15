@@ -13,7 +13,7 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 
 		try {
 			const token = localStorage.getItem('authToken');
-			const response = await fetch('/api/auth/logout', {
+			const response = await fetch('/api/user/logout', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', },
 				body: JSON.stringify({ token }),
