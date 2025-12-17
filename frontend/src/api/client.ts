@@ -1,8 +1,12 @@
 import axios from 'axios';
-import type { AxiosResponse } from 'axios';
-import type { AxiosError } from 'axios';
+import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+// import { refreshJWT } from "../api/auth";
 
 // import axios, { type AxiosRequestConfig, type AxiosResponse, type AxiosError, InternalAxiosRequestConfig } from 'axios';
+
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+	_retry?: boolean;
+}
 
 const apiClient = axios.create({
 	baseURL: '/api',
@@ -14,17 +18,25 @@ const onFullfilled = (response: AxiosResponse): AxiosResponse => {
 }
 
 const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
-	const originalRequest = error.config;
+	const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
+	if (!originalRequest) {
+		return Promise.reject(error);
+	}
 	if (error.response?.status === 401 && !originalRequest._retry) {
 		originalRequest._retry = true;
 		try {
-			await axios.post('api/auth/session-management/reresh-jwt', {}, {
+			// refreshJWT();
+			await axios.post('api/auth/session-management/refresh-jwt', {}, {
 				withCredentials: true,
 			});
 			return apiClient(originalRequest);
 		} catch (refreshjwtError) {
-			//TODO: this is critical, i am returning the user to home, but I still need to display a message.
-			// need to move the sending of the user to homme somewhere else to control showing the message
+			localStorage.setItem('auth_error', JSON.stringify({
+				type: 'session_expired',
+				message: 'Your session has expired. Please log in again.',
+				timestamp: Date.now(),
+			}));
+			console.error('JWT refresh failed:', refreshjwtError);
 			window.location.href = '/';
 			return Promise.reject(refreshjwtError);
 		}
@@ -35,4 +47,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	return (Promise.reject(error));
 };
 
-apiClient.interceptors.request.use(onFullfilled, onRejected);
+apiClient.interceptors.response.use(onFullfilled, onRejected);
+
+export default apiClient;
