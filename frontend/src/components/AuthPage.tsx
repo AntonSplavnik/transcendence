@@ -1,55 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Swords, User, Lock, Mail } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
+import * as authApi from "../api/auth";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
 	const [isLogin, setIsLogin] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);
 	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
 	const [username, setUsername] = useState("");
 	const [error, setError] = useState("");
+	const passwordRef = useRef<HTMLInputElement>(null);
+	const password = passwordRef.current?.value || "";
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setError("");
-
 		try {
-			const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-			const body = isLogin ?
-				{ email, password } :
-				{ nickname: username, email, password };
-			console.log("Submitting with:", body);
-			const response = await fetch(endpoint, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', },
-				body: JSON.stringify(body),
-			});
-			console.log("Response: ", response);
-			const contentType = response.headers.get('Content-Type');
-			if (!contentType || !contentType.includes('application/json')) {
-				const text = await response.text();
-				console.error("Non-JSON response:", text);
-				setError("Unexpected server response. Please try again later.");
-				return;
-			}
-			const data = await response.json();
-			if (response.ok) {
-				if (data.token) {
-					localStorage.setItem('authToken', data.token);
-				}
-				onAuthSuccess();
+			if (isLogin) {
+				await authApi.login(email, password);
 			} else {
-				setError(data.message || "Authentication failed. Please try again.");
+				await authApi.register(username, email, password);
 			}
-		} catch (error) {
-			console.error("An error occurred during login:", error);
-			setError('Server error.  Please check your connection or try again later.');
+
+			if (passwordRef.current) {
+				passwordRef.current.value = "";
+			}
+
+			onAuthSuccess();
+		} catch (error: any) {
+			setError(error.response?.data?.message || error.message || 'Authentication failed');
 		} finally {
-			setIsLoading(true);
-		};
+			setIsLoading(false);
+		}
 	};
 
 	return (
@@ -108,11 +92,11 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						<div className="relative">
 							<Lock size={18} className="absolute left-3 top-3 text-wood-500" />
 							<input
+								ref={passwordRef}
 								type="password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
 								placeholder="••••••••"
 								className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary"
+								autoComplete={isLogin ? "current-password" : "new-password"}
 								required
 							/>
 						</div>
