@@ -11,10 +11,10 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const [username, setUsername] = useState("");
 	const [error, setError] = useState("");
 	const passwordRef = useRef<HTMLInputElement>(null);
-	const password = passwordRef.current?.value || "";
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		const password = passwordRef.current?.value || "";
 		setIsLoading(true);
 		setError("");
 		try {
