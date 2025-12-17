@@ -4,7 +4,7 @@ import GameBoard from "./components/GameBoard";
 import AuthPage from "./components/AuthPage";
 import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
-import './App.css'
+import * as authApi from "./api/auth";
 
 type View = "auth" | "game-local" | "game-online" | "home" | "landing";
 
@@ -28,25 +28,6 @@ function App() {
 		}
 	}, []);
 
-	// JWT refresh timer
-	useEffect(() => {
-		const refreshInterval = 14 * 60 * 1000;
-
-		const refreshJwt = async () => {
-			try {
-				await fetch('/api/auth/session-management/refresh-jwt', {
-					method: 'POST',
-					credentials: 'include',
-				});
-			} catch (error) {
-				console.error('JWT refresh failed:', error);
-			}
-		};
-
-		const intervalId = setInterval(refreshJwt, refreshInterval);
-		return () => clearInterval(intervalId);
-	}, []);
-
 	const goAuth = useCallback(() => setView("auth"), []);
 	const goHome = useCallback(() => setView("home"), []);
 	const goGameLocal = useCallback(() => setView("game-local"), []);
@@ -54,10 +35,7 @@ function App() {
 	const goLanding = useCallback(() => setView("landing"), []);
 
 	const handleLogout = useCallback(async () => {
-		await fetch('/api/auth/logout', {
-			method: 'POST',
-			credentials: 'include',
-		});
+		await authApi.logout();
 		setView("landing");
 	}, []);
 
