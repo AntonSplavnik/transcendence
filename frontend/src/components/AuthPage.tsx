@@ -3,6 +3,7 @@ import { Swords, User, Lock, Mail } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import * as authApi from "../api/auth";
+import { getErrorMessage } from "../api/error";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
 	const [isLogin, setIsLogin] = useState(true);
@@ -30,24 +31,8 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 			onAuthSuccess();
 		} catch (error: any) {
-			let errorMessage = 'Authentication failed';
-
-			if (error.response?.data) {
-				try {
-					const parsedData = typeof error.response.data === 'string' ? JSON.parse(error.response.data) : error.response.data;
-					errorMessage = parsedData.message || errorMessage;
-				} catch {
-					errorMessage = error.response.data.message || error.response.data || errorMessage;
-				}
-			} else if (error.message) {
-				try {
-					const parsedMessage = JSON.parse(error.message);
-					errorMessage = parsedMessage.message || errorMessage;
-				} catch {
-					errorMessage = error.message;
-				}
-			}
-			setError(errorMessage);
+			setError(getErrorMessage(error, 'Authentication failed'));
+			// localStorage.removeItem('error');
 		} finally {
 			setIsLoading(false);
 		}

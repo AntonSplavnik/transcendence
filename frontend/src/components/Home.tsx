@@ -21,8 +21,10 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 			console.log("Response: ", response);
 			if (response.ok) {
 				onLogout();
+				window.location.reload();
 			} else {
 				setError("Logout failed. Please try again.");
+				window.location.reload();
 			}
 		} catch (error) {
 			console.error("An error occurred during logout:", error);
