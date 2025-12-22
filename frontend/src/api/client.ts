@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { refreshJWT } from "../api/auth";
+import { refreshJWT } from './auth';
+import { storeError, getErrorMessage, getErrorBrief, isAxiosError } from './error';
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
@@ -11,60 +12,51 @@ const apiClient = axios.create({
 	withCredentials: true,
 });
 
-const onFullfilled = (response: AxiosResponse): AxiosResponse => {
+/**
+ * Success handler - pass response through
+ */
+const onFulfilled = (response: AxiosResponse): AxiosResponse => {
 	return response;
-}
+};
 
-const onRejected = async (error: AxiosError<{ brief?: string }>): Promise<AxiosResponse> => {
+/**
+ * Error handler - handles 401 errors and JWT refresh
+ */
+const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
 
 	if (!originalRequest) {
 		return Promise.reject(error);
 	}
 
-	// a status of 0 indicates a network error, often due to the server being unreachable
-	if (error.response?.status === 0) {
-		localStorage.setItem('auth_error', JSON.stringify({
-			type: 'network_error',
-			message: 'The server is unreachable. Please try again later.',
-			timestamp: Date.now(),
-		}));
+	// Network error (status 0 = server unreachable)
+	if (!error.response) {
 		console.error('Network error:', error);
-		// We don't redirect here, as the user might be offline and we don't want to
-		// lose the current state. The App will show the error message.
 		return Promise.reject(error);
 	}
 
-	if (error.response?.status === 401 && error.response?.data?.brief === 'NeedReauth' && !originalRequest._retry) {
-		originalRequest._retry = true;
-		try {
-			await refreshJWT();
-			return apiClient(originalRequest);
-		} catch (refreshjwtError) {
-			localStorage.setItem('auth_error', JSON.stringify({
-				type: 'session_expired',
-				message: 'Your session has expired. Please log in again.',
-				timestamp: Date.now(),
-			}));
-			console.error('JWT refresh failed:', refreshjwtError);
-			window.location.href = '/'; // Force reload to show landing page
-			return Promise.reject(refreshjwtError);
+	// Handle 401 Unauthorized errors
+	if (error.response.status === 401) {
+		const brief = getErrorBrief(error);
+		if (brief === 'NeedReauth' && !originalRequest._retry) {
+			originalRequest._retry = true;
+			try {
+				await refreshJWT();
+				return apiClient(originalRequest);
+			} catch (refreshError) {
+				storeError(refreshError, 'session_expired');
+				console.error('JWT refresh failed:', refreshError);
+				window.location.reload();
+				return Promise.reject(refreshError);
+			}
 		}
+		// Other 401 errors (or retry already failed)
+		storeError(error, 'unauthorized');
+		// window.location.href = '/';
 	}
-
-	// For other 401 errors or if retry fails, redirect to login
-	if (error.response?.status === 401) {
-		localStorage.setItem('auth_error', JSON.stringify({
-			type: 'unauthorized',
-			message: 'You are not authorized. Please log in.',
-			timestamp: Date.now(),
-		}));
-		window.location.href = '/'; // Force reload to show landing page
-	}
-
 	return Promise.reject(error);
 };
 
-apiClient.interceptors.response.use(onFullfilled, onRejected);
+apiClient.interceptors.response.use(onFulfilled, onRejected);
 
 export default apiClient;

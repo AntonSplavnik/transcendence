@@ -5,12 +5,23 @@ import AuthPage from "./components/AuthPage";
 import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
 import * as authApi from "./api/auth";
+import { retrieveStoredError } from './api/error';
 
 type View = "auth" | "game-local" | "game-online" | "home" | "landing";
 
 function App() {
 	const [view, setView] = useState<View>("landing");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+	useEffect(() => {
+		const storedError = retrieveStoredError();
+
+		if (storedError) {
+			setErrorMessage(storedError.message);
+			// Auto-dismiss after 5 seconds
+			setTimeout(() => setErrorMessage(null), 5000);
+		}
+	}, []);
 
 	useEffect(() => {
 		const storedError = localStorage.getItem('auth_error');
@@ -75,7 +86,6 @@ function App() {
 
 	return (
 		<Layout>
-			{/* Error notification */}
 			{errorMessage && (
 				<div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 
                         bg-red-900/90 border border-red-500 text-red-100 
