@@ -1,8 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Swords, User, Lock, Mail } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import * as authApi from "../api/auth";
+import * as usersApi from "../api/users";
 import { getErrorMessage } from "../api/error";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
@@ -11,11 +12,41 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const [email, setEmail] = useState("");
 	const [username, setUsername] = useState("");
 	const [error, setError] = useState("");
+	const [nicknameValidation, setNicknameValidation] = useState("");
+	const [isCheckingNickname, setIsCheckingNickname] = useState(false);
 	const passwordRef = useRef<HTMLInputElement>(null);
+	const nicknameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		if (!isLogin && username.trim().length > 0) {
+			if (nicknameTimeoutRef.current) {
+				clearTimeout(nicknameTimeoutRef.current);
+			}
+			setIsCheckingNickname(true);
+			nicknameTimeoutRef.current = setTimeout(async () => {
+				const result = await usersApi.nicknameExists(username);
+				setNicknameValidation(result);
+				setIsCheckingNickname(false);
+			}, 500);
+		} else {
+			setNicknameValidation("");
+			setIsCheckingNickname(false);
+		}
+		return () => {
+			if (nicknameTimeoutRef.current) {
+				clearTimeout(nicknameTimeoutRef.current);
+			}
+		};
+	}, [username, isLogin]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		const password = passwordRef.current?.value || "";
+		if (!isLogin && !nicknameValidation.includes("✅")) {
+			setError("Please choose a valid, available nickname");
+			return;
+		}
+
 		setIsLoading(true);
 		setError("");
 		try {
@@ -32,10 +63,14 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			onAuthSuccess();
 		} catch (error: any) {
 			setError(getErrorMessage(error, 'Authentication failed'));
-			// localStorage.removeItem('error');
 		} finally {
 			setIsLoading(false);
 		}
+	};
+	const getValidationStyle = () => {
+		if (isCheckingNickname) return "text-wood-400";
+		if (nicknameValidation.includes("❌")) return "text-red-400";
+		return "text-wood-400";
 	};
 
 	return (
@@ -59,7 +94,14 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 					)}
 					{!isLogin && (
 						<div>
-							<label className="block text-sm font-medium text-wood-300 mb-1">Username</label>
+							<div className="flex justify-between items-center mb-1">
+								<label className="block text-sm font-medium text-wood-300">Username</label>
+								{username.trim().length > 0 && (
+									<span className={`text-xs font-medium ${getValidationStyle()}`}>
+										{isCheckingNickname ? "Checking..." : nicknameValidation}
+									</span>
+								)}
+							</div>
 							<div className="relative">
 								<User size={18} className="absolute left-3 top-3 text-wood-500" />
 								<input
@@ -67,7 +109,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 									value={username}
 									onChange={(e) => setUsername(e.target.value)}
 									placeholder="Sir Woodalot"
-									className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary"
+									className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus: outline-none focus:border-primary"
 									required
 								/>
 							</div>
@@ -97,7 +139,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 								ref={passwordRef}
 								type="password"
 								placeholder="••••••••"
-								className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary"
+								className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus: border-primary"
 								autoComplete={isLogin ? "current-password" : "new-password"}
 								required
 							/>
@@ -112,18 +154,18 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 				<div className="mt-6 text-center text-sm">
 					<span className="text-wood-300">
-						{isLogin ? "New here? " : "Already have an account? "}
+						{isLogin ? "New here?  " : "Already have an account?  "}
 					</span>
 					<button
 						onClick={() => setIsLogin(!isLogin)}
-						className="text-primary hover:text-primary-hover font-semibold underline"
+						className="text-primary hover: text-primary-hover font-semibold underline"
 					>
 						{isLogin ? "Create an account" : "Sign in"}
 					</button>
 				</div>
 
 				<div className="mt-8 border-t border-wood-700 pt-4 text-center">
-					<button onClick={onBack} className="text-wood-400 hover:text-wood-100 text-sm">
+					<button onClick={onBack} className="text-wood-400 hover: text-wood-100 text-sm">
 						← Back to Menu
 					</button>
 				</div>
