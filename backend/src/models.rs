@@ -172,3 +172,17 @@ pub struct UpdateFriendship {
     pub status: Option<String>,
     pub updated_at: NaiveDateTime,
 }
+
+// ===== ACHIEVEMENT MODELS =====
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, Associations, ToSchema, Serialize, Debug, Clone)]
+#[diesel(table_name = crate::schema::user_achievements)]
+#[diesel(belongs_to(User))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct UserAchievement {
+    pub id: i32,
+    pub user_id: i32,
+    pub achievement_id: String,
+    pub unlocked_at: NaiveDateTime,
+}

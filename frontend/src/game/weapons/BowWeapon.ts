@@ -50,7 +50,7 @@ export class BowWeapon extends Weapon {
       this.lastAttackTime = currentTime
       const damage = this.calculateDamage(player)
       
-      getSoundManager().play('arrow-shoot', 0.1);
+      getSoundManager().play('arrow-shoot', 0.5);
       
       // Créer un projectile vers la cible
       const startPos = player.mesh.position.clone()

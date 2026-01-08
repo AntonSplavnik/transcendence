@@ -38,6 +38,7 @@ pub struct UserSessionInfo {
     pub user: User,
     pub session: SessionInfo,
     pub stats: Option<crate::models::UserStats>,
+    pub achievements: Vec<String>,
 }
 
 impl UserSessionInfo {
@@ -46,22 +47,31 @@ impl UserSessionInfo {
             user,
             session: SessionInfo::from(session),
             stats: None,
+            achievements: Vec::new(),
         }
     }
     
     pub fn with_stats(conn: &mut db::DbConn, user: User, session: Session) -> AppResult<Self> {
-        use crate::schema::user_stats;
+        use crate::schema::{user_stats, user_achievements};
         
         // Fetch user stats from database
         let stats = user_stats::table
             .filter(user_stats::user_id.eq(user.id))
             .first::<crate::models::UserStats>(conn)
             .optional()?;
+
+        // Fetch user achievements
+        let achievements = user_achievements::table
+            .filter(user_achievements::user_id.eq(user.id))
+            .select(user_achievements::achievement_id)
+            .load::<String>(conn)
+            .unwrap_or_default();
         
         Ok(Self {
             user,
             session: SessionInfo::from(session),
             stats,
+            achievements,
         })
     }
 
@@ -70,7 +80,7 @@ impl UserSessionInfo {
         session: Session,
     ) -> AppResult<Self> {
         use crate::schema::users::dsl::*;
-        use crate::schema::user_stats;
+        use crate::schema::{user_stats, user_achievements};
         
         let user: User = users.filter(id.eq(session.user_id)).first(conn)?;
         
@@ -80,10 +90,18 @@ impl UserSessionInfo {
             .first::<crate::models::UserStats>(conn)
             .optional()?;
 
+        // Fetch user achievements
+        let achievements = user_achievements::table
+            .filter(user_achievements::user_id.eq(session.user_id))
+            .select(user_achievements::achievement_id)
+            .load::<String>(conn)
+            .unwrap_or_default();
+
         Ok(Self {
             user,
             session: SessionInfo::from(session),
             stats,
+            achievements,
         })
     }
 }

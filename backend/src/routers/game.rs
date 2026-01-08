@@ -3,8 +3,8 @@ use serde::{Serialize, Deserialize};
 use diesel::prelude::*;
 
 use crate::prelude::*;
-use crate::schema::{user_stats, game_history};
-use crate::models::{UserStats, NewUserStats, UpdateUserStats, GameHistory, NewGameHistory};
+use crate::schema::{user_stats, game_history, user_achievements};
+use crate::models::{UserStats, NewUserStats, UpdateUserStats, GameHistory, NewGameHistory, NewUserAchievement};
 
 #[derive(Serialize, ToSchema)]
 pub struct GameStartResponse {
@@ -90,6 +90,7 @@ pub struct EndGameResponse {
     pub success: bool,
     pub total_kills: i32,
     pub total_time_played: i32,
+    pub achievements_unlocked: Vec<String>,
 }
 
 /// End a game and record stats (kills, time played)
@@ -175,6 +176,44 @@ pub async fn end_game(
         (input.kills, input.time_played)
     };
 
+    // Check achievements
+    let mut achievements_unlocked = Vec::new();
+    let mut potential_achievements = Vec::new();
+
+    if new_total_kills >= 10 {
+        potential_achievements.push("KILL_10");
+    }
+
+    if new_total_kills >= 100 {
+        potential_achievements.push("KILL_100");
+    }
+
+    // Insert new achievements
+    for achievement_id in potential_achievements {
+        let now = chrono::Utc::now().naive_utc();
+        let new_achievement = NewUserAchievement {
+            user_id,
+            achievement_id: achievement_id.to_string(),
+            unlocked_at: now,
+        };
+
+        // Try to insert (ignore if already exists)
+        let result = diesel::insert_into(user_achievements::table)
+            .values(&new_achievement)
+            .on_conflict((user_achievements::user_id, user_achievements::achievement_id))
+            .do_nothing()
+            .execute(&mut conn);
+
+        match result {
+            Ok(rows) => {
+                if rows > 0 {
+                    achievements_unlocked.push(achievement_id.to_string());
+                }
+            },
+            Err(e) => tracing::error!("Failed to insert achievement {}: {}", achievement_id, e),
+        }
+    }
+
     // Record game in history table
     let now = chrono::Utc::now().naive_utc();
     let new_history = NewGameHistory {
@@ -196,6 +235,7 @@ pub async fn end_game(
         success: true,
         total_kills: new_total_kills,
         total_time_played: new_total_time,
+        achievements_unlocked,
     }))
 }
 

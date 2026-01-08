@@ -4,6 +4,7 @@ import PlayerStats from "./PlayerStats";
 import GameHistory from "./GameHistory";
 import GameActions from "./GameActions";
 import FriendsPanel from "./FriendsPanel";
+import Achievements from "./Achievements";
 
 interface UserStats {
 	games_played: number;
@@ -27,6 +28,7 @@ interface UserData {
 	email: string;
 	avatar_url?: string | null;
 	stats: UserStats | null;
+	achievements: string[];
 }
 
 export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => void; onLogout: () => void; onOnline: () => void }) {
@@ -52,13 +54,14 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 				const data = await userResponse.json();
 				console.log('👤 User data:', data);
 				
-				// Backend returns nested structure: { user: {...}, stats: {...}, session: {...} }
+				// Backend returns nested structure: { user: {...}, stats: {...}, session: {...}, achievements: [...] }
 				const userPayload: UserData = {
 					id: data.user.id,
 					nickname: data.user.nickname,
 					email: data.user.email,
 					avatar_url: data.user.avatar_url,
 					stats: data.stats ?? null,
+					achievements: data.achievements ?? [],
 				};
 				setUser(userPayload);
 			} else {
@@ -151,9 +154,10 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 					<PlayerStats stats={user.stats} />
 				</div>
 
-				{/* Right column: Friends panel */}
+				{/* Right column: Friends panel and Achievements */}
 				<div className="lg:col-span-1">
 					<FriendsPanel />
+					<Achievements unlockedIds={user.achievements} />
 				</div>
 			</div>
 		</main>

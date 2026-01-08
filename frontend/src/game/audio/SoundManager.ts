@@ -101,7 +101,7 @@ export function initGameSounds() {
   const sm = getSoundManager();
   
   // Load game sounds
-  sm.loadSound('arrow-shoot', '/sounds/game/arrow+impact.mp3', 5);
+  sm.loadSound('arrow-shoot', '/sounds/game/ArrowShot.mp3', 5);
   
   return sm;
 }

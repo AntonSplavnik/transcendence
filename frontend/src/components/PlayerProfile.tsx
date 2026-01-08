@@ -10,6 +10,13 @@ interface User {
 	avatar_url?: string | null;
 }
 
+interface User {
+	id: number;
+	nickname: string;
+	email: string;
+	avatar_url?: string | null;
+}
+
 interface PlayerProfileProps {
 	user: User;
 	onLogout: () => void;

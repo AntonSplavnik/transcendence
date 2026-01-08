@@ -47,6 +47,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    user_achievements (id) {
+        id -> Integer,
+        user_id -> Integer,
+        achievement_id -> Text,
+        unlocked_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     user_stats (id) {
         id -> Integer,
         user_id -> Integer,
@@ -77,10 +86,10 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(friendships -> users (from_user_id));
 diesel::joinable!(game_history -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
+diesel::joinable!(user_achievements -> users (user_id));
 diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
@@ -88,6 +97,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     game_history,
     sessions,
     two_fa_recovery_codes,
+    user_achievements,
     user_stats,
     users,
 );
