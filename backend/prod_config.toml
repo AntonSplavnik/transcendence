@@ -1,1 +1,12 @@
-# TODO
+serve_dir = "../frontend/dist"
+listen_addr = "0.0.0.0"
+listen_http_port = 80
+listen_https_port = 443
+domain = "transcendence.kajus.cloud"
+
+[log]
+format = "compact"
+
+# [tls]
+# cert = "./certs/cert.pem"
+# key = "./certs/key.pem"

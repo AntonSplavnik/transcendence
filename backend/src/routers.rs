@@ -1,6 +1,4 @@
-use salvo::http::Method;
 use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
-use salvo::routing::MethodFilter;
 
 use crate::prelude::*;
 
@@ -17,12 +15,10 @@ pub fn root() -> Router {
             crate::auth::user_router("user"),
             users::router("users"),
         ]);
-    // TODO test whether allowing only CONNECT is sufficient
-    let wt_route = Router::with_path("api/wt")
+    let wt_route = Router::with_path("api/wt2")
         .hoop(crate::utils::logger::Logger)
-        .requires_user_login()
-        .user_rate_limit(&RateLimit::per_minute(10))
-        .filter(MethodFilter::new(Method::CONNECT))
+        // .requires_user_login()
+        // .user_rate_limit(&RateLimit::per_minute(10))
         .goal(crate::stream::connect_stream);
     let api_routes = Router::new().push(api_routes).push(wt_route);
     let doc = openapi_doc(&api_routes);

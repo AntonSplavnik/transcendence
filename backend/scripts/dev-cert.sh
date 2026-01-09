@@ -95,6 +95,73 @@ if ! command -v certutil >/dev/null 2>&1; then
 	echo "Install NSS tools (e.g. 'libnss3-tools') or rerun with --install-deps." >&2
 fi
 
+install_ca_into_nssdb() {
+	local nssdb_dir="$1"
+	local ca_pem="$2"
+	local nick="mkcert dev CA"
+
+	# Skip directories without an NSS DB.
+	if [[ ! -f "$nssdb_dir/cert9.db" && ! -f "$nssdb_dir/cert8.db" ]]; then
+		return 0
+	fi
+
+	# If already present, do nothing.
+	if certutil -d "sql:$nssdb_dir" -L -n "$nick" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	# Add as a trusted CA for SSL/TLS websites.
+	certutil -d "sql:$nssdb_dir" -A -n "$nick" -t "C,," -i "$ca_pem" 2>/dev/null || true
+}
+
+install_ca_into_firefox_profiles() {
+	local ca_pem="$1"
+	local profiles_ini="$2"
+	local base_dir="$3"
+
+	[[ -f "$profiles_ini" ]] || return 0
+
+	# Parse Path / IsRelative pairs from profiles.ini (INI format).
+	# We only care about profile directories.
+	local path=""
+	local is_relative="1"
+	while IFS= read -r line; do
+		case "$line" in
+			Path=*)
+				path="${line#Path=}"
+				;;
+			IsRelative=*)
+				is_relative="${line#IsRelative=}"
+				;;
+			"" )
+				# Profile section boundary: process if we have a path.
+				if [[ -n "$path" ]]; then
+					local profile_dir
+					if [[ "$is_relative" == "1" ]]; then
+						profile_dir="$base_dir/$path"
+					else
+						profile_dir="$path"
+					fi
+					install_ca_into_nssdb "$profile_dir" "$ca_pem"
+					path=""
+					is_relative="1"
+				fi
+				;;
+		esac
+	done < "$profiles_ini"
+
+	# Handle last profile section (file might not end with blank line).
+	if [[ -n "$path" ]]; then
+		local profile_dir
+		if [[ "$is_relative" == "1" ]]; then
+			profile_dir="$base_dir/$path"
+		else
+			profile_dir="$path"
+		fi
+		install_ca_into_nssdb "$profile_dir" "$ca_pem"
+	fi
+}
+
 # Some sandboxed browser packages (notably Chromium Snap) use a separate NSS DB
 # that mkcert doesn't always discover. If present, install the mkcert root CA
 # into that DB as well so QUIC/WebTransport trust checks succeed.
@@ -105,15 +172,20 @@ if command -v certutil >/dev/null 2>&1; then
 		# Standard NSS DB used by many Chromium/Chrome builds on Linux.
 		STD_NSSDB="$HOME/.pki/nssdb"
 		if [[ -d "$STD_NSSDB" ]]; then
-			certutil -d "sql:$STD_NSSDB" -A -n "mkcert dev CA" -t "C,," -i "$ROOT_CA_PEM" 2>/dev/null || true
+			install_ca_into_nssdb "$STD_NSSDB" "$ROOT_CA_PEM"
 		fi
+
+		# Firefox uses per-profile NSS DBs (cert9.db/cert8.db).
+		# Install into classic and sandboxed (Flatpak/Snap) profile locations when present.
+		install_ca_into_firefox_profiles "$ROOT_CA_PEM" "$HOME/.mozilla/firefox/profiles.ini" "$HOME/.mozilla/firefox"
+		install_ca_into_firefox_profiles "$ROOT_CA_PEM" "$HOME/.var/app/org.mozilla.firefox/.mozilla/firefox/profiles.ini" "$HOME/.var/app/org.mozilla.firefox/.mozilla/firefox"
+		install_ca_into_firefox_profiles "$ROOT_CA_PEM" "$HOME/snap/firefox/common/.mozilla/firefox/profiles.ini" "$HOME/snap/firefox/common/.mozilla/firefox"
 
 		for NSSDB in \
 			"$HOME/snap/chromium/current/.pki/nssdb" \
 			"$HOME/snap/chromium/common/.pki/nssdb"; do
 			if [[ -d "$NSSDB" ]]; then
-				# Add as a trusted CA for SSL/TLS websites.
-				certutil -d "sql:$NSSDB" -A -n "mkcert dev CA" -t "C,," -i "$ROOT_CA_PEM" 2>/dev/null || true
+				install_ca_into_nssdb "$NSSDB" "$ROOT_CA_PEM"
 			fi
 		done
 	fi

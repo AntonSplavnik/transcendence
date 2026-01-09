@@ -18,7 +18,7 @@ jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
-salvo = { version = "0.85", features = [
+salvo = { version = "0.88.1", features = [
 	"anyhow",
 	"acme",
 	"force-https",

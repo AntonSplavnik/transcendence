@@ -23,8 +23,24 @@ pub use error::ApiError;
 
 use crate::config::{ServerConfig, TlsConfig};
 
+#[handler]
+async fn connect(req: &mut Request) -> Result<(), salvo::Error> {
+    let session = req.web_transport_mut().await.unwrap();
+    let session_id = session.session_id();
+
+    let _ = session.datagram_sender().send_datagram(bytes::Bytes::from(
+        format!("Welcome to WebTransport! your session id: {session_id:?}"),
+    ))?;
+
+    tracing::info!("Finished handling session");
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
+    let _ = h3_quinn::quinn::rustls::crypto::aws_lc_rs::default_provider()
+        .install_default();
     let _ = dotenvy::dotenv();
     crate::config::init();
     let config = crate::config::get();
@@ -33,16 +49,16 @@ async fn main() -> ExitCode {
 
     tracing::info!("log level: {}", &config.log.filter_level);
 
-    let mut router = routers::root()
-        .hoop(ForceHttps::new().https_port(config.listen_https_port))
-        .hoop(crate::auth::device_id_inserter_hoop);
+    // let router = routers::root()
+    // .hoop(ForceHttps::new().https_port(config.listen_https_port))
+    // .hoop(crate::auth::device_id_inserter_hoop)
+    let router = Router::new().push(Router::with_path("api/wt").goal(connect));
 
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router, config).await;
     } else if let Some(domain) = &config.domain {
-        let acceptor =
-            setup_acme_acceptor_socket(&config, domain, &mut router).await;
+        let acceptor = setup_acme_acceptor_socket(&config, domain).await;
         run_server(acceptor, router, &config).await;
     } else {
         eprintln!("⚠️  No TLS configuration and no domain provided. Exiting.");
@@ -82,7 +98,6 @@ async fn setup_acceptor_socket(
 async fn setup_acme_acceptor_socket(
     cfg: &ServerConfig,
     domain: &String,
-    mut router: &mut Router,
 ) -> impl Acceptor + use<> {
     // Set up a TCP listener on port 80 for HTTP
     let http =
@@ -92,7 +107,6 @@ async fn setup_acme_acceptor_socket(
             .acme() // Enable ACME for automatic SSL certificate management
             .cache_path("temp/letsencrypt") // Path to store the certificate cache
             .add_domain(domain)
-            .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
             .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
     let acceptor = https.join(http).bind().await;
@@ -145,5 +159,5 @@ async fn shutdown_signal(handle: ServerHandle) {
         _ = ctrl_c => tracing::info!("ctrl_c signal received"),
         _ = terminate => tracing::info!("terminate signal received"),
     }
-    handle.stop_graceful(std::time::Duration::from_secs(60));
+    handle.stop_graceful(std::time::Duration::from_secs(12));
 }

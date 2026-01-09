@@ -62,7 +62,7 @@ pub struct TlsConfig {
 }
 
 fn default_listen_addr() -> String {
-    "127.0.0.1".into()
+    "0.0.0.0".into()
 }
 
 fn default_listen_http_port() -> u16 {

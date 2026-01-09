@@ -526,6 +526,7 @@ pub async fn connect_stream(
     req: &mut Request,
     depot: &mut Depot,
 ) -> AppResult<()> {
+    tracing::info!("WebTransport connection attempt");
     let user_id: i32 = depot.user_id();
 
     let session = req.web_transport_mut().await.unwrap();
