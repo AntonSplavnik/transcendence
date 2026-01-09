@@ -23,22 +23,6 @@ function App() {
 		}
 	}, []);
 
-	useEffect(() => {
-		const storedError = localStorage.getItem('auth_error');
-
-		if (storedError) {
-			try {
-				const errorData = JSON.parse(storedError);
-				setErrorMessage(errorData.message);
-				localStorage.removeItem('auth_error');
-				setTimeout(() => setErrorMessage(null), 5000);
-			} catch (e) {
-				console.error('Failed to parse auth error:', e);
-				localStorage.removeItem('auth_error');
-			}
-		}
-	}, []);
-
 	const goAuth = useCallback(() => setView("auth"), []);
 	const goHome = useCallback(() => setView("home"), []);
 	const goGameLocal = useCallback(() => setView("game-local"), []);

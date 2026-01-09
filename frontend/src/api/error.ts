@@ -4,9 +4,12 @@ import type { AxiosError } from 'axios';
  * Standard error response from backend
  */
 export interface ApiErrorResponse {
-	message?: string;
-	brief?: string;
-	code?: string;
+	error?: {
+		code?: number;
+		name?: string;
+		brief?: string;
+		detail?: string | null;
+	};
 }
 
 /**
@@ -35,19 +38,20 @@ export function isAxiosError(error: unknown): error is AxiosError<ApiErrorRespon
  */
 export function getErrorMessage(error: unknown, fallback = 'An unexpected error occurred'): string {
 	if (isAxiosError(error)) {
+		// No response = network error
 		if (error.request && !error.response) {
-			return 'Unable to connect to server.  Please check your connection. ';
+			return 'Unable to connect to server.  Please check your connection.';
 		}
-		if (error.response?.data) {
-			const data = error.response.data;
-			if (data.message) {
-				return data.message;
+		if (error.response?.data?.error) {
+			const errorData = error.response.data.error;
+			if (errorData.detail) {
+				return errorData.detail;
 			}
-			if (data.brief) {
-				return getMessageFromBrief(data.brief);
+			if (errorData.brief) {
+				return getMessageFromBrief(errorData.brief);
 			}
-			if (typeof data === 'string') {
-				return data;
+			if (errorData.name) {
+				return errorData.name;
 			}
 		}
 		if (error.message) {
@@ -81,9 +85,10 @@ function getMessageFromBrief(brief: string): string {
  */
 export function storeError(error: unknown, fallbackType = 'error'): void {
 	const message = getErrorMessage(error);
-	const type = isAxiosError(error) && error.response?.data?.brief
-		? error.response.data.brief
+	const type = isAxiosError(error) && error.response?.data?.error?.brief
+		? error.response.data.error.brief
 		: fallbackType;
+
 	const errorData: StoredError = {
 		type,
 		message,
@@ -121,7 +126,7 @@ export function retrieveStoredError(): StoredError | null {
  */
 export function getErrorBrief(error: unknown): string | undefined {
 	if (isAxiosError(error)) {
-		return error.response?.data?.brief;
+		return error.response?.data?.error?.brief;
 	}
 	return undefined;
 }
