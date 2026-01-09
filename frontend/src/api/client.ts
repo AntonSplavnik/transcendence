@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { refreshJWT } from './auth';
-import { storeError, getErrorMessage, getErrorBrief, isAxiosError } from './error';
+import { storeError, getErrorBrief } from './error';
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
