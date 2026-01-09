@@ -47,6 +47,7 @@
 
 use std::{io::Write, marker::PhantomData};
 
+use anyhow::bail;
 use bytes::{Buf, BufMut, BytesMut};
 use serde::{Serialize, de::DeserializeOwned};
 use tokio_util::codec::{Decoder, Encoder};
@@ -105,7 +106,7 @@ impl BufferParams for CodecBufferParams {
 ///
 /// - **`total_len`**: Length of everything after this field (flags + payload)
 /// - **`flags`**: `0x00` = uncompressed, `0x01` = Zstd-compressed
-/// - **`payload`**: The CBOR data (raw or compressed)
+/// - **`payload`**: The CBOR data (raw) or `[u32_be uncompressed_len][zstd(cbor)]`
 ///
 /// # Memory Management
 ///
@@ -160,6 +161,14 @@ impl<T: Serialize, BP: BufferParams> Encoder<T>
 
         // Step 2: Decide whether to compress based on payload size
         let (payload, flags) = if self.cbor_buf.len() > COMPRESS_THRESHOLD {
+            // Compressed payload format: [u32_be uncompressed_len][zstd(cbor)]
+            // Put the uncompressed length directly into the compression buffer
+            // so Step 3 can treat it like a normal payload.
+            let uncompressed_len = self.cbor_buf.len() as u32;
+            self.compress_buf
+                .as_mut_vec()
+                .extend_from_slice(&uncompressed_len.to_be_bytes());
+
             // Compress with Zstd - encoder must be finished to flush all data
             let mut encoder = zstd::Encoder::new(
                 self.compress_buf.as_mut_vec(),
@@ -208,7 +217,7 @@ impl<T: Serialize, BP: BufferParams> Encoder<T>
 ///
 /// - **`total_len`**: Length of everything after this field (flags + payload)
 /// - **`flags`**: `0x00` = uncompressed, `0x01` = Zstd-compressed
-/// - **`payload`**: The CBOR data (raw or compressed)
+/// - **`payload`**: The CBOR data (raw) or `[u32_be uncompressed_len][zstd(cbor)]`
 ///
 /// # Type Parameters
 /// - `T`: The type to deserialize
@@ -296,8 +305,15 @@ impl<T: DeserializeOwned, const MAX_DECODE_FRAME: usize> Decoder
         // Step 6: Deserialize based on compression flag
         let item = match flags {
             1 => {
-                // Compressed: wrap in Zstd decoder, then parse CBOR
-                let compressed_data = src.split_to(payload_len);
+                if payload_len < 4 {
+                    bail!(
+                        "Invalid compressed frame: missing uncompressed length prefix"
+                    );
+                }
+
+                // Compressed payload format: [u32_be uncompressed_len][zstd(cbor)]
+                let mut compressed_data = src.split_to(payload_len);
+                let _uncompressed_len = compressed_data.get_u32();
                 let decoder = zstd::Decoder::new(compressed_data.reader())?;
                 ciborium::from_reader(decoder)?
             }
@@ -307,10 +323,7 @@ impl<T: DeserializeOwned, const MAX_DECODE_FRAME: usize> Decoder
                 ciborium::from_reader(raw_data.reader())?
             }
             unknown => {
-                return Err(anyhow::anyhow!(
-                    "Unknown frame flags: {} (expected 0 or 1)",
-                    unknown
-                ));
+                bail!("Unknown frame flags: {} (expected 0 or 1)", unknown);
             }
         };
 
