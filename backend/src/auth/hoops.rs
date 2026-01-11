@@ -126,7 +126,7 @@ pub fn access_hoop(
         }
 
         // even though this expiry is accounted for in the jwt,
-        //it might be that the session got logged out since jwt creation
+        // it might be that the session got logged out since jwt creation
         if session.login_expiry() < chrono::Utc::now() {
             return Err(AuthError::NeedReauth.into());
         }

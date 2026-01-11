@@ -2,7 +2,6 @@ use std::{borrow::Cow, sync::LazyLock};
 
 use argon2::password_hash::{self, SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use chrono::{DateTime, Utc};
 use cookie::Cookie;
 
 use crate::auth::session_token::{SessionToken, SessionTokenHashTruncated};
@@ -10,8 +9,8 @@ use crate::auth::{JwtClaims, jwt_encoding_key};
 use crate::models::{Session, User};
 use crate::prelude::*;
 
+use super::SESSION_ACCESS_EXPIRY;
 use super::two_factor;
-use super::{SESSION_ACCESS_EXPIRY, SESSION_LOGIN_EXPIRY};
 
 pub fn prune_excess_sessions(
     conn: &mut DbConn,
@@ -50,16 +49,6 @@ pub fn prune_excess_sessions(
     Ok(diesel::delete(sessions.filter(id.eq_any(to_delete))).execute(conn)?)
 }
 
-/*
-{
-  "sub": 123,        // user_id
-  "sid": 456,        // session_id
-  "jti": "abc123...", // JWT ID: truncated refresh token hash (16 bytes, base64url)
-  "exp": 1732723200,
-  "iat": 1732722300
-}
-*/
-
 pub fn device_id_cookie(depot: &Depot) -> Cookie<'static> {
     cookie::Cookie::build(("device_id", depot.device_id().to_owned()))
         .path("/")
@@ -94,16 +83,6 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
             SESSION_ACCESS_EXPIRY.as_secs() as i64,
         ))
         .build()
-}
-
-impl Session {
-    pub fn access_expiry(&self) -> DateTime<Utc> {
-        (self.refreshed_at() + SESSION_ACCESS_EXPIRY).min(self.login_expiry())
-    }
-
-    pub fn login_expiry(&self) -> DateTime<Utc> {
-        self.last_authenticated_at() + SESSION_LOGIN_EXPIRY
-    }
 }
 
 pub fn jwt_create(
