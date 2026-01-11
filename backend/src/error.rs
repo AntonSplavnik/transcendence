@@ -4,6 +4,7 @@ use salvo::prelude::*;
 use thiserror::Error;
 
 use crate::auth::{AuthError, TwoFactorError};
+use crate::stream::StreamApiError;
 
 #[derive(Error, Debug)]
 #[error(transparent)]
@@ -13,7 +14,8 @@ pub enum ApiError {
     DatabaseSQL(#[from] diesel::result::Error),
     DatabaseConnection(#[from] diesel::ConnectionError),
     DatabaseConnectionPool(#[from] diesel::r2d2::PoolError),
-    Stream(#[from] h3::error::StreamError),
+    // Stream(#[from] h3::error::StreamError),
+    Stream(#[from] StreamApiError),
     Jwt(#[from] jsonwebtoken::errors::Error),
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
@@ -105,10 +107,10 @@ impl Scribe for ApiError {
                 tracing::error!(error = ?err, "Database connection pool error");
                 StatusError::internal_server_error()
             }
-            Self::Stream(err) => {
-                tracing::error!(error = ?err, "H3 stream error");
-                StatusError::internal_server_error()
-            }
+            // Self::Stream(err) => {
+            //     tracing::error!(error = ?err, "H3 stream error");
+            //     StatusError::internal_server_error()
+            // }
             Self::Jwt(err) => {
                 tracing::error!(error = ?err, "JWT error");
                 StatusError::internal_server_error()
@@ -127,6 +129,10 @@ impl Scribe for ApiError {
                     StatusError::unauthorized().brief(variant)
                 }
             },
+            Self::Stream(err) => {
+                tracing::error!(error = ?err, "Stream API error");
+                StatusError::bad_request().brief(err.to_string())
+            }
         };
 
         res.render(status_error);

@@ -1,2 +1,7 @@
 /target
 /migration/target
+
+# Local environment (may contain secrets)
+.env
+.env.*
+!.env.example
