@@ -215,6 +215,7 @@ fn rotate_session<const DO_REAUTH: bool>(
         return Err(AuthError::SessionMismatch.into());
     }
 
+    crate::stream::StreamManager::global().refresh_auth(&rotated);
     let jwt = util::jwt_create(&rotated, hashed_token.to_truncated())?;
     set_auth_cookies(res, token, jwt);
     Ok(rotated)

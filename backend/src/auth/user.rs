@@ -6,6 +6,7 @@ use crate::auth::TwoFactorError;
 use crate::auth::router::PasswordInput;
 use crate::models::{Session, User};
 use crate::prelude::*;
+use crate::stream::StreamManager;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -130,7 +131,7 @@ fn change_pw(
 fn logout(depot: &mut Depot, res: &mut Response) -> JsonResult<()> {
     let conn = &mut db::get()?;
     let session = depot.session();
-    deauth_sessions(conn, session.user_id, [session.id].into_iter())?;
+    deauth_sessions(conn, session.user_id, &[session.id])?;
     delete_auth_cookies(res);
     json_ok(())
 }
@@ -166,7 +167,11 @@ fn logout_sessions(
         conn,
     )?;
 
-    deauth_sessions(conn, session.user_id, session_ids.iter().copied())?;
+    deauth_sessions(
+        conn,
+        session.user_id,
+        &session_ids.iter().copied().collect::<Vec<_>>(),
+    )?;
 
     if session_ids.contains(&session.id) {
         delete_auth_cookies(res);
@@ -296,6 +301,10 @@ fn delete_sessions(
     )
     .execute(conn)?;
 
+    session_ids.iter().any(|session_id| {
+        StreamManager::global().close_stream(session.user_id, Some(*session_id))
+    });
+
     if session_ids.contains(&session.id) {
         delete_auth_cookies(res);
         Err(super::AuthError::DidLogout.into())
@@ -322,13 +331,13 @@ fn deauth_other_sessions(
         .select(id)
         .load::<i32>(conn)?;
 
-    deauth_sessions(conn, target_user, other_sessions.into_iter())
+    deauth_sessions(conn, target_user, &other_sessions)
 }
 
 fn deauth_sessions(
     conn: &mut db::DbConn,
     target_user: i32,
-    session_ids: impl Iterator<Item = i32>,
+    session_ids: &[i32],
 ) -> AppResult<usize> {
     use crate::schema::sessions::dsl::*;
     let epoch = chrono::DateTime::UNIX_EPOCH.naive_utc();
@@ -339,6 +348,10 @@ fn deauth_sessions(
     )
     .set(last_authenticated_at.eq(epoch))
     .execute(conn)?;
+
+    session_ids.iter().any(|session_id| {
+        StreamManager::global().close_stream(target_user, Some(*session_id))
+    });
 
     Ok(result)
 }
