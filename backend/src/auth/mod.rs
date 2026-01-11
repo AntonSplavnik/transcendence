@@ -19,8 +19,8 @@ pub use user::router as user_router;
 pub const JWT_COOKIE_NAME: &str = "access_token";
 pub const SESSION_COOKIE_NAME: &str = "session_token";
 const SESSION_EXPIRY: Duration = Duration::from_hours(7 * 24);
-const SESSION_FORCED_EXPIRY: Duration = Duration::from_hours(30 * 24);
-const ACCESS_EXPIRY: Duration = Duration::from_mins(15);
+const SESSION_LOGIN_EXPIRY: Duration = Duration::from_hours(30 * 24);
+const SESSION_ACCESS_EXPIRY: Duration = Duration::from_mins(15);
 
 /// Maximum number of sessions to keep per user.
 ///

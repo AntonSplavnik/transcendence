@@ -34,10 +34,11 @@ pub struct PublicUser {
 
 impl From<User> for PublicUser {
     fn from(user: User) -> Self {
+        let created_at = user.created_at().naive_utc();
         Self {
             id: user.id,
             nickname: user.nickname,
-            created_at: user.created_at,
+            created_at,
             online: StreamManager::global().is_connected(user.id),
         }
     }

@@ -2,6 +2,7 @@ use std::{borrow::Cow, sync::LazyLock};
 
 use argon2::password_hash::{self, SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use chrono::{DateTime, Utc};
 use cookie::Cookie;
 
 use crate::auth::session_token::{SessionToken, SessionTokenHashTruncated};
@@ -9,17 +10,8 @@ use crate::auth::{JwtClaims, jwt_encoding_key};
 use crate::models::{Session, User};
 use crate::prelude::*;
 
-use super::ACCESS_EXPIRY;
 use super::two_factor;
-
-pub fn session_requires_reauth_at(
-    session: &Session,
-) -> (chrono::NaiveDateTime, chrono::NaiveDateTime) {
-    (
-        session.refreshed_at + super::SESSION_EXPIRY,
-        session.last_authenticated_at + super::SESSION_FORCED_EXPIRY,
-    )
-}
+use super::{SESSION_ACCESS_EXPIRY, SESSION_LOGIN_EXPIRY};
 
 pub fn prune_excess_sessions(
     conn: &mut DbConn,
@@ -99,22 +91,31 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
         .secure(true)
         .same_site(cookie::SameSite::Lax)
         .max_age(cookie::time::Duration::seconds(
-            ACCESS_EXPIRY.as_secs() as i64
+            SESSION_ACCESS_EXPIRY.as_secs() as i64,
         ))
         .build()
+}
+
+impl Session {
+    pub fn access_expiry(&self) -> DateTime<Utc> {
+        (self.refreshed_at() + SESSION_ACCESS_EXPIRY).min(self.login_expiry())
+    }
+
+    pub fn login_expiry(&self) -> DateTime<Utc> {
+        self.last_authenticated_at() + SESSION_LOGIN_EXPIRY
+    }
 }
 
 pub fn jwt_create(
     session: &Session,
     jti: SessionTokenHashTruncated,
 ) -> AppResult<String> {
-    let now = chrono::Utc::now();
     let claim = JwtClaims {
         sub: session.user_id,
         sid: session.id,
         jti,
-        exp: (now + ACCESS_EXPIRY).timestamp() as usize,
-        iat: now.timestamp() as usize,
+        exp: session.access_expiry().timestamp() as usize,
+        iat: session.refreshed_at().timestamp() as usize,
     };
     Ok(jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),

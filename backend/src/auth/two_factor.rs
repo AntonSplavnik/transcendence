@@ -224,8 +224,6 @@ pub fn replace_recovery_codes(
 ) -> AppResult<()> {
     use crate::schema::two_fa_recovery_codes::dsl::*;
 
-    let now = chrono::Utc::now().naive_utc();
-
     conn.transaction::<_, ApiError, _>(|conn| {
         diesel::delete(two_fa_recovery_codes.filter(user_id.eq(user_id_val)))
             .execute(conn)?;
@@ -236,11 +234,8 @@ pub fn replace_recovery_codes(
 
         let to_insert: Vec<NewTwoFaRecoveryCode> = codes_plain
             .iter()
-            .map(|code| NewTwoFaRecoveryCode {
-                user_id: user_id_val,
-                code_hash: hash_recovery_code(code),
-                used_at: None,
-                created_at: now,
+            .map(|code| {
+                NewTwoFaRecoveryCode::new(user_id_val, hash_recovery_code(code))
             })
             .collect();
 
