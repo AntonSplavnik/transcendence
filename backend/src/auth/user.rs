@@ -301,6 +301,8 @@ fn delete_sessions(
     )
     .execute(conn)?;
 
+    // short-circuiting to avoid iterating all sessions,
+    // as there can be at maximum only one session where closing a stream returns true.
     session_ids.iter().any(|session_id| {
         StreamManager::global().close_stream(session.user_id, Some(*session_id))
     });
@@ -349,6 +351,8 @@ fn deauth_sessions(
     .set(last_authenticated_at.eq(epoch))
     .execute(conn)?;
 
+    // short-circuiting to avoid iterating all sessions,
+    // as there can be at maximum only one session where closing a stream returns true.
     session_ids.iter().any(|session_id| {
         StreamManager::global().close_stream(target_user, Some(*session_id))
     });

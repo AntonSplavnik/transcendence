@@ -160,7 +160,6 @@ use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
@@ -171,7 +170,7 @@ use super::compress_cbor_codec::{
 };
 use crate::models::Session;
 use crate::prelude::*;
-use crate::utils::adaptive_buffer::{BufferParams, DefaultBufferParams};
+use crate::utils::adaptive_buffer::BufferParams;
 
 pub fn router(path: impl Into<String>) -> Router {
     Router::with_path(path)
@@ -179,19 +178,22 @@ pub fn router(path: impl Into<String>) -> Router {
         .oapi_tag("stream")
         .push(
             Router::with_path("bind")
-                .user_rate_limit(&RateLimit::per_15_minutes(30))
+                .user_rate_limit(&RateLimit::per_minute(10))
                 .post(bind_pending_stream),
         )
 }
 
+/// Because the connect request doesnt have cookies attached,
+/// auth using Router.requires_user_login() is not possible here.
 pub fn webtransport_router(path: impl Into<String>) -> Router {
     Router::with_path(path)
         .hoop(crate::utils::logger::Logger)
-        .ip_rate_limit(&RateLimit::per_5_minutes(20))
+        .ip_rate_limit(&RateLimit::per_5_minutes(30))
         .filter(MethodFilter::new(Method::CONNECT))
         .goal(crate::stream::connect_stream)
 }
 
+const PENDING_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
 /// Timeout for stream operations.
 ///
 /// If a stream request doesn't receive a response within this duration,
@@ -441,35 +443,14 @@ impl StreamManager {
         &self,
         session: &Session,
         tx: mpsc::Sender<ConnectionCommand>,
+        connection_id: u64,
     ) -> u64 {
-        let connection_id =
-            self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
-        let unregister_at = session.access_expiry();
-        let user_id = session.user_id;
-        let unregister_task = tokio::spawn(async move {
-            let until_unregister = unregister_at
-                .signed_duration_since(chrono::Utc::now())
-                .to_std()
-                .unwrap_or_default();
-            tokio::time::sleep(until_unregister).await;
-            StreamManager::global().unregister(
-                user_id,
-                Some(connection_id),
-                None,
-            );
-        })
-        .abort_handle();
         self.connections.insert(
-            user_id,
-            ConnectionEntry {
-                tx,
-                session_id: session.id,
-                connection_id,
-                unregister_task,
-            },
+            session.user_id,
+            ConnectionEntry::new(session, connection_id, tx),
         );
         tracing::info!(
-            user_id,
+            session.user_id,
             connection_id,
             "Registered WebTransport connection"
         );
@@ -503,25 +484,30 @@ impl StreamManager {
         connection_id: Option<u64>,
         session_id: Option<i32>,
     ) -> bool {
-        self.connections
-            .remove_if(&user_id, |_, entry| {
-                let matches = match connection_id {
-                    Some(id) => entry.connection_id == id,
-                    None => true,
-                } && match session_id {
-                    Some(sid) => entry.session_id == sid,
-                    None => true,
-                };
-                if matches {
-                    tracing::info!(
-                        user_id,
-                        connection_id = entry.connection_id,
-                        "Unregistered connection"
-                    );
-                }
-                matches
-            })
-            .is_some()
+        let opt_removed = self.connections.remove_if(&user_id, |_, entry| {
+            let matches = match connection_id {
+                Some(id) => entry.connection_id == id,
+                None => true,
+            } && match session_id {
+                Some(sid) => entry.session_id == sid,
+                None => true,
+            };
+            if matches {
+                tracing::info!(
+                    user_id,
+                    connection_id = entry.connection_id,
+                    "Unregistered connection"
+                );
+            }
+            matches
+        });
+        match opt_removed {
+            Some(conn) => {
+                conn.1.unregister_task.abort();
+                true
+            }
+            None => false,
+        }
     }
 
     /// Request a new raw bidirectional stream for a connected user.
@@ -687,9 +673,9 @@ where
     BP: BufferParams,
 {
     let mut sender =
-        FramedWrite::new(tx, CompressedCborEncoder::<_, BP>::new());
+        FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
     sender
-        .send(r#type.clone())
+        .send(&r#type)
         .await
         .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
     sender.flush().await.with_context(|| {
@@ -729,11 +715,11 @@ pub async fn connect_stream(
     // Register this connection (replaces any existing connection for this user)
     let manager = StreamManager::global();
     let (session_rx, pending_key) = manager.register_pending();
-
+    let connection_id = pending_key.connection_id;
     // Open control stream with initial message
     let (control_tx, control_rx) = {
         let (tx, rx) = BidiStream::split(wt_session.open_bi(session_id).await?);
-        frame_stream::<(), (), DefaultBufferParams, 256>(
+        frame_stream::<(), (), CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
             tx,
             rx,
             StreamType::Ctrl(*pending_key),
@@ -746,18 +732,18 @@ pub async fn connect_stream(
     drop(control_tx);
 
     let user_session =
-        tokio::time::timeout(Duration::from_secs(10), session_rx)
+        tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx)
             .await
             .context("pending connection timeout while waiting for bind/auth")?
             .context(
                 "pending connection was dropped while waiting for bind/auth",
             )?;
-    // no cleanup necessary anymore ->
-    // receiving this session means the pending entry was used
+    // safety: no cleanup necessary anymore ->
+    // receiving this session means the pending entry was taken from the map already
     std::mem::forget(pending_key);
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
-    let connection_id = manager.register(&user_session, cmd_tx);
+    let connection_id = manager.register(&user_session, cmd_tx, connection_id);
 
     tracing::info!(
         user_session.user_id,
