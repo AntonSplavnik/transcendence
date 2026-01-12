@@ -14,7 +14,6 @@ pub enum ApiError {
     DatabaseSQL(#[from] diesel::result::Error),
     DatabaseConnection(#[from] diesel::ConnectionError),
     DatabaseConnectionPool(#[from] diesel::r2d2::PoolError),
-    // Stream(#[from] h3::error::StreamError),
     Stream(#[from] StreamApiError),
     Jwt(#[from] jsonwebtoken::errors::Error),
     Auth(#[from] AuthError),
@@ -107,10 +106,6 @@ impl Scribe for ApiError {
                 tracing::error!(error = ?err, "Database connection pool error");
                 StatusError::internal_server_error()
             }
-            // Self::Stream(err) => {
-            //     tracing::error!(error = ?err, "H3 stream error");
-            //     StatusError::internal_server_error()
-            // }
             Self::Jwt(err) => {
                 tracing::error!(error = ?err, "JWT error");
                 StatusError::internal_server_error()
