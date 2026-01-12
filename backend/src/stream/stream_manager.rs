@@ -1,150 +1,75 @@
 //! WebTransport Stream Manager
 //!
-//! This module manages WebTransport connections for authenticated users, providing
-//! a centralized registry that allows server-side components to open streams on
-//! client connections.
+//! This module manages WebTransport (HTTP/3) connections and exposes a small API
+//! for *server-side* components to open bidirectional streams to a connected user.
 //!
-//! # Architecture Overview
+//! # What the current implementation does
 //!
-//! ```text
-//! ┌─────────────────────────────────────────────────────────────────────────────┐
-//! │                              Server                                         │
-//! │  ┌─────────────┐    ┌─────────────────────────┐    ┌──────────────────────┐ │
-//! │  │ ChatManager │───▶│      StreamManager      │◀───│    GameManager       │ │
-//! │  └─────────────┘    │    (Global Singleton)   │    └──────────────────────┘ │
-//! │                     │                         │                             │
-//! │                     │  ┌───────────────────┐  │                             │
-//! │                     │  │ user_id -> Entry  │  │                             │
-//! │                     │  │  • Command Sender │  │                             │
-//! │                     │  │  • Connection ID  │  │                             │
-//! │                     │  └───────────────────┘  │                             │
-//! │                     └───────────┬─────────────┘                             │
-//! │                                 │ mpsc channel                              │
-//! │                                 ▼                                           │
-//! │                     ┌─────────────────────────┐                             │
-//! │                     │   Connection Handler    │                             │
-//! │                     │   (per-user task)       │                             │
-//! │                     │                         │                             │
-//! │                     │  • Heartbeat stream     │                             │
-//! │                     │  • Command receiver     │                             │
-//! │                     └───────────┬─────────────┘                             │
-//! │                                 │                                           │
-//! └─────────────────────────────────┼───────────────────────────────────────────┘
-//!                                   │ WebTransport/QUIC
-//!                                   ▼
-//!                           ┌───────────────┐
-//!                           │    Client     │
-//!                           └───────────────┘
-//! ```
+//! ## Two-step authentication (CONNECT + REST bind)
 //!
-//! # Design Principles
+//! The CONNECT request used to establish WebTransport does not include cookies in
+//! our setup, so we cannot authenticate that request directly.
 //!
-//! ## Server-Initiated Streams Only
+//! Instead, the connection is authenticated in two steps:
 //!
-//! Clients cannot initiate streams directly on their WebTransport connection.
-//! Instead, they use the REST API to request actions (join chat, start game, etc.),
-//! and the corresponding server-side manager opens streams as needed. This design:
+//! 1. The client opens a WebTransport session via [`connect_stream`]. The server
+//!    creates a [`PendingConnectionKey`] and sends it over an initial control stream
+//!    as [`StreamType::Ctrl`].
+//! 2. The client performs an authenticated REST call to [`bind_pending_stream`]
+//!    (behind `Router::requires_user_login()`) and posts that `PendingConnectionKey`.
+//!    The server looks up the key and forwards the authenticated [`Session`] to the
+//!    waiting `connect_stream` task.
 //!
-//! - Simplifies protocol handling (no need to identify stream purposes from client)
-//! - Provides natural rate limiting through REST API
-//! - Ensures proper authentication before any stream is opened
-//! - Allows the server to control resource allocation
+//! If the bind call never arrives, `connect_stream` times out
+//! (`PENDING_CONNECTION_TIMEOUT`) and the pending entry is cleaned up.
 //!
-//! ## Single Connection Per User
+//! ## One active connection per user
 //!
-//! Each user can have only one active WebTransport connection at a time. When a
-//! user connects from a new device or browser tab:
+//! Connected users are stored in a `DashMap(user_id -> ConnectionEntry)`.
+//! Registering a new connection for the same user replaces the old entry.
+//! Dropping the old entry drops its command sender, which causes the old handler's
+//! `cmd_rx.recv()` to return `None` and exit.
 //!
-//! 1. The new connection registers with the manager
-//! 2. The old connection's command channel sender is dropped
-//! 3. The old handler's `cmd_rx.recv()` returns `None`, causing it to exit cleanly
-//! 4. The new connection takes over
+//! ## Connection IDs and safe cleanup
 //!
-//! This prevents resource exhaustion and simplifies state management.
+//! Every connection gets a monotonically increasing `connection_id`. Cleanup paths
+//! (timeouts, session expiry tasks, handler shutdown) unregister with
+//! `Some(connection_id)` to avoid removing a newer connection that replaced it.
 //!
-//! ## Connection ID for Safe Cleanup
+//! ## Session expiry auto-disconnect (and refresh)
 //!
-//! Each connection is assigned a unique, monotonically increasing `connection_id`.
-//! This solves a race condition:
+//! Each registered connection spawns an unregister task scheduled for
+//! `session.access_expiry()`. Calling [`StreamManager::refresh_auth`] with the same
+//! `session.id` aborts and re-schedules that task, effectively extending the
+//! connection lifetime when the session is refreshed.
 //!
-//! ```text
-//! Time ──────────────────────────────────────────────────────────▶
+//! ## Stream requests and framing
 //!
-//! Connection A (id=1):  [register]─────────[exit]─[unregister(id=1)]
-//!                                              │
-//! Connection B (id=2):              [register]─┼───────────────────▶
-//!                                              │
-//!                                     Would remove B without ID check!
-//! ```
+//! Server-side components call [`StreamManager::request_stream`] (or
+//! [`StreamManager::request_custom_stream`]) to open a fresh bidirectional stream
+//! on the user's WebTransport session.
 //!
-//! Without the ID check, connection A's cleanup would remove connection B from
-//! the registry. With the ID check, `unregister(user_id, Some(1))` sees that the
-//! current entry has `id=2` and does nothing.
+//! The server always sends a first CBOR message describing the [`StreamType`] of
+//! that stream. The returned `Sender`/`Receiver` then carry typed CBOR messages
+//! (optionally compressed by the codec).
 //!
-//! External components can use `unregister(user_id, None)` to force-disconnect
-//! a user regardless of connection ID (e.g., on logout or ban).
+//! ## Liveness detection (current state)
 //!
-//! ## Heartbeat Stream for Connection Detection
+//! The handler currently does **not** maintain a dedicated heartbeat stream.
+//! Connection closure is therefore observed indirectly (e.g. when an `open_bi`
+//! request fails). If no stream requests happen, the handler may not immediately
+//! notice that a client disappeared.
 //!
-//! The handler opens a bidirectional stream immediately upon connection that serves
-//! as a "heartbeat". Neither side sends data on it. The handler reads from it, and
-//! when the read returns (EOF or error), it knows the connection has closed.
+//! # Errors
 //!
-//! This is necessary because the command channel alone cannot detect when the
-//! underlying QUIC connection dies - we need an active read on a stream to get
-//! that notification.
+//! - [`StreamManagerError::UserNotConnected`]: the user has no active entry.
+//! - [`StreamManagerError::ConnectionClosed`]: a stream open/framing failed or the
+//!   handler became unresponsive; the entry is removed.
 //!
-//! ## Stream Lifetime and Ownership
+//! # Thread safety
 //!
-//! **Important architectural note:** Streams returned by [`StreamManager::request_stream`]
-//! are owned by the caller, but their underlying transport is tied to the QUIC session
-//! held by the connection handler.
-//!
-//! When the handler exits (and thus drops the WebTransport session):
-//! - All streams opened on that session will error on subsequent read/write operations
-//! - The stream handles (`WtSend`, `WtRecv`) remain valid Rust objects but are unusable
-//! - Callers should handle stream errors gracefully and treat them as disconnection
-//!
-//! This means that components holding streams (e.g., chat rooms with member streams)
-//! will receive errors when the user disconnects, even if the component doesn't
-//! explicitly know about the disconnection. This is the desired behavior - it allows
-//! clean error propagation without requiring explicit cleanup coordination.
-//!
-//! # Error Handling
-//!
-//! The API uses only two error variants for simplicity:
-//!
-//! - [`StreamManagerError::UserNotConnected`]: The user has no active connection.
-//!   The caller should handle this gracefully (e.g., return an HTTP error to the
-//!   REST request that triggered the stream request).
-//!
-//! - [`StreamManagerError::ConnectionClosed`]: The connection existed but is now
-//!   dead. The manager automatically cleans up the connection entry. The caller
-//!   should treat this the same as `UserNotConnected` for retry purposes.
-//!
-//! # Usage Example
-//!
-//! ```ignore
-//! // In a chat manager, when a user joins a room:
-//! async fn handle_join_room(user_id: i32, room_id: i32) -> Result<()> {
-//!     let manager = StreamManager::global();
-//!
-//!     // Request a typed stream for this user
-//!     let (send, recv) = manager.request_stream::<ServerMsg, ClientMsg>(user_id).await?;
-//!
-//!     // Use futures::SinkExt and StreamExt to send/receive
-//!     send.send(ServerMsg::Welcome).await?;
-//!
-//!     // ... handle chat messages ...
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Thread Safety
-//!
-//! The [`StreamManager`] uses [`DashMap`] for concurrent access and is
-//! safe to use from multiple tasks simultaneously. The global singleton is
-//! initialized lazily on first access.
+//! The [`StreamManager`] uses [`DashMap`] for concurrent access and is safe to call
+//! from multiple tasks. The singleton is created lazily via [`StreamManager::global`].
 
 use std::ops::Deref;
 use std::sync::LazyLock;
