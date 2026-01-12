@@ -15,6 +15,9 @@ pub fn root() -> Router {
             crate::auth::user_router("user"),
             users::router("users"),
             crate::stream::router("stream"),
+            crate::stream::echo_example::echo_stream_open_endpoint(
+                "stream/echo",
+            ),
         ]);
     let api_routes = Router::new()
         .push(api_routes)

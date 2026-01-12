@@ -15,6 +15,7 @@ pub enum ApiError {
     DatabaseConnection(#[from] diesel::ConnectionError),
     DatabaseConnectionPool(#[from] diesel::r2d2::PoolError),
     Stream(#[from] StreamApiError),
+    StreamManager(#[from] crate::stream::StreamManagerError),
     Jwt(#[from] jsonwebtoken::errors::Error),
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
@@ -126,6 +127,10 @@ impl Scribe for ApiError {
             },
             Self::Stream(err) => {
                 tracing::error!(error = ?err, "Stream API error");
+                StatusError::bad_request().brief(err.to_string())
+            }
+            Self::StreamManager(err) => {
+                tracing::error!(error = ?err, "Stream Manager error");
                 StatusError::bad_request().brief(err.to_string())
             }
         };
