@@ -204,6 +204,9 @@ pub struct AcceptFriendResponse {
 /// Accept a pending friend request
 #[endpoint(
     tags("friends"),
+    parameters(
+        ("id" = i32, Path, description = "Friendship ID")
+    ),
     responses(
         (status_code = 200, description = "Friend request accepted", body = AcceptFriendResponse),
         (status_code = 401, description = "Unauthorized - User not authenticated"),
@@ -264,6 +267,9 @@ pub async fn accept_friend_request(
 /// Decline a pending friend request
 #[endpoint(
     tags("friends"),
+    parameters(
+        ("id" = i32, Path, description = "Friendship ID")
+    ),
     responses(
         (status_code = 200, description = "Friend request declined", body = AcceptFriendResponse),
         (status_code = 401, description = "Unauthorized - User not authenticated"),

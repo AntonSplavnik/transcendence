@@ -12,7 +12,7 @@ type View = "auth" | "game-local" | "game-online" | "home" | "landing";
 function App() {
 	const [view, setView] = useState<View>("landing");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	
+
 	useEffect(() => {
 		const storedError = retrieveStoredError();
 
@@ -20,22 +20,6 @@ function App() {
 			setErrorMessage(storedError.message);
 			// Auto-dismiss after 5 seconds
 			setTimeout(() => setErrorMessage(null), 5000);
-		}
-	}, []);
-
-	useEffect(() => {
-		const storedError = localStorage.getItem('auth_error');
-
-		if (storedError) {
-			try {
-				const errorData = JSON.parse(storedError);
-				setErrorMessage(errorData.message);
-				localStorage.removeItem('auth_error');
-				setTimeout(() => setErrorMessage(null), 5000);
-			} catch (e) {
-				console.error('Failed to parse auth error:', e);
-				localStorage.removeItem('auth_error');
-			}
 		}
 	}, []);
 
@@ -50,44 +34,42 @@ function App() {
 		setView("landing");
 	}, []);
 
+	const renderView = () => {
+		switch (view) {
+			case "landing":
+				return <LandingPage onLogin={goAuth} onLocal={goGameLocal} />;
+			case "auth":
+				return <AuthPage onBack={goLanding} onAuthSuccess={goHome} />;
+			case "home":
+				return (
+					<Home
+						onLocal={goGameLocal}
+						onOnline={goGameOnline}
+						onLogout={handleLogout}
+					/>
+				);
+			case "game-local":
+				return (
+					<GameBoard
+						mode="local"
+						onLeave={goLanding}
+					/>
+				);
+			case "game-online":
+				return (
+					<GameBoard
+						mode="online"
+						onLeave={goHome}
+					/>
+				);
+			default:
+				const _exhaustiveCheck: never = view;
+				return _exhaustiveCheck;
+		}
+	};
+
 	return (
-		<>
-			{view === "landing" && (
-				<LandingPage
-					onLogin={goAuth}
-					onLocal={goGameLocal}
-				/>
-			)}
-
-			{view === "auth" && (
-				<AuthPage
-					onBack={goLanding}
-					onAuthSuccess={goHome}
-				/>
-			)}
-
-			{view === "home" && (
-				<Home
-					onLocal={goGameLocal}
-					onOnline={goGameOnline}
-					onLogout={handleLogout}
-				/>
-			)}
-
-			{view === "game-local" && (
-				<GameBoard
-					mode="local"
-					onLeave={goHome}
-				/>
-			)}
-
-			{view === "game-online" && (
-				<GameBoard
-					mode="online"
-					onLeave={goHome}
-				/>
-			)}
-
+		<Layout>
 			{errorMessage && (
 				<div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 
                         bg-red-900/90 border border-red-500 text-red-100 
@@ -106,7 +88,8 @@ function App() {
 					</div>
 				</div>
 			)}
-		</>
+			{renderView()}
+		</Layout>
 	);
 }
 
