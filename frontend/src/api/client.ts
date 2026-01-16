@@ -38,6 +38,13 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
+		if (brief === 'NeedReauth') {
+			// User needs to reauthenticate with password
+			// Store error and redirect to reauth page
+			storeError(error, 'need_reauth');
+			window.location.href = '/'; // Or redirect to a reauth modal/page
+			return Promise.reject(error);
+		}
 		if (brief === 'NeedReauth' && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
