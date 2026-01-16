@@ -27,3 +27,43 @@ implement user session management page in frontend using the following endpoints
 - `/api/user/session` (GET): get current session info
 - `/api/user/sessions` (POST): requires password; list sessions
 - `/api/user/sessions` (DELETE): requires password; delete session records
+
+home should not call user/me again, instead from one call from landing to check auth, then passing it to home.
+
+## History
+
+to enable history and back and forward buttons, in dev it should work with vite, but in production (build) this needs to be in main.rs
+use salvo:: serve_static:: StaticDir;
+
+// In your router setup:
+let router = Router::new()
+.push(api_routes)
+// Serve static files from frontend dist folder
+.push(
+Router::with_path("<\*\*path>")
+.get(StaticDir::new(["frontend/dist"])
+.defaults("index.html") // ← This is the key!
+.auto_list(false))
+);
+
+if using nginx
+server {
+listen 80;
+server_name localhost;
+root /usr/share/nginx/html;
+index index.html;
+
+    # API proxy
+    location /api/ {
+        proxy_pass https://backend:8443;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Frontend - SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+        # ↑ This is the magic line for SPAs!
+    }
+
+}
