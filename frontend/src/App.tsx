@@ -3,6 +3,7 @@ import LandingPage from "./components/LandingPage";
 import GameBoard from "./components/GameBoard";
 import AuthPage from "./components/AuthPage";
 import Home from "./components/Home";
+import Layout from "./components/ui/Layout";
 import * as authApi from "./api/auth";
 import { retrieveStoredError } from './api/error';
 
