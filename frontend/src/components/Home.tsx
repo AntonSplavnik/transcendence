@@ -89,11 +89,9 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 		setLogoutError("");
 
 		try {
-			const token = localStorage.getItem('authToken');
-			const response = await fetch('/api/user/logout', {
+			const response = await fetch('/api/auth/logout', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ token }),
+				credentials: 'include',
 			});
 
 			if (response.ok) {
