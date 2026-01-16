@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import PlayerProfile from "./PlayerProfile";
-import PlayerStats from "./PlayerStats";
-import GameHistory from "./GameHistory";
+import PlayerProfile from "./user_profil/PlayerProfile";
+import PlayerStats from "./user_stats/PlayerStats";
+import GameHistory from "./user_stats/GameHistory";
 import GameActions from "./GameActions";
-import FriendsPanel from "./FriendsPanel";
+import FriendsPanel from "./friends_list/FriendsPanel";
 
 interface UserStats {
 	games_played: number;

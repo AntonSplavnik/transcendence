@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import Avatar from "./ui/Avatar";
-import Button from "./ui/Button";
+import Avatar from "./../ui/Avatar";
+import Button from "./../ui/Button";
 
 interface SearchResult {
 	id: number;

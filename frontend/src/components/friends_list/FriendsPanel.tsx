@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import FriendsList from "./FriendsList";
 import FriendRequests from "./FriendRequests";
-import UserSearch from "./UserSearch";
-import Card from "./ui/Card";
+import UserSearch from "../friends_list/UserSearch";
+import Card from "../ui/Card";
 
 export interface Friend {
 	id: number;

@@ -1,6 +1,6 @@
 import React from "react";
-import Avatar from "./ui/Avatar";
-import Button from "./ui/Button";
+import Avatar from "../ui/Avatar";
+import Button from "../ui/Button";
 import type { Friend } from "./FriendsPanel";
 
 interface FriendsListProps {

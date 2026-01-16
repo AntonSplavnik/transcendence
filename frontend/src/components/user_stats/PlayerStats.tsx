@@ -1,5 +1,5 @@
 import React from "react";
-import Card from "./ui/Card";
+import Card from "./../ui/Card";
 
 interface UserStats {
 	games_played: number;

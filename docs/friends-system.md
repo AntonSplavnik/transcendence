@@ -79,21 +79,17 @@
 ✅ Prevent duplicate requests
 ✅ Friendship status badges (pending, accepted, etc.)
 
-
 ### Security Features
 
-- ✅ All endpoints require authentication (`requires_user_login()`)
-- ✅ Users can only accept/decline requests addressed to them
-- ✅ Cannot send friend requests to self
-- ✅ Duplicate request prevention
-- ✅ UNIQUE constraint on (from_user_id, to_user_id)
+✅ All endpoints require authentication (`requires_user_login()`)
+✅ Users can only accept/decline requests addressed to them
+✅ Cannot send friend requests to self
+✅ Duplicate request prevention
+✅ UNIQUE constraint on (from_user_id, to_user_id)
 
 ## Next Steps (Optional Improvements)
 
-### WebSocket Integration
-- Real-time friend online/offline notifications
-- Instant friend request notifications
-- Live status updates without page refresh
+- Real-time notifications (WebSocket/SSE)
 
 ### Additional Features
 - Block/unblock users
