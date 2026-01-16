@@ -1,10 +1,10 @@
 import apiClient from './client';
-import type { 
-	UserSessionInfo, 
-	SessionInfo, 
-	LoginRequest, 
+import type {
+	UserSessionInfo,
+	SessionInfo,
+	LoginRequest,
 	RegisterRequest,
-	ReauthRequest 
+	ReauthRequest
 } from './types';
 
 /**
@@ -24,8 +24,8 @@ export async function getMe(): Promise<UserSessionInfo> {
  * @returns User session info on successful login
  */
 export async function login(
-	email: string, 
-	password: string, 
+	email: string,
+	password: string,
 	mfa_code?: string
 ): Promise<UserSessionInfo> {
 	const payload: LoginRequest = { email, password, mfa_code };
@@ -41,9 +41,9 @@ export async function login(
  * @returns User session info on successful registration
  */
 export async function register(
-	nickname: string, 
-	email: string, 
-	password:  string
+	nickname: string,
+	email: string,
+	password: string
 ): Promise<UserSessionInfo> {
 	const payload: RegisterRequest = { nickname, email, password };
 	const response = await apiClient.post<UserSessionInfo>('/auth/register', payload);
@@ -56,8 +56,6 @@ export async function register(
  */
 export async function logout(): Promise<void> {
 	await apiClient.post<void>('/auth/logout');
-	// Redirect happens in the function itself
-	window.location.href = '/';
 }
 
 /**

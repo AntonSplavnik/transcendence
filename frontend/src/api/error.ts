@@ -69,13 +69,26 @@ export function getErrorMessage(error: unknown, fallback = 'An unexpected error 
  */
 function getMessageFromBrief(brief: string): string {
 	const briefMessages: Record<string, string> = {
+		// Session/Auth errors
 		'NeedReauth': 'Your session has expired. Please log in again.',
-		'InvalidCredentials': 'Invalid email or password.',
-		'MissingJwtCookie': 'Authentication required.',
-		'InvalidJwt': 'Your session is invalid.  Please log in again.',
 		'SessionNotFound': 'Session not found. Please log in again.',
-		'TwoFactorRequired': 'Two-factor authentication is required.',
+		'MissingSessionCookie': 'Session expired. Please log in again.',
+		'InvalidSessionToken': 'Invalid session.  Please log in again.',
+
+		// JWT errors (shouldn't normally see these - interceptor handles them)
+		'MissingJwtCookie': 'Authentication required. Please log in.',
+		'InvalidJwt': 'Your session is invalid. Please log in again.',
+		'SessionMismatch': 'Session mismatch. Please log in again.',
+
+		// Login errors
+		'InvalidCredentials': 'Invalid email or password.',
+
+		// 2FA errors
+		'TwoFactorRequired': 'Two-factor authentication code is required.',
 		'TwoFactorInvalid': 'Invalid two-factor authentication code.',
+
+		// Success messages
+		'DidLogout': 'You have been logged out successfully.',
 	};
 	return briefMessages[brief] || `Authentication error: ${brief}`;
 }

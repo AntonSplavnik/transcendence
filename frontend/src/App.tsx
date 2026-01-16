@@ -6,12 +6,97 @@ import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
 import * as authApi from "./api/auth";
 import { retrieveStoredError } from './api/error';
+import type { User } from "./api/types";
+import { AUTH_CONFIG, VIEW_CONFIG, ERROR_CONFIG } from './config/constants';
 
-type View = "auth" | "game-local" | "game-online" | "home" | "landing";
+type View = "auth" | "game" | "home" | "landing";
 
 function App() {
-	const [view, setView] = useState<View>("landing");
+	const [view, setView] = useState<View | null>(null);
+	const [user, setUser] = useState<User | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+	// Check auth status on mount
+	useEffect(() => {
+		async function checkAuth() {
+			const urlPath = window.location.pathname.slice(1) || 'landing';
+			const lastView = (urlPath as View) || 'landing';
+			if (VIEW_CONFIG.PROTECTED_VIEWS.includes(lastView as any)) {
+				try {
+					const userData = await authApi.getMe();
+					setUser(userData.user);
+					setView(lastView);
+				} catch (error) {
+					console.log('User not authenticated, redirecting to landing page.');
+					setUser(null);
+					setView('landing');
+					window.history.replaceState(null, '', '/landing');
+				}
+			} else {
+				setView(lastView);
+			}
+		}
+		checkAuth();
+	}, []);
+
+	// handle browser navigation (back/forward)
+	useEffect(() => {
+		const onPopState = async (event: PopStateEvent) => {
+			const newView = (event.state?.view as View) ||
+				(window.location.pathname.slice(1) as View) ||
+				('landing');
+			console.log('Navigated to view:', newView);
+			if (VIEW_CONFIG.PROTECTED_VIEWS.includes(newView as any)) {
+				if (!user)
+					try {
+						const userData = await authApi.getMe();
+						setUser(userData.user);
+						setView(newView);
+					} catch (error) {
+						console.log('Auth required but User not logged in');
+						setView('landing');
+					}
+			} else {
+				setView(newView);
+			}
+		};
+		window.addEventListener('popstate', onPopState);
+		return () => {
+			window.removeEventListener('popstate', onPopState);
+		};
+	}, [user]);
+
+
+	// update URL and history on view change
+	useEffect(() => {
+		if (view) {
+			const currentPath = window.location.pathname.slice(1) || 'landing';
+			if (currentPath !== view) {
+				window.history.pushState({ view }, '', `/${view}`);
+			}
+		}
+	}, [view]);
+
+	// Proactive token refresh during gameplay ONLY
+	useEffect(() => {
+		if (view !== 'game') return;
+		console.log('🎮 Game started - enabling proactive token refresh');
+		const doRefresh = async () => {
+			try {
+				await authApi.refreshJWT();
+				console.log('✅ Token refreshed proactively');
+			} catch (error) {
+				console.error('❌ Proactive refresh failed:', error);
+			}
+		};
+		doRefresh();
+		const refreshInterval = setInterval(doRefresh, AUTH_CONFIG.JWT_REFRESH_INTERVAL);
+		// initial refresh upon starting a game
+		return () => {
+			console.log('🛑 Game ended - disabling proactive refresh');
+			clearInterval(refreshInterval);
+		};
+	}, [view]);
 
 	useEffect(() => {
 		const storedError = retrieveStoredError();
@@ -19,43 +104,46 @@ function App() {
 		if (storedError) {
 			setErrorMessage(storedError.message);
 			// Auto-dismiss after 5 seconds
-			setTimeout(() => setErrorMessage(null), 5000);
+			setTimeout(() => setErrorMessage(null), ERROR_CONFIG.AUTO_DISMISS_DURATION);
+			// setting user to null, so i don't save an authenticated state if it shouldn't be
+			setUser(null);
 		}
 	}, []);
 
 	const goAuth = useCallback(() => setView("auth"), []);
 	const goHome = useCallback(() => setView("home"), []);
-	const goGameLocal = useCallback(() => setView("game-local"), []);
-	const goGameOnline = useCallback(() => setView("game-online"), []);
+	const goGame = useCallback(() => setView("game"), []);
 	const goLanding = useCallback(() => setView("landing"), []);
 
 	const handleLogout = useCallback(async () => {
 		await authApi.logout();
+		setUser(null);
 		setView("landing");
 	}, []);
+
+	// Show loading state while checking auth
+	if (view === null) {
+		return (
+			<div className="min-h-screen bg-gray-900 flex items-center justify-center">
+				<div className="text-white text-xl">Loading...</div>
+			</div>
+		);
+	}
 
 	const renderView = () => {
 		switch (view) {
 			case "landing":
-				return <LandingPage onLogin={goAuth} onLocal={goGameLocal} />;
+				return <LandingPage onLogin={goAuth} />;
 			case "auth":
 				return <AuthPage onBack={goLanding} onAuthSuccess={goHome} />;
 			case "home":
 				return (
 					<Home
-						onLocal={goGameLocal}
-						onOnline={goGameOnline}
+						onGame={goGame}
 						onLogout={handleLogout}
 					/>
 				);
-			case "game-local":
-				return (
-					<GameBoard
-						mode="local"
-						onLeave={goLanding}
-					/>
-				);
-			case "game-online":
+			case "game":
 				return (
 					<GameBoard
 						mode="online"
