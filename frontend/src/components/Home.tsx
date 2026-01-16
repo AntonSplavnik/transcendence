@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 
-export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => void; onLogout: () => void; onOnline: () => void }) {
+export default function Home({ onGame, onLogout }: { onGame: () => void; onLogout: () => void; }) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState("");
 
@@ -57,8 +57,7 @@ export default function Home({ onLocal, onLogout, onOnline }: { onLocal: () => v
 						Jump into a match immediately.
 					</p>
 					<div className="space-y-2">
-						<Button onClick={onLocal} disabled={isLoading} className="w-full">Play Local Match</Button>
-						<Button onClick={onOnline} disabled={isLoading} className="w-full">Find Online Match</Button>
+						<Button onClick={onGame} disabled={isLoading} className="w-full">Play a Match</Button>
 					</div>
 				</Card>
 

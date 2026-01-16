@@ -40,12 +40,10 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		const brief = getErrorBrief(error);
 		if (brief === 'NeedReauth') {
 			// User needs to reauthenticate with password
-			// Store error and redirect to reauth page
 			storeError(error, 'need_reauth');
-			window.location.href = '/'; // Or redirect to a reauth modal/page
 			return Promise.reject(error);
 		}
-		if (brief === 'NeedReauth' && !originalRequest._retry) {
+		if (brief === 'InvalidJWT' && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
 				await refreshJWT();
@@ -59,7 +57,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		}
 		// Other 401 errors (or retry already failed)
 		storeError(error, 'unauthorized');
-		// window.location.href = '/';
 	}
 	return Promise.reject(error);
 };
