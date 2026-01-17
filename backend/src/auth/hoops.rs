@@ -102,6 +102,7 @@ pub fn access_hoop(
             .cookie(super::JWT_COOKIE_NAME)
             .ok_or(AuthError::MissingJwtCookie)?
             .value();
+        // decoding checks expiry as well
         let claims: JwtClaims = jsonwebtoken::decode(
             jwt_token,
             jwt_decoding_key(),
@@ -124,7 +125,9 @@ pub fn access_hoop(
             return Err(AuthError::SessionMismatch.into());
         }
 
-        if session_requires_reauth(&session, chrono::Utc::now().naive_utc()) {
+        // even though this expiry is accounted for in the jwt,
+        // it might be that the session got logged out since jwt creation
+        if session.login_expiry() < chrono::Utc::now() {
             return Err(AuthError::NeedReauth.into());
         }
 
@@ -151,21 +154,4 @@ impl RouterAuthExt for Router {
                 Vec::<String>::new(),
             ))
     }
-}
-
-fn duration_cutoff(
-    now: chrono::NaiveDateTime,
-    d: std::time::Duration,
-) -> chrono::NaiveDateTime {
-    now - chrono::Duration::seconds(d.as_secs() as i64)
-}
-
-pub fn session_requires_reauth(
-    session: &Session,
-    now: chrono::NaiveDateTime,
-) -> bool {
-    let rolling_cutoff = duration_cutoff(now, super::SESSION_EXPIRY);
-    let forced_cutoff = duration_cutoff(now, super::SESSION_FORCED_EXPIRY);
-    session.refreshed_at <= rolling_cutoff
-        || session.last_authenticated_at <= forced_cutoff
 }

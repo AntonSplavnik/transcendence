@@ -53,23 +53,25 @@ fn register(
     depot: &mut Depot,
     res: &mut Response,
 ) -> JsonResult<UserSessionInfo> {
-    use crate::schema::users::dsl::*;
-    let input = json.into_inner();
-    input.validate()?;
-    let new_user = NewUser {
-        email: input.email,
-        nickname: input.nickname,
-        totp_enabled: false,
-        totp_secret_enc: None,
-        totp_confirmed_at: None,
-        password_hash: util::hash_password(&input.password)?,
-        created_at: chrono::Utc::now().naive_utc(),
+    let RegisterInput {
+        email,
+        password,
+        nickname,
+    } = {
+        let input = json.into_inner();
+        input.validate()?;
+        input
     };
+    let new_user =
+        NewUser::new(email, nickname, util::hash_password(&password)?);
     let conn = &mut db::get()?;
     // FIXME (not planned yet) account email enumeration vulnerability (need email confirmation flow)
-    let user: User = diesel::insert_into(users)
-        .values(&new_user)
-        .get_result(conn)?;
+    let user: User = {
+        use crate::schema::users::dsl::*;
+        diesel::insert_into(users)
+            .values(&new_user)
+            .get_result(conn)?
+    };
 
     let session = create_session(conn, user.id, req, depot, res)?;
     json_ok(UserSessionInfo::new(user, session))
@@ -188,20 +190,16 @@ fn rotate_session<const DO_REAUTH: bool>(
 ) -> AppResult<Session> {
     use crate::schema::sessions::dsl as sessions_dsl;
 
-    let now = chrono::Utc::now().naive_utc();
     let (device_name, ip_address) = util::get_device_and_ip(req);
     let token = SessionToken::generate();
     let hashed_token = token.to_hash();
 
-    let mut rotated = session.rotate(
+    let rotated = session.rotate::<DO_REAUTH>(
         hashed_token,
         depot.device_id().to_owned(),
         device_name,
         ip_address,
     );
-    if DO_REAUTH {
-        rotated.last_authenticated_at = now;
-    }
 
     let updated = diesel::update(
         sessions_dsl::sessions
@@ -276,12 +274,7 @@ pub(super) fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
         .first(&mut db::get()?)
         .map_err(|_| AuthError::SessionNotFound)?;
 
-    if NO_PENDING_REAUTH
-        && super::hoops::session_requires_reauth(
-            &session,
-            chrono::Utc::now().naive_utc(),
-        )
-    {
+    if NO_PENDING_REAUTH && session.login_expiry() < chrono::Utc::now() {
         return Err(AuthError::NeedReauth.into());
     }
     set_session(depot, session);

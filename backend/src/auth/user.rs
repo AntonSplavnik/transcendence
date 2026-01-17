@@ -4,7 +4,6 @@ use super::two_factor;
 use super::util;
 use crate::auth::TwoFactorError;
 use crate::auth::router::PasswordInput;
-use crate::auth::util::session_requires_reauth_at;
 use crate::models::{Session, User};
 use crate::prelude::*;
 
@@ -207,22 +206,21 @@ pub struct SessionInfo {
     pub ip_address: Option<String>,
     pub created_at: chrono::NaiveDateTime,
     pub last_used_at: chrono::NaiveDateTime,
-    pub jwt_valid_until: chrono::NaiveDateTime,
-    pub logged_in_until: chrono::NaiveDateTime,
+    pub access_expiry: chrono::NaiveDateTime,
+    pub login_expiry: chrono::NaiveDateTime,
 }
 
 impl From<&Session> for SessionInfo {
     fn from(session: &Session) -> Self {
-        let logged_in = session_requires_reauth_at(session);
         SessionInfo {
             session_id: session.id,
             user_id: session.user_id,
             device_name: session.device_name.clone(),
             ip_address: session.ip_address.clone(),
-            created_at: session.created_at,
-            last_used_at: session.last_used_at,
-            jwt_valid_until: session.refreshed_at + super::ACCESS_EXPIRY,
-            logged_in_until: logged_in.1,
+            created_at: session.created_at().naive_utc(),
+            last_used_at: session.last_used_at().naive_utc(),
+            access_expiry: session.access_expiry().naive_utc(),
+            login_expiry: session.login_expiry().naive_utc(),
         }
     }
 }
