@@ -105,3 +105,9 @@ totp-rs = { version = "5.7.0", default-features = false, features = [
 # aead cipher
 chacha20poly1305 = { version = "0.10", features = ["std"] }
 hex = "0.4"
+cxx = { version = "1.0.192", features = ["c++20"] }
+
+[build-dependencies]
+cxx-build = "1.0.192"
+pkg-config = "0.3.32"
+walkdir = "2.5.0"

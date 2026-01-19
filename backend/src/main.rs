@@ -11,6 +11,7 @@ mod auth;
 mod config;
 pub mod db;
 mod error;
+mod game_ffi;
 mod models;
 mod prelude;
 mod routers;
@@ -32,6 +33,13 @@ async fn main() -> ExitCode {
     crate::utils::limiter::periodic_rate_limit_report();
 
     tracing::info!("log level: {}", &config.log.filter_level);
+
+    let mut cpp_game = game_ffi::game_session_new();
+    cpp_game.pin_mut().tick(42);
+    tracing::info!(
+        "C++ GameSession test tick_count: {}",
+        cpp_game.tick_count()
+    );
 
     let mut router = routers::root()
         .hoop(ForceHttps::new().https_port(config.listen_https_port))
