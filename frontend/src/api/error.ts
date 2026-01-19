@@ -70,15 +70,15 @@ export function getErrorMessage(error: unknown, fallback = 'An unexpected error 
 function getMessageFromBrief(brief: string): string {
 	const briefMessages: Record<string, string> = {
 		// Session/Auth errors
-		'NeedReauth': 'Your session has expired. Please log in again.',
-		'SessionNotFound': 'Session not found. Please log in again.',
 		'MissingSessionCookie': 'Session expired. Please log in again.',
 		'InvalidSessionToken': 'Invalid session.  Please log in again.',
+		'SessionNotFound': 'Session not found. Please log in again.',
+		'SessionMismatch': 'Session mismatch. Please log in properly.',
+		'NeedReauth': 'Your session has expired. Please reauthenticate.',
 
 		// JWT errors (shouldn't normally see these - interceptor handles them)
 		'MissingJwtCookie': 'Authentication required. Please log in.',
 		'InvalidJwt': 'Your session is invalid. Please log in again.',
-		'SessionMismatch': 'Session mismatch. Please log in again.',
 
 		// Login errors
 		'InvalidCredentials': 'Invalid email or password.',

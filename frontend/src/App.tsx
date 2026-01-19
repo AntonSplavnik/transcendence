@@ -120,7 +120,6 @@ function App() {
 		setUser(null);
 		setView("landing");
 	}, []);
-
 	// Show loading state while checking auth
 	if (view === null) {
 		return (
@@ -129,7 +128,6 @@ function App() {
 			</div>
 		);
 	}
-
 	const renderView = () => {
 		switch (view) {
 			case "landing":

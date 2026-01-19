@@ -38,18 +38,24 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
+		// User needs to log in again
+		if (brief === 'MissingSessionCookie'
+			|| brief === 'InvalidSessionToken'
+			|| brief === 'SessionNotFound'
+			|| brief === 'SessionMismatch')
+			return Promise.reject(error);
 		if (brief === 'NeedReauth') {
 			// User needs to reauthenticate with password
-			storeError(error, 'need_reauth');
+			storeError(error, 'needReauth');
 			return Promise.reject(error);
 		}
-		if (brief === 'InvalidJWT' && !originalRequest._retry) {
+		if ((brief === 'InvalidJWT' || brief == 'MissingJWTCookie') && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
 				await refreshJWT();
 				return apiClient(originalRequest);
 			} catch (refreshError) {
-				storeError(refreshError, 'session_expired');
+				storeError(refreshError, 'JWT refresh error');
 				console.error('JWT refresh failed:', refreshError);
 				window.location.reload();
 				return Promise.reject(refreshError);
