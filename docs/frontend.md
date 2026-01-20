@@ -194,3 +194,7 @@ const response = await fetch("/api/user/profile", {
   },
 });
 ```
+
+## navigation
+
+I tried to centralize navigation in App.tsx and in the function setNavTarget in errors.ts. therefore all redirects should be managed there.
