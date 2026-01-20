@@ -105,10 +105,13 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 							<div className="relative">
 								<User size={18} className="absolute left-3 top-3 text-wood-500" />
 								<input
+									id="username"
+									name="username"
+									autoComplete="username"
 									type="text"
 									value={username}
 									onChange={(e) => setUsername(e.target.value)}
-									placeholder="Sir Woodalot"
+									placeholder="Sir_Woodalot"
 									className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus: outline-none focus:border-primary"
 									required
 								/>
@@ -121,7 +124,10 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						<div className="relative">
 							<Mail size={18} className="absolute left-3 top-3 text-wood-500" />
 							<input
-								type="text"
+								id="email"
+								name="email"
+								autoComplete="email"
+								type="email"
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								placeholder="you@kingdom.com"
@@ -136,10 +142,11 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						<div className="relative">
 							<Lock size={18} className="absolute left-3 top-3 text-wood-500" />
 							<input
-								ref={passwordRef}
 								type="password"
+								name="password"
+								ref={passwordRef}
 								placeholder="••••••••"
-								className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus: border-primary"
+								className="w-full bg-wood-900 border border-wood-700 rounded p-2.5 pl-10 text-wood-100 focus:outline-none focus:border-primary transition-colors duration-200"
 								autoComplete={isLogin ? "current-password" : "new-password"}
 								required
 							/>
@@ -157,7 +164,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						{isLogin ? "New here?  " : "Already have an account?  "}
 					</span>
 					<button
-						onClick={() => setIsLogin(!isLogin)}
+						type="button" onClick={() => setIsLogin(!isLogin)}
 						className="text-primary hover: text-primary-hover font-semibold underline"
 					>
 						{isLogin ? "Create an account" : "Sign in"}
@@ -165,7 +172,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 				</div>
 
 				<div className="mt-8 border-t border-wood-700 pt-4 text-center">
-					<button onClick={onBack} className="text-wood-400 hover: text-wood-100 text-sm">
+					<button type="button" onClick={onBack} className="text-wood-400 hover: text-wood-100 text-sm">
 						← Back to Menu
 					</button>
 				</div>
