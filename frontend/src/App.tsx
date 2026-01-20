@@ -5,7 +5,7 @@ import AuthPage from "./components/AuthPage";
 import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
 import * as authApi from "./api/auth";
-import { retrieveStoredError } from './api/error';
+import { retrieveStoredError, getNavigationTarget } from './api/error';
 import type { User } from "./api/types";
 import { AUTH_CONFIG, VIEW_CONFIG, ERROR_CONFIG } from './config/constants';
 
@@ -29,14 +29,34 @@ function App() {
 				} catch (error) {
 					console.log('User not authenticated, redirecting to landing page.');
 					setUser(null);
-					setView('landing');
-					window.history.replaceState(null, '', '/landing');
+					setView('auth');
+					window.history.replaceState(null, '', '/auth');
 				}
 			} else {
 				setView(lastView);
 			}
 		}
 		checkAuth();
+	}, []);
+
+	// Error handling and navigation on error
+	useEffect(() => {
+		const storedError = retrieveStoredError();
+		if (storedError) {
+			console.log(`📋 Stored error detected: ${storedError.type}`);
+			const navTarget = getNavigationTarget(storedError.type);
+			if (navTarget) {
+				console.log(`🧭 Navigating to:  ${navTarget}`);
+				setUser(null);
+				setView(navTarget);
+				window.history.replaceState(null, '', `/${navTarget}`);
+				setErrorMessage(storedError.message);
+				setTimeout(() => setErrorMessage(null), ERROR_CONFIG.AUTO_DISMISS_DURATION);
+			} else {
+				setErrorMessage(storedError.message);
+				setTimeout(() => setErrorMessage(null), ERROR_CONFIG.AUTO_DISMISS_DURATION);
+			}
+		}
 	}, []);
 
 	// handle browser navigation (back/forward)
@@ -65,7 +85,6 @@ function App() {
 			window.removeEventListener('popstate', onPopState);
 		};
 	}, [user]);
-
 
 	// update URL and history on view change
 	useEffect(() => {
@@ -98,18 +117,6 @@ function App() {
 		};
 	}, [view]);
 
-	useEffect(() => {
-		const storedError = retrieveStoredError();
-
-		if (storedError) {
-			setErrorMessage(storedError.message);
-			// Auto-dismiss after 5 seconds
-			setTimeout(() => setErrorMessage(null), ERROR_CONFIG.AUTO_DISMISS_DURATION);
-			// setting user to null, so i don't save an authenticated state if it shouldn't be
-			setUser(null);
-		}
-	}, []);
-
 	const goAuth = useCallback(() => setView("auth"), []);
 	const goHome = useCallback(() => setView("home"), []);
 	const goGame = useCallback(() => setView("game"), []);
@@ -135,19 +142,9 @@ function App() {
 			case "auth":
 				return <AuthPage onBack={goLanding} onAuthSuccess={goHome} />;
 			case "home":
-				return (
-					<Home
-						onGame={goGame}
-						onLogout={handleLogout}
-					/>
-				);
+				return (<Home onGame={goGame} onLogout={handleLogout} />);
 			case "game":
-				return (
-					<GameBoard
-						mode="online"
-						onLeave={goHome}
-					/>
-				);
+				return (<GameBoard mode="online" onLeave={goHome} />);
 			default:
 				const _exhaustiveCheck: never = view;
 				return _exhaustiveCheck;
