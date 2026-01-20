@@ -19,7 +19,8 @@ function App() {
 	// Check auth status on mount
 	useEffect(() => {
 		async function checkAuth() {
-			const urlPath = window.location.pathname.slice(1) || 'landing';
+			// has to use slice at 2 to get rid of / and #
+			const urlPath = window.location.pathname.slice(2) || 'landing';
 			const lastView = (urlPath as View) || 'landing';
 			if (VIEW_CONFIG.PROTECTED_VIEWS.includes(lastView as any)) {
 				try {
@@ -30,7 +31,7 @@ function App() {
 					console.log('User not authenticated, redirecting to landing page.');
 					setUser(null);
 					setView('auth');
-					window.history.replaceState(null, '', '/auth');
+					window.history.replaceState(null, '', '/#auth');
 				}
 			} else {
 				setView(lastView);
@@ -49,7 +50,7 @@ function App() {
 				console.log(`🧭 Navigating to:  ${navTarget}`);
 				setUser(null);
 				setView(navTarget);
-				window.history.replaceState(null, '', `/${navTarget}`);
+				window.history.replaceState(null, '', `/#${navTarget}`);
 				setErrorMessage(storedError.message);
 				setTimeout(() => setErrorMessage(null), ERROR_CONFIG.AUTO_DISMISS_DURATION);
 			} else {
@@ -63,7 +64,7 @@ function App() {
 	useEffect(() => {
 		const onPopState = async (event: PopStateEvent) => {
 			const newView = (event.state?.view as View) ||
-				(window.location.pathname.slice(1) as View) ||
+				(window.location.pathname.slice(2) as View) ||
 				('landing');
 			console.log('Navigated to view:', newView);
 			if (VIEW_CONFIG.PROTECTED_VIEWS.includes(newView as any)) {
@@ -89,9 +90,9 @@ function App() {
 	// update URL and history on view change
 	useEffect(() => {
 		if (view) {
-			const currentPath = window.location.pathname.slice(1) || 'landing';
+			const currentPath = window.location.pathname.slice(2) || 'landing';
 			if (currentPath !== view) {
-				window.history.pushState({ view }, '', `/${view}`);
+				window.history.pushState({ view }, '', `/#${view}`);
 			}
 		}
 	}, [view]);
