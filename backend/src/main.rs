@@ -26,6 +26,9 @@ use crate::config::{ServerConfig, TlsConfig};
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // salvo wont compile without this for now, hoping they upstream a fix in the future
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let _ = dotenvy::dotenv();
     crate::config::init();
     let config = crate::config::get();
