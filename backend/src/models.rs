@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
+use diesel_derive_newtype::DieselNewType;
 use salvo::oapi::ToSchema;
 use serde::Serialize;
 
@@ -218,6 +219,182 @@ impl NewSession {
             refreshed_at: now,
             last_used_at: now,
             last_authenticated_at: now,
+        }
+    }
+}
+
+diesel_i32_enum! {
+    #[derive(Serialize, serde::Deserialize)]
+    pub enum ChatRoomType {
+        Global,
+        Public,
+        InviteOnly,
+        Dm,
+    }
+}
+
+/// Direct Message Key
+///
+/// Internal use only to identify DM chat rooms between two users.
+/// Format: "min_user_id:max_user_id"
+#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, ToSchema, Clone)]
+pub struct DmKey(String);
+
+impl DmKey {
+    pub fn new(users: (i32, i32)) -> Self {
+        DmKey({
+            let (min_user, max_user) = if users.0 < users.1 {
+                (users.0, users.1)
+            } else {
+                (users.1, users.0)
+            };
+            format!("{}:{}", min_user, max_user)
+        })
+    }
+
+    pub fn users(&self) -> (i32, i32) {
+        let parts: (&str, &str) = self
+            .0
+            .split_once(':')
+            .expect("String should be delimited by ':'");
+        let user1 = parts.0.parse::<i32>().unwrap();
+        let user2 = parts.1.parse::<i32>().unwrap();
+        (user1, user2)
+    }
+}
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, ToSchema, Debug, Clone, Serialize)]
+#[diesel(table_name = crate::schema::chat_rooms)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ChatRoom {
+    pub id: i32,
+    pub name: Option<String>,
+    pub chat_type: ChatRoomType,
+    #[serde(skip)]
+    pub dm_key: Option<DmKey>,
+    created_at: NaiveDateTime,
+}
+
+impl ChatRoom {
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
+}
+
+impl NewChatRoom {
+    pub fn new_dm(users: (i32, i32), created_at: DateTime<Utc>) -> Self {
+        Self {
+            name: None,
+            chat_type: ChatRoomType::Dm,
+            dm_key: Some(DmKey::new(users)),
+            created_at: created_at.naive_utc(),
+        }
+    }
+}
+
+#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[diesel(table_name = crate::schema::chat_members)]
+#[diesel(belongs_to(User))]
+#[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ChatMember {
+    #[serde(skip)]
+    pub room_id: i32,
+    pub user_id: i32,
+    pub is_admin: bool,
+    pub last_read_message_id: Option<i32>,
+    joined_at: NaiveDateTime,
+}
+
+impl ChatMember {
+    pub fn joined_at(&self) -> DateTime<Utc> {
+        self.joined_at.and_utc()
+    }
+
+    pub fn new(
+        room_id: i32,
+        user_id: i32,
+        is_admin: bool,
+        joined_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            room_id,
+            user_id,
+            is_admin,
+            last_read_message_id: None,
+            joined_at: joined_at.naive_utc(),
+        }
+    }
+}
+
+#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[diesel(table_name = crate::schema::chat_join_filters)]
+#[diesel(belongs_to(User))]
+#[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ChatJoinFilter {
+    #[serde(skip)]
+    pub room_id: i32,
+    pub user_id: i32,
+    /// user who created the filter
+    pub actor_id: i32,
+    created_at: NaiveDateTime,
+}
+
+impl ChatJoinFilter {
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
+
+    pub fn new(
+        room_id: i32,
+        user_id: i32,
+        actor_id: i32,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            room_id,
+            user_id,
+            actor_id,
+            created_at: created_at.naive_utc(),
+        }
+    }
+}
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[diesel(table_name = crate::schema::chat_messages)]
+#[diesel(belongs_to(User, foreign_key = sender_id))]
+#[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ChatMessage {
+    pub id: i32,
+    #[serde(skip)]
+    pub room_id: i32,
+    pub sender_id: i32,
+    pub content: String,
+    created_at: NaiveDateTime,
+}
+
+impl ChatMessage {
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
+}
+
+impl NewChatMessage {
+    pub fn new(
+        room_id: i32,
+        sender_id: i32,
+        content: String,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            room_id,
+            sender_id,
+            content,
+            created_at: created_at.naive_utc(),
         }
     }
 }
