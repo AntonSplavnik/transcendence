@@ -27,12 +27,19 @@ fn get_nickname(user_id: i32) -> Option<String> {
     nick.or_else(|| {
         use crate::schema::users::dsl::*;
         let conn = &mut db::get().ok()?;
-        users
+        match users
             .filter(id.eq(user_id))
             .select(nickname)
-            .first(conn)
+            .first::<String>(conn)
             .optional()
             .ok()?
+        {
+            Some(nick) => {
+                LRU.lock().insert(user_id, nick.clone());
+                Some(nick)
+            }
+            None => None,
+        }
     })
 }
 
