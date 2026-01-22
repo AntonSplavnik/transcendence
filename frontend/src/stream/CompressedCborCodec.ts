@@ -52,7 +52,7 @@ export const DEFAULT_ZSTD_LEVEL = 3;
  * We enforce it on the client encoder side to fail fast and to avoid producing
  * frames the backend would reject.
  */
-export const DEFAULT_ENCODE_FRAME_BYTES_LIMIT = 8 * 1024 * 1024;
+export const DEFAULT_MAX_ENCODE_FRAME_BYTES = 8 * 1024 * 1024;
 
 /**
  * Hard upper bound for decoding a single frame: 64 MiB.
