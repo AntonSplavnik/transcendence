@@ -309,7 +309,7 @@ impl PendingConnectionGuard {
     /// Otherwise, this will lead to a memory leak.
     fn disarm(self) {
         // consume self, so that the drop impl of Self is not called
-        // could use std::mem::forget(self) either, as long as the inner value isnt heap allocated.
+        // could use std::mem::forget(self) as well, as long as the inner value isn't heap allocated.
         // This is safer in the case the inner variable changes in the future.
         let _ = self.0;
     }
