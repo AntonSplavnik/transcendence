@@ -18,7 +18,7 @@ jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
-salvo = { version = "0.85", features = [
+salvo = { version = "0.88", features = [
 	"anyhow",
 	"acme",
 	"force-https",
@@ -32,7 +32,7 @@ salvo = { version = "0.85", features = [
 	"timeout",
 ] }
 # serialization and deserialization library
-serde = "1"
+serde = { version = "1", features = ["derive", "rc"] }
 # easier error types
 thiserror = "2"
 chrono = { version = "0.4", features = ["serde"] }
@@ -86,8 +86,6 @@ dashmap = "6"
 woothee = "0.13.0"
 # fast (but DOS-resistant) hashing
 ahash = "0.8.12"
-# in-memory caching
-quick_cache = "0.6.18"
 # efficient rate-limiting
 pingora-limits = "0.6.0"
 # dependency for h3-quinn (just need an error type from it)
@@ -105,3 +103,7 @@ totp-rs = { version = "5.7.0", default-features = false, features = [
 # aead cipher
 chacha20poly1305 = { version = "0.10", features = ["std"] }
 hex = "0.4"
+diesel-derive-newtype = "2.1.2"
+parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
+schnellru = "0.2.4"
+circular-buffer = "1.2.0"
