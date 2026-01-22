@@ -38,7 +38,7 @@ import { decode as cborDecode, encode as cborEncode } from 'cbor-x';
  * Minimum CBOR payload size (bytes) before applying Zstd compression.
  * On the client side, we use a default of 512 bytes because
  * - We don't need to be that careful about compute resources (unlike on the server).
- * - Upload Bandwith is often a lot more constrained for clients.
+ * - Upload Bandwidth is often a lot more constrained for clients.
  */
 export const DEFAULT_COMPRESS_THRESHOLD = 512;
 
