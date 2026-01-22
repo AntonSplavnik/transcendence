@@ -221,7 +221,7 @@ export class CompressedCborEncoder {
  * Incremental streaming decoder.
  *
  * Usage:
- *   await initZstd(); // recommended once during startup
+ *   await initZstd(); // required before sending/receiving compressed frames
  *   const dec = new CompressedCborDecoder<MyMsg>();
  *   const msgs = dec.push(chunkFromWebTransport);
  */
