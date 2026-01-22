@@ -1,10 +1,10 @@
-use std::{hash::BuildHasher, num::NonZeroUsize, sync::LazyLock};
+use std::sync::LazyLock;
 
 use parking_lot::Mutex;
-use schnellru::{ByLength, ByMemoryUsage, LruMap};
+use schnellru::{ByLength, LruMap};
 
 use crate::{
-    models::{ChatJoinFilter, ChatMember, ChatMessage, ChatRoomType},
+    models::{ChatMember, ChatMessage, ChatRoomType},
     prelude::*,
 };
 

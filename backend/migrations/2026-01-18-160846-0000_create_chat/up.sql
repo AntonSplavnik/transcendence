@@ -22,12 +22,13 @@ CREATE TABLE chat_members (
 CREATE TABLE chat_join_filters (
 	room_id INTEGER NOT NULL,
 	user_id INTEGER NOT NULL,
-	actor_id INTEGER NOT NULL,
+	actor_id INTEGER,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY (room_id, user_id),
 	FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
 	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-	FOREIGN KEY (actor_id) REFERENCES users(id)
+	FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE
+	SET NULL
 );
 CREATE TABLE chat_messages (
 	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

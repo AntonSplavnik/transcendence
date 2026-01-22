@@ -252,14 +252,15 @@ impl DmKey {
         })
     }
 
-    pub fn users(&self) -> (i32, i32) {
+    /// Only returns None, if the string from database is malformed
+    pub fn users(&self) -> Option<(i32, i32)> {
         let parts: (&str, &str) = self
             .0
             .split_once(':')
             .expect("String should be delimited by ':'");
-        let user1 = parts.0.parse::<i32>().unwrap();
-        let user2 = parts.1.parse::<i32>().unwrap();
-        (user1, user2)
+        let user1 = parts.0.parse::<i32>().ok()?;
+        let user2 = parts.1.parse::<i32>().ok()?;
+        Some((user1, user2))
     }
 }
 
@@ -293,7 +294,9 @@ impl NewChatRoom {
     }
 }
 
-#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[derive(
+    Queryable, Selectable, Insertable, Associations, Debug, Clone, Serialize,
+)]
 #[diesel(table_name = crate::schema::chat_members)]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
@@ -328,7 +331,9 @@ impl ChatMember {
     }
 }
 
-#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[derive(
+    Queryable, Selectable, Insertable, Associations, Debug, Clone, Serialize,
+)]
 #[diesel(table_name = crate::schema::chat_join_filters)]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
@@ -338,7 +343,7 @@ pub struct ChatJoinFilter {
     pub room_id: i32,
     pub user_id: i32,
     /// user who created the filter
-    pub actor_id: i32,
+    pub actor_id: Option<i32>,
     created_at: NaiveDateTime,
 }
 
@@ -356,7 +361,7 @@ impl ChatJoinFilter {
         Self {
             room_id,
             user_id,
-            actor_id,
+            actor_id: Some(actor_id),
             created_at: created_at.naive_utc(),
         }
     }

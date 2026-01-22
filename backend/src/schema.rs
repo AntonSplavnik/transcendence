@@ -4,7 +4,7 @@ diesel::table! {
     chat_join_filters (room_id, user_id) {
         room_id -> Integer,
         user_id -> Integer,
-        actor_id -> Integer,
+        actor_id -> Nullable<Integer>,
         created_at -> Timestamp,
     }
 }
