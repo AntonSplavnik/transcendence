@@ -146,7 +146,7 @@ export interface EncoderOptions {
 	 * This is a client-side safety/guardrail for *outgoing* frames.
 	 * If set and the encoded `total_len` would exceed this size, `encode()` throws.
 	 *
-	 * Default: `MAX_ENCODE_FRAME_BYTES`.
+	 * Default: `DEFAULT_MAX_ENCODE_FRAME_BYTES`.
 	 */
 	maxFrameBytes?: number;
 }
@@ -174,7 +174,7 @@ export class CompressedCborEncoder {
 		this.compressThreshold =
 			options.compressThreshold ?? DEFAULT_COMPRESS_THRESHOLD;
 		this.zstdLevel = options.zstdLevel ?? DEFAULT_ZSTD_LEVEL;
-		this.maxFrameBytes = options.maxFrameBytes ?? DEFAULT_ENCODE_FRAME_BYTES_LIMIT;
+		this.maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_ENCODE_FRAME_BYTES;
 	}
 
 	/**
