@@ -8,6 +8,7 @@ use salvo::server::ServerHandle;
 use tokio::signal;
 
 mod auth;
+mod chat;
 mod config;
 pub mod db;
 mod error;
