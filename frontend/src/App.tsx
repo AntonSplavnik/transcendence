@@ -6,14 +6,14 @@ import Home from "./components/Home";
 import Layout from "./components/ui/Layout";
 import * as authApi from "./api/auth";
 import { retrieveStoredError, getNavigationTarget } from './api/error';
-import type { User } from "./api/types";
+import type { UserInfo } from "./api/types";
 import { AUTH_CONFIG, VIEW_CONFIG, ERROR_CONFIG } from './config/constants';
 
 type View = "auth" | "game" | "home" | "landing";
 
 function App() {
 	const [view, setView] = useState<View | null>(null);
-	const [user, setUser] = useState<User | null>(null);
+	const [user, setUser] = useState<UserInfo | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	// Check auth status on mount
@@ -105,6 +105,7 @@ function App() {
 			try {
 				await authApi.refreshJWT();
 				console.log('✅ Token refreshed proactively');
+				// TODO: if SessionInfo access_expiry is less than 4h away refresh session
 			} catch (error) {
 				console.error('❌ Proactive refresh failed:', error);
 			}

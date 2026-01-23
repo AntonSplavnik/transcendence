@@ -5,10 +5,10 @@
 ├── React (UI framework)
 ├── Vite (build tool)
 ├── Tailwind CSS (styling)
-├── WebSocket/Socket.io (connection to Rust backend)
+├── WebTransport, native Browser API (real-time connection to the Rust backend)
 └── TypeScript (language)
 
-#### why we chose this stack
+### why we chose this stack
 
 React: Popular, component-based UI library with a large ecosystem. Good for building interactive UIs. Especially good for our usecase since we wanted to combine 3D graphics with UI elements.
 
@@ -87,6 +87,20 @@ npm run dev
 
 ### Development and Testing with the Backend
 
+i have set up a command that can be executed when inside frontend/:
+
+```
+npm run all
+```
+
+this runs the frontend on:
+<http://localhost:5173/>
+(access the dynamic frontend here to see changes immeadiatly)
+
+and the backend on
+<https://127.0.0.1:8443/>
+(access the backed api documentation here and the statically compiled website)
+
 Development: Run Rust (cargo run) AND React (npm run dev) separately. The Proxy connects them.
 
 ```
@@ -159,7 +173,7 @@ App.tsx is your app UI/logic composer, written as a React component.
 ### Bablylon.js (3D engine)
 
 Babylon.js is a powerful, open-source 3D engine for building games and interactive experiences in the browser using WebGL.
-We need it to make simpify writing our games graphics, the physics engine, camera controls, lighting, and asset management.
+We need it to make simplify writing our games graphics, the physics engine, camera controls, lighting, and asset management.
 to display it I can manually wrap it in a react component. There is also the option of downloading react-bablylonjs, but that adds another layer. The other way is more responsive, although integration with react state management is more work.
 
 Babylon needs an HTMLCanvasElement to create a WebGL context and render.
@@ -181,20 +195,24 @@ react uses a synthetic event system that wraps native browser events to provide 
 
 ## Authentication on the frontend
 
-Use Token for Future Requests:
+We get a jwt token when registering or logging in. this has to be sent with every request.
 
-```jsx
-// When user wants to access protected data:
-const token = localStorage.getItem("authToken");
-
-const response = await fetch("/api/user/profile", {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${token}`, // ← Send token to prove identity
-  },
+```typescript
+const apiClient = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
 });
 ```
+
+no need to write withCredentials on any other api call
+
+This needs to be refreshed every 15 minutes.
 
 ## navigation
 
 I tried to centralize navigation in App.tsx and in the function setNavTarget in errors.ts. therefore all redirects should be managed there.
+
+## Add api calls
+
+in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the fucntions there (e.g nicknameExists)
+then import and use them in your components.
