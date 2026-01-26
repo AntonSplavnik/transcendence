@@ -162,3 +162,51 @@ impl NewSession {
         }
     }
 }
+
+/// Large avatar (450x450, AVIF format)
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::avatars_large)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct AvatarLarge {
+    pub user_id: i32,
+    pub data: Vec<u8>,
+    pub updated_at: NaiveDateTime,
+}
+
+impl AvatarLarge {
+    pub fn new(user_id: i32, data: Vec<u8>) -> Self {
+        Self {
+            user_id,
+            data,
+            updated_at: chrono::Utc::now().naive_utc(),
+        }
+    }
+
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at.and_utc()
+    }
+}
+
+/// Small avatar (200x200, AVIF format)
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::avatars_small)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct AvatarSmall {
+    pub user_id: i32,
+    pub data: Vec<u8>,
+    pub updated_at: NaiveDateTime,
+}
+
+impl AvatarSmall {
+    pub fn new(user_id: i32, data: Vec<u8>) -> Self {
+        Self {
+            user_id,
+            data,
+            updated_at: chrono::Utc::now().naive_utc(),
+        }
+    }
+
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at.and_utc()
+    }
+}

@@ -4,6 +4,7 @@ use salvo::prelude::*;
 use thiserror::Error;
 
 use crate::auth::{AuthError, TwoFactorError};
+use crate::avatar::validate::AvatarValidationError;
 use crate::stream::StreamApiError;
 
 #[derive(Error, Debug)]
@@ -18,6 +19,7 @@ pub enum ApiError {
     Jwt(#[from] jsonwebtoken::errors::Error),
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
+    Avatar(#[from] AvatarValidationError),
 }
 
 impl Scribe for ApiError {
@@ -127,6 +129,12 @@ impl Scribe for ApiError {
             Self::Stream(err) => {
                 tracing::error!(error = ?err, "Stream API error");
                 StatusError::bad_request().brief(err.to_string())
+            }
+            Self::Avatar(err) => match err {
+                AvatarValidationError::NotFound => {
+                    StatusError::not_found().brief("Avatar not found")
+                }
+                _ => StatusError::bad_request().brief(err.to_string()),
             }
         };
 

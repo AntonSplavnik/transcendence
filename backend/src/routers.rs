@@ -14,6 +14,7 @@ pub fn root() -> Router {
             crate::auth::router("auth"),
             crate::auth::user_router("user"),
             users::router("users"),
+            crate::avatar::router("avatar"),
             crate::stream::router("stream"),
         ]);
     let api_routes = Router::new()

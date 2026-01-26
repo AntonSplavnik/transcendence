@@ -1,6 +1,22 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    avatars_large (user_id) {
+        user_id -> Integer,
+        data -> Binary,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    avatars_small (user_id) {
+        user_id -> Integer,
+        data -> Binary,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     sessions (id) {
         id -> Integer,
         user_id -> Integer,
@@ -38,7 +54,15 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(avatars_large -> users (user_id));
+diesel::joinable!(avatars_small -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(sessions, two_fa_recovery_codes, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    avatars_large,
+    avatars_small,
+    sessions,
+    two_fa_recovery_codes,
+    users,
+);
