@@ -301,6 +301,20 @@ impl Drop for PendingConnectionGuard {
     }
 }
 
+impl PendingConnectionGuard {
+    /// Prevent the guard from cleaning up the pending connection.
+    ///
+    /// Only use, if we are sure that the pending connection has been
+    /// taken from the map already (e.g., after awaiting the session receiver).
+    /// Otherwise, this will lead to a memory leak.
+    fn disarm(self) {
+        // consume self, so that the drop impl of Self is not called
+        // could use std::mem::forget(self) as well, as long as the inner value isn't heap allocated.
+        // This is safer in the case the inner variable changes in the future.
+        let _ = self.0;
+    }
+}
+
 /// Global manager for WebTransport client connections.
 ///
 /// Maintains a registry of connected users and their command channels,
@@ -319,20 +333,14 @@ pub struct StreamManager {
 }
 
 impl StreamManager {
-    /// DO NOT USE THIS
-    /// INSTEAD USE StreamManager::global()
-    fn new() -> Self {
-        Self {
-            pending_connections: DashMap::default(),
-            connections: DashMap::default(),
-            connection_id_counter: AtomicU64::new(0),
-        }
-    }
-
     /// Get the global StreamManager instance.
     pub fn global() -> &'static Self {
         static INSTANCE: LazyLock<StreamManager> =
-            LazyLock::new(StreamManager::new);
+            LazyLock::new(|| StreamManager {
+                pending_connections: DashMap::default(),
+                connections: DashMap::default(),
+                connection_id_counter: AtomicU64::new(0),
+            });
         &INSTANCE
     }
 
@@ -639,15 +647,15 @@ pub async fn connect_stream(
 
     // Register this connection (replaces any existing connection for this user)
     let manager = StreamManager::global();
-    let (session_rx, pending_key) = manager.register_pending();
-    let connection_id = pending_key.connection_id;
+    let (session_rx, pending_key_guard) = manager.register_pending();
+    let connection_id = pending_key_guard.connection_id;
     // Open control stream with initial message
     let (control_tx, control_rx) = {
         let (tx, rx) = BidiStream::split(wt_session.open_bi(session_id).await?);
         frame_stream::<(), (), CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
             tx,
             rx,
-            StreamType::Ctrl(*pending_key),
+            StreamType::Ctrl(*pending_key_guard),
         )
         .await
         .context("pending connection")?
@@ -663,9 +671,7 @@ pub async fn connect_stream(
             .context(
                 "pending connection was dropped while waiting for bind/auth",
             )?;
-    // safety: no cleanup necessary anymore ->
-    // receiving this session means the pending entry was taken from the map already
-    std::mem::forget(pending_key);
+    pending_key_guard.disarm();
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
     let connection_id = manager.register(&user_session, cmd_tx, connection_id);
