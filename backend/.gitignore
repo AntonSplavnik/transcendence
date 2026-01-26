@@ -1,7 +1,11 @@
 /target
 /migration/target
+/data
 
 # Local environment (may contain secrets)
 .env
 .env.*
 !.env.example
+
+*.sqlite
+diesel.sqlite
