@@ -12,6 +12,12 @@ diesel::table! {
     avatars_small (user_id) {
         user_id -> Integer,
         data -> Binary,
+    friend_requests (id) {
+        id -> Integer,
+        sender_id -> Integer,
+        receiver_id -> Integer,
+        status -> Text,
+        created_at -> Timestamp,
         updated_at -> Timestamp,
     }
 }
@@ -62,6 +68,7 @@ diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
+    friend_requests,
     sessions,
     two_fa_recovery_codes,
     users,

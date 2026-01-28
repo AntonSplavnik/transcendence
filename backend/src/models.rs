@@ -188,6 +188,23 @@ impl AvatarLarge {
         }
     }
 
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::friend_requests)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct FriendRequest {
+    pub id: i32,
+    pub sender_id: i32,
+    pub receiver_id: i32,
+    pub status: String,
+    created_at: NaiveDateTime,
+    updated_at: NaiveDateTime,
+}
+
+impl FriendRequest {
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at.and_utc()
     }
@@ -214,5 +231,16 @@ impl AvatarSmall {
 
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at.and_utc()
+    }
+impl NewFriendRequest {
+    pub fn new(sender_id: i32, receiver_id: i32) -> Self {
+        let now = chrono::Utc::now().naive_utc();
+        Self {
+            sender_id,
+            receiver_id,
+            status: "pending".to_string(),
+            created_at: now,
+            updated_at: now,
+        }
     }
 }

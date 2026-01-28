@@ -28,7 +28,7 @@ pub fn router(path: &str) -> Router {
         )
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PublicUser {
     pub id: i32,
     pub nickname: Nickname,

@@ -344,6 +344,7 @@ impl StreamManager {
         tx: mpsc::Sender<ConnectionCommand>,
         connection_id: u64,
     ) -> u64 {
+        let was_connected = self.connections.contains_key(&session.user_id);
         self.connections.insert(
             session.user_id,
             ConnectionEntry::new(session, connection_id, tx),
@@ -353,6 +354,15 @@ impl StreamManager {
             connection_id,
             "Registered WebTransport connection"
         );
+
+        // Notify friends that user is online (only if they weren't already connected)
+        if !was_connected {
+            let user_id = session.user_id;
+            tokio::spawn(async move {
+                super::notifications::notify_friends_user_online(user_id).await;
+            });
+        }
+
         connection_id
     }
 
@@ -401,8 +411,14 @@ impl StreamManager {
             matches
         });
         match opt_removed {
-            Some(conn) => {
-                conn.1.unregister_task.abort();
+            Some((removed_user_id, entry)) => {
+                entry.unregister_task.abort();
+
+                // Notify friends that user is offline
+                tokio::spawn(async move {
+                    super::notifications::notify_friends_user_offline(removed_user_id).await;
+                });
+
                 true
             }
             None => false,
