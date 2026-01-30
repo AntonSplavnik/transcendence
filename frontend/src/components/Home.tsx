@@ -19,7 +19,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
 
-	// authentification guard from context
+	// authentication guard from context
 	if (!user || !session) {
 		return (
 			<main className="p-6 max-w-4xl mx-auto w-full">

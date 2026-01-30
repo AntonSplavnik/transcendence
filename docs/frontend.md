@@ -99,7 +99,7 @@ this runs the frontend on:
 
 and the backend on
 <https://127.0.0.1:8443/>
-(access the backed api documentation here and the statically compiled website)
+(access the backend api documentation here and the statically compiled website)
 
 Development: Run Rust (cargo run) AND React (npm run dev) separately. The Proxy connects them.
 
@@ -222,7 +222,7 @@ then import and use them in your components.
 new library:
 react-router-dom
 
-since we need to do hash navigation (because of how backend redirection work) and need url changes for the history to function, i decided to go with another library to keep our code clean and lean, rather than implementing a small verison of this myself. this also is the industry stadard as of now.
+since we need to do hash navigation (because of how backend redirection work) and need url changes for the history to function, i decided to go with another library to keep our code clean and lean, rather than implementing a small verison of this myself. this also is the industry standard as of now.
 
 Also there now is a context: AuthContext that holds the user state and functions to login, logout, register, and check authentication status.
 This is on top of the api functions implemented in api/auth.ts
