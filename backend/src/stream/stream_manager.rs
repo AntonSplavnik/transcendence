@@ -401,8 +401,8 @@ impl StreamManager {
             matches
         });
         match opt_removed {
-            Some((_removed_user_id, entry)) => {
-                entry.unregister_task.abort();
+            Some(conn) => {
+                conn.1.unregister_task.abort();
                 true
             }
             None => false,
