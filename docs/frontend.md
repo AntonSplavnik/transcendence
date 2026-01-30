@@ -170,7 +170,7 @@ App.tsx is your app UI/logic composer, written as a React component.
 | Axios       | HTTP client  | Makes API calls (if you add it) |
 | ESLint      | Linter       | Finds code issues               |
 
-### Bablylon.js (3D engine)
+### Babylon.js (3D engine)
 
 Babylon.js is a powerful, open-source 3D engine for building games and interactive experiences in the browser using WebGL.
 We need it to make simplify writing our games graphics, the physics engine, camera controls, lighting, and asset management.
