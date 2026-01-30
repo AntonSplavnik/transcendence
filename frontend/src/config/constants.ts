@@ -24,7 +24,3 @@ export const AUTH_CONFIG = {
 export const VIEW_CONFIG = {
 	PROTECTED_VIEWS: ['home', 'game'] as const,
 } as const;
-
-export const ERROR_CONFIG = {
-	AUTO_DISMISS_DURATION: 5000,
-} as const;

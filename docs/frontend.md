@@ -269,3 +269,21 @@ const handleSubmit = async () => {
   onAuthSuccess();                // ← Triggers navigation
 };
 ```
+
+### how to expand the codebase
+
+```
+// ✅ Use AuthContext
+const { user, session, login, register, logout } = useAuth();
+
+// ✅ Use API functions (wrapped by context)
+await login(email, password);
+await logout();
+
+// ✅ Use navigation callbacks
+onLogout();  // From AppRoutes
+navigate('/home');
+
+// ✅ Global error handling
+// ErrorBanner only in AppRoutes
+```

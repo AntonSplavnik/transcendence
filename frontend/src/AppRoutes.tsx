@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { retrieveStoredError, getNavigationTarget } from './api/error';
+import type { StoredError } from './api/error';
 import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
 import Home from './components/Home';
@@ -24,15 +25,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function AppRoutes() {
 	const { logout } = useAuth();
 	const navigate = useNavigate();
+	const [currentError, setCurrentError] = useState<StoredError | null>(null);
 
 	useEffect(() => {
 		const storedError = retrieveStoredError();
 		if (storedError) {
 			console.log(`📋 Stored error: ${storedError.type}`);
+			setCurrentError(storedError);
 			const navTarget = getNavigationTarget(storedError.type);
 			if (navTarget) {
 				// clearAuth not needed because cleared by getMe failure
-				// clearAuth();
 				navigate(`/${navTarget}`, { replace: true });
 			}
 		}
@@ -49,7 +51,7 @@ export default function AppRoutes() {
 
 	return (
 		<Layout>
-			<ErrorBanner />
+			<ErrorBanner error={currentError} onDismiss={() => setCurrentError(null)} />
 			<Routes>
 				<Route path="/landing" element={<LandingPage onLogin={() => navigate('/auth')} />} />
 				<Route path="/auth" element={<AuthPage onBack={() => navigate('/landing')} onAuthSuccess={handleAuthSuccess} />} />
