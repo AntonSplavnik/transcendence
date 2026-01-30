@@ -2,7 +2,7 @@ CREATE TABLE friend_requests (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     sender_id INTEGER NOT NULL,
     receiver_id INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,

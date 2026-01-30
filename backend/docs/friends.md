@@ -28,21 +28,18 @@ CREATE TABLE friend_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     CHECK (sender_id != receiver_id)
 );
 ```
 
-Indexes on `(receiver_id, status)`, `(sender_id, status)`, and `(sender_id, receiver_id)`.
-
 ## Design Decisions
 
 ### Status handling
 - `pending`: Active request awaiting response
 - `accepted`: Friendship established (row kept for relationship tracking)
-- `rejected`: Not used - rejected requests are deleted
 
 ### No notifications
 Real-time notifications via WebTransport were considered but deferred. The system is designed to be extended with notifications later if needed.
