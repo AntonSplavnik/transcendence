@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setUser(data.user);
 		setSession(data.session);
 		setAuthChecked(true);
-	}
+	};
 
 	// initial auth check on mount
 	useEffect(() => {
