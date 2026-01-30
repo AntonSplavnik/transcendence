@@ -1,6 +1,6 @@
-// ==================== API RESPONSE TYPES ====================
+// ==================== DOMAIN MODELS ====================
 
-export interface UserInfo {
+export interface User {
 	"created_at": string;
 	"email": string;
 	"id": number;
@@ -9,7 +9,7 @@ export interface UserInfo {
 	"totp_enabled": boolean;
 }
 
-export interface SessionInfo {
+export interface Session {
 	"access_expiry": string;
 	"created_at": string;
 	"device_name": string | null;
@@ -20,9 +20,11 @@ export interface SessionInfo {
 	"user_id": number;
 }
 
-export interface UserSessionInfo {
-	user: UserInfo;
-	session: SessionInfo;
+// ==================== API RESPONSE TYPES ====================
+
+export interface AuthResponse {
+	user: User;
+	session: Session;
 }
 
 // ==================== API ERROR TYPES ====================

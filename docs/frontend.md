@@ -216,3 +216,14 @@ I tried to centralize navigation in App.tsx and in the function setNavTarget in 
 
 in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the fucntions there (e.g nicknameExists)
 then import and use them in your components.
+
+## navigation
+
+new library:
+react-router-dom
+
+since we need to do hash navigation (because of how backend redirection work) and need url changes for the history to function, i decided to go with another library to keep our code clean and lean, rather than implementing a small verison of this myself. this also is the industry stadard as of now.
+
+Also there now is a context: AuthContext that holds the user state and functions to login, logout, register, and check authentication status.
+This is on top of the api functions implemented in api/auth.ts
+Because of this, navigation after login/logout/register is handled in the context functions, when inside the Components, you just call login(), logout(), register() and the context handles the rest.

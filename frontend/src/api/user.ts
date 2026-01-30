@@ -1,6 +1,6 @@
 import apiClient from './client';
 import type {
-	UserSessionInfo
+	AuthResponse
 } from './types';
 
 
@@ -8,7 +8,7 @@ import type {
  * Get current user info (requires authentication)
  * @returns User session info including user data, session details, and stats
  */
-export async function getMe(): Promise<UserSessionInfo> {
-	const response = await apiClient.get<UserSessionInfo>('/user/me');
+export async function getMe(): Promise<AuthResponse> {
+	const response = await apiClient.get<AuthResponse>('/user/me');
 	return response.data;
 }

@@ -32,24 +32,17 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	// Network error (status 0 = server unreachable)
 	if (!error.response) {
 		console.error('Network error:', error);
+		storeError(error, 'network_error');
 		return Promise.reject(error);
 	}
 
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
-		// User needs to log in again
-		if (brief === 'MissingSessionCookie'
-			|| brief === 'InvalidSessionToken'
-			|| brief === 'SessionNotFound'
-			|| brief === 'SessionMismatch')
-			return Promise.reject(error);
-		if (brief === 'NeedReauth') {
-			// User needs to reauthenticate with password
-			storeError(error, 'needReauth');
-			return Promise.reject(error);
-		}
-		if ((brief === 'InvalidJWT' || brief == 'MissingJWTCookie') && !originalRequest._retry) {
+
+		// try automatic JWT refresh:
+		const canRefresh = ['MissingJwtCookie', 'InvalidJwt'].includes(brief || '');
+		if (canRefresh && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
 				await refreshJWT();
@@ -57,11 +50,38 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			} catch (refreshError) {
 				storeError(refreshError, 'JWT refresh error');
 				console.error('JWT refresh failed:', refreshError);
-				window.location.reload();
+				// window.location.reload();
 				return Promise.reject(refreshError);
 			}
 		}
-		// Other 401 errors (or retry already failed)
+
+		// User needs to log in again (session dead), store error for nav
+		const deadSessionErrors = [
+			'MissingSessionCookie',
+			'InvalidSessionToken',
+			'SessionNotFound',
+			'SessionMismatch',
+		];
+		if (deadSessionErrors.includes(brief || '')) {
+			storeError(error, 'dead_session');
+			return Promise.reject(error);
+		}
+		//TODO: differentiate between NeedReauth vs fully logged out (one is just a popup and an api call)
+		if (brief === 'NeedReauth') {
+			// User needs to reauthenticate with password
+			storeError(error, 'needReauth');
+			return Promise.reject(error);
+		}
+		// Login/2FA errors (user is trying to authenticate)
+		if (['InvalidCredentials', 'TwoFactorRequired', 'TwoFactorInvalid'].includes(brief || '')) {
+			// Don't store - let component handle
+			return Promise.reject(error);
+		}
+		if (brief === 'DidLogout') {
+			console.log('Logged out');
+			return Promise.reject(error);
+		}
+		console.error('unknown 401 error:', error);
 		storeError(error, 'unauthorized');
 	}
 	return Promise.reject(error);

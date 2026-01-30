@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Swords, User, Lock, Mail } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
-import * as authApi from "../api/auth";
+import { useAuth } from "../contexts/AuthContext";
 import * as usersApi from "../api/users";
 import { getErrorMessage } from "../api/error";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
+	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);
 	const [email, setEmail] = useState("");
@@ -51,9 +52,9 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 		setError("");
 		try {
 			if (isLogin) {
-				await authApi.login(email, password);
+				await login(email, password);
 			} else {
-				await authApi.register(username, email, password);
+				await register(username, email, password);
 			}
 
 			if (passwordRef.current) {
