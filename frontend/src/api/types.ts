@@ -21,37 +21,44 @@ export interface Session {
 }
 
 // ==================== API RESPONSE TYPES ====================
+// Only for responses that are returned and stored
 
 export interface AuthResponse {
 	user: User;
 	session: Session;
 }
 
+export interface TwoFactorStartResponse {
+	base32_secret: string;
+	qr_base64: string;
+	url: string;
+}
+
+export interface TwoFactorConfirmResponse {
+	recovery_codes: string[];
+}
+
+// ==================== SHARED REQUEST TYPES ====================
+// Only for complex payloads reused across multiple endpoints
+
+export interface PasswordMfaPayload {
+	password: string;
+	mfa_code?: string;
+}
+
+export interface SessionManagementPayload extends PasswordMfaPayload {
+	session_ids: number[];
+}
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {
+	code: number;
 	name: string;
 	brief: string;
-	detail: string;
-	cause: string;
-	code: number;
+	detail?: string | null;
 }
 
-// ==================== REQUEST PAYLOAD TYPES ====================
-
-export interface LoginRequest {
-	email: string;
-	password: string;
-	mfa_code?: string;
-}
-
-export interface RegisterRequest {
-	email: string;
-	nickname: string;
-	password: string;
-}
-
-export interface ReauthRequest {
-	password: string;
-	mfa_code?: string;
+export interface ApiErrorResponse {
+	error?: ApiError;
 }

@@ -1,23 +1,5 @@
 import apiClient from './client';
-import type {
-	AuthResponse,
-	Session,
-	LoginRequest,
-	RegisterRequest,
-	ReauthRequest
-} from './types';
-
-/**
- * Get current user info (requires authentication)
- * @param options.silent - If true, skip error storage (used for initial auth check)
- * @returns User session info including user data, session details
- */
-export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
-	const response = await apiClient.get<AuthResponse>('/user/me', {
-		_silent: options?.silent
-	} as any);
-	return response.data;
-}
+import type { AuthResponse, Session } from './types';
 
 /**
  * Login with email and password
@@ -31,8 +13,11 @@ export async function login(
 	password: string,
 	mfa_code?: string
 ): Promise<AuthResponse> {
-	const payload: LoginRequest = { email, password, mfa_code };
-	const response = await apiClient.post<AuthResponse>('/auth/login', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/login', {
+		email,
+		password,
+		mfa_code,
+	});
 	return response.data;
 }
 
@@ -48,8 +33,11 @@ export async function register(
 	email: string,
 	password: string
 ): Promise<AuthResponse> {
-	const payload: RegisterRequest = { nickname, email, password };
-	const response = await apiClient.post<AuthResponse>('/auth/register', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/register', {
+		nickname,
+		email,
+		password
+	});
 	return response.data;
 }
 
@@ -84,10 +72,9 @@ export async function reauth(
 	password: string,
 	mfa_code?: string
 ): Promise<AuthResponse> {
-	const payload: ReauthRequest = { password, mfa_code };
 	const response = await apiClient.post<AuthResponse>(
 		'/auth/session-management/reauth',
-		payload
+		{ password, mfa_code }
 	);
 	return response.data;
 }
