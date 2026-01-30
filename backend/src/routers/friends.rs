@@ -6,7 +6,6 @@ use crate::error::FriendError;
 use crate::models::{FriendRequest, NewFriendRequest, User};
 use crate::prelude::*;
 use crate::routers::users::PublicUser;
-use crate::stream::notifications;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -179,12 +178,6 @@ async fn send_friend_request(
 
     let sender: User = u::users.filter(u::id.eq(sender_id)).first(conn)?;
 
-    // Send real-time notification to receiver
-    let sender_public = PublicUser::from(sender.clone());
-    tokio::spawn(async move {
-        notifications::notify_friend_request_received(receiver_id, request.id, sender_public).await;
-    });
-
     json_ok(FriendRequestResponse::from_request_and_users(
         &request, sender, receiver,
     ))
@@ -233,13 +226,6 @@ async fn accept_friend_request(
 
     let sender: User = u::users.filter(u::id.eq(request.sender_id)).first(conn)?;
     let receiver: User = u::users.filter(u::id.eq(request.receiver_id)).first(conn)?;
-
-    // Send real-time notification to sender that request was accepted
-    let receiver_public = PublicUser::from(receiver.clone());
-    let sender_id = sender.id;
-    tokio::spawn(async move {
-        notifications::notify_friend_request_accepted(sender_id, receiver_public).await;
-    });
 
     json_ok(FriendRequestResponse::from_request_and_users(
         &updated_request,
@@ -361,7 +347,7 @@ async fn remove_friend(
     json_ok(())
 }
 
-/// Get list of friends with online status
+/// Get list of friends
 #[endpoint]
 async fn get_friends(depot: &mut Depot) -> JsonResult<Vec<FriendWithStatus>> {
     use crate::schema::friend_requests::dsl as fr;
@@ -409,7 +395,7 @@ async fn get_friends(depot: &mut Depot) -> JsonResult<Vec<FriendWithStatus>> {
     json_ok(result)
 }
 
-/// Get incoming friend requests (requests received)
+/// Get incoming friend requests
 #[endpoint]
 async fn get_incoming_requests(
     depot: &mut Depot,
@@ -449,7 +435,7 @@ async fn get_incoming_requests(
     json_ok(result)
 }
 
-/// Get outgoing friend requests (requests sent)
+/// Get outgoing friend requests
 #[endpoint]
 async fn get_outgoing_requests(
     depot: &mut Depot,

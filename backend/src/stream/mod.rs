@@ -2,7 +2,6 @@
 
 mod compress_cbor_codec;
 mod echo_example;
-pub mod notifications;
 mod stream_manager;
 
 pub use futures::SinkExt;
@@ -20,6 +19,4 @@ pub enum StreamType {
     /// The contained String is an echo of the parameter
     /// the client sent during the REST API call.
     EchoExample(String),
-    /// Friend notification stream for real-time friend events.
-    FriendNotification,
 }
