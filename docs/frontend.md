@@ -226,4 +226,46 @@ since we need to do hash navigation (because of how backend redirection work) an
 
 Also there now is a context: AuthContext that holds the user state and functions to login, logout, register, and check authentication status.
 This is on top of the api functions implemented in api/auth.ts
-Because of this, navigation after login/logout/register is handled in the context functions, when inside the Components, you just call login(), logout(), register() and the context handles the rest.
+
+## Authentication Flow
+
+### Responsibility Boundaries
+
+| Component               | Responsibility                                      |
+| ----------------------- | --------------------------------------------------- |
+| **`AuthContext`**       | Manages _authentication state_ (user, session)      |
+| **`authApi` (auth.ts)** | Makes _HTTP calls_ to backend                       |
+| **`AppRoutes`**         | Handles _navigation_ after auth events              |
+| **`AuthPage`**          | Handles user _input_, coordinates auth + navigation |
+
+### Login Flow
+
+```
+User submits form
+    ↓
+AuthPage.handleSubmit()
+    ↓
+useAuth().login(email, password)
+    ├─ Calls authApi.login() (HTTP request)
+    ├─ Receives { user, session }
+    └─ Calls setAuthData() (updates state)
+    ↓
+onAuthSuccess() callback
+    ↓
+AppRoutes.handleAuthSuccess()
+    └─ navigate('/home')
+```
+
+This would make it easier to test the context because there is no Router dependency in context.
+It's also about separation of concerns, navigation and auth state do not need to live in the same file.
+But them not living in the same file necessitates passing callbacks around like so:
+
+```
+// AuthPage.tsx
+const { login } = useAuth();
+
+const handleSubmit = async () => {
+  await login(email, password);  // ← Sets auth state
+  onAuthSuccess();                // ← Triggers navigation
+};
+```

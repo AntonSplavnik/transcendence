@@ -6,7 +6,7 @@ import type {
 
 /**
  * Get current user info (requires authentication)
- * @returns User session info including user data, session details, and stats
+ * @returns User session info including user data, session details
  */
 export async function getMe(): Promise<AuthResponse> {
 	const response = await apiClient.get<AuthResponse>('/user/me');

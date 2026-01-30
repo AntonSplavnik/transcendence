@@ -38,9 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			try {
 				const data: AuthResponse = await authApi.getMe();
 				setAuthData(data);
-				console.log('✅ Intial Auth Check: User is authenticated');
+				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch (error) {
-				console.log('Intial Auth Check: Not logged in');
+				console.log('Initial Auth Check: Not logged in');
 				clearAuth();
 			} finally {
 				setAuthChecked(true);
