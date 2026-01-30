@@ -1,0 +1,46 @@
+//! GET /api/friends - Get list of friends
+
+use crate::models::{FriendRequest, User};
+use crate::prelude::*;
+use crate::routers::users::PublicUser;
+
+use super::types::RequestStatus;
+
+/// Get list of friends
+#[endpoint]
+pub async fn get_friends(depot: &mut Depot) -> JsonResult<Vec<PublicUser>> {
+    use crate::schema::friend_requests::dsl as fr;
+    use crate::schema::users::dsl as u;
+
+    let session = depot.session();
+    let user_id = session.user_id;
+
+    let conn = &mut db::get()?;
+
+    // Get all accepted friend requests where user is either sender or receiver
+    let friendships: Vec<FriendRequest> = fr::friend_requests
+        .filter(fr::status.eq(RequestStatus::ACCEPTED))
+        .filter(fr::sender_id.eq(user_id).or(fr::receiver_id.eq(user_id)))
+        .load(conn)?;
+
+    // Extract friend IDs (the other person in each friendship)
+    let friend_ids: Vec<i32> = friendships
+        .iter()
+        .map(|f| {
+            if f.sender_id == user_id {
+                f.receiver_id
+            } else {
+                f.sender_id
+            }
+        })
+        .collect();
+
+    // Load friend users
+    let friends: Vec<User> = u::users
+        .filter(u::id.eq_any(&friend_ids))
+        .load(conn)?;
+
+    let result: Vec<PublicUser> = friends.into_iter().map(PublicUser::from).collect();
+
+    json_ok(result)
+}

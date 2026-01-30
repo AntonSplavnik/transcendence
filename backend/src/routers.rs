@@ -2,7 +2,6 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 
 use crate::prelude::*;
 
-pub mod friends;
 pub mod users;
 
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
@@ -17,6 +16,7 @@ pub fn rest_api() -> Router {
             users::router("users"),
             crate::avatar::router("avatar"),
             friends::router("friends"),
+            crate::friends::router("friends"),
             crate::stream::router("stream"),
         ]);
 

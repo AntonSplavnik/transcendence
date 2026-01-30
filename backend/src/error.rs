@@ -23,6 +23,8 @@ pub enum FriendError {
     UserNotFound,
     #[error("not friends with this user")]
     NotFriends,
+    #[error("invalid parameter: {0}")]
+    InvalidParam(String),
 }
 
 #[derive(Error, Debug)]
@@ -144,7 +146,8 @@ impl Scribe for ApiError {
             Self::Friend(err) => match err {
                 FriendError::SelfRequest
                 | FriendError::DuplicateRequest
-                | FriendError::AlreadyFriends => {
+                | FriendError::AlreadyFriends
+                | FriendError::InvalidParam(_) => {
                     StatusError::bad_request().brief(err.to_string())
                 }
                 FriendError::RequestNotFound | FriendError::NotFriends => {

@@ -1,0 +1,40 @@
+//! GET /api/friends/requests/outgoing - Get outgoing friend requests
+
+use crate::models::{FriendRequest, User};
+use crate::prelude::*;
+
+use super::types::{FriendRequestResponse, RequestStatus};
+
+/// Get outgoing friend requests
+#[endpoint]
+pub async fn get_outgoing_requests(depot: &mut Depot) -> JsonResult<Vec<FriendRequestResponse>> {
+    use crate::schema::friend_requests::dsl as fr;
+    use crate::schema::users::dsl as u;
+
+    let session = depot.session();
+    let user_id = session.user_id;
+
+    let conn = &mut db::get()?;
+
+    // Get pending requests where user is sender
+    let requests: Vec<FriendRequest> = fr::friend_requests
+        .filter(fr::sender_id.eq(user_id))
+        .filter(fr::status.eq(RequestStatus::PENDING))
+        .order(fr::created_at.desc())
+        .load(conn)?;
+
+    let receiver_ids: Vec<i32> = requests.iter().map(|r| r.receiver_id).collect();
+    let receivers: Vec<User> = u::users.filter(u::id.eq_any(&receiver_ids)).load(conn)?;
+
+    let sender: User = u::users.filter(u::id.eq(user_id)).first(conn)?;
+
+    let result: Vec<FriendRequestResponse> = requests
+        .iter()
+        .filter_map(|request| {
+            let receiver = receivers.iter().find(|r| r.id == request.receiver_id)?.clone();
+            Some(FriendRequestResponse::new(request, sender.clone(), receiver))
+        })
+        .collect();
+
+    json_ok(result)
+}

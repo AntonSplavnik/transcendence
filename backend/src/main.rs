@@ -12,6 +12,7 @@ mod avatar;
 mod config;
 pub mod db;
 mod error;
+mod friends;
 mod models;
 mod prelude;
 mod routers;
