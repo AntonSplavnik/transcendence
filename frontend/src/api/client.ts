@@ -50,7 +50,7 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			} catch (refreshError) {
 				storeError(refreshError, 'JWT refresh error');
 				console.error('JWT refresh failed:', refreshError);
-				// window.location.reload();
+				window.location.reload();
 				return Promise.reject(refreshError);
 			}
 		}
