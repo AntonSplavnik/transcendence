@@ -12,6 +12,9 @@ const GLOBAL_MESSAGE_CHARS_LIMIT: usize = 512;
 const OTHER_MESSAGE_CHARS_LIMIT: usize = 4096;
 const SENDMESSAGE_RATE_LIMIT_PER_5_SECONDS: usize = 6;
 const NICKNAME_CACHE_SIZE: u32 = 8192;
+// TODO dont forget to limit chatroom invitations to CHAT_ROOM_USER_LIMIT - member_count
+// TODO regular task to automatically remove pending invitations if they are older than for example 14 days
+// an event with actor_id = user_id must be emitted (user either rejected the invitation, or let it time out)
 
 /// TODO: global user nickname cache
 fn get_nickname(user_id: i32) -> Option<String> {
@@ -48,8 +51,12 @@ fn get_nickname(user_id: i32) -> Option<String> {
 enum ChatStreamError {
     /// Client sent a message that was dropped due to rate limiting
     RateLimitExceeded,
+    /// Client sent a message that was too long
+    MessageTooLong,
     /// Client tried to reference an invalid message ID
     InvalidMessageId,
+    /// Client tried to set ReadText pointer to a message older than current pointer
+    CantUnreadText,
 }
 
 /// Only a subset of client actions are sent over the stream; others (infrequent ones) are done via REST API
@@ -87,9 +94,10 @@ enum ServerMessage {
     /// global: omitted
     IsTyping(i32),
     /// Client needs to mark all messages up to message_id as read for the user
-    /// global: omitted
+    /// global, public, invite_only: omitted
     ReadText { user_id: i32, message_id: i32 },
     /// Client needs to update the entire list of members
+    /// Client may show a join message for the joined_at timestamp
     /// global: omitted
     Members {
         members: Vec<ChatMember>,
@@ -116,11 +124,11 @@ enum ServerMessage {
     /// Client needs to show that a join filter was added, type of filter is inferred by room type
     /// global: omitted
     /// others: sent after Nick
-    JoinFilterAdded { user_id: i32, actor_id: i32 },
+    UserInviteAdded { user_id: i32, actor_id: i32 },
     /// Client needs to show that a join filter was removed, type of filter is inferred by room type
     /// global: omitted
     /// others: sent after Nick
-    JoinFilterRemoved { user_id: i32, actor_id: i32 },
+    UserInviteRemoved { user_id: i32, actor_id: i32 },
     /// An error occurred
     Error(ChatStreamError),
 }

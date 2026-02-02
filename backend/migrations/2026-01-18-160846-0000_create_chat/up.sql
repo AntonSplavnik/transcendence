@@ -18,8 +18,8 @@ CREATE TABLE chat_members (
 	FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
 	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
--- Either a blacklist, or a pending invitation list, depending on room type
-CREATE TABLE chat_join_filters (
+-- Pending invitation list, depending on room type
+CREATE TABLE chat_invitations (
 	room_id INTEGER NOT NULL,
 	user_id INTEGER NOT NULL,
 	actor_id INTEGER,

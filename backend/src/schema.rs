@@ -1,7 +1,7 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    chat_join_filters (room_id, user_id) {
+    chat_invitations (room_id, user_id) {
         room_id -> Integer,
         user_id -> Integer,
         actor_id -> Nullable<Integer>,
@@ -77,7 +77,7 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(chat_join_filters -> chat_rooms (room_id));
+diesel::joinable!(chat_invitations -> chat_rooms (room_id));
 diesel::joinable!(chat_members -> chat_rooms (room_id));
 diesel::joinable!(chat_members -> users (user_id));
 diesel::joinable!(chat_messages -> chat_rooms (room_id));
@@ -86,7 +86,7 @@ diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    chat_join_filters,
+    chat_invitations,
     chat_members,
     chat_messages,
     chat_rooms,

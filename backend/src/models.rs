@@ -254,10 +254,7 @@ impl DmKey {
 
     /// Only returns None, if the string from database is malformed
     pub fn users(&self) -> Option<(i32, i32)> {
-        let parts: (&str, &str) = self
-            .0
-            .split_once(':')
-            .expect("String should be delimited by ':'");
+        let parts: (&str, &str) = self.0.split_once(':')?;
         let user1 = parts.0.parse::<i32>().ok()?;
         let user2 = parts.1.parse::<i32>().ok()?;
         Some((user1, user2))
@@ -334,20 +331,20 @@ impl ChatMember {
 #[derive(
     Queryable, Selectable, Insertable, Associations, Debug, Clone, Serialize,
 )]
-#[diesel(table_name = crate::schema::chat_join_filters)]
+#[diesel(table_name = crate::schema::chat_invitations)]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct ChatJoinFilter {
+pub struct ChatInvitation {
     #[serde(skip)]
     pub room_id: i32,
     pub user_id: i32,
-    /// user who created the filter
+    /// user who created the invitation
     pub actor_id: Option<i32>,
     created_at: NaiveDateTime,
 }
 
-impl ChatJoinFilter {
+impl ChatInvitation {
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at.and_utc()
     }
