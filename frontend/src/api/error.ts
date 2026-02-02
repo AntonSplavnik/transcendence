@@ -29,7 +29,7 @@ export function isAxiosError(error: unknown): error is AxiosError<ApiErrorRespon
 		typeof error === 'object' &&
 		error !== null &&
 		'isAxiosError' in error &&
-		(error as any).isAxiosError === true
+		(error as { isAxiosError: boolean }).isAxiosError === true
 	);
 }
 

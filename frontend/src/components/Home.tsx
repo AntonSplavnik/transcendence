@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
-import { storeError } from '../api/error';
 import type { User, Session } from '../api/types';
 
 interface HomeProps {
@@ -205,7 +204,7 @@ function TwoFactorModal({ user, onClose }: TwoFactorModalProps) {
 				console.log('Enable 2FA');
 				// await authApi.enable2FA();
 			}
-		} catch (err) {
+		} catch {
 			setError('Failed to update 2FA settings');
 		} finally {
 			setIsLoading(false);

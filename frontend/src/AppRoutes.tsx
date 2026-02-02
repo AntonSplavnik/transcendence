@@ -30,20 +30,22 @@ export default function AppRoutes() {
 	const { logout, authChecked } = useAuth();
 	const navigate = useNavigate();
 
-	const [currentError, setCurrentError] = useState<StoredError | null>(null);
-
-	useEffect(() => {
+	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
 		const storedError = retrieveStoredError();
 		if (storedError) {
 			console.log(`📋 Stored error: ${storedError.type}`);
-			setCurrentError(storedError);
-			const navTarget = getNavigationTarget(storedError.type);
+		}
+		return storedError;
+	});
+
+	useEffect(() => {
+		if (currentError) {
+			const navTarget = getNavigationTarget(currentError.type);
 			if (navTarget) {
-				// clearAuth not needed because cleared by getMe failure
 				navigate(`/${navTarget}`, { replace: true });
 			}
 		}
-	}, [navigate]);
+	}, [currentError, navigate]);
 
 	const handleAuthSuccess = async () => {
 		navigate('/home');

@@ -62,7 +62,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			}
 
 			onAuthSuccess();
-		} catch (error: any) {
+		} catch (error) {
 			setError(getErrorMessage(error, 'Authentication failed'));
 		} finally {
 			setIsLoading(false);

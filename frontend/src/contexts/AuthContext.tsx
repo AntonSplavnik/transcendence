@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				const data: AuthResponse = await authApi.getMe();
 				setAuthData(data);
 				console.log('✅ Initial Auth Check: User is authenticated');
-			} catch (error) {
+			} catch {
 				console.log('Initial Auth Check: Not logged in');
 				clearAuth();
 			} finally {
