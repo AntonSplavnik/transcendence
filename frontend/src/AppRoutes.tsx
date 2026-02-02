@@ -30,9 +30,6 @@ export default function AppRoutes() {
 	const { logout, authChecked } = useAuth();
 	const navigate = useNavigate();
 
-	if (!authChecked) {
-		return <Layout>{null}</Layout>;
-	}
 	const [currentError, setCurrentError] = useState<StoredError | null>(null);
 
 	useEffect(() => {
@@ -61,6 +58,9 @@ export default function AppRoutes() {
 		setCurrentError(null);
 	}, []);
 
+	if (!authChecked) {
+		return <Layout>{null}</Layout>;
+	}
 	return (
 		<Layout>
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
