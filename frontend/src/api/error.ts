@@ -34,32 +34,6 @@ export function isAxiosError(error: unknown): error is AxiosError<ApiErrorRespon
 }
 
 /**
- * Errors that require logout
- */
-export function shouldLogout(errorType: string): boolean {
-	return [
-		'MissingSessionCookie',
-		'InvalidSessionToken',
-		'SessionNotFound',
-		'SessionMismatch',
-		/* TODO: make reauth popup for this */
-		'NeedReauth',
-		'DidLogout',
-	].includes(errorType);
-}
-
-/**
- * Determine where to navigate based on error
- */
-export function getNavigationTarget(errorType: string): 'auth' | 'landing' | null {
-	// Session is completely dead → go to auth (login page)
-	if (shouldLogout(errorType)) {
-		return 'auth';
-	}
-	return null;
-}
-
-/**
  * Extract user-friendly error message from any error
  */
 export function getErrorMessage(error: unknown, fallback = 'An unexpected error occurred'): string {

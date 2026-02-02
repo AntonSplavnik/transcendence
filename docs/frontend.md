@@ -208,24 +208,91 @@ no need to write withCredentials on any other api call
 
 This needs to be refreshed every 15 minutes.
 
-## navigation
+## Navigation Architecture
 
-I tried to centralize navigation in App.tsx and in the function setNavTarget in errors.ts. therefore all redirects should be managed there.
+Navigation and error handling have **separate responsibilities**:
+
+| System                           | Responsibility                                  |
+| -------------------------------- | ----------------------------------------------- |
+| **ProtectedRoute / PublicRoute** | Controls where users can go based on auth state |
+| **ErrorBanner**                  | Displays messages explaining what happened      |
+
+### Route Guards (AppRoutes.tsx)
+
+```tsx
+// Redirects unauthenticated users to /auth
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
+// Redirects authenticated users to /home
+function PublicRoute({ children }) {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/home" replace />;
+  return <>{children}</>;
+}
+```
+
+**Usage:**
+
+```tsx
+<Route
+  path="/home"
+  element={
+    <ProtectedRoute>
+      <Home />
+    </ProtectedRoute>
+  }
+/>
+```
+
+### Error System (api/error.ts, ErrorBanner)
+
+The error system **only displays messages** - it does NOT control navigation.
+
+- Explains _why_ the user was redirected
+- Only shows for mid-use failures (not initial auth checks)
+
+- `storeError()` - saves error to localStorage for display after redirect
+- `retrieveStoredError()` - retrieves and clears stored error
+- `ErrorBanner` - displays the error message with dismiss button
+
+### What does protected route solve?
+
+**ProtectedRoute handles navigation because:**
+
+- Works for direct URL access (user bookmarks `/home`)
+- Works for page refresh with expired session
+- Declarative - routes define their own requirements
+- Standard React pattern
+
+### Silent Mode for Initial Auth Check
+
+The initial auth check uses `getMe({ silent: true })` to avoid showing error messages when the app first loads and finds no valid session. This prevents confusing "session expired" messages on fresh visits.
+
+```tsx
+// AuthContext.tsx - initial check is silent
+const data = await authApi.getMe({ silent: true });
+```
+
+Regular API calls (without `silent`) will store errors for display if they fail.
 
 ## Add api calls
 
 in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the fucntions there (e.g nicknameExists)
 then import and use them in your components.
+if they need authentication, make sure to call them from within AuthContext or pass the jwt token from there.
+That means either wrap them in AuthContext functions usually.
 
-## navigation
+## React Router
 
-new library:
-react-router-dom
+We use `react-router-dom` for client-side routing.
 
-since we need to do hash navigation (because of how backend redirection work) and need url changes for the history to function, i decided to go with another library to keep our code clean and lean, rather than implementing a small verison of this myself. this also is the industry standard as of now.
+**Why:** Hash navigation support (for backend redirection), URL history, and industry-standard patterns.
 
-Also there now is a context: AuthContext that holds the user state and functions to login, logout, register, and check authentication status.
-This is on top of the api functions implemented in api/auth.ts
+**AuthContext** holds user state and auth functions (login, logout, register). It wraps the API calls from `api/auth.ts`.
 
 ## Authentication Flow
 

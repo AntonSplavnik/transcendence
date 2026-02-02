@@ -9,10 +9,13 @@ import type {
 
 /**
  * Get current user info (requires authentication)
+ * @param options.silent - If true, skip error storage (used for initial auth check)
  * @returns User session info including user data, session details
  */
-export async function getMe(): Promise<AuthResponse> {
-	const response = await apiClient.get<AuthResponse>('/user/me');
+export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
+	const response = await apiClient.get<AuthResponse>('/user/me', {
+		_silent: options?.silent
+	} as any);
 	return response.data;
 }
 

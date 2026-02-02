@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import { retrieveStoredError, getNavigationTarget } from './api/error';
+import { retrieveStoredError } from './api/error';
 import type { StoredError } from './api/error';
 import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
@@ -37,15 +37,6 @@ export default function AppRoutes() {
 		}
 		return storedError;
 	});
-
-	useEffect(() => {
-		if (currentError) {
-			const navTarget = getNavigationTarget(currentError.type);
-			if (navTarget) {
-				navigate(`/${navTarget}`, { replace: true });
-			}
-		}
-	}, [currentError, navigate]);
 
 	const handleAuthSuccess = async () => {
 		navigate('/home');

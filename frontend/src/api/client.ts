@@ -5,6 +5,7 @@ import { storeError, getErrorBrief } from './error';
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
+	_silent?: boolean;
 }
 
 const apiClient = axios.create({
@@ -26,6 +27,10 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
 
 	if (!originalRequest) {
+		return Promise.reject(error);
+	}
+	// Skip error storage for silent requests (initial auth check)
+	if (originalRequest._silent) {
 		return Promise.reject(error);
 	}
 

@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		async function checkAuth() {
 			try {
-				const data: AuthResponse = await authApi.getMe();
+				// Use silent mode to avoid storing errors during initial check
+				// ProtectedRoute handles redirect, no need for error messages
+				const data: AuthResponse = await authApi.getMe({ silent: true });
 				setAuthData(data);
 				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch {
