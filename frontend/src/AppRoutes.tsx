@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { retrieveStoredError, getNavigationTarget } from './api/error';
@@ -49,9 +49,13 @@ export default function AppRoutes() {
 		navigate('/landing');
 	};
 
+	const handleDismissError = useCallback(() => {
+		setCurrentError(null);
+	}, []);
+
 	return (
 		<Layout>
-			<ErrorBanner error={currentError} onDismiss={() => setCurrentError(null)} />
+			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>
 				<Route path="/landing" element={<LandingPage onLogin={() => navigate('/auth')} />} />
 				<Route path="/auth" element={<AuthPage onBack={() => navigate('/landing')} onAuthSuccess={handleAuthSuccess} />} />

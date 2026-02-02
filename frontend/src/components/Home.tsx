@@ -234,7 +234,7 @@ function TwoFactorModal({ user, onClose }: TwoFactorModalProps) {
 					</h2>
 					<button
 						onClick={onClose}
-						className="text-wood-400 hover:text-wood-200 text-2xl leading-none"
+						className="text-wood-400 hover:text-wood-200 text-2xl leading-none" aria-label="Close"
 					>
 						×
 					</button>

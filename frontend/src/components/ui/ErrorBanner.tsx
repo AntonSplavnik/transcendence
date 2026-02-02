@@ -39,6 +39,7 @@ export default function ErrorBanner({ error, onDismiss }: ErrorBannerProps) {
 				<button
 					onClick={handleDismiss}
 					className="ml-2 text-red-200 hover:text-white"
+					aria-label="Dismiss error"
 				>
 					✕
 				</button>
