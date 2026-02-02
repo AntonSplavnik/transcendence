@@ -40,8 +40,8 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
 
-		// try automatic JWT refresh:
-		const canRefresh = ['MissingJwtCookie', 'InvalidJwt'].includes(brief || '');
+		// Try automatic JWT refresh for expired (but present) JWT
+		const canRefresh = ['InvalidJwt'].includes(brief || '');
 		if (canRefresh && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
@@ -55,11 +55,20 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			}
 		}
 
-		// User needs to log in again (session dead), store error for nav
-		const deadSessionErrors = [
+		// Errors expected when user is not logged in (no cookies present)
+		// Don't store - ProtectedRoute handles redirect silently
+		const silentAuthErrors = [
+			'MissingJwtCookie',
 			'MissingSessionCookie',
-			'InvalidSessionToken',
 			'SessionNotFound',
+		];
+		if (silentAuthErrors.includes(brief || '')) {
+			return Promise.reject(error);
+		}
+
+		// User needs to log in again (session is invalid/corrupted)
+		const deadSessionErrors = [
+			'InvalidSessionToken',
 			'SessionMismatch',
 		];
 		if (deadSessionErrors.includes(brief || '')) {
