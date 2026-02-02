@@ -29,18 +29,6 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	}
 
 	const handlePlayGame = () => {
-		const expiryTime = new Date(session.access_expiry).getTime();
-		const now = Date.now();
-		const minutesLeft = (expiryTime - now) / (1000 * 60);
-
-		if (minutesLeft < 20) {
-			storeError(
-				new Error('Your session is expiring soon. Please log in again to continue playing.'),
-				'SessionExpiringSoon'
-			);
-			return;
-		}
-
 		onGame();
 	};
 

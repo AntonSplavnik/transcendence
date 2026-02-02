@@ -11,20 +11,28 @@ import Layout from './components/ui/Layout';
 import ErrorBanner from './components/ui/ErrorBanner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-	const { user, authChecked } = useAuth();
-
-	if (!authChecked) {
-		return <>{children}</>;
-	}
+	const { user } = useAuth();
 	if (!user) {
 		return <Navigate to="/auth" replace />;
 	}
 	return <>{children}</>;
 }
 
+function PublicRoute({ children }: { children: React.ReactNode }) {
+	const { user } = useAuth();
+	if (user) {
+		return <Navigate to="/home" replace />;
+	}
+	return <>{children}</>;
+}
+
 export default function AppRoutes() {
-	const { logout } = useAuth();
+	const { logout, authChecked } = useAuth();
 	const navigate = useNavigate();
+
+	if (!authChecked) {
+		return <Layout>{null}</Layout>;
+	}
 	const [currentError, setCurrentError] = useState<StoredError | null>(null);
 
 	useEffect(() => {
@@ -57,8 +65,16 @@ export default function AppRoutes() {
 		<Layout>
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>
-				<Route path="/landing" element={<LandingPage onLogin={() => navigate('/auth')} />} />
-				<Route path="/auth" element={<AuthPage onBack={() => navigate('/landing')} onAuthSuccess={handleAuthSuccess} />} />
+				<Route path="/landing" element={
+					<PublicRoute>
+						<LandingPage onLogin={() => navigate('/auth')} />
+					</PublicRoute>
+				} />
+				<Route path="/auth" element={
+					<PublicRoute>
+						<AuthPage onBack={() => navigate('/landing')} onAuthSuccess={handleAuthSuccess} />
+					</PublicRoute>
+				} />
 				<Route path="/home" element={
 					<ProtectedRoute>
 						<Home
