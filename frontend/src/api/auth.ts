@@ -55,7 +55,7 @@ export async function register(
  * Clears session and redirects to landing page
  */
 export async function logout(): Promise<void> {
-	await apiClient.post<void>('/auth/logout');
+	await apiClient.post<void>('/user/logout');
 }
 
 /**
