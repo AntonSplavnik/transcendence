@@ -215,7 +215,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 
 						{/* QR Code */}
 						<div className="bg-white p-4 rounded-lg flex items-center justify-center">
-							<img src={qrCode} alt="2FA QR Code" className="max-w-full" />
+							<img src={`data:image/png;base64,${qrCode}`} alt="2FA QR Code" className="max-w-full" />
 						</div>
 
 						<p className="text-sm text-wood-300">
