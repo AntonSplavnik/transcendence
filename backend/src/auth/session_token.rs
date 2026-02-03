@@ -1,9 +1,11 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 use base64::prelude::*;
+use diesel::backend::Backend;
 use diesel::deserialize::{FromSql, FromSqlRow};
 use diesel::expression::AsExpression;
 use diesel::serialize::ToSql;
 use diesel::sql_types::Binary;
+use diesel::sqlite::Sqlite;
 use thiserror::Error;
 
 use crate::prelude::*;
@@ -80,14 +82,19 @@ where
     }
 }
 
-impl<DB> FromSql<Binary, DB> for SessionTokenHash
+impl FromSql<Binary, Sqlite> for SessionTokenHash
 where
-    DB: diesel::backend::Backend,
-    Vec<u8>: FromSql<Binary, DB>,
+    Vec<u8>: FromSql<Binary, Sqlite>,
 {
-    fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
-        let hash = <Vec<u8>>::from_sql(bytes)?;
-        Ok(SessionTokenHash(hash.try_into().unwrap()))
+    fn from_sql(
+        mut bytes: <Sqlite as Backend>::RawValue<'_>,
+    ) -> diesel::deserialize::Result<Self> {
+        Ok(SessionTokenHash(
+            bytes
+                .read_blob()
+                .try_into()
+                .map_err(|_| "SessionTokenHash blob length incorrect")?,
+        ))
     }
 }
 
