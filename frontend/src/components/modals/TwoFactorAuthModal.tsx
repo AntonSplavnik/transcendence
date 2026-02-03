@@ -166,27 +166,30 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 					</div>
 				)}
 
+				{/* Password input - persists across qr and verify steps to preserve ref */}
+				{(step === 'qr' || step === 'verify') && (
+					<div className={step === 'verify' ? 'hidden' : ''}>
+						<label htmlFor="password" className="block text-sm font-medium text-wood-200 mb-2">
+							Password
+						</label>
+						<input
+							ref={passwordRef}
+							type="password"
+							id="password"
+							autoComplete="current-password"
+							className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
+							         text-wood-100 focus:outline-none focus:border-primary"
+							placeholder="Enter your password"
+						/>
+					</div>
+				)}
+
 				{/* Step 2: Enter Password & Get QR Code */}
 				{step === 'qr' && (
 					<div className="space-y-4">
 						<p className="text-sm text-wood-300">
 							Enter your password to generate a QR code for your authenticator app.
 						</p>
-
-						<div>
-							<label htmlFor="password" className="block text-sm font-medium text-wood-200 mb-2">
-								Password
-							</label>
-							<input
-								ref={passwordRef}
-								type="password"
-								id="password"
-								autoComplete="current-password"
-								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg 
-								         text-wood-100 focus:outline-none focus:border-primary"
-								placeholder="Enter your password"
-							/>
-						</div>
 
 						{error && (
 							<div className="bg-red-900/50 border border-red-500 rounded p-3 flex items-start gap-2">

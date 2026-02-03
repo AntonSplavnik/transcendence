@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
-import type { User, Session } from '../api/types';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
 import SessionDetailsModal from './modals/SessionDetailModal';
 import ReauthModal from './modals/ReauthModal';
