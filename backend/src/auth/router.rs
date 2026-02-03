@@ -4,6 +4,7 @@ use crate::auth::AuthError;
 use crate::auth::hoops::set_session;
 use crate::auth::session_token::SessionToken;
 use crate::auth::user::{SessionInfo, UserSessionInfo};
+use crate::models::nickname::Nickname;
 use crate::models::{NewSession, NewUser, Session, User};
 use crate::prelude::*;
 
@@ -42,7 +43,7 @@ struct RegisterInput {
     #[validate(custom(function = "crate::validate::password"))]
     pub password: String,
     #[validate(custom(function = "crate::validate::nickname"))]
-    pub nickname: String,
+    pub nickname: Nickname,
 }
 
 /// Register a new User and create a new Session
@@ -74,6 +75,7 @@ fn register(
     };
 
     let session = create_session(conn, user.id, req, depot, res)?;
+    NICK_CACHE.add(user.id, user.nickname);
     json_ok(UserSessionInfo::new(user, session))
 }
 

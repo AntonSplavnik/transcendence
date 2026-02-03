@@ -1,50 +1,14 @@
-use std::sync::LazyLock;
-
-use parking_lot::Mutex;
-use schnellru::{ByLength, LruMap};
-
 use crate::{
-    models::{ChatMember, ChatMessage, ChatRoomType},
+    models::{ChatMember, ChatMessage, ChatRoomType, nickname::Nickname},
     prelude::*,
 };
 
 const GLOBAL_MESSAGE_CHARS_LIMIT: usize = 512;
 const OTHER_MESSAGE_CHARS_LIMIT: usize = 4096;
 const SENDMESSAGE_RATE_LIMIT_PER_5_SECONDS: usize = 6;
-const NICKNAME_CACHE_SIZE: u32 = 8192;
 // TODO dont forget to limit chatroom invitations to CHAT_ROOM_USER_LIMIT - member_count
 // TODO regular task to automatically remove pending invitations if they are older than for example 14 days
 // an event with actor_id = user_id must be emitted (user either rejected the invitation, or let it time out)
-
-/// TODO: global user nickname cache
-fn get_nickname(user_id: i32) -> Option<String> {
-    static LRU: LazyLock<
-        Mutex<LruMap<i32, String, ByLength, ahash::RandomState>>,
-    > = LazyLock::new(|| {
-        Mutex::new(LruMap::with_hasher(
-            ByLength::new(NICKNAME_CACHE_SIZE),
-            Default::default(),
-        ))
-    });
-    let nick = { LRU.lock().get(&user_id).cloned() };
-    nick.or_else(|| {
-        use crate::schema::users::dsl::*;
-        let conn = &mut db::get().ok()?;
-        match users
-            .filter(id.eq(user_id))
-            .select(nickname)
-            .first::<String>(conn)
-            .optional()
-            .ok()?
-        {
-            Some(nick) => {
-                LRU.lock().insert(user_id, nick.clone());
-                Some(nick)
-            }
-            None => None,
-        }
-    })
-}
 
 /// Sent in response to client actions when an error occurs
 #[derive(Debug, Serialize, Clone, Copy)]
@@ -79,11 +43,11 @@ enum ServerMessage {
     /// Client needs to update user nicknames
     /// global: sent before MsgLog
     /// others: sent before Members
-    Nicks(Vec<(i32, String)>),
+    Nicks(Vec<(i32, Nickname)>),
     /// Client needs to update a single user nickname
     /// global: sent before NewMsg
     /// others: sent before MemberAdded
-    Nick { user_id: i32, nickname: String },
+    Nick { user_id: i32, nickname: Nickname },
     /// Client needs to update the entire message log
     /// global: sent after Nicks
     /// others: sent after Members
@@ -94,7 +58,7 @@ enum ServerMessage {
     /// global: omitted
     IsTyping(i32),
     /// Client needs to mark all messages up to message_id as read for the user
-    /// global, public, invite_only: omitted
+    /// not dm: omitted
     ReadText { user_id: i32, message_id: i32 },
     /// Client needs to update the entire list of members
     /// Client may show a join message for the joined_at timestamp

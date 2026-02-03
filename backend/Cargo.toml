@@ -18,7 +18,7 @@ jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
-salvo = { version = "0.88", features = [
+salvo = { version = "0.89", features = [
 	"anyhow",
 	"acme",
 	"force-https",
@@ -87,7 +87,7 @@ woothee = "0.13.0"
 # fast (but DOS-resistant) hashing
 ahash = "0.8.12"
 # efficient rate-limiting
-pingora-limits = "0.6.0"
+pingora-limits = "0.7"
 # dependency for h3-quinn (just need an error type from it)
 h3 = "0.0.8"
 # manual json conversions
@@ -110,3 +110,9 @@ circular-buffer = "1.2.0"
 rustls = "0.23.36"
 enum_dispatch = "0.3.13"
 const-random = "0.1.18"
+smallvec = { version = "1.15.1", features = [
+	"serde",
+	"union",
+	"const_generics",
+] }
+mini-moka = "0.10.3"

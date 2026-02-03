@@ -1,4 +1,6 @@
-use crate::auth::session_token::SessionTokenHash;
+use crate::{
+    auth::session_token::SessionTokenHash, models::nickname::Nickname,
+};
 use ::ulid::Ulid;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
@@ -9,6 +11,8 @@ use serde::Serialize;
 
 #[macro_use]
 mod i32_enum;
+pub mod blob;
+pub mod nickname;
 mod ulid;
 
 pub use ulid::SqlUlid;
@@ -20,7 +24,7 @@ pub use ulid::SqlUlid;
 pub struct User {
     pub id: i32,
     pub email: String,
-    pub nickname: String,
+    pub nickname: Nickname,
     pub totp_enabled: bool,
     #[serde(skip)]
     pub totp_secret_enc: Option<String>,
@@ -40,7 +44,11 @@ impl User {
 }
 
 impl NewUser {
-    pub fn new(email: String, nickname: String, password_hash: String) -> Self {
+    pub fn new(
+        email: String,
+        nickname: Nickname,
+        password_hash: String,
+    ) -> Self {
         NewUser {
             email,
             nickname,
@@ -177,6 +185,7 @@ diesel_i32_enum! {
         Public,
         InviteOnly,
         Dm,
+        GameLobby,
     }
 }
 
