@@ -80,7 +80,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			storeError(error, 'dead_session');
 			return Promise.reject(error);
 		}
-		//TODO: differentiate between NeedReauth vs fully logged out (one is just a popup and an api call)
 		if (brief === 'NeedReauth') {
 			// User needs to reauthenticate with password
 			storeError(error, 'needReauth');

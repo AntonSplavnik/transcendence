@@ -10,8 +10,6 @@ interface HomeProps {
 	onLogout: () => void;
 }
 
-// TODO: implement explicit sessionExpiringSoon warning/modal to type in password again using reauth API (write new reauth in context)
-
 export default function Home({ onGame, onLogout }: HomeProps) {
 	const { user, session } = useAuth();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
