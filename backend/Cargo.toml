@@ -43,7 +43,7 @@ tracing = "0.1"
 # enforce checks/rules on struct fields
 validator = { version = "0.20", features = ["derive"] }
 # id generation
-ulid = "1"
+ulid = { version = "1", features = ["serde"] }
 # password hashing
 argon2 = { version = "0.5", features = ["std"] }
 cookie = "0.18"

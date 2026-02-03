@@ -1,3 +1,5 @@
+use crate::auth::session_token::SessionTokenHash;
+use ::ulid::Ulid;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
@@ -5,66 +7,11 @@ use diesel_derive_newtype::DieselNewType;
 use salvo::oapi::ToSchema;
 use serde::Serialize;
 
-use crate::auth::session_token::SessionTokenHash;
+#[macro_use]
+mod i32_enum;
+mod ulid;
 
-macro_rules! diesel_i32_enum {
-    (
-        $(#[$meta:meta])*
-        $vis:vis enum $name:ident {
-            $($variant:ident),+ $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        #[derive(
-            Debug,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            diesel::expression::AsExpression,
-            diesel::deserialize::FromSqlRow,
-            salvo::oapi::ToSchema,
-            strum::FromRepr,
-        )]
-        #[diesel(sql_type = diesel::sql_types::Integer)]
-        #[repr(i32)]
-        $vis enum $name {
-            $($variant),+
-        }
-
-        impl
-            diesel::serialize::ToSql<diesel::sql_types::Integer, diesel::sqlite::Sqlite>
-            for $name
-        where
-            i32: diesel::serialize::ToSql<
-                    diesel::sql_types::Integer,
-                    diesel::sqlite::Sqlite,
-                >,
-        {
-            fn to_sql<'b>(
-                &'b self,
-                out: &mut diesel::serialize::Output<'b, '_, diesel::sqlite::Sqlite>,
-            ) -> diesel::serialize::Result {
-                out.set_value(*self as i32);
-                Ok(diesel::serialize::IsNull::No)
-            }
-        }
-
-        impl<DB> diesel::deserialize::FromSql<diesel::sql_types::Integer, DB>
-            for $name
-        where
-            DB: diesel::backend::Backend,
-            i32: diesel::deserialize::FromSql<diesel::sql_types::Integer, DB>,
-        {
-            fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
-                match $name::from_repr(i32::from_sql(bytes)?) {
-                    Some(ty) => Ok(ty),
-                    None => Err("Unrecognized enum variant".into()),
-                }
-            }
-        }
-    };
-}
+pub use ulid::SqlUlid;
 
 #[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, ToSchema, Serialize, Debug, Clone)]
@@ -334,6 +281,7 @@ impl ChatMember {
 #[diesel(table_name = crate::schema::chat_invitations)]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
+#[diesel(belongs_to(User, foreign_key = actor_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct ChatInvitation {
     #[serde(skip)]
@@ -364,15 +312,16 @@ impl ChatInvitation {
     }
 }
 
-#[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
 #[diesel(table_name = crate::schema::chat_messages)]
 #[diesel(belongs_to(User, foreign_key = sender_id))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct ChatMessage {
-    pub id: i32,
-    #[serde(skip)]
+    // using ULID for sortable unique IDs that dont need to be created by the database
+    // i.e. for in-memory message stores
+    pub id: SqlUlid,
+    // #[serde(skip)]
     pub room_id: i32,
     pub sender_id: i32,
     pub content: String,
@@ -383,16 +332,16 @@ impl ChatMessage {
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at.and_utc()
     }
-}
 
-impl NewChatMessage {
     pub fn new(
         room_id: i32,
         sender_id: i32,
         content: String,
         created_at: DateTime<Utc>,
     ) -> Self {
+        let id = Ulid::from_datetime(created_at.into()).into();
         Self {
+            id,
             room_id,
             sender_id,
             content,

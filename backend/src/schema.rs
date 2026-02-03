@@ -21,7 +21,7 @@ diesel::table! {
 
 diesel::table! {
     chat_messages (id) {
-        id -> Integer,
+        id -> Binary,
         room_id -> Integer,
         sender_id -> Integer,
         content -> Text,
