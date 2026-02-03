@@ -23,11 +23,17 @@ where
     K: std::hash::Hash + PartialEq,
 {
     #[inline]
-    pub fn with_max_length(max_length: u32) -> Self {
+    pub const fn with_max_length(max_length: u32) -> Self {
+        use const_random::const_random;
         Self {
             inner: Mutex::new(LruMap::with_hasher(
                 ByLength::new(max_length),
-                ahash::RandomState::new(),
+                ahash::RandomState::with_seeds(
+                    const_random!(u64),
+                    const_random!(u64),
+                    const_random!(u64),
+                    const_random!(u64),
+                ),
             )),
         }
     }
@@ -40,11 +46,17 @@ where
     /// Makes only sence to use with values that do not allocate on the heap,
     /// since this only cares about how much memory the cache itself is allocating.
     #[inline]
-    pub fn with_memory_budget(max_bytes: usize) -> Self {
+    pub const fn with_memory_budget(max_bytes: usize) -> Self {
+        use const_random::const_random;
         Self {
             inner: Mutex::new(LruMap::with_memory_budget_and_hasher(
                 max_bytes,
-                ahash::RandomState::new(),
+                ahash::RandomState::with_seeds(
+                    const_random!(u64),
+                    const_random!(u64),
+                    const_random!(u64),
+                    const_random!(u64),
+                ),
             )),
         }
     }

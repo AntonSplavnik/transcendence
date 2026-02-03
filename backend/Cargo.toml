@@ -108,3 +108,5 @@ parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 schnellru = "0.2.4"
 circular-buffer = "1.2.0"
 rustls = "0.23.36"
+enum_dispatch = "0.3.13"
+const-random = "0.1.18"
