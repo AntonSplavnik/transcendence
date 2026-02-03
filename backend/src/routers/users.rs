@@ -56,7 +56,7 @@ struct CheckNicknameOutput {
 #[endpoint]
 fn check_nickname(json: JsonBody<String>) -> JsonResult<CheckNicknameOutput> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let input = json.into_inner();
 
     let exists =
@@ -72,7 +72,7 @@ fn check_nickname(json: JsonBody<String>) -> JsonResult<CheckNicknameOutput> {
 #[endpoint]
 fn get_users_by_id(json: JsonBody<Vec<i32>>) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let user_ids = json.into_inner();
 
     let result = users.filter(id.eq_any(user_ids)).load::<User>(conn)?;
@@ -86,7 +86,7 @@ fn get_users_by_nickname(
     json: JsonBody<Vec<String>>,
 ) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let nicknames = json.into_inner();
 
     let result = users

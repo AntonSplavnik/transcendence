@@ -64,7 +64,7 @@ fn register(
     };
     let new_user =
         NewUser::new(email, nickname, util::hash_password(&password)?);
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     // FIXME (not planned yet) account email enumeration vulnerability (need email confirmation flow)
     let user: User = {
         use crate::schema::users::dsl::*;
@@ -98,7 +98,7 @@ fn login(
 ) -> JsonResult<UserSessionInfo> {
     use crate::schema::sessions::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let LoginInput {
         email,
         password,
@@ -147,7 +147,7 @@ fn reauth(
     depot: &mut Depot,
     res: &mut Response,
 ) -> JsonResult<UserSessionInfo> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let PasswordInput { password, mfa_code } = json.into_inner();
     util::check_password_and_mfa_if_enabled(
@@ -170,7 +170,7 @@ fn refresh_jwt(
     depot: &mut Depot,
     res: &mut Response,
 ) -> JsonResult<SessionInfo> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
 
     json_ok(rotate_session::<false>(conn, session, req, depot, res)?.into())
@@ -272,7 +272,7 @@ pub(super) fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
     use crate::schema::sessions::dsl::*;
     let session: Session = sessions
         .filter(token_hash.eq(session_token.to_hash()))
-        .first(&mut db::get()?)
+        .first(&mut db::get())
         .map_err(|_| AuthError::SessionNotFound)?;
 
     if NO_PENDING_REAUTH && session.login_expiry() < chrono::Utc::now() {

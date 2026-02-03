@@ -73,8 +73,9 @@ fn migrate(conn: &mut DbConn) {
         .expect("migrate db should worked");
 }
 
-pub fn get() -> Result<DbConn, diesel::r2d2::PoolError> {
+pub fn get() -> DbConn {
     DB.get()
+        .expect("local sqlite db should not time out while trying to connect")
 }
 
 const TEST_DATABASE_URL: &str =
