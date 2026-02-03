@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Lock, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,15 +7,18 @@ import { getErrorMessage } from '../../api/error';
 interface ReauthModalProps {
 	onSuccess: () => void;
 	onCancel: () => void;
-	requireMfa?: boolean;
 }
 
-export default function ReauthModal({ onSuccess, onCancel, requireMfa = false }: ReauthModalProps) {
+export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 	const { reauth, user } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const mfaRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		passwordRef.current?.focus();
+	}, []);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -31,7 +34,7 @@ export default function ReauthModal({ onSuccess, onCancel, requireMfa = false }:
 			return;
 		}
 
-		if (requireMfa && user?.totp_enabled && !mfaCode) {
+		if (user?.totp_enabled && !mfaCode) {
 			setError('2FA code is required');
 			setIsLoading(false);
 			return;
@@ -39,6 +42,7 @@ export default function ReauthModal({ onSuccess, onCancel, requireMfa = false }:
 
 		try {
 			await reauth(password, mfaCode);
+			if (passwordRef.current) passwordRef.current.value = '';
 			onSuccess();
 		} catch (err) {
 			setError(getErrorMessage(err, 'Re-authentication failed'));

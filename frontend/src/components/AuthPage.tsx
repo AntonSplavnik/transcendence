@@ -19,7 +19,12 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const [showMfaModal, setShowMfaModal] = useState(false);
 	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
+	const emailRef = useRef<HTMLInputElement>(null);
 	const nicknameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		emailRef.current?.focus();
+	}, []);
 
 	useEffect(() => {
 		if (!isLogin && username.trim().length > 0) {
@@ -146,6 +151,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						<div className="relative">
 							<Mail size={18} className="absolute left-3 top-3 text-wood-500" />
 							<input
+								ref={emailRef}
 								id="email"
 								name="email"
 								autoComplete="email"

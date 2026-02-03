@@ -203,7 +203,6 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				<ReauthModal
 					onSuccess={handleReauthSuccess}
 					onCancel={() => setShowReauthModal(false)}
-					requireMfa={user.totp_enabled}
 				/>
 			)}
 		</main>
