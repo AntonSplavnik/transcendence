@@ -95,7 +95,7 @@ npm run all
 
 this runs the frontend on:
 <http://localhost:5173/>
-(access the dynamic frontend here to see changes immeadiatly)
+(access the dynamic frontend here to see changes immediately)
 
 and the backend on
 <https://127.0.0.1:8443/>
@@ -173,7 +173,7 @@ App.tsx is your app UI/logic composer, written as a React component.
 ### Babylon.js (3D engine)
 
 Babylon.js is a powerful, open-source 3D engine for building games and interactive experiences in the browser using WebGL.
-We need it to make simplify writing our games graphics, the physics engine, camera controls, lighting, and asset management.
+We use it to simplify writing our game’s graphics, the physics engine, camera controls, lighting, and asset management.
 to display it I can manually wrap it in a react component. There is also the option of downloading react-bablylonjs, but that adds another layer. The other way is more responsive, although integration with react state management is more work.
 
 Babylon needs an HTMLCanvasElement to create a WebGL context and render.
@@ -281,7 +281,7 @@ Regular API calls (without `silent`) will store errors for display if they fail.
 
 ## Add api calls
 
-in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the fucntions there (e.g nicknameExists)
+in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the functions there (e.g nicknameExists)
 then import and use them in your components.
 if they need authentication, make sure to call them from within AuthContext or pass the jwt token from there.
 That means either wrap them in AuthContext functions usually.
