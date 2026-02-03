@@ -95,6 +95,29 @@ where
         self.inner.lock().get(key).cloned()
     }
 
+    /// Gets multiple copied values from the cache by keys.
+    ///
+    /// Returns a vector of options in the same order as the input keys.
+    pub fn get_many_copy(&self, keys: &[K]) -> Vec<Option<V>>
+    where
+        V: Copy,
+    {
+        let mut guard = self.inner.lock();
+        keys.iter().map(|key| guard.get(key).copied()).collect()
+    }
+
+    /// Gets multiple cloned values from the cache by keys.
+    ///
+    /// Returns a vector of options in the same order as the input keys.
+    #[inline]
+    pub fn get_many_clone(&self, keys: &[K]) -> Vec<Option<V>>
+    where
+        V: Clone,
+    {
+        let mut guard = self.inner.lock();
+        keys.iter().map(|key| guard.get(key).cloned()).collect()
+    }
+
     /// Inserts a key-value pair into the cache.
     ///
     /// Always succeeds with the chosen limiters.
