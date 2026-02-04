@@ -112,6 +112,47 @@ impl NewTwoFaRecoveryCode {
     }
 }
 
+// ============================================================================
+// Achievements
+// ============================================================================
+
+#[derive(Queryable, Selectable, Serialize, ToSchema, Debug, Clone)]
+#[diesel(table_name = crate::schema::achievements)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct Achievement {
+    pub id: i32,
+    pub code: String,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub bronze_threshold: i32,
+    pub silver_threshold: i32,
+    pub gold_threshold: i32,
+    pub base_xp_reward: i32,
+    created_at: NaiveDateTime,
+}
+
+impl Achievement {
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
+}
+
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Debug, Clone)]
+#[diesel(table_name = crate::schema::user_achievements)]
+#[diesel(belongs_to(User))]
+#[diesel(belongs_to(Achievement))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct UserAchievement {
+    pub id: i32,
+    pub user_id: i32,
+    pub achievement_id: i32,
+    pub current_progress: i32,
+    pub bronze_unlocked_at: Option<NaiveDateTime>,
+    pub silver_unlocked_at: Option<NaiveDateTime>,
+    pub gold_unlocked_at: Option<NaiveDateTime>,
+}
+
 impl Session {
     pub fn rotate<const DO_REAUTH: bool>(
         &self,
