@@ -112,6 +112,94 @@ impl NewTwoFaRecoveryCode {
     }
 }
 
+// ============================================================================
+// User Stats (XP/Level System)
+// ============================================================================
+
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Debug, Clone)]
+#[diesel(table_name = crate::schema::user_stats)]
+#[diesel(belongs_to(User))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct UserStats {
+    pub user_id: i32,
+    pub xp: i32,
+    pub level: i32,
+    pub games_played: i32,
+    pub games_won: i32,
+    pub current_win_streak: i32,
+    pub best_win_streak: i32,
+    created_at: NaiveDateTime,
+    updated_at: NaiveDateTime,
+}
+
+impl UserStats {
+    pub fn new(user_id: i32) -> Self {
+        let now = chrono::Utc::now().naive_utc();
+        Self {
+            user_id,
+            xp: 0,
+            level: 1,
+            games_played: 0,
+            games_won: 0,
+            current_win_streak: 0,
+            best_win_streak: 0,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at.and_utc()
+    }
+
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at.and_utc()
+    }
+
+    pub fn games_lost(&self) -> i32 {
+        self.games_played - self.games_won
+    }
+
+    pub fn win_rate(&self) -> f32 {
+        if self.games_played == 0 {
+            0.0
+        } else {
+            (self.games_won as f32 / self.games_played as f32) * 100.0
+        }
+    }
+
+    /// Apply a game result: update counters, calculate XP, recalculate level.
+    /// Returns the XP gained and whether a level-up occurred.
+    pub fn record_game(&mut self, won: bool) -> (i32, bool) {
+        use crate::gamification::xp;
+
+        let previous_level = self.level;
+
+        // Update game counters
+        self.games_played += 1;
+        if won {
+            self.games_won += 1;
+            self.current_win_streak += 1;
+            if self.current_win_streak > self.best_win_streak {
+                self.best_win_streak = self.current_win_streak;
+            }
+        } else {
+            self.current_win_streak = 0;
+        }
+
+        // Calculate and award XP
+        let xp_gained = xp::rewards::calculate_game_xp(won, self.current_win_streak);
+        self.xp += xp_gained;
+
+        // Recalculate level from total XP
+        self.level = xp::level_from_xp(self.xp);
+        self.updated_at = chrono::Utc::now().naive_utc();
+
+        let leveled_up = self.level > previous_level;
+        (xp_gained, leveled_up)
+    }
+}
+
 impl Session {
     pub fn rotate<const DO_REAUTH: bool>(
         &self,

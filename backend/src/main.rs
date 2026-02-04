@@ -11,6 +11,7 @@ mod auth;
 mod config;
 pub mod db;
 mod error;
+mod gamification;
 mod models;
 mod prelude;
 mod routers;

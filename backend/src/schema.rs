@@ -26,6 +26,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    user_stats (user_id) {
+        user_id -> Integer,
+        xp -> Integer,
+        level -> Integer,
+        games_played -> Integer,
+        games_won -> Integer,
+        current_win_streak -> Integer,
+        best_win_streak -> Integer,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Integer,
         email -> Text,
@@ -40,5 +54,6 @@ diesel::table! {
 
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
+diesel::joinable!(user_stats -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(sessions, two_fa_recovery_codes, users,);
+diesel::allow_tables_to_appear_in_same_query!(sessions, two_fa_recovery_codes, user_stats, users,);
