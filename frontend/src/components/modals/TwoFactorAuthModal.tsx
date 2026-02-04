@@ -113,6 +113,14 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	return (
 		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
 			<div className="bg-wood-800 border-2 border-wood-600 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+
+				{error && (
+					<div className="bg-red-900/50 border border-red-500 rounded p-3 flex items-start gap-2">
+						<AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+						<p className="text-sm text-red-200">{error}</p>
+					</div>
+				)}
+
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-2xl font-bold text-wood-100 flex items-center gap-2">
 						<Shield className="w-6 h-6" />
@@ -191,13 +199,6 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 							Enter your password to generate a QR code for your authenticator app.
 						</p>
 
-						{error && (
-							<div className="bg-red-900/50 border border-red-500 rounded p-3 flex items-start gap-2">
-								<AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-								<p className="text-sm text-red-200">{error}</p>
-							</div>
-						)}
-
 						<div className="flex gap-3">
 							<Button onClick={handleStart2FA} disabled={isLoading} className="flex-1">
 								{isLoading ? 'Generating...' : 'Continue'}
@@ -240,13 +241,6 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 								placeholder="000000"
 							/>
 						</div>
-
-						{error && (
-							<div className="bg-red-900/50 border border-red-500 rounded p-3 flex items-start gap-2">
-								<AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-								<p className="text-sm text-red-200">{error}</p>
-							</div>
-						)}
 
 						<div className="flex gap-3">
 							<Button onClick={handleConfirm2FA} disabled={isLoading} className="flex-1">
