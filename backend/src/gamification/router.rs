@@ -4,6 +4,7 @@ use crate::models::{Achievement, UserAchievement, UserStats};
 use crate::prelude::*;
 
 use super::achievements::{self, AchievementTier, AchievementUnlock};
+use super::daily_challenges;
 use super::xp;
 
 pub fn router(path: &str) -> Router {
@@ -35,6 +36,22 @@ pub fn router(path: &str) -> Router {
                         .requires_user_login()
                         .user_rate_limit(&RateLimit::per_5_minutes(100))
                         .get(get_recent_achievements),
+                ),
+        )
+        .push(
+            Router::with_path("challenges")
+                .oapi_tag("daily-challenges")
+                .push(
+                    Router::with_path("daily")
+                        .requires_user_login()
+                        .user_rate_limit(&RateLimit::per_5_minutes(100))
+                        .get(get_daily_challenges),
+                )
+                .push(
+                    Router::with_path("claim/<challenge_id>")
+                        .requires_user_login()
+                        .user_rate_limit(&RateLimit::per_5_minutes(30))
+                        .post(claim_daily_challenge),
                 ),
         )
         .push(
@@ -131,6 +148,9 @@ async fn record_game(depot: &mut Depot, json: JsonBody<RecordGameInput>) -> Json
             .set((dsl::xp.eq(stats.xp), dsl::level.eq(stats.level)))
             .execute(conn)?;
     }
+
+    // Update daily challenge progress
+    daily_challenges::update_daily_progress(conn, user_id, input.won, &stats)?;
 
     json_ok(RecordGameResponse {
         xp_gained,
@@ -335,4 +355,115 @@ async fn get_recent_achievements(depot: &mut Depot) -> JsonResult<Vec<RecentUnlo
     recent.truncate(20);
 
     json_ok(recent)
+}
+
+// ============================================================================
+// Daily Challenge Endpoints
+// ============================================================================
+
+#[derive(Debug, Serialize, ToSchema)]
+struct DailyChallengeWithProgress {
+    active_challenge_id: i32,
+    code: String,
+    description: String,
+    difficulty: String,
+    target_value: i32,
+    xp_reward: i32,
+    slot: i32,
+    current_progress: i32,
+    completed: bool,
+    xp_claimed: bool,
+}
+
+/// Get today's 3 daily challenges with the current user's progress
+#[endpoint]
+async fn get_daily_challenges(depot: &mut Depot) -> JsonResult<Vec<DailyChallengeWithProgress>> {
+    use crate::schema::user_daily_progress::dsl as udp;
+
+    let user_id = depot.user_id();
+    let conn = &mut db::get()?;
+
+    // Ensure today's challenges are selected
+    daily_challenges::ensure_daily_challenges(conn)?;
+
+    let challenges = daily_challenges::get_todays_challenges(conn)?;
+
+    let active_ids: Vec<i32> = challenges.iter().map(|(a, _)| a.id).collect();
+    let user_progress: Vec<crate::models::UserDailyProgress> = udp::user_daily_progress
+        .filter(udp::user_id.eq(user_id))
+        .filter(udp::active_challenge_id.eq_any(&active_ids))
+        .load(conn)?;
+
+    let result: Vec<DailyChallengeWithProgress> = challenges
+        .into_iter()
+        .map(|(active, pool)| {
+            let progress = user_progress
+                .iter()
+                .find(|p| p.active_challenge_id == active.id);
+
+            DailyChallengeWithProgress {
+                active_challenge_id: active.id,
+                code: pool.code,
+                description: pool.description,
+                difficulty: pool.difficulty,
+                target_value: pool.target_value,
+                xp_reward: pool.xp_reward,
+                slot: active.slot,
+                current_progress: progress.map_or(0, |p| p.current_progress),
+                completed: progress.is_some_and(|p| p.completed_at.is_some()),
+                xp_claimed: progress.is_some_and(|p| p.xp_claimed),
+            }
+        })
+        .collect();
+
+    json_ok(result)
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+struct ClaimResponse {
+    success: bool,
+    xp_reward: i32,
+    new_xp: i32,
+    new_level: i32,
+    message: String,
+}
+
+/// Claim XP for a completed daily challenge
+#[endpoint]
+async fn claim_daily_challenge(depot: &mut Depot, req: &mut Request) -> JsonResult<ClaimResponse> {
+    let user_id = depot.user_id();
+    let challenge_id: i32 = req.param("challenge_id").unwrap_or(0);
+    if challenge_id == 0 {
+        return Err(diesel::result::Error::NotFound.into());
+    }
+
+    let conn = &mut db::get()?;
+
+    match daily_challenges::claim_challenge(conn, user_id, challenge_id)? {
+        daily_challenges::ClaimResult::Claimed {
+            xp_reward,
+            new_xp,
+            new_level,
+        } => json_ok(ClaimResponse {
+            success: true,
+            xp_reward,
+            new_xp,
+            new_level,
+            message: format!("Claimed {} XP!", xp_reward),
+        }),
+        daily_challenges::ClaimResult::NotCompleted => json_ok(ClaimResponse {
+            success: false,
+            xp_reward: 0,
+            new_xp: 0,
+            new_level: 0,
+            message: "Challenge not completed yet".to_string(),
+        }),
+        daily_challenges::ClaimResult::AlreadyClaimed => json_ok(ClaimResponse {
+            success: false,
+            xp_reward: 0,
+            new_xp: 0,
+            new_level: 0,
+            message: "XP already claimed for this challenge".to_string(),
+        }),
+    }
 }

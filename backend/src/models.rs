@@ -113,44 +113,46 @@ impl NewTwoFaRecoveryCode {
 }
 
 // ============================================================================
-// Achievements
+// Daily Challenges
 // ============================================================================
 
 #[derive(Queryable, Selectable, Serialize, ToSchema, Debug, Clone)]
-#[diesel(table_name = crate::schema::achievements)]
+#[diesel(table_name = crate::schema::daily_challenge_pool)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct Achievement {
+pub struct DailyChallengePool {
     pub id: i32,
     pub code: String,
-    pub name: String,
     pub description: String,
-    pub category: String,
-    pub bronze_threshold: i32,
-    pub silver_threshold: i32,
-    pub gold_threshold: i32,
-    pub base_xp_reward: i32,
+    pub difficulty: String,
+    pub target_value: i32,
+    pub stat_to_track: String,
+    pub xp_reward: i32,
     created_at: NaiveDateTime,
 }
 
-impl Achievement {
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
+#[derive(Queryable, Selectable, Insertable, Associations, Serialize, ToSchema, Debug, Clone)]
+#[diesel(table_name = crate::schema::active_daily_challenges)]
+#[diesel(belongs_to(DailyChallengePool, foreign_key = challenge_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ActiveDailyChallenge {
+    pub id: i32,
+    pub challenge_id: i32,
+    pub active_date: String,
+    pub slot: i32,
 }
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Debug, Clone)]
-#[diesel(table_name = crate::schema::user_achievements)]
+#[diesel(table_name = crate::schema::user_daily_progress)]
 #[diesel(belongs_to(User))]
-#[diesel(belongs_to(Achievement))]
+#[diesel(belongs_to(ActiveDailyChallenge, foreign_key = active_challenge_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct UserAchievement {
+pub struct UserDailyProgress {
     pub id: i32,
     pub user_id: i32,
-    pub achievement_id: i32,
+    pub active_challenge_id: i32,
     pub current_progress: i32,
-    pub bronze_unlocked_at: Option<NaiveDateTime>,
-    pub silver_unlocked_at: Option<NaiveDateTime>,
-    pub gold_unlocked_at: Option<NaiveDateTime>,
+    pub completed_at: Option<NaiveDateTime>,
+    pub xp_claimed: bool,
 }
 
 impl Session {

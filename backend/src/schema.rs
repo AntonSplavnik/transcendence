@@ -16,6 +16,28 @@ diesel::table! {
 }
 
 diesel::table! {
+    active_daily_challenges (id) {
+        id -> Integer,
+        challenge_id -> Integer,
+        active_date -> Date,
+        slot -> Integer,
+    }
+}
+
+diesel::table! {
+    daily_challenge_pool (id) {
+        id -> Integer,
+        code -> Text,
+        description -> Text,
+        difficulty -> Text,
+        target_value -> Integer,
+        stat_to_track -> Text,
+        xp_reward -> Integer,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     sessions (id) {
         id -> Integer,
         user_id -> Integer,
@@ -53,6 +75,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    user_daily_progress (id) {
+        id -> Integer,
+        user_id -> Integer,
+        active_challenge_id -> Integer,
+        current_progress -> Integer,
+        completed_at -> Nullable<Timestamp>,
+        xp_claimed -> Bool,
+    }
+}
+
+diesel::table! {
     user_stats (user_id) {
         user_id -> Integer,
         xp -> Integer,
@@ -79,17 +112,23 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(active_daily_challenges -> daily_challenge_pool (challenge_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 diesel::joinable!(user_achievements -> achievements (achievement_id));
 diesel::joinable!(user_achievements -> users (user_id));
+diesel::joinable!(user_daily_progress -> active_daily_challenges (active_challenge_id));
+diesel::joinable!(user_daily_progress -> users (user_id));
 diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     achievements,
+    active_daily_challenges,
+    daily_challenge_pool,
     sessions,
     two_fa_recovery_codes,
     user_achievements,
+    user_daily_progress,
     user_stats,
     users,
 );
