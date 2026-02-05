@@ -23,10 +23,6 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const nicknameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		emailRef.current?.focus();
-	}, []);
-
-	useEffect(() => {
 		if (!isLogin && username.trim().length > 0) {
 			if (nicknameTimeoutRef.current) {
 				clearTimeout(nicknameTimeoutRef.current);
@@ -153,6 +149,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 							<input
 								ref={emailRef}
 								id="email"
+								autoFocus
 								name="email"
 								autoComplete="email"
 								type="email"
