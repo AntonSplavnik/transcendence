@@ -13,6 +13,7 @@ interface AuthContextType {
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
 	logout: () => Promise<void>;
 	clearAuth: () => void;
+	refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -83,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	};
 
+	// Refresh user data from server
+	const refreshUser = async (): Promise<void> => {
+		const data = await userApi.getMe();
+		setAuthData(data);
+	};
+
 	return (
 		<AuthContext.Provider value={{
 			user,
@@ -92,7 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			register,
 			reauth,
 			logout,
-			clearAuth
+			clearAuth,
+			refreshUser
 		}}>
 			{children}
 		</AuthContext.Provider>

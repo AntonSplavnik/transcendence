@@ -3,6 +3,7 @@ import { Shield, AlertCircle, Copy, Check } from 'lucide-react';
 import Button from '../ui/Button';
 import * as userApi from '../../api/user';
 import { getErrorMessage } from '../../api/error';
+import { useAuth } from '../../contexts/AuthContext';
 import type { User } from '../../api/types';
 
 interface TwoFactorModalProps {
@@ -12,7 +13,8 @@ interface TwoFactorModalProps {
 }
 
 export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorModalProps) {
-	const [step, setStep] = useState<'confirm' | 'qr' | 'verify' | 'recovery'>('confirm');
+	const { refreshUser } = useAuth();
+	const [step, setStep] = useState<'confirm' | 'qr' | 'verify' | 'recovery' | 'disable'>('confirm');
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [qrCode, setQrCode] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	// Step 1: Confirm action (enable or disable)
 	const handleConfirmAction = () => {
 		if (user.totp_enabled) {
-			handleDisable2FA();
+			setStep('disable');
 		} else {
 			setStep('qr');
 		}
@@ -70,6 +72,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 
 		try {
 			const response = await userApi.confirm2FA(password, code);
+			await refreshUser();
 			setRecoveryCodes(response.recovery_codes);
 			setStep('recovery');
 		} catch (err) {
@@ -94,6 +97,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 
 		try {
 			await userApi.disable2FA(password, mfaCode);
+			await refreshUser();
 			onSuccess();
 		} catch (err) {
 			setError(getErrorMessage(err, 'Failed to disable 2FA'));
@@ -236,9 +240,12 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 								id="verify-code"
 								maxLength={6}
 								autoComplete="one-time-code"
-								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg 
+								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
 								         text-wood-100 text-center text-2xl tracking-widest focus:outline-none focus:border-primary"
 								placeholder="000000"
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && !isLoading) handleConfirm2FA();
+								}}
 							/>
 						</div>
 
@@ -247,6 +254,57 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 								{isLoading ? 'Verifying...' : 'Confirm'}
 							</Button>
 							<Button onClick={() => setStep('qr')} variant="secondary">
+								Back
+							</Button>
+						</div>
+					</div>
+				)}
+
+				{/* Step: Disable 2FA - Enter password and current MFA code */}
+				{step === 'disable' && (
+					<div className="space-y-4">
+						<p className="text-sm text-wood-300">
+							Enter your password and current 2FA code to disable two-factor authentication.
+						</p>
+
+						<div>
+							<label htmlFor="disable-password" className="block text-sm font-medium text-wood-200 mb-2">
+								Password
+							</label>
+							<input
+								ref={passwordRef}
+								type="password"
+								id="disable-password"
+								autoComplete="current-password"
+								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
+								         text-wood-100 focus:outline-none focus:border-primary"
+								placeholder="Enter your password"
+							/>
+						</div>
+
+						<div>
+							<label htmlFor="disable-mfa" className="block text-sm font-medium text-wood-200 mb-2">
+								Authentication Code
+							</label>
+							<input
+								ref={mfaCodeRef}
+								type="text"
+								id="disable-mfa"
+								autoComplete="one-time-code"
+								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
+								         text-wood-100 text-center text-xl tracking-widest focus:outline-none focus:border-primary"
+								placeholder="000000 or recovery code"
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && !isLoading) handleDisable2FA();
+								}}
+							/>
+						</div>
+
+						<div className="flex gap-3">
+							<Button onClick={handleDisable2FA} disabled={isLoading} className="flex-1">
+								{isLoading ? 'Disabling...' : 'Disable 2FA'}
+							</Button>
+							<Button onClick={() => setStep('confirm')} variant="secondary">
 								Back
 							</Button>
 						</div>

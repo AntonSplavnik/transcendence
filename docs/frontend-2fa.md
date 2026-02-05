@@ -132,7 +132,7 @@ const mfaCodeRef = useRef<HTMLInputElement>(null);
 ### 2FA Code Handling
 
 - `autoComplete="one-time-code"` enables OTP autofill on mobile
-- `maxLength={6}` prevents overly long input
+- also accepts recovery codes
 - Auto-focus on mount for quick entry
 
 ### Error Handling

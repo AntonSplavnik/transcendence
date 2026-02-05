@@ -100,7 +100,6 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 								type="text"
 								id="mfa"
 								autoComplete="one-time-code"
-								maxLength={6}
 								className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg 
 								         text-wood-100 placeholder-wood-500 focus:outline-none focus:border-primary"
 								placeholder="000000"
