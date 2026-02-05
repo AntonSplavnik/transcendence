@@ -1,7 +1,7 @@
 import apiClient from './client';
 import type {
-	UserSessionInfo,
-	SessionInfo,
+	AuthResponse,
+	Session,
 	LoginRequest,
 	RegisterRequest,
 	ReauthRequest
@@ -9,10 +9,13 @@ import type {
 
 /**
  * Get current user info (requires authentication)
- * @returns User session info including user data, session details, and stats
+ * @param options.silent - If true, skip error storage (used for initial auth check)
+ * @returns User session info including user data, session details
  */
-export async function getMe(): Promise<UserSessionInfo> {
-	const response = await apiClient.get<UserSessionInfo>('/user/me');
+export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
+	const response = await apiClient.get<AuthResponse>('/user/me', {
+		_silent: options?.silent
+	} as any);
 	return response.data;
 }
 
@@ -27,9 +30,9 @@ export async function login(
 	email: string,
 	password: string,
 	mfa_code?: string
-): Promise<UserSessionInfo> {
+): Promise<AuthResponse> {
 	const payload: LoginRequest = { email, password, mfa_code };
-	const response = await apiClient.post<UserSessionInfo>('/auth/login', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/login', payload);
 	return response.data;
 }
 
@@ -44,9 +47,9 @@ export async function register(
 	nickname: string,
 	email: string,
 	password: string
-): Promise<UserSessionInfo> {
+): Promise<AuthResponse> {
 	const payload: RegisterRequest = { nickname, email, password };
-	const response = await apiClient.post<UserSessionInfo>('/auth/register', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/register', payload);
 	return response.data;
 }
 
@@ -55,7 +58,7 @@ export async function register(
  * Clears session and redirects to landing page
  */
 export async function logout(): Promise<void> {
-	await apiClient.post<void>('/auth/logout');
+	await apiClient.post<void>('/user/logout');
 }
 
 /**
@@ -63,8 +66,8 @@ export async function logout(): Promise<void> {
  * Called automatically by axios interceptor when JWT expires
  * @returns Updated session info with new JWT expiry time
  */
-export async function refreshJWT(): Promise<SessionInfo> {
-	const response = await apiClient.post<SessionInfo>(
+export async function refreshJWT(): Promise<Session> {
+	const response = await apiClient.post<Session>(
 		'/auth/session-management/refresh-jwt'
 	);
 	return response.data;
@@ -80,9 +83,9 @@ export async function refreshJWT(): Promise<SessionInfo> {
 export async function reauth(
 	password: string,
 	mfa_code?: string
-): Promise<UserSessionInfo> {
+): Promise<AuthResponse> {
 	const payload: ReauthRequest = { password, mfa_code };
-	const response = await apiClient.post<UserSessionInfo>(
+	const response = await apiClient.post<AuthResponse>(
 		'/auth/session-management/reauth',
 		payload
 	);

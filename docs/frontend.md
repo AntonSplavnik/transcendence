@@ -5,10 +5,10 @@
 ├── React (UI framework)
 ├── Vite (build tool)
 ├── Tailwind CSS (styling)
-├── WebSocket/Socket.io (connection to Rust backend)
+├── WebTransport, native Browser API (real-time connection to the Rust backend)
 └── TypeScript (language)
 
-#### why we chose this stack
+### why we chose this stack
 
 React: Popular, component-based UI library with a large ecosystem. Good for building interactive UIs. Especially good for our usecase since we wanted to combine 3D graphics with UI elements.
 
@@ -87,6 +87,20 @@ npm run dev
 
 ### Development and Testing with the Backend
 
+i have set up a command that can be executed when inside frontend/:
+
+```
+npm run all
+```
+
+this runs the frontend on:
+<http://localhost:5173/>
+(access the dynamic frontend here to see changes immediately)
+
+and the backend on
+<https://127.0.0.1:8443/>
+(access the backend api documentation here and the statically compiled website)
+
 Development: Run Rust (cargo run) AND React (npm run dev) separately. The Proxy connects them.
 
 ```
@@ -156,10 +170,10 @@ App.tsx is your app UI/logic composer, written as a React component.
 | Axios       | HTTP client  | Makes API calls (if you add it) |
 | ESLint      | Linter       | Finds code issues               |
 
-### Bablylon.js (3D engine)
+### Babylon.js (3D engine)
 
 Babylon.js is a powerful, open-source 3D engine for building games and interactive experiences in the browser using WebGL.
-We need it to make simpify writing our games graphics, the physics engine, camera controls, lighting, and asset management.
+We use it to simplify writing our game’s graphics, the physics engine, camera controls, lighting, and asset management.
 to display it I can manually wrap it in a react component. There is also the option of downloading react-bablylonjs, but that adds another layer. The other way is more responsive, although integration with react state management is more work.
 
 Babylon needs an HTMLCanvasElement to create a WebGL context and render.
@@ -181,20 +195,162 @@ react uses a synthetic event system that wraps native browser events to provide 
 
 ## Authentication on the frontend
 
-Use Token for Future Requests:
+We get a jwt token when registering or logging in. this has to be sent with every request.
 
-```jsx
-// When user wants to access protected data:
-const token = localStorage.getItem("authToken");
-
-const response = await fetch("/api/user/profile", {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${token}`, // ← Send token to prove identity
-  },
+```typescript
+const apiClient = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
 });
 ```
 
-## navigation
+no need to write withCredentials on any other api call
 
-I tried to centralize navigation in App.tsx and in the function setNavTarget in errors.ts. therefore all redirects should be managed there.
+This needs to be refreshed every 15 minutes.
+
+## Navigation Architecture
+
+Navigation and error handling have **separate responsibilities**:
+
+| System                           | Responsibility                                  |
+| -------------------------------- | ----------------------------------------------- |
+| **ProtectedRoute / PublicRoute** | Controls where users can go based on auth state |
+| **ErrorBanner**                  | Displays messages explaining what happened      |
+
+### Route Guards (AppRoutes.tsx)
+
+```tsx
+// Redirects unauthenticated users to /auth
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
+// Redirects authenticated users to /home
+function PublicRoute({ children }) {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/home" replace />;
+  return <>{children}</>;
+}
+```
+
+**Usage:**
+
+```tsx
+<Route
+  path="/home"
+  element={
+    <ProtectedRoute>
+      <Home />
+    </ProtectedRoute>
+  }
+/>
+```
+
+### Error System (api/error.ts, ErrorBanner)
+
+The error system **only displays messages** - it does NOT control navigation.
+
+- Explains _why_ the user was redirected
+- Only shows for mid-use failures (not initial auth checks)
+
+- `storeError()` - saves error to localStorage for display after redirect
+- `retrieveStoredError()` - retrieves and clears stored error
+- `ErrorBanner` - displays the error message with dismiss button
+
+### What does protected route solve?
+
+**ProtectedRoute handles navigation because:**
+
+- Works for direct URL access (user bookmarks `/home`)
+- Works for page refresh with expired session
+- Declarative - routes define their own requirements
+- Standard React pattern
+
+### Silent Mode for Initial Auth Check
+
+The initial auth check uses `getMe({ silent: true })` to avoid showing error messages when the app first loads and finds no valid session. This prevents confusing "session expired" messages on fresh visits.
+
+```tsx
+// AuthContext.tsx - initial check is silent
+const data = await authApi.getMe({ silent: true });
+```
+
+Regular API calls (without `silent`) will store errors for display if they fail.
+
+## Add api calls
+
+in frontend/src/api/ create a new file for your resource, e.g., users.ts and add the functions there (e.g nicknameExists)
+then import and use them in your components.
+if they need authentication, make sure to call them from within AuthContext or pass the jwt token from there.
+That means either wrap them in AuthContext functions usually.
+
+## React Router
+
+We use `react-router-dom` for client-side routing.
+
+**Why:** Hash navigation support (for backend redirection), URL history, and industry-standard patterns.
+
+**AuthContext** holds user state and auth functions (login, logout, register). It wraps the API calls from `api/auth.ts`.
+
+## Authentication Flow
+
+### Responsibility Boundaries
+
+| Component               | Responsibility                                      |
+| ----------------------- | --------------------------------------------------- |
+| **`AuthContext`**       | Manages _authentication state_ (user, session)      |
+| **`authApi` (auth.ts)** | Makes _HTTP calls_ to backend                       |
+| **`AppRoutes`**         | Handles _navigation_ after auth events              |
+| **`AuthPage`**          | Handles user _input_, coordinates auth + navigation |
+
+### Login Flow
+
+```
+User submits form
+    ↓
+AuthPage.handleSubmit()
+    ↓
+useAuth().login(email, password)
+    ├─ Calls authApi.login() (HTTP request)
+    ├─ Receives { user, session }
+    └─ Calls setAuthData() (updates state)
+    ↓
+onAuthSuccess() callback
+    ↓
+AppRoutes.handleAuthSuccess()
+    └─ navigate('/home')
+```
+
+This would make it easier to test the context because there is no Router dependency in context.
+It's also about separation of concerns, navigation and auth state do not need to live in the same file.
+But them not living in the same file necessitates passing callbacks around like so:
+
+```
+// AuthPage.tsx
+const { login } = useAuth();
+
+const handleSubmit = async () => {
+  await login(email, password);  // ← Sets auth state
+  onAuthSuccess();                // ← Triggers navigation
+};
+```
+
+### how to expand the codebase
+
+```
+// ✅ Use AuthContext
+const { user, session, login, register, logout } = useAuth();
+
+// ✅ Use API functions (wrapped by context)
+await login(email, password);
+await logout();
+
+// ✅ Use navigation callbacks
+onLogout();  // From AppRoutes
+navigate('/home');
+
+// ✅ Global error handling
+// ErrorBanner only in AppRoutes
+```
