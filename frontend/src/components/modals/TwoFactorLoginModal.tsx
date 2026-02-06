@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Shield, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';

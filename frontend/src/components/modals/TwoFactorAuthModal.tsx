@@ -110,9 +110,12 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	// Copy recovery codes to clipboard
 	const handleCopyRecoveryCodes = async () => {
 		const text = recoveryCodes.join('\n');
-		await navigator.clipboard.writeText(text);
-		setCopiedCodes(true);
-		setTimeout(() => setCopiedCodes(false), 2000);
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopiedCodes(true);
+		} catch (err) {
+			console.error('Failed to copy recovery codes:', err);
+		}
 	};
 
 	return (
@@ -266,6 +269,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 							ref={passwordRef}
 							type="password"
 							id="disable-password"
+							autoFocus
 							autoComplete="current-password"
 							className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
 							         text-wood-100 focus:outline-none focus:border-primary"
