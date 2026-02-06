@@ -9,12 +9,16 @@ use super::{cache, validate};
 use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 
+const DEFAULT_AVATAR_LARGE: &[u8] = include_bytes!("../../assets/default_avatar_large.avif");
+const DEFAULT_AVATAR_SMALL: &[u8] = include_bytes!("../../assets/default_avatar_small.avif");
+
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("avatar")
         .push(
             Router::new()
                 .requires_user_login()
+                .user_rate_limit(&RateLimit::per_15_minutes(10))
                 .post(upload_avatar)
                 .delete(delete_avatar),
         )
@@ -105,7 +109,7 @@ async fn upload_avatar(
 /// Get large avatar for a user
 #[endpoint(
     summary = "Get large avatar",
-    description = "Retrieve the large (450x450) avatar for a user"
+    description = "Retrieve the large (450x450) avatar for a user. Returns default avatar if none set."
 )]
 async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()> {
     let user_id: i32 = req
@@ -115,10 +119,13 @@ async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()
     let conn = &mut db::get()?;
 
     use crate::schema::avatars_large::dsl;
-    let avatar: AvatarLarge = dsl::avatars_large
+    let data = match dsl::avatars_large
         .filter(dsl::user_id.eq(user_id))
-        .first(conn)
-        .map_err(|_| validate::AvatarValidationError::NotFound)?;
+        .first::<AvatarLarge>(conn)
+    {
+        Ok(avatar) => avatar.data,
+        Err(_) => DEFAULT_AVATAR_LARGE.to_vec(),
+    };
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
@@ -126,7 +133,9 @@ async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()
         header::CACHE_CONTROL,
         "public, max-age=3600".parse().unwrap(),
     );
-    res.write_body(avatar.data).ok();
+    res.headers_mut()
+        .insert(header::CONTENT_LENGTH, data.len().into());
+    res.write_body(data).ok();
 
     Ok(())
 }
@@ -134,7 +143,7 @@ async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()
 /// Get small avatar for a user
 #[endpoint(
     summary = "Get small avatar",
-    description = "Retrieve the small (200x200) avatar for a user. This endpoint is cached."
+    description = "Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached."
 )]
 async fn get_avatar_small(req: &mut Request, res: &mut Response) -> AppResult<()> {
     let user_id: i32 = req
@@ -149,6 +158,8 @@ async fn get_avatar_small(req: &mut Request, res: &mut Response) -> AppResult<()
             header::CACHE_CONTROL,
             "public, max-age=3600".parse().unwrap(),
         );
+        res.headers_mut()
+            .insert(header::CONTENT_LENGTH, cached.len().into());
         res.write_body(cached.as_ref().clone()).ok();
         return Ok(());
     }
@@ -157,13 +168,17 @@ async fn get_avatar_small(req: &mut Request, res: &mut Response) -> AppResult<()
     let conn = &mut db::get()?;
 
     use crate::schema::avatars_small::dsl;
-    let avatar: AvatarSmall = dsl::avatars_small
+    let data = match dsl::avatars_small
         .filter(dsl::user_id.eq(user_id))
-        .first(conn)
-        .map_err(|_| validate::AvatarValidationError::NotFound)?;
-
-    // Populate cache for next time
-    cache::insert(user_id, avatar.data.clone());
+        .first::<AvatarSmall>(conn)
+    {
+        Ok(avatar) => {
+            // Populate cache for next time
+            cache::insert(user_id, avatar.data.clone());
+            avatar.data
+        }
+        Err(_) => DEFAULT_AVATAR_SMALL.to_vec(),
+    };
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
@@ -171,7 +186,9 @@ async fn get_avatar_small(req: &mut Request, res: &mut Response) -> AppResult<()
         header::CACHE_CONTROL,
         "public, max-age=3600".parse().unwrap(),
     );
-    res.write_body(avatar.data).ok();
+    res.headers_mut()
+        .insert(header::CONTENT_LENGTH, data.len().into());
+    res.write_body(data).ok();
 
     Ok(())
 }

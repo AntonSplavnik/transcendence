@@ -30,17 +30,3 @@ pub fn insert(user_id: i32, data: Vec<u8>) {
 pub fn invalidate(user_id: i32) {
     SMALL_AVATAR_CACHE.remove(&user_id);
 }
-
-/// Get cache statistics for monitoring
-pub fn stats() -> CacheStats {
-    CacheStats {
-        capacity: CACHE_CAPACITY,
-        len: SMALL_AVATAR_CACHE.len(),
-    }
-}
-
-#[derive(Debug)]
-pub struct CacheStats {
-    pub capacity: usize,
-    pub len: usize,
-}
