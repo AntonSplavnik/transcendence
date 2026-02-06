@@ -247,9 +247,6 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 						<Button onClick={handleConfirm2FA} disabled={isLoading} className="flex-1">
 							{isLoading ? 'Verifying...' : 'Confirm'}
 						</Button>
-						<Button onClick={() => setStep('qr')} variant="secondary">
-							Back
-						</Button>
 					</div>
 				</div>
 			)}
