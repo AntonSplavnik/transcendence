@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { InternalAxiosRequestConfig } from 'axios';
 import {
 	isAxiosError,
 	getErrorMessage,
@@ -86,7 +85,7 @@ describe('error utilities', () => {
 
 		it('returns axios error message when no response data', () => {
 			const error = createMockAxiosError(500);
-			error.response = { status: 500, statusText: 'Error', headers: {}, config: {} as InternalAxiosRequestConfig, data: {} };
+			error.response = { status: 500, statusText: 'Error', headers: {}, config: {} as any, data: {} };
 			expect(getErrorMessage(error)).toBe('Request failed with status code 500');
 		});
 

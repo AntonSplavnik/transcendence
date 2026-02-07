@@ -62,6 +62,7 @@ export const handlers = [
 
 	// User endpoints
 	http.get('/api/user/me', ({ request }) => {
+		const config = request.headers.get('X-Silent');
 		// For testing auth check failures
 		if (request.url.includes('fail')) {
 			return HttpResponse.json(

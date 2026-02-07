@@ -105,7 +105,7 @@ describe('ReauthModal', () => {
 	});
 
 	it('calls reauth with password only when 2FA disabled', async () => {
-		let receivedPayload: Record<string, unknown>;
+		let receivedPayload: any;
 		server.use(
 			http.post('/api/auth/session-management/reauth', async ({ request }) => {
 				receivedPayload = await request.json();
@@ -132,7 +132,7 @@ describe('ReauthModal', () => {
 	});
 
 	it('calls reauth with password and MFA code when 2FA enabled', async () => {
-		let receivedPayload: Record<string, unknown>;
+		let receivedPayload: any;
 		server.use(
 			http.post('/api/auth/session-management/reauth', async ({ request }) => {
 				receivedPayload = await request.json();

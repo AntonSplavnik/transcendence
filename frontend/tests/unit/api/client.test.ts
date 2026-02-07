@@ -71,7 +71,6 @@ describe('API client interceptors', () => {
 		const { default: apiClient } = await import('../../../src/api/client');
 
 		await expect(
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			apiClient.get('/silent-test', { _silent: true } as any)
 		).rejects.toThrow();
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, userEvent } from '../../helpers/render';
+import { render, screen, userEvent, waitFor } from '../../helpers/render';
 import ErrorBanner from '../../../src/components/ui/ErrorBanner';
 import { createMockStoredError } from '../../fixtures/errors';
 
@@ -52,7 +52,7 @@ describe('ErrorBanner', () => {
 		vi.useRealTimers(); // Need real timers for userEvent
 		const user = userEvent.setup();
 
-		render(
+		const { container } = render(
 			<ErrorBanner error={createMockStoredError()} onDismiss={mockOnDismiss} />,
 			{ withAuth: false }
 		);

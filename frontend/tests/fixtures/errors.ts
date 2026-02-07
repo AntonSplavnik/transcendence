@@ -1,4 +1,4 @@
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError } from 'axios';
 import type { ApiError, ApiErrorResponse } from '../../src/api/types';
 import type { StoredError } from '../../src/api/error';
 
@@ -22,14 +22,14 @@ export function createMockAxiosError(
 		isAxiosError: true,
 		name: 'AxiosError',
 		message: `Request failed with status code ${status}`,
-		config: {} as InternalAxiosRequestConfig,
+		config: {} as any,
 		request: {},
 		response: apiError
 			? {
 					status,
 					statusText: 'Error',
 					headers: {},
-					config: {} as InternalAxiosRequestConfig,
+					config: {} as any,
 					data: { error: apiError },
 			  }
 			: undefined,
@@ -42,7 +42,7 @@ export function createMockNetworkError(): AxiosError<ApiErrorResponse> {
 		isAxiosError: true,
 		name: 'AxiosError',
 		message: 'Network Error',
-		config: {} as InternalAxiosRequestConfig,
+		config: {} as any,
 		request: {},
 		response: undefined,
 		toJSON: () => ({}),

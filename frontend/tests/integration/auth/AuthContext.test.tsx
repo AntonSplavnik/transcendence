@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../../src/contexts/AuthContext';
 import { server, mockUnauthenticatedUser, mockLoginFailure } from '../../helpers/msw-handlers';
-import { createMockUser, createMockAuthResponse } from '../../fixtures/users';
+import { createMockUser, createMockSession, createMockAuthResponse } from '../../fixtures/users';
 import { http, HttpResponse } from 'msw';
 import { createMockApiError } from '../../fixtures/errors';
 import type { ReactNode } from 'react';
@@ -13,8 +13,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 describe('AuthContext', () => {
 	beforeEach(() => {
-		vi.spyOn(console, 'log').mockImplementation(() => { });
-		vi.spyOn(console, 'error').mockImplementation(() => { });
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -219,7 +219,7 @@ describe('AuthContext', () => {
 			server.use(
 				http.get('/api/user/me', () => HttpResponse.json(mockAuth)),
 				http.post('/api/auth/session-management/reauth', async ({ request }) => {
-					const body = await request.json() as Record<string, unknown>;
+					const body = await request.json() as any;
 					receivedMfaCode = body.mfa_code;
 					return HttpResponse.json(mockAuth);
 				})
@@ -295,7 +295,7 @@ describe('AuthContext', () => {
 	describe('useAuth hook', () => {
 		it('throws when used outside AuthProvider', () => {
 			// Suppress console.error for this test
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 			expect(() => {
 				renderHook(() => useAuth());
