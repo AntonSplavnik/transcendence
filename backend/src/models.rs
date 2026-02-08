@@ -2,6 +2,7 @@ use crate::{
     auth::session_token::SessionTokenHash,
     models::{
         blob::{VarStr, WritableVarBlob},
+        chatname::Chatname,
         nickname::Nickname,
     },
 };
@@ -16,6 +17,7 @@ use serde::Serialize;
 #[macro_use]
 mod i32_enum;
 pub mod blob;
+pub mod chatname;
 pub mod nickname;
 mod ulid;
 
@@ -229,7 +231,7 @@ impl DmKey {
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct ChatRoom {
     pub id: i32,
-    pub name: Option<String>,
+    pub name: Option<Chatname>,
     pub chat_type: ChatRoomType,
     #[serde(skip)]
     pub dm_key: Option<DmKey>,
