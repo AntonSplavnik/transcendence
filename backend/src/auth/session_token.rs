@@ -139,6 +139,7 @@ impl PartialEq<SessionTokenHash> for SessionTokenHashTruncated {
 
 impl From<blake3::Hash> for FixedBlob<32> {
     fn from(value: blake3::Hash) -> Self {
-        FixedBlob(value.into())
+        let bytes: [u8; 32] = value.into();
+        FixedBlob::from(bytes)
     }
 }

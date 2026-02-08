@@ -30,7 +30,7 @@ impl SqlUlid {
 impl From<Ulid> for SqlUlid {
     #[inline]
     fn from(value: Ulid) -> Self {
-        Self(FixedBlob(value.to_bytes()))
+        Self(FixedBlob::from(value.to_bytes()))
     }
 }
 
