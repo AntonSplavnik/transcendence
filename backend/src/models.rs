@@ -1,5 +1,9 @@
 use crate::{
-    auth::session_token::SessionTokenHash, models::nickname::Nickname,
+    auth::session_token::SessionTokenHash,
+    models::{
+        blob::{VarStr, WritableVarBlob},
+        nickname::Nickname,
+    },
 };
 use ::ulid::Ulid;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -193,24 +197,26 @@ diesel_i32_enum! {
 ///
 /// Internal use only to identify DM chat rooms between two users.
 /// Format: "min_user_id:max_user_id"
-#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, ToSchema, Clone)]
-pub struct DmKey(String);
+#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, ToSchema, Clone, Copy)]
+pub struct DmKey(VarStr<23>);
 
 impl DmKey {
     pub fn new(users: (i32, i32)) -> Self {
-        DmKey({
-            let (min_user, max_user) = if users.0 < users.1 {
-                (users.0, users.1)
-            } else {
-                (users.1, users.0)
-            };
-            format!("{}:{}", min_user, max_user)
-        })
+        use std::io::Write;
+        let mut s = WritableVarBlob::new();
+        let (min_user, max_user) = if users.0 < users.1 {
+            (users.0, users.1)
+        } else {
+            (users.1, users.0)
+        };
+        write!(&mut s, "{}:{}", min_user, max_user)
+            .expect("23 bytes is enough for two i32 and colon");
+        Self(s.finish())
     }
 
     /// Only returns None, if the string from database is malformed
     pub fn users(&self) -> Option<(i32, i32)> {
-        let parts: (&str, &str) = self.0.split_once(':')?;
+        let parts: (&str, &str) = self.0.as_str_unchecked().split_once(':')?;
         let user1 = parts.0.parse::<i32>().ok()?;
         let user2 = parts.1.parse::<i32>().ok()?;
         Some((user1, user2))
