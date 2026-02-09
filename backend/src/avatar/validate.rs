@@ -7,8 +7,10 @@
 //! - No transparency/alpha channel
 //! - Still image only (no animation)
 
-use image::ImageReader;
-use std::io::Cursor;
+use image::{
+    EncodableLayout, ImageDecoder, ImageError, Pixel, Primitive, RgbaImage,
+    codecs::avif::AvifDecoder,
+};
 use thiserror::Error;
 
 /// Maximum file size for large avatars (20kb)
@@ -28,43 +30,38 @@ pub enum AvatarValidationError {
     #[error("File size exceeds maximum allowed ({max} bytes)")]
     FileTooLarge { max: usize },
 
-    #[error("Invalid AVIF format: {0}")]
-    InvalidFormat(String),
-
-    #[error("Image dimensions must be {expected_w}x{expected_h}, got {actual_w}x{actual_h}")]
+    #[error("Image dimensions must be {expected:?}, got {actual:?}")]
     InvalidDimensions {
-        expected_w: u32,
-        expected_h: u32,
-        actual_w: u32,
-        actual_h: u32,
+        expected: (u32, u32),
+        actual: (u32, u32),
     },
 
-    #[error("Image contains transparency/alpha channel which is not allowed")]
-    HasAlphaChannel,
+    #[error("Image contains transparency which is not allowed")]
+    HasTransparency,
 
     #[error("Animated images are not allowed")]
     IsAnimated,
 
     #[error("Failed to decode image: {0}")]
-    DecodeError(String),
+    InternalImageError(#[from] ImageError),
+
+    #[error("Invalid Base64 format: {0}")]
+    Base64DecodeError(#[from] base64::DecodeError),
+
+    #[error("Image is not in RGBA8 format")]
+    NotRgba8,
 
     #[error("Avatar not found")]
     NotFound,
 }
 
-/// Validation result containing the decoded image info
-pub struct ValidatedAvatar {
-    pub width: u32,
-    pub height: u32,
-}
-
 /// Validate a large avatar image (450x450, max 20kb)
-pub fn validate_large(data: &[u8]) -> Result<ValidatedAvatar, AvatarValidationError> {
+pub fn validate_large(data: &[u8]) -> Result<(), AvatarValidationError> {
     validate_avatar(data, MAX_SIZE_LARGE, DIMENSIONS_LARGE)
 }
 
 /// Validate a small avatar image (200x200, max 8kb)
-pub fn validate_small(data: &[u8]) -> Result<ValidatedAvatar, AvatarValidationError> {
+pub fn validate_small(data: &[u8]) -> Result<(), AvatarValidationError> {
     validate_avatar(data, MAX_SIZE_SMALL, DIMENSIONS_SMALL)
 }
 
@@ -73,70 +70,98 @@ fn validate_avatar(
     data: &[u8],
     max_size: usize,
     expected_dims: (u32, u32),
-) -> Result<ValidatedAvatar, AvatarValidationError> {
+) -> Result<(), AvatarValidationError> {
     // Check file size first (cheap check)
     if data.len() > max_size {
         return Err(AvatarValidationError::FileTooLarge { max: max_size });
     }
 
-    // Check AVIF magic bytes (ftyp box with avif/avis/mif1 brand)
-    if !is_avif_format(data) {
-        return Err(AvatarValidationError::InvalidFormat(
-            "Not a valid AVIF file (missing or invalid ftyp box)".to_string(),
-        ));
+    // Reject animated AVIF sequences before attempting to decode
+    if is_animated_avif(data) {
+        return Err(AvatarValidationError::IsAnimated);
     }
 
-    // Decode the image to validate format and get properties
-    let reader = ImageReader::new(Cursor::new(data))
-        .with_guessed_format()
-        .map_err(|e| AvatarValidationError::DecodeError(e.to_string()))?;
+    let img = decode_avif_with_dims(data, expected_dims)?;
 
-    let img = reader
-        .decode()
-        .map_err(|e| AvatarValidationError::DecodeError(e.to_string()))?;
-
-    let (width, height) = (img.width(), img.height());
-
-    // Check dimensions
-    if (width, height) != expected_dims {
-        return Err(AvatarValidationError::InvalidDimensions {
-            expected_w: expected_dims.0,
-            expected_h: expected_dims.1,
-            actual_w: width,
-            actual_h: height,
-        });
+    // Check if alpha channel has any non-opaque pixels
+    if img
+        .pixels()
+        .any(|px| px.alpha() != <u8 as Primitive>::DEFAULT_MAX_VALUE)
+    {
+        return Err(AvatarValidationError::HasTransparency);
     }
 
-    // Check for alpha channel
-    if img.color().has_alpha() {
-        return Err(AvatarValidationError::HasAlphaChannel);
-    }
-
-    Ok(ValidatedAvatar { width, height })
+    Ok(())
 }
 
-/// Check if data starts with AVIF ftyp box
-fn is_avif_format(data: &[u8]) -> bool {
-    // AVIF files start with an ftyp box
-    // Structure: [4 bytes size][4 bytes "ftyp"][4 bytes brand]
-    // The brand should be "avif", "avis", or "mif1"
-    if data.len() < 12 {
+/// Check whether the raw bytes represent an animated AVIF by inspecting the
+/// ISOBMFF `ftyp` box for the `avis` (AVIF sequence) brand.
+///
+/// The `ftyp` box layout (ISO 14496-12):
+///   - 4 bytes  box size (big-endian u32)
+///   - 4 bytes  box type (`ftyp`)
+///   - 4 bytes  major brand
+///   - 4 bytes  minor version
+///   - N×4 bytes compatible brands
+fn is_animated_avif(data: &[u8]) -> bool {
+    const AVIS: &[u8; 4] = b"avis";
+
+    // Minimum ftyp box: size(4) + type(4) + major(4) + minor_ver(4) = 16
+    if data.len() < 16 {
         return false;
     }
 
-    // Check for "ftyp" at offset 4, signature AVIF file
+    // Verify the box type is `ftyp`
     if &data[4..8] != b"ftyp" {
         return false;
     }
 
-    // Check major brand at offset 8
-    let brand = &data[8..12];
-    matches!(brand, b"avif" | b"avis" | b"mif1")
+    let box_size = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
+    // Clamp to available data so a truncated file doesn't cause a panic
+    let box_end = box_size.min(data.len());
+
+    // Check major brand (bytes 8..12)
+    if &data[8..12] == AVIS {
+        return true;
+    }
+
+    // Check compatible brands (starting at byte 16, in 4-byte chunks)
+    let mut offset = 16;
+    while offset + 4 <= box_end {
+        if &data[offset..offset + 4] == AVIS {
+            return true;
+        }
+        offset += 4;
+    }
+
+    false
+}
+
+fn decode_avif_with_dims(
+    data: &[u8],
+    dims: (u32, u32),
+) -> Result<RgbaImage, AvatarValidationError> {
+    let decoder = AvifDecoder::new(data)?;
+    let actual_dims = decoder.dimensions();
+    if actual_dims != dims {
+        return Err(AvatarValidationError::InvalidDimensions {
+            expected: dims,
+            actual: actual_dims,
+        });
+    }
+    let mut img = RgbaImage::new(dims.0, dims.1);
+    if img.as_bytes().len() != decoder.total_bytes() as usize {
+        return Err(AvatarValidationError::NotRgba8);
+    }
+    decoder.read_image(&mut img)?;
+    Ok(img)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const ANIMATED_AVIF: &[u8] = include_bytes!("../../assets/animated.avif");
 
     #[test]
     fn test_file_too_large() {
@@ -154,7 +179,19 @@ mod tests {
         let result = validate_large(&data);
         assert!(matches!(
             result,
-            Err(AvatarValidationError::InvalidFormat(_))
+            Err(AvatarValidationError::InternalImageError(_))
         ));
+    }
+
+    #[test]
+    fn test_valid() {
+        validate_large(crate::avatar::DEFAULT_AVATAR_LARGE).expect("Default avatar large is valid");
+        validate_small(crate::avatar::DEFAULT_AVATAR_SMALL).expect("Default avatar small is valid");
+    }
+
+    #[test]
+    fn test_animated_disallowed() {
+        let result = dbg!(validate_avatar(ANIMATED_AVIF, usize::MAX, (480, 360)));
+        assert!(matches!(result, Err(AvatarValidationError::IsAnimated)));
     }
 }
