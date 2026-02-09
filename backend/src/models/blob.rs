@@ -592,10 +592,11 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
 
     /// Attempts to create a `VarBlob` from a string.
     ///
-    /// Returns `Err` if the string length exceeds N bytes.
+    /// Any content at and after the first null byte is discarded.
+    /// Returns `Err` if the string length (up to the first null) exceeds N bytes.
     #[inline]
     pub fn try_from_str(s: impl AsRef<str>) -> Result<Self, IntoBlobError> {
-        Self::try_from_slice_unchecked_null(s.as_ref())
+        Self::try_from_slice_until_null(s.as_ref())
     }
 
     /// Creates a `VarBlob` from a slice, stopping at the first null byte.
