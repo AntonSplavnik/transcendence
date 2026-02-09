@@ -114,7 +114,7 @@ pub fn access_hoop(
         use crate::schema::sessions::dsl::*;
         let session: Session = sessions
             .filter(id.eq(claims.sid))
-            .first(&mut db::get()?)
+            .first(&mut db::get())
             .map_err(|_| AuthError::SessionNotFound)?;
 
         if session.user_id != claims.sub {

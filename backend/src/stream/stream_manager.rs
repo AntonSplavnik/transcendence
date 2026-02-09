@@ -94,6 +94,7 @@ use super::compress_cbor_codec::{
     CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder,
 };
 use crate::models::Session;
+use crate::models::blob::FixedBlob;
 use crate::prelude::*;
 use crate::utils::adaptive_buffer::BufferParams;
 
@@ -257,16 +258,7 @@ impl Drop for ConnectionEntry {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
-pub struct RandomNonce([u8; 32]);
-
-impl RandomNonce {
-    pub fn new() -> Self {
-        RandomNonce(rand::random())
-    }
-}
+pub type RandomNonce = FixedBlob<32>;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
@@ -280,7 +272,7 @@ impl PendingConnectionKey {
     pub fn new(connection_id: u64) -> Self {
         Self {
             connection_id,
-            challenge: RandomNonce::new(),
+            challenge: rand::random(),
         }
     }
 }

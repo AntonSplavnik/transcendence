@@ -64,7 +64,7 @@ impl UserSessionInfo {
 /// Retrieve the current User info
 #[endpoint]
 fn get_me(depot: &mut Depot) -> JsonResult<UserSessionInfo> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
 
     json_ok(UserSessionInfo::from_session(conn, session.to_owned())?)
@@ -90,7 +90,7 @@ fn change_pw(
     json: JsonBody<ChangePasswordInput>,
     depot: &mut Depot,
 ) -> JsonResult<()> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let ChangePasswordInput {
         password,
@@ -129,7 +129,7 @@ fn change_pw(
 /// Logout the current Session
 #[endpoint]
 fn logout(depot: &mut Depot, res: &mut Response) -> JsonResult<()> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     deauth_sessions(conn, session.user_id, &[session.id])?;
     delete_auth_cookies(res);
@@ -153,7 +153,7 @@ fn logout_sessions(
     depot: &mut Depot,
     res: &mut Response,
 ) -> JsonResult<()> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let SessionsInput {
         password,
@@ -189,7 +189,7 @@ fn logout_other_sessions(
     json: JsonBody<PasswordInput>,
     depot: &mut Depot,
 ) -> JsonResult<()> {
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let PasswordInput { password, mfa_code } = json.into_inner();
     util::check_password_and_mfa_if_enabled(
@@ -253,7 +253,7 @@ pub fn all_sessions(
 ) -> JsonResult<Vec<SessionInfo>> {
     use crate::schema::sessions::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let PasswordInput { password, mfa_code } = json.into_inner();
     util::check_password_and_mfa_if_enabled(
@@ -280,7 +280,7 @@ fn delete_sessions(
 ) -> JsonResult<()> {
     use crate::schema::sessions::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let SessionsInput {
         password,
@@ -383,7 +383,7 @@ fn two_fa_start(
 ) -> JsonResult<TwoFaStartOutput> {
     use crate::schema::users::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let TwoFaStartInput { password } = json.into_inner();
 
@@ -450,7 +450,7 @@ fn two_fa_confirm(
 ) -> JsonResult<TwoFaConfirmOutput> {
     use crate::schema::users::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let TwoFaConfirmInput { password, code } = json.into_inner();
 
@@ -520,7 +520,7 @@ fn two_fa_disable(
     use crate::schema::two_fa_recovery_codes::dsl as recovery_dsl;
     use crate::schema::users::dsl::*;
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let session = depot.session();
     let TwoFaDisableInput { password, mfa_code } = json.into_inner();
 

@@ -6,7 +6,9 @@
 use super::cache;
 use crate::avatar::DEFAULT_AVATAR_LARGE;
 use crate::avatar::DEFAULT_AVATAR_SMALL;
-use crate::avatar::validate::{AvatarValidationError, validate_large, validate_small};
+use crate::avatar::validate::{
+    AvatarValidationError, validate_large, validate_small,
+};
 use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 use base64::Engine as _;
@@ -45,7 +47,9 @@ struct UploadAvatarRequest {
 
 impl UploadAvatarRequest {
     /// get large and small avatar images as bytes
-    fn decode_base64_bytes(&self) -> Result<(Vec<u8>, Vec<u8>), AvatarValidationError> {
+    fn decode_base64_bytes(
+        &self,
+    ) -> Result<(Vec<u8>, Vec<u8>), AvatarValidationError> {
         Ok((
             BASE64_STANDARD.decode(&self.large)?,
             BASE64_STANDARD.decode(&self.small)?,
@@ -61,7 +65,10 @@ impl UploadAvatarRequest {
     summary = "Upload avatar",
     description = "Upload both large and small avatar variants. Images must be AVIF format."
 )]
-async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -> AppResult<()> {
+async fn upload_avatar(
+    depot: &mut Depot,
+    json: JsonBody<UploadAvatarRequest>,
+) -> AppResult<()> {
     let user_id = depot.user_id();
     let request = json.into_inner();
 
@@ -71,7 +78,7 @@ async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -
     validate_small(&small_data)?;
 
     // Store in database (upsert)
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
 
     let avatar_large = AvatarLarge::new(user_id, large_data);
     let avatar_small = AvatarSmall::new(user_id, small_data.clone());
@@ -105,7 +112,7 @@ async fn get_avatar_large(
 ) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
 
     use crate::schema::avatars_large::dsl;
     let data = match dsl::avatars_large
@@ -156,7 +163,7 @@ async fn get_avatar_small(
     }
 
     // Fallback to database
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
 
     use crate::schema::avatars_small::dsl;
     let data = match dsl::avatars_small
@@ -192,7 +199,7 @@ async fn get_avatar_small(
 async fn delete_avatar(depot: &mut Depot) -> AppResult<()> {
     let user_id = depot.user_id();
 
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
 
     // Delete from both tables
     {
