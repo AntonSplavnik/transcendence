@@ -11,12 +11,15 @@ pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("users")
         .push(Router::new().requires_user_login().append(&mut vec![
-                Router::with_path("id")
+                Router::with_path("by-id")
                     .user_rate_limit(&RateLimit::per_5_minutes(200))
                     .post(get_users_by_id),
-                Router::with_path("nickname")
+                Router::with_path("by-nickname")
                     .user_rate_limit(&RateLimit::per_5_minutes(50))
                     .post(get_users_by_nickname),
+                Router::with_path("nickname")
+                    .user_rate_limit(&RateLimit::per_5_minutes(500))
+                    .post(get_nicknames_by_ids),
             ]))
         .push(
             Router::with_path("nickname-exists")
@@ -95,4 +98,31 @@ fn get_users_by_nickname(
         .load::<User>(conn)?;
 
     json_ok(result.into_iter().map(PublicUser::from).collect())
+}
+
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+struct UserNickname {
+    id: i32,
+    nickname: Nickname,
+}
+
+impl From<(i32, Nickname)> for UserNickname {
+    fn from(value: (i32, Nickname)) -> Self {
+        Self {
+            id: value.0,
+            nickname: value.1,
+        }
+    }
+}
+
+/// High-performance endpoint for retrieving only the Nickname of a user
+#[endpoint]
+fn get_nicknames_by_ids(
+    json: JsonBody<Vec<i32>>,
+) -> JsonResult<Vec<UserNickname>> {
+    let user_ids = json.into_inner();
+
+    let result = NICK_CACHE.try_get_many(user_ids)?;
+
+    json_ok(result.into_iter().map(UserNickname::from).collect())
 }
