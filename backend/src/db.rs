@@ -29,15 +29,21 @@ impl diesel::r2d2::CustomizeConnection<SqliteConnection, diesel::r2d2::Error>
         &self,
         conn: &mut SqliteConnection,
     ) -> Result<(), diesel::r2d2::Error> {
-        // Enable WAL mode for better concurrency (readers don't block writers)
-        // Set busy timeout to 5 seconds to wait for locks instead of failing immediately
-        // Enable foreign keys for referential integrity
-        conn.batch_execute(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA busy_timeout = 5000;
-             PRAGMA foreign_keys = ON;",
-        )
-        .map_err(diesel::r2d2::Error::QueryError)?;
+        // taken from https://docs.rs/diesel/2.3.6/diesel/sqlite/struct.SqliteConnection.html#concurrency
+        // see https://fractaledmind.github.io/2023/09/07/enhancing-rails-sqlite-fine-tuning/
+        // sleep if the database is busy, this corresponds to up to 2 seconds sleeping time.
+        conn.batch_execute("PRAGMA busy_timeout = 2000;")?;
+        // better write-concurrency
+        conn.batch_execute("PRAGMA journal_mode = WAL;")?;
+        // fsync only in critical moments
+        conn.batch_execute("PRAGMA synchronous = NORMAL;")?;
+        // write WAL changes back every 1000 pages, for an in average 1MB WAL file.
+        // May affect readers if number is increased
+        conn.batch_execute("PRAGMA wal_autocheckpoint = 1000;")?;
+        // free some space by truncating possibly massive WAL files from the last run
+        conn.batch_execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+
+        conn.batch_execute("PRAGMA foreign_keys = ON;")?;
         Ok(())
     }
 }
