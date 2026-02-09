@@ -3,7 +3,7 @@ use ulid::Ulid;
 
 use crate::models::blob::FixedBlob;
 
-/// Ulid NewType providing ToSql und FromSql impls, stored as 16-byte BLOB
+/// Ulid NewType providing ToSql and FromSql impls, stored as 16-byte BLOB
 ///
 /// # Usage
 ///

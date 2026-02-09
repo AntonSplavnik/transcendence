@@ -40,8 +40,6 @@ impl diesel::r2d2::CustomizeConnection<SqliteConnection, diesel::r2d2::Error>
         // write WAL changes back every 1000 pages, for an in average 1MB WAL file.
         // May affect readers if number is increased
         conn.batch_execute("PRAGMA wal_autocheckpoint = 1000;")?;
-        // free some space by truncating possibly massive WAL files from the last run
-        conn.batch_execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
 
         conn.batch_execute("PRAGMA foreign_keys = ON;")?;
         Ok(())

@@ -63,7 +63,7 @@ pub type VarStr<const N: usize> = VarBlob<N, Str>;
 /// Error type for conversion failures when creating blob types from slices.
 #[derive(Debug, thiserror::Error)]
 pub enum IntoBlobError {
-    #[error("Source slice length doesnt match the required length")]
+    #[error("Source slice length doesn't match the required length")]
     InvalidLength,
     #[error("Source slice contains a null byte, when it should not")]
     DisallowedNullByte,
@@ -77,9 +77,8 @@ pub enum IntoBlobError {
 ///
 /// Database behavior is identical for both kinds:
 /// - Write: all N bytes are stored as-is.
-/// - Read: exactly N bytes are expected.
-///
-/// Panics if a value read from the database is not exactly N bytes.
+/// - Read: exactly N bytes are expected; a mismatched length will cause
+///   deserialization from the database to return an error rather than panic.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedBlob<const N: usize, K: BlobKind = Bytes>(
     pub [u8; N],
@@ -317,7 +316,7 @@ impl<const N: usize, K: BlobKind> FromSql<Binary, Sqlite> for FixedBlob<N, K> {
     }
 }
 
-impl<const N: usize, K: BlobKind> ToSql<Text, Sqlite> for FixedBlob<N, K> {
+impl<const N: usize> ToSql<Text, Sqlite> for FixedBlob<N, Str> {
     #[inline]
     fn to_sql<'b>(
         &'b self,
@@ -328,10 +327,28 @@ impl<const N: usize, K: BlobKind> ToSql<Text, Sqlite> for FixedBlob<N, K> {
     }
 }
 
-impl<const N: usize, K: BlobKind> FromSql<Text, Sqlite> for FixedBlob<N, K> {
+impl<const N: usize> ToSql<Text, Sqlite> for FixedBlob<N, Bytes> {
+    #[inline]
+    fn to_sql<'b>(
+        &'b self,
+        out: &mut Output<'b, '_, Sqlite>,
+    ) -> serialize::Result {
+        out.set_value(self.to_base64url());
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl<const N: usize> FromSql<Text, Sqlite> for FixedBlob<N, Str> {
     #[inline]
     fn from_sql(mut bytes: SqliteValue) -> deserialize::Result<Self> {
         Ok(FixedBlob::try_from_slice(bytes.read_text().as_bytes())?)
+    }
+}
+
+impl<const N: usize> FromSql<Text, Sqlite> for FixedBlob<N, Bytes> {
+    #[inline]
+    fn from_sql(mut bytes: SqliteValue) -> deserialize::Result<Self> {
+        Ok(FixedBlob::try_from_base64url(bytes.read_text())?)
     }
 }
 
@@ -380,7 +397,7 @@ impl<const N: usize> Deref for FixedBlob<N, Str> {
 
 // --- AsRef ---
 
-impl<const N: usize, K: BlobKind> AsRef<str> for FixedBlob<N, K> {
+impl<const N: usize> AsRef<str> for FixedBlob<N, Str> {
     #[inline]
     fn as_ref(&self) -> &str {
         self.as_str_unchecked()
@@ -601,7 +618,8 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
         slice: impl AsRef<[u8]>,
     ) -> Result<Self, IntoBlobError> {
         let slice = slice.as_ref();
-        let slice_len = slice.iter().take(N).take_while(|b| **b != 0).count();
+        let slice_len =
+            slice.iter().take(N + 1).take_while(|b| **b != 0).count();
         if slice_len > N {
             return Err(IntoBlobError::InvalidLength);
         }
@@ -826,7 +844,7 @@ impl<const N: usize, K: BlobKind> FromSql<Binary, Sqlite> for VarBlob<N, K> {
     }
 }
 
-impl<const N: usize, K: BlobKind> ToSql<Text, Sqlite> for VarBlob<N, K> {
+impl<const N: usize> ToSql<Text, Sqlite> for VarBlob<N, Str> {
     #[inline]
     fn to_sql<'b>(
         &'b self,
@@ -837,12 +855,30 @@ impl<const N: usize, K: BlobKind> ToSql<Text, Sqlite> for VarBlob<N, K> {
     }
 }
 
-impl<const N: usize, K: BlobKind> FromSql<Text, Sqlite> for VarBlob<N, K> {
+impl<const N: usize> ToSql<Text, Sqlite> for VarBlob<N, Bytes> {
+    #[inline]
+    fn to_sql<'b>(
+        &'b self,
+        out: &mut Output<'b, '_, Sqlite>,
+    ) -> serialize::Result {
+        out.set_value(self.to_base64url());
+        Ok(serialize::IsNull::No)
+    }
+}
+
+impl<const N: usize> FromSql<Text, Sqlite> for VarBlob<N, Str> {
     #[inline]
     fn from_sql(mut bytes: SqliteValue) -> deserialize::Result<Self> {
         Ok(VarBlob::try_from_slice_unchecked_null(
             bytes.read_text().as_bytes(),
         )?)
+    }
+}
+
+impl<const N: usize> FromSql<Text, Sqlite> for VarBlob<N, Bytes> {
+    #[inline]
+    fn from_sql(mut bytes: SqliteValue) -> deserialize::Result<Self> {
+        Ok(VarBlob::try_from_base64url(bytes.read_text())?)
     }
 }
 
@@ -942,7 +978,7 @@ impl<const N: usize, K: BlobKind> PartialEq<String> for VarBlob<N, K> {
 
 // --- AsRef ---
 
-impl<const N: usize, K: BlobKind> AsRef<str> for VarBlob<N, K> {
+impl<const N: usize> AsRef<str> for VarBlob<N, Str> {
     #[inline]
     fn as_ref(&self) -> &str {
         self.as_str_unchecked()
