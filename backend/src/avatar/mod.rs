@@ -13,3 +13,6 @@ pub mod router;
 pub mod validate;
 
 pub use router::router;
+
+const DEFAULT_AVATAR_LARGE: &[u8] = include_bytes!("../../assets/default_avatar_large.avif");
+const DEFAULT_AVATAR_SMALL: &[u8] = include_bytes!("../../assets/default_avatar_small.avif");
