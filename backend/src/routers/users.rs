@@ -3,6 +3,7 @@
 //! With this you can query users by ID or nickname.
 //!
 
+use crate::models::nickname::Nickname;
 use crate::prelude::*;
 use crate::{models::User, stream::StreamManager};
 
@@ -27,7 +28,7 @@ pub fn router(path: &str) -> Router {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PublicUser {
     pub id: i32,
-    pub nickname: String,
+    pub nickname: Nickname,
     pub created_at: chrono::NaiveDateTime,
     pub online: bool,
 }
@@ -54,9 +55,9 @@ struct CheckNicknameOutput {
 ///
 /// Does not require authentication
 #[endpoint]
-fn check_nickname(json: JsonBody<String>) -> JsonResult<CheckNicknameOutput> {
+fn check_nickname(json: JsonBody<Nickname>) -> JsonResult<CheckNicknameOutput> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let input = json.into_inner();
 
     let exists =
@@ -72,7 +73,7 @@ fn check_nickname(json: JsonBody<String>) -> JsonResult<CheckNicknameOutput> {
 #[endpoint]
 fn get_users_by_id(json: JsonBody<Vec<i32>>) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let user_ids = json.into_inner();
 
     let result = users.filter(id.eq_any(user_ids)).load::<User>(conn)?;
@@ -83,10 +84,10 @@ fn get_users_by_id(json: JsonBody<Vec<i32>>) -> JsonResult<Vec<PublicUser>> {
 /// Retrieve users by their nicknames
 #[endpoint]
 fn get_users_by_nickname(
-    json: JsonBody<Vec<String>>,
+    json: JsonBody<Vec<Nickname>>,
 ) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
+    let conn = &mut db::get();
     let nicknames = json.into_inner();
 
     let result = users

@@ -2,7 +2,10 @@ use std::borrow::Cow;
 
 use validator::ValidationError;
 
-pub fn nickname(nickname: &str) -> Result<(), ValidationError> {
+use crate::models::nickname::Nickname;
+
+pub fn nickname(nickname: &Nickname) -> Result<(), ValidationError> {
+    let nickname = nickname.as_str_unchecked();
     let len = nickname.len();
 
     let err = if nickname.trim() != nickname {
