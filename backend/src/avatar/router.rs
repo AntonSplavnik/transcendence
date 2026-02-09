@@ -4,6 +4,7 @@
 //! Avatars are stored in two sizes: large (450x450) and small (200x200).
 
 use salvo::http::header;
+use salvo::oapi::extract::PathParam;
 
 use super::{cache, validate};
 use crate::models::{AvatarLarge, AvatarSmall};
@@ -23,12 +24,12 @@ pub fn router(path: &str) -> Router {
                 .delete(delete_avatar),
         )
         .push(
-            Router::with_path("<user_id>/large")
+            Router::with_path("{user_id}/large")
                 .requires_user_login()
                 .get(get_avatar_large),
         )
         .push(
-            Router::with_path("<user_id>/small")
+            Router::with_path("{user_id}/small")
                 .requires_user_login()
                 .get(get_avatar_small),
         )
@@ -49,35 +50,28 @@ struct UploadAvatarRequest {
     summary = "Upload avatar",
     description = "Upload both large and small avatar variants. Images must be AVIF format."
 )]
-async fn upload_avatar(
-    depot: &mut Depot,
-    json: JsonBody<UploadAvatarRequest>,
-) -> AppResult<()> {
+async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -> AppResult<()> {
     let user_id = depot.user_id();
     let request = json.into_inner();
 
     // Decode base64
-    let large_data = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &request.large,
-    )
-    .map_err(|e| {
-        validate::AvatarValidationError::InvalidFormat(format!(
-            "Invalid base64 for large avatar: {}",
-            e
-        ))
-    })?;
+    let large_data =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.large)
+            .map_err(|e| {
+                validate::AvatarValidationError::InvalidFormat(format!(
+                    "Invalid base64 for large avatar: {}",
+                    e
+                ))
+            })?;
 
-    let small_data = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &request.small,
-    )
-    .map_err(|e| {
-        validate::AvatarValidationError::InvalidFormat(format!(
-            "Invalid base64 for small avatar: {}",
-            e
-        ))
-    })?;
+    let small_data =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.small)
+            .map_err(|e| {
+                validate::AvatarValidationError::InvalidFormat(format!(
+                    "Invalid base64 for small avatar: {}",
+                    e
+                ))
+            })?;
 
     // Validate both images
     validate::validate_large(&large_data)?;
@@ -111,10 +105,12 @@ async fn upload_avatar(
     summary = "Get large avatar",
     description = "Retrieve the large (450x450) avatar for a user. Returns default avatar if none set."
 )]
-async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()> {
-    let user_id: i32 = req
-        .param("user_id")
-        .ok_or(validate::AvatarValidationError::NotFound)?;
+async fn get_avatar_large(
+    req: &mut Request,
+    res: &mut Response,
+    user_id: PathParam<i32>,
+) -> AppResult<()> {
+    let user_id = user_id.into_inner();
 
     let conn = &mut db::get()?;
 
@@ -145,10 +141,12 @@ async fn get_avatar_large(req: &mut Request, res: &mut Response) -> AppResult<()
     summary = "Get small avatar",
     description = "Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached."
 )]
-async fn get_avatar_small(req: &mut Request, res: &mut Response) -> AppResult<()> {
-    let user_id: i32 = req
-        .param("user_id")
-        .ok_or(validate::AvatarValidationError::NotFound)?;
+async fn get_avatar_small(
+    req: &mut Request,
+    res: &mut Response,
+    user_id: PathParam<i32>,
+) -> AppResult<()> {
+    let user_id = user_id.into_inner();
 
     // Try cache first
     if let Some(cached) = cache::get(user_id) {
