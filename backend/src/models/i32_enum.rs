@@ -12,6 +12,8 @@ macro_rules! diesel_i32_enum {
             Copy,
             PartialEq,
             Eq,
+            serde::Serialize,
+            serde::Deserialize,
             diesel::expression::AsExpression,
             diesel::deserialize::FromSqlRow,
             salvo::oapi::ToSchema,

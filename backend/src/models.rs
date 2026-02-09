@@ -21,7 +21,7 @@ pub mod chatname;
 pub mod nickname;
 mod ulid;
 
-pub use ulid::SqlUlid;
+use ulid::SqlUlid;
 
 #[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, ToSchema, Serialize, Debug, Clone)]
@@ -185,7 +185,6 @@ impl NewSession {
 }
 
 diesel_i32_enum! {
-    #[derive(Serialize, serde::Deserialize)]
     pub enum ChatRoomType {
         Global,
         Public,
@@ -226,7 +225,9 @@ impl DmKey {
 }
 
 #[apply(NewInsertable!)]
-#[derive(Queryable, Selectable, ToSchema, Debug, Clone, Serialize)]
+#[derive(
+    Queryable, Selectable, AsChangeset, ToSchema, Debug, Clone, Serialize,
+)]
 #[diesel(table_name = crate::schema::chat_rooms)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct ChatRoom {
@@ -329,7 +330,9 @@ impl ChatInvitation {
     }
 }
 
-#[derive(Queryable, Selectable, Associations, Debug, Clone, Serialize)]
+#[derive(
+    Queryable, Selectable, Insertable, Associations, Debug, Clone, Serialize,
+)]
 #[diesel(table_name = crate::schema::chat_messages)]
 #[diesel(belongs_to(User, foreign_key = sender_id))]
 #[diesel(belongs_to(ChatRoom, foreign_key = room_id))]
@@ -337,7 +340,8 @@ impl ChatInvitation {
 pub struct ChatMessage {
     // using ULID for sortable unique IDs that dont need to be created by the database
     // i.e. for in-memory message stores
-    pub id: SqlUlid,
+    #[diesel(deserialize_as = SqlUlid, serialize_as = SqlUlid)]
+    pub id: Ulid,
     // #[serde(skip)]
     pub room_id: i32,
     pub sender_id: i32,
