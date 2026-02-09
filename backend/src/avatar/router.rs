@@ -3,15 +3,16 @@
 //! Provides endpoints for uploading, fetching, and deleting user avatars.
 //! Avatars are stored in two sizes: large (450x450) and small (200x200).
 
-use salvo::http::header;
-use salvo::oapi::extract::PathParam;
-
-use super::{cache, validate};
+use super::cache;
+use crate::avatar::DEFAULT_AVATAR_LARGE;
+use crate::avatar::DEFAULT_AVATAR_SMALL;
+use crate::avatar::validate::{AvatarValidationError, validate_large, validate_small};
 use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
-
-const DEFAULT_AVATAR_LARGE: &[u8] = include_bytes!("../../assets/default_avatar_large.avif");
-const DEFAULT_AVATAR_SMALL: &[u8] = include_bytes!("../../assets/default_avatar_small.avif");
+use base64::Engine as _;
+use base64::prelude::BASE64_STANDARD;
+use salvo::http::header;
+use salvo::oapi::extract::PathParam;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -42,6 +43,16 @@ struct UploadAvatarRequest {
     small: String,
 }
 
+impl UploadAvatarRequest {
+    /// get large and small avatar images as bytes
+    fn decode_base64_bytes(&self) -> Result<(Vec<u8>, Vec<u8>), AvatarValidationError> {
+        Ok((
+            BASE64_STANDARD.decode(&self.large)?,
+            BASE64_STANDARD.decode(&self.small)?,
+        ))
+    }
+}
+
 /// Upload or update avatar images
 ///
 /// Accepts both large (450x450) and small (200x200) avatar variants.
@@ -54,28 +65,10 @@ async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -
     let user_id = depot.user_id();
     let request = json.into_inner();
 
-    // Decode base64
-    let large_data =
-        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.large)
-            .map_err(|e| {
-                validate::AvatarValidationError::InvalidFormat(format!(
-                    "Invalid base64 for large avatar: {}",
-                    e
-                ))
-            })?;
+    let (large_data, small_data) = request.decode_base64_bytes()?;
 
-    let small_data =
-        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &request.small)
-            .map_err(|e| {
-                validate::AvatarValidationError::InvalidFormat(format!(
-                    "Invalid base64 for small avatar: {}",
-                    e
-                ))
-            })?;
-
-    // Validate both images
-    validate::validate_large(&large_data)?;
-    validate::validate_small(&small_data)?;
+    validate_large(&large_data)?;
+    validate_small(&small_data)?;
 
     // Store in database (upsert)
     let conn = &mut db::get()?;
