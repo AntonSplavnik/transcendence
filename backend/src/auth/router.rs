@@ -75,6 +75,7 @@ fn register(
     };
 
     let session = create_session(conn, user.id, req, depot, res)?;
+    NICK_CACHE.add(user.id, user.nickname);
     json_ok(UserSessionInfo::new(user, session))
 }
 
