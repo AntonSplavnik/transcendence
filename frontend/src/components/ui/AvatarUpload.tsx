@@ -23,8 +23,50 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
     }
 
     async function handleUpload() {
-
+        if (!selectedFile) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await convertToAvatarAvif(selectedFile);
+            if (!result.success) {
+                setError(result.error.message);
+                return;
+            }
+            await uploadAvatar(result.data.large, result.data.small);
+            onClose();
+        } catch (error) {
+            setError("Failed to upload avatar");
+        } finally {
+            setLoading(false);
+        }
     }
-    return (<div></div>);
+
+    async function handleDelete() {
+        setLoading(true);
+        setError(null);
+        try {
+            await deleteAvatar();
+            onClose();    
+        } catch (error) {
+            setError("Failed to delete avatar");
+        } finally {
+            setLoading(false);
+        }
+    }
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-wood-800 border-2 border-wood-600 rounded-lg p-6 max-w-md w-full">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-wood-100">
+                        Edit Profil
+                    </h2>
+                    <button onClick={onClose} className="text-wood-400 hover:text-wood-200 text-2xl leading-none">
+                        ×
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    );
 }
 
