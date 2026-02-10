@@ -12,6 +12,7 @@ mod avatar;
 mod config;
 pub mod db;
 mod error;
+mod game;
 mod models;
 mod prelude;
 mod routers;
@@ -34,7 +35,22 @@ async fn main() -> ExitCode {
 
     tracing::info!("log level: {}", &config.log.filter_level);
 
-    let mut router = routers::root()
+    // Initialize game system
+    let game_manager = std::sync::Arc::new(crate::game::GameManager::new());
+
+    // Start the game
+    game_manager.clone().start().await;
+    tracing::info!("Game engine started");
+
+    // Spawn game loop in background
+    tokio::spawn({
+        let gm = game_manager.clone();
+        async move {
+            gm.run_game_loop().await;
+        }
+    });
+
+    let mut router = routers::root(game_manager)
         .hoop(ForceHttps::new().https_port(config.listen_https_port))
         .hoop(crate::auth::device_id_inserter_hoop);
 

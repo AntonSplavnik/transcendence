@@ -6,7 +6,7 @@ pub mod users;
 
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn root() -> Router {
+pub fn root(game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
     let api_routes = Router::with_path("api")
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
@@ -16,6 +16,7 @@ pub fn root() -> Router {
             users::router("users"),
             crate::avatar::router("avatar"),
             crate::stream::router("stream"),
+            crate::game::router(game_manager),
         ]);
     let api_routes = Router::new()
         .push(api_routes)

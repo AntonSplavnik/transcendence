@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Arena Game - Simple Client</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        #connection-status {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .connected {
+            background: #00aa00;
+        }
+
+        .disconnected {
+            background: #aa0000;
+        }
+
+        .connecting {
+            background: #aaaa00;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="ui">
+        <div id="connection-status" class="connecting">Connecting...</div>
+        <div>
+            <strong>Player ID:</strong> <span id="player-id">-</span><br>
+            <strong>Frame:</strong> <span id="frame-number">0</span><br>
+            <strong>Players:</strong> <span id="player-count">0</span>
+        </div>
+    </div>
+
+    <div id="controls">
+        <strong>Controls:</strong><br>
+        W/A/S/D - Move<br>
+        Space - Jump<br>
+        Mouse - Look around
+    </div>
+
+    <script type="module">
+        import { initGameClient, GameNetworkClient } from './simple_client.ts';
+
+        // Configuration
+        const SERVER_URL = 'ws://localhost:8080/game';
+
+        // Start with temporary ID, will be updated by server
+        let LOCAL_PLAYER_ID = 0;
+
+        // Initialize game with temporary ID (now loads animated character!)
+        const canvas = document.getElementById('renderCanvas');
+        const { engine, scene, gameClient, input } = await initGameClient(canvas, LOCAL_PLAYER_ID);
+
+        // Setup network
+        const networkClient = new GameNetworkClient();
+        networkClient.connect(SERVER_URL);
+
+        // Handle welcome message - server assigns our real player ID
+        networkClient.onWelcome((playerId) => {
+            LOCAL_PLAYER_ID = playerId;
+            gameClient['localPlayerID'] = playerId; // Update the game client's player ID
+
+            // Remove any ghost character created before we knew our ID
+            const ghost = gameClient['characters'].get(playerId);
+            if (ghost) {
+                ghost.dispose();
+                gameClient['characters'].delete(playerId);
+                console.log('Cleaned up ghost character');
+            }
+
+            document.getElementById('player-id').textContent = playerId;
+            console.log('Player ID assigned by server:', playerId);
+        });
+
+        networkClient.onSnapshot((snapshot) => {
+            gameClient.processSnapshot(snapshot);
+            document.getElementById('frame-number').textContent = snapshot.frame_number;
+            document.getElementById('player-count').textContent = snapshot.characters.length;
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').className = 'connected';
+        });
+
+        // Send input periodically
+        setInterval(() => {
+            networkClient.sendInput(input);
+        }, 16); // ~60 Hz
+
+        console.log('✅ Game client initialized (simple version without physics)');
+        console.log('Use WASD to move, Space to jump, I to toggle Inspector');
+    </script>
+</body>
+</html>

@@ -17,4 +17,11 @@ pub enum StreamType {
     /// The contained String is an echo of the parameter
     /// the client sent during the REST API call.
     EchoExample(String),
+    Chat,
+    Game,
 }
+
+// TODO need AUTH (while the connection is open: session could expire, get deleted, logged out, user deleted, etc.)
+// maybe enforce regular access verification by requiring the client to continuously
+// use a rest endpoint where the access for a user is verified.
+// And if that doesnt happen for a while, the stream is closed.

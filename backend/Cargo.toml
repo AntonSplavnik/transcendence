@@ -1,8 +1,8 @@
 [package]
 name = "transcendence-backend"
 version = "0.1.1"
-edition = "2024"
-rust-version = "1.89"
+edition = "2021"
+rust-version = "1.70"
 readme = "./README.md"
 
 [dependencies]
@@ -14,7 +14,7 @@ blake3 = "1.8"
 diesel-autoincrement-new-struct = "0.1"
 # config library
 figment = { version = "0.10", features = ["env", "toml"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "9", features = ["use_pem"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
@@ -107,3 +107,6 @@ chacha20poly1305 = { version = "0.10", features = ["std"] }
 hex = "0.4"
 # image decoding/validation (AVIF support via pure Rust decoder)
 image = { version = "0.25", default-features = false, features = ["avif", "avif-native"] }
+
+[build-dependencies]
+cc = "1.0"
