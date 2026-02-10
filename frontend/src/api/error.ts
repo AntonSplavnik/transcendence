@@ -1,16 +1,5 @@
 import type { AxiosError } from 'axios';
-
-/**
- * Standard error response from backend
- */
-export interface ApiErrorResponse {
-	error?: {
-		code?: number;
-		name?: string;
-		brief?: string;
-		detail?: string | null;
-	};
-}
+import type { ApiErrorResponse } from './types';
 
 /**
  * Stored error info for displaying after redirect

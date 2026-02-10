@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import * as authApi from '../api/auth';
+import * as userApi from '../api/user';
 import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
@@ -9,8 +10,10 @@ interface AuthContextType {
 	authChecked: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string) => Promise<void>;
+	reauth: (password: string, mfa_code?: string) => Promise<void>;
 	logout: () => Promise<void>;
 	clearAuth: () => void;
+	refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			try {
 				// Use silent mode to avoid storing errors during initial check
 				// ProtectedRoute handles redirect, no need for error messages
-				const data: AuthResponse = await authApi.getMe({ silent: true });
+				const data: AuthResponse = await userApi.getMe({ silent: true });
 				setAuthData(data);
 				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch {
@@ -63,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setAuthData(data);
 	};
 
+	//reauth handler
+	const reauth = async (password: string, mfa_code?: string) => {
+		const data: AuthResponse = await authApi.reauth(password, mfa_code);
+		setAuthData(data);
+	};
+
 	// Logout Handler
 	const logout = async (): Promise<void> => {
 		try {
@@ -75,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	};
 
+	// Refresh user data from server
+	const refreshUser = async (): Promise<void> => {
+		const data = await userApi.getMe();
+		setAuthData(data);
+	};
+
 	return (
 		<AuthContext.Provider value={{
 			user,
@@ -82,8 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			authChecked,
 			login,
 			register,
+			reauth,
 			logout,
-			clearAuth
+			clearAuth,
+			refreshUser
 		}}>
 			{children}
 		</AuthContext.Provider>
