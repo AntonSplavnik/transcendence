@@ -6,6 +6,8 @@ pub mod limiter;
 pub mod logger;
 #[allow(dead_code)]
 pub mod mem_cache;
+#[cfg(test)]
+pub mod mock;
 #[allow(dead_code)]
 pub mod nick_cache;
 
