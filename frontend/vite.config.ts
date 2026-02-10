@@ -4,9 +4,12 @@ import react from '@vitejs/plugin-react-swc'
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react()],
-	      optimizeDeps: {                                             
-          exclude: ['@jsquash/resize', '@jsquash/avif']           
-      },
+	    optimizeDeps: {                                             
+        exclude: ['@jsquash/resize', '@jsquash/avif']           
+    },
+		worker: {
+        format: 'es'
+	},
 	server: {
 		proxy: {
 			'/api': {
