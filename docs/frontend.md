@@ -208,6 +208,57 @@ no need to write withCredentials on any other api call
 
 This needs to be refreshed every 15 minutes.
 
+## JWT Refresh
+
+The JWT has a 15-minute expiry. Two complementary mechanisms keep the user authenticated:
+
+### Why proactive refresh is needed
+
+The Axios interceptor (reactive refresh) catches 401 responses and retries the request after refreshing the JWT. This works for regular HTTP calls, but **not for WebTransport**. WebTransport is a persistent connection — the backend disconnects it when `access_expiry` passes, and there is no HTTP request to intercept. By the time we notice, the connection is already dead. Proactive refresh solves this by refreshing the JWT _before_ it expires, so the WebTransport session never sees an invalid token.
+
+### Reactive refresh (`api/client.ts`)
+
+The Axios response interceptor is a safety net for normal API calls:
+
+1. A request returns 401 with `InvalidJwt`.
+2. The interceptor calls `refreshJWT()` to get a new token.
+3. It retries the original request automatically.
+4. If the refresh itself fails, the page reloads to reset state.
+
+Only `InvalidJwt` triggers a retry. Other 401 variants (missing cookies, dead session, need-reauth) are handled differently or passed through.
+
+### Proactive refresh (`hooks/useJwtRefresh.ts`)
+
+A timer-based hook that fires **1 minute before** `access_expiry`:
+
+- **Dynamic scheduling** — `computeDelay()` calculates the timeout from `session.access_expiry`, capped at 14 minutes and floored at 5 seconds.
+- **Visibility handler** — when a backgrounded tab becomes visible again, the hook checks whether the JWT is about to expire. If remaining time is less than the 1-minute buffer, it refreshes immediately (browsers throttle `setTimeout` in background tabs).
+- **Error handling** — terminal auth errors (`NeedReauth`, `InvalidSessionToken`, `SessionNotFound`, `MissingSessionCookie`) call `onAuthLost()` and stop the timer. Network or unknown errors retry with exponential backoff (5 s, 10 s, 20 s, … up to 60 s).
+- **Rescheduling** — on success, the hook calls `onSessionUpdate()` which updates `session` state in `AuthContext`. Because the effect depends on `session`, it re-runs and schedules the next refresh automatically.
+
+### Integration
+
+`AuthContext` wires the hook into the auth state:
+
+```tsx
+useJwtRefresh({
+    session,
+    onSessionUpdate: handleSessionUpdate,
+    onAuthLost: clearAuth,
+});
+```
+
+`handleSessionUpdate` sets the new session in state. `clearAuth` resets user/session to `null`, which triggers route guards to redirect to the login page.
+
+### Key files
+
+| File | Role |
+| --- | --- |
+| `api/client.ts` | Axios interceptor — reactive 401 retry |
+| `hooks/useJwtRefresh.ts` | Proactive timer-based refresh hook |
+| `contexts/AuthContext.tsx` | Calls `useJwtRefresh`, owns session state |
+| `api/auth.ts` | `refreshJWT()` function (HTTP call) |
+
 ## Navigation Architecture
 
 Navigation and error handling have **separate responsibilities**:
