@@ -9,19 +9,6 @@ use salvo::{
 
 use crate::utils::mock::server::Server;
 
-pub trait ApiClientRequestExt {
-    async fn client_send(self, client: &mut ApiClient) -> Response;
-}
-
-impl ApiClientRequestExt for RequestBuilder {
-    async fn client_send(self, client: &mut ApiClient) -> Response {
-        let res = self.send(&client.server).await;
-        client.cookies = res.cookies.clone();
-        client.apply_cookie_changes();
-        res
-    }
-}
-
 pub struct ApiClient {
     server: Server,
     pub headers: HeaderMap,
@@ -37,19 +24,31 @@ impl ApiClient {
         }
     }
 
-    fn apply_cookie_changes(&mut self) {
-        // using self.cookies.delta() to track added/removed cookies and update self.cookies accordingly
-        let delta_cookies = self.cookies.clone();
-        self.cookies.reset_delta();
-        for cookie in delta_cookies.delta() {
+    /// Create a new client connected to the same server but without any
+    /// cookies or custom headers — i.e. an unauthenticated twin.
+    pub fn unauthenticated(&self) -> ApiClient {
+        ApiClient {
+            server: self.server.clone(),
+            headers: HeaderMap::new(),
+            cookies: CookieJar::new(),
+        }
+    }
+
+    /// Send a request through the test server, merging any Set-Cookie
+    /// changes from the response into this client's cookie jar.
+    pub async fn send(&mut self, req: RequestBuilder) -> Response {
+        let res = req.send(&self.server).await;
+        for cookie in res.cookies.delta() {
             let mut removal = cookie.clone();
             removal.make_removal();
             if cookie == &removal {
                 self.cookies.force_remove(cookie.name());
             } else {
+                self.cookies.force_remove(cookie.name());
                 self.cookies.add_original(cookie.clone());
             }
         }
+        res
     }
 
     pub fn request(&self, path: impl std::fmt::Display, method: Method) -> RequestBuilder {
