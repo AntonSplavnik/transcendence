@@ -1,9 +1,7 @@
 use std::sync::LazyLock;
 
 use base64::Engine;
-use base64::engine::general_purpose::{
-    STANDARD as base64std, URL_SAFE_NO_PAD as base64url,
-};
+use base64::engine::general_purpose::{STANDARD as base64std, URL_SAFE_NO_PAD as base64url};
 use chacha20poly1305::aead::{Aead, OsRng, Payload};
 use chacha20poly1305::{AeadCore as _, KeyInit, XChaCha20Poly1305, XNonce};
 use thiserror::Error;
@@ -67,7 +65,10 @@ static TOTP_ENC_KEY: LazyLock<Option<[u8; 32]>> = LazyLock::new(|| {
 
 fn totp_enc_key() -> AppResult<[u8; 32]> {
     TOTP_ENC_KEY.as_ref().copied().ok_or_else(|| {
-		ApiError::TwoFa(TwoFactorError::Internal(format!("Bad server configuration: Missing/invalid TOTP encryption key in env var {}", ENV_TOTP_ENC_KEY)))
+        ApiError::TwoFa(TwoFactorError::Internal(format!(
+            "Bad server configuration: Missing/invalid TOTP encryption key in env var {}",
+            ENV_TOTP_ENC_KEY
+        )))
     })
 }
 
@@ -101,10 +102,7 @@ pub fn encrypt_totp_secret(user_id: i32, secret: &[u8]) -> AppResult<String> {
     Ok(base64std.encode(blob))
 }
 
-pub fn decrypt_totp_secret(
-    user_id: i32,
-    secret_enc: &str,
-) -> AppResult<Vec<u8>> {
+pub fn decrypt_totp_secret(user_id: i32, secret_enc: &str) -> AppResult<Vec<u8>> {
     let bytes = base64std.decode(secret_enc.as_bytes()).map_err(|err| {
         ApiError::TwoFa(TwoFactorError::Internal(format!(
             "Invalid base64 for encrypted TOTP secret: {}",
@@ -223,10 +221,8 @@ pub fn replace_recovery_codes(
     codes_plain: &[String],
 ) -> AppResult<()> {
     use crate::schema::two_fa_recovery_codes::dsl::*;
-
     conn.transaction::<_, ApiError, _>(|conn| {
-        diesel::delete(two_fa_recovery_codes.filter(user_id.eq(user_id_val)))
-            .execute(conn)?;
+        diesel::delete(two_fa_recovery_codes.filter(user_id.eq(user_id_val))).execute(conn)?;
 
         if codes_plain.is_empty() {
             return Ok(());
@@ -234,9 +230,7 @@ pub fn replace_recovery_codes(
 
         let to_insert: Vec<NewTwoFaRecoveryCode> = codes_plain
             .iter()
-            .map(|code| {
-                NewTwoFaRecoveryCode::new(user_id_val, hash_recovery_code(code))
-            })
+            .map(|code| NewTwoFaRecoveryCode::new(user_id_val, hash_recovery_code(code)))
             .collect();
 
         diesel::insert_into(two_fa_recovery_codes)

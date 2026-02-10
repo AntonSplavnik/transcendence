@@ -85,10 +85,7 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
         .build()
 }
 
-pub fn jwt_create(
-    session: &Session,
-    jti: SessionTokenHashTruncated,
-) -> AppResult<String> {
+pub fn jwt_create(session: &Session, jti: SessionTokenHashTruncated) -> AppResult<String> {
     let claim = JwtClaims {
         sub: session.user_id,
         sid: session.id,
@@ -103,11 +100,7 @@ pub fn jwt_create(
     )?)
 }
 
-pub fn check_password(
-    user_id: i32,
-    password: &str,
-    conn: &mut DbConn,
-) -> AppResult<User> {
+pub fn check_password(user_id: i32, password: &str, conn: &mut DbConn) -> AppResult<User> {
     use crate::schema::users::dsl::*;
     // constant time lookup and verification to prevent timing attacks
     let user = users
@@ -117,8 +110,7 @@ pub fn check_password(
         password,
         user.as_ref().ok().map(|user| user.password_hash.as_str()),
     )?;
-    let user =
-        user.expect("User must exist after successful password verification");
+    let user = user.expect("User must exist after successful password verification");
     Ok(user)
 }
 
@@ -133,11 +125,7 @@ pub fn check_password_and_mfa_if_enabled(
     Ok(user)
 }
 
-pub fn get_user_by_credentials(
-    email: &str,
-    password: &str,
-    conn: &mut DbConn,
-) -> AppResult<User> {
+pub fn get_user_by_credentials(email: &str, password: &str, conn: &mut DbConn) -> AppResult<User> {
     use crate::schema::users::dsl as users_dsl;
     // constant time lookup and verification to prevent timing attacks
     // TODO (not planned yet) /register is not protected against timing attacks, because we dont have email-sending infrastructure
@@ -148,8 +136,7 @@ pub fn get_user_by_credentials(
         password,
         user.as_ref().ok().map(|user| user.password_hash.as_str()),
     )?;
-    let user =
-        user.expect("User must exist after successful password verification");
+    let user = user.expect("User must exist after successful password verification");
     Ok(user)
 }
 
@@ -157,9 +144,9 @@ pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
     let device = req
         .header::<&str>("User-Agent")
         .map(|ua| {
-            woothee::parser::Parser::new().parse(ua).map(|info| {
-                format!("{} on {} ({})", info.name, info.os, info.category)
-            })
+            woothee::parser::Parser::new()
+                .parse(ua)
+                .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
         })
         .flatten();
     let ip = req
@@ -183,8 +170,7 @@ pub fn verify_password(
     password: &str,
     password_hash: Option<&str>,
 ) -> Result<(), password_hash::Error> {
-    let hash =
-        PasswordHash::new(&password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
+    let hash = PasswordHash::new(&password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
     let res = ARGON2.verify_password(password.as_bytes(), &hash);
     match password_hash {
         Some(_) => res,

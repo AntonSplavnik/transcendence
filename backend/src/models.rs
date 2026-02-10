@@ -1,6 +1,4 @@
-use crate::{
-    auth::session_token::SessionTokenHash, models::nickname::Nickname,
-};
+use crate::{auth::session_token::SessionTokenHash, models::nickname::Nickname};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
@@ -9,6 +7,7 @@ use serde::Serialize;
 
 #[macro_use]
 mod i32_enum;
+#[allow(dead_code)]
 pub mod blob;
 pub mod nickname;
 mod ulid;
@@ -40,11 +39,7 @@ impl User {
 }
 
 impl NewUser {
-    pub fn new(
-        email: String,
-        nickname: Nickname,
-        password_hash: String,
-    ) -> Self {
+    pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
         NewUser {
             email,
             nickname,

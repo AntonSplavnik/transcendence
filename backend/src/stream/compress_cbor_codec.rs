@@ -145,26 +145,17 @@ impl<T, BP: BufferParams> Default for CompressedCborEncoder<T, BP> {
     }
 }
 
-impl<T: Serialize, BP: BufferParams> Encoder<T>
-    for CompressedCborEncoder<T, BP>
-{
+impl<T: Serialize, BP: BufferParams> Encoder<T> for CompressedCborEncoder<T, BP> {
     type Error = anyhow::Error;
 
-    fn encode(
-        &mut self,
-        item: T,
-        dst: &mut BytesMut,
-    ) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: T, dst: &mut BytesMut) -> Result<(), Self::Error> {
         // Step 1: Serialize the item to CBOR into our reusable buffer
         ciborium::into_writer(&item, self.cbor_buf.as_mut_vec())?;
 
         // Step 2: Decide whether to compress based on payload size
         let (payload, flags) = if self.cbor_buf.len() > COMPRESS_THRESHOLD {
             // Compress with Zstd - encoder must be finished to flush all data
-            let mut encoder = zstd::Encoder::new(
-                self.compress_buf.as_mut_vec(),
-                COMPRESS_LEVEL,
-            )?;
+            let mut encoder = zstd::Encoder::new(self.compress_buf.as_mut_vec(), COMPRESS_LEVEL)?;
             encoder.write_all(&self.cbor_buf)?;
             encoder.finish()?; // Critical: flushes remaining compressed data
             (self.compress_buf.as_vec().as_slice(), 1u8)
@@ -216,17 +207,12 @@ impl<T: Serialize, BP: BufferParams> Encoder<T>
 /// # Const Generics
 /// - `MAX_DECODE_FRAME`: Maximum allowed frame size for decoding (default: 8 MiB).
 ///   Frames larger than this will cause a decoding error.
-pub struct CompressedCborDecoder<
-    T,
-    const MAX_DECODE_FRAME: usize = { 8 * 1024 * 1024 },
-> {
+pub struct CompressedCborDecoder<T, const MAX_DECODE_FRAME: usize = { 8 * 1024 * 1024 }> {
     /// Marker for the message type `T`.
     _phantom: PhantomData<T>,
 }
 
-impl<T, const MAX_DECODE_FRAME: usize>
-    CompressedCborDecoder<T, MAX_DECODE_FRAME>
-{
+impl<T, const MAX_DECODE_FRAME: usize> CompressedCborDecoder<T, MAX_DECODE_FRAME> {
     /// Creates a new decoder.
     #[must_use]
     pub fn new() -> Self {
@@ -236,9 +222,7 @@ impl<T, const MAX_DECODE_FRAME: usize>
     }
 }
 
-impl<T, const MAX_DECODE_FRAME: usize> Default
-    for CompressedCborDecoder<T, MAX_DECODE_FRAME>
-{
+impl<T, const MAX_DECODE_FRAME: usize> Default for CompressedCborDecoder<T, MAX_DECODE_FRAME> {
     fn default() -> Self {
         Self::new()
     }
@@ -250,10 +234,7 @@ impl<T: DeserializeOwned, const MAX_DECODE_FRAME: usize> Decoder
     type Item = T;
     type Error = anyhow::Error;
 
-    fn decode(
-        &mut self,
-        src: &mut BytesMut,
-    ) -> Result<Option<Self::Item>, Self::Error> {
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Step 1: Check if we have enough bytes for the length prefix
         const LEN_PREFIX_SIZE: usize = 4;
         if src.len() < LEN_PREFIX_SIZE {

@@ -101,22 +101,26 @@ async fn divide(req: &mut Request) -> Result<String, StatusCode> {
 
 ## 4. Accessing the Database
 
-To access the database, we usually don't pass the connection pool in the request. Instead, we use a global helper or a state accessor. In this project, we use `crate::db::get()` to get a connection.
+The database is injected into each request via a hoop. Handlers can receive a `Db` argument, which is extracted automatically by `#[handler]` and `#[endpoint]`.
 
 ```rust
-use crate::db;
+use crate::db::Db;
 use diesel::prelude::*;
 use salvo::prelude::*;
 
 #[endpoint]
-async fn get_users() -> Result<Json<Vec<String>>, StatusCode> {
-    // Get a database connection
-    // The `?` operator handles the error if getting a connection fails
-    let mut conn = db::get().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn get_users(db: Db) -> Result<Json<Vec<String>>, StatusCode> {
+    // Use the async database API and run diesel queries inside the closure
+    let users: Vec<String> = db
+        .read(|conn| async move {
+            // ... perform diesel queries using `conn` ...
+            Ok(vec!["Alice".to_string(), "Bob".to_string()])
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // ... perform diesel queries using `conn` ...
-
-    Ok(Json(vec!["Alice".to_string(), "Bob".to_string()]))
+    Ok(Json(users))
 }
 ```
 

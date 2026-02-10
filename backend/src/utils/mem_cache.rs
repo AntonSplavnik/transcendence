@@ -9,9 +9,7 @@ use smallvec::SmallVec;
 /// Keeps entries in the cache as long as they are accessed at least once within the specified duration.
 /// Clone is cheap as it only creates a new handle to the same underlying cache.
 #[derive(Debug, Clone)]
-pub struct TTIMemCache<K: Eq + Hash, V>(
-    mini_moka::sync::Cache<K, V, ahash::RandomState>,
-);
+pub struct TTIMemCache<K: Eq + Hash, V>(mini_moka::sync::Cache<K, V, ahash::RandomState>);
 
 impl<K, V> TTIMemCache<K, V>
 where
@@ -52,11 +50,7 @@ where
     ///
     /// Only returns Err if the value creation fails.
     #[inline]
-    pub fn get_or_insert_with<E>(
-        &self,
-        key: K,
-        get: impl FnOnce() -> Result<V, E>,
-    ) -> Result<V, E>
+    pub fn get_or_insert_with<E>(&self, key: K, get: impl FnOnce() -> Result<V, E>) -> Result<V, E>
     where
         V: Clone,
     {
@@ -76,10 +70,7 @@ where
     pub fn many_get_or_insert_bulk<E, I, const N: usize, const M: usize>(
         &self,
         keys: I,
-        fetch_missing: impl FnOnce(
-            SmallVec<[K; M]>,
-            &mut SmallVec<[(K, V); N]>,
-        ) -> Result<(), E>,
+        fetch_missing: impl FnOnce(SmallVec<[K; M]>, &mut SmallVec<[(K, V); N]>) -> Result<(), E>,
     ) -> Result<SmallVec<[(K, V); N]>, E>
     where
         I: IntoIterator<Item = K>,
@@ -90,8 +81,7 @@ where
         let keys_size_hint = keys.size_hint().0;
         let mut results = SmallVec::with_capacity(keys_size_hint);
         // only allocate missing keys vector if there are any missing keys -> use LazyCell
-        let mut missing =
-            LazyCell::new(|| SmallVec::with_capacity(keys_size_hint));
+        let mut missing = LazyCell::new(|| SmallVec::with_capacity(keys_size_hint));
         let mut missing_init = false;
 
         for key in keys {
@@ -193,6 +183,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 impl<K, V> LruMemCache<K, V>
 where
     K: std::hash::Hash + PartialEq,
@@ -202,10 +193,7 @@ where
     /// Returns None if the key is not found.
     /// The returned reference is protected by a mutex guard.
     #[inline]
-    pub fn get_ref<'key>(
-        &'_ self,
-        key: &'key K,
-    ) -> Option<MappedMutexGuard<'_, V>> {
+    pub fn get_ref<'key>(&'_ self, key: &'key K) -> Option<MappedMutexGuard<'_, V>> {
         MutexGuard::try_map(self.inner.lock(), |lru| lru.get(key)).ok()
     }
 
@@ -280,16 +268,10 @@ where
     ///
     /// The returned reference is protected by a mutex guard.
     #[inline]
-    pub fn get_mut_or_insert(
-        &self,
-        key: K,
-        value: V,
-    ) -> MappedMutexGuard<'_, V> {
+    pub fn get_mut_or_insert(&self, key: K, value: V) -> MappedMutexGuard<'_, V> {
         MutexGuard::map(self.inner.lock(), |lru| {
             let value = lru
-                .get_or_insert_fallible(key, || {
-                    Ok::<V, std::convert::Infallible>(value)
-                })
+                .get_or_insert_fallible(key, || Ok::<V, std::convert::Infallible>(value))
                 .expect("insertion is infallible");
             value.expect("insertion doesn't fail with the chosen limiters")
         })
@@ -304,9 +286,7 @@ where
     {
         let mut guard = self.inner.lock();
         let value = guard
-            .get_or_insert_fallible(key, || {
-                Ok::<V, std::convert::Infallible>(value)
-            })
+            .get_or_insert_fallible(key, || Ok::<V, std::convert::Infallible>(value))
             .expect("insertion is infallible");
         value
             .expect("insertion doesn't fail with the chosen limiters")
@@ -332,11 +312,9 @@ where
                 // we drop the lock here to avoid stalling other threads while we compute the value
                 let value = get()?;
                 let mapped = MutexGuard::map(self.inner.lock(), |lru| {
-                    lru.get_or_insert_fallible(key, || {
-                        Ok::<V, Infallible>(value)
-                    })
-                    .expect("insertion is infallible")
-                    .expect("insertion doesn't fail with the chosen limiters")
+                    lru.get_or_insert_fallible(key, || Ok::<V, Infallible>(value))
+                        .expect("insertion is infallible")
+                        .expect("insertion doesn't fail with the chosen limiters")
                 });
                 Ok(mapped)
             }
@@ -349,11 +327,7 @@ where
     /// If creating the value to insert is cheap, use 'get_clone_or_insert' instead.
     /// Only returns Err if the value creation fails.
     #[inline]
-    pub fn get_or_insert_with<E>(
-        &self,
-        key: K,
-        get: impl FnOnce() -> Result<V, E>,
-    ) -> Result<V, E>
+    pub fn get_or_insert_with<E>(&self, key: K, get: impl FnOnce() -> Result<V, E>) -> Result<V, E>
     where
         V: Clone,
     {
@@ -381,10 +355,7 @@ where
     pub fn many_get_or_insert_bulk<E, I, const N: usize, const M: usize>(
         &self,
         keys: I,
-        fetch_missing: impl FnOnce(
-            SmallVec<[K; M]>,
-            &mut SmallVec<[(K, V); N]>,
-        ) -> Result<(), E>,
+        fetch_missing: impl FnOnce(SmallVec<[K; M]>, &mut SmallVec<[(K, V); N]>) -> Result<(), E>,
     ) -> Result<SmallVec<[(K, V); N]>, E>
     where
         I: IntoIterator<Item = K>,
@@ -395,8 +366,7 @@ where
         let keys_size_hint = keys.size_hint().0;
         let mut results = SmallVec::with_capacity(keys_size_hint);
         // only allocate missing keys vector if there are any missing keys -> use LazyCell
-        let mut missing =
-            LazyCell::new(|| SmallVec::with_capacity(keys_size_hint));
+        let mut missing = LazyCell::new(|| SmallVec::with_capacity(keys_size_hint));
         let mut missing_init = false;
 
         {
@@ -440,15 +410,12 @@ where
         K: Clone,
         V: Clone,
     {
-        self.many_get_or_insert_bulk(
-            keys,
-            |missing: SmallVec<[K; M]>, results| {
-                for key in missing {
-                    let value = fetch(&key)?;
-                    results.push((key, value));
-                }
-                Ok(())
-            },
-        )
+        self.many_get_or_insert_bulk(keys, |missing: SmallVec<[K; M]>, results| {
+            for key in missing {
+                let value = fetch(&key)?;
+                results.push((key, value));
+            }
+            Ok(())
+        })
     }
 }

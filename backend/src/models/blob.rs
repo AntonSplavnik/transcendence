@@ -41,14 +41,7 @@ pub struct Str;
 /// - [`Bytes`]: raw binary data, serialized as base64url (no padding)
 /// - [`Str`]: UTF-8 string data, serialized as a plain string
 pub trait BlobKind:
-    sealed::Sealed
-    + Copy
-    + Eq
-    + Ord
-    + std::hash::Hash
-    + fmt::Debug
-    + Default
-    + 'static
+    sealed::Sealed + Copy + Eq + Ord + std::hash::Hash + fmt::Debug + Default + 'static
 {
 }
 impl BlobKind for Bytes {}
@@ -80,10 +73,7 @@ pub enum IntoBlobError {
 /// - Read: exactly N bytes are expected; a mismatched length will cause
 ///   deserialization from the database to return an error rather than panic.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FixedBlob<const N: usize, K: BlobKind = Bytes>(
-    pub [u8; N],
-    PhantomData<K>,
-);
+pub struct FixedBlob<const N: usize, K: BlobKind = Bytes>(pub [u8; N], PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> FixedBlob<N, K> {
     /// Creates a new zero-initialized FixedBlob.
@@ -177,9 +167,7 @@ impl<const N: usize, K: BlobKind> FixedBlob<N, K> {
     ///
     /// Returns `Err` when the length is not exactly N bytes.
     #[inline]
-    pub fn try_from_slice(
-        slice: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_slice(slice: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let slice: &[u8; N] = slice
             .as_ref()
             .try_into()
@@ -190,11 +178,8 @@ impl<const N: usize, K: BlobKind> FixedBlob<N, K> {
     /// Encodes the blob as a base64url (no padding) string.
     #[inline]
     pub fn to_base64url(&self) -> String {
-        let encoded_len = base64::encoded_len(
-            self.len(),
-            base64url.config().encode_padding(),
-        )
-        .expect("we're not planning to encode 13835 or more Petabytes at once anytime soon :)");
+        let encoded_len = base64::encoded_len(self.len(), base64url.config().encode_padding())
+            .expect("we're not planning to encode 13835 or more Petabytes at once anytime soon :)");
         let mut buf: SmallVec<[u8; 96]> = SmallVec::from_elem(0, encoded_len);
         let encoded = base64url
             .encode_slice(&self.0, &mut buf)
@@ -205,9 +190,7 @@ impl<const N: usize, K: BlobKind> FixedBlob<N, K> {
 
     /// Decodes a base64url (no padding) string into a `FixedBlob`.
     #[inline]
-    pub fn try_from_base64url(
-        s: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_base64url(s: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let mut buf: [u8; N] = [0u8; N];
         let decoded_len = base64url
             .decode_slice(s.as_ref(), &mut buf)
@@ -280,8 +263,7 @@ impl<'de, const N: usize> Deserialize<'de> for FixedBlob<N, Bytes> {
         D: Deserializer<'de>,
     {
         let encoded = String::deserialize(deserializer)?;
-        FixedBlob::try_from_base64url(encoded.as_bytes())
-            .map_err(serde::de::Error::custom)
+        FixedBlob::try_from_base64url(encoded.as_bytes()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -300,10 +282,7 @@ impl<'de, const N: usize> Deserialize<'de> for FixedBlob<N, Str> {
 
 impl<const N: usize, K: BlobKind> ToSql<Binary, Sqlite> for FixedBlob<N, K> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.as_bytes());
         Ok(serialize::IsNull::No)
     }
@@ -318,10 +297,7 @@ impl<const N: usize, K: BlobKind> FromSql<Binary, Sqlite> for FixedBlob<N, K> {
 
 impl<const N: usize> ToSql<Text, Sqlite> for FixedBlob<N, Str> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.as_str_unchecked());
         Ok(serialize::IsNull::No)
     }
@@ -329,10 +305,7 @@ impl<const N: usize> ToSql<Text, Sqlite> for FixedBlob<N, Str> {
 
 impl<const N: usize> ToSql<Text, Sqlite> for FixedBlob<N, Bytes> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.to_base64url());
         Ok(serialize::IsNull::No)
     }
@@ -439,15 +412,9 @@ impl<const N: usize, K: BlobKind> fmt::Debug for FixedBlob<N, K> {
 // --- ToSchema ---
 
 impl<const N: usize> oapi::ToSchema for FixedBlob<N, Bytes> {
-    fn to_schema(
-        components: &mut oapi::Components,
-    ) -> oapi::RefOr<oapi::schema::Schema> {
-        let name =
-            oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
-        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!(
-            "#/components/schemas/{}",
-            name
-        )));
+    fn to_schema(components: &mut oapi::Components) -> oapi::RefOr<oapi::schema::Schema> {
+        let name = oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
+        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!("#/components/schemas/{}", name)));
         if !components.schemas.contains_key(&name) {
             components.schemas.insert(name.clone(), ref_or.clone());
             let schema = oapi::Object::new()
@@ -465,15 +432,9 @@ impl<const N: usize> oapi::ToSchema for FixedBlob<N, Bytes> {
 }
 
 impl<const N: usize> oapi::ToSchema for FixedBlob<N, Str> {
-    fn to_schema(
-        components: &mut oapi::Components,
-    ) -> oapi::RefOr<oapi::schema::Schema> {
-        let name =
-            oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
-        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!(
-            "#/components/schemas/{}",
-            name
-        )));
+    fn to_schema(components: &mut oapi::Components) -> oapi::RefOr<oapi::schema::Schema> {
+        let name = oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
+        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!("#/components/schemas/{}", name)));
         if !components.schemas.contains_key(&name) {
             components.schemas.insert(name.clone(), ref_or.clone());
             let schema = oapi::Object::new()
@@ -511,10 +472,7 @@ impl<const N: usize> Distribution<FixedBlob<N, Bytes>> for StandardUniform {
 ///
 /// Panics if a value read from the database exceeds N bytes.
 #[derive(Clone, Copy, Hash)]
-pub struct VarBlob<const N: usize, K: BlobKind = Bytes>(
-    [u8; N],
-    PhantomData<K>,
-);
+pub struct VarBlob<const N: usize, K: BlobKind = Bytes>([u8; N], PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> VarBlob<N, K> {
     /// Creates a new zero-initialized VarBlob.
@@ -615,12 +573,9 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
     ///
     /// Returns `Err` if the slice length up to the first null exceeds N bytes.
     #[inline]
-    pub fn try_from_slice_until_null(
-        slice: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_slice_until_null(slice: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let slice = slice.as_ref();
-        let slice_len =
-            slice.iter().take(N + 1).take_while(|b| **b != 0).count();
+        let slice_len = slice.iter().take(N + 1).take_while(|b| **b != 0).count();
         if slice_len > N {
             return Err(IntoBlobError::InvalidLength);
         }
@@ -646,9 +601,7 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
     ///
     /// Returns `Err` if the slice length exceeds N bytes.
     #[inline]
-    pub fn try_from_slice_unchecked_null(
-        slice: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_slice_unchecked_null(slice: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let slice = slice.as_ref();
         let slice_len = slice.len();
         if slice_len > N {
@@ -674,9 +627,7 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
     ///
     /// Returns `Err` if a null byte is present or the length exceeds N bytes.
     #[inline]
-    pub fn try_from_slice_no_null(
-        slice: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_slice_no_null(slice: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let slice = slice.as_ref();
         if slice.iter().take(N).any(|&b| b == 0) {
             return Err(IntoBlobError::DisallowedNullByte);
@@ -688,11 +639,8 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
     #[inline]
     pub fn to_base64url(&self) -> String {
         let slice = self.as_slice();
-        let encoded_len = base64::encoded_len(
-            slice.len(),
-            base64url.config().encode_padding(),
-        )
-        .expect("we're not planning to encode 13835 or more Petabytes at once anytime soon :)");
+        let encoded_len = base64::encoded_len(slice.len(), base64url.config().encode_padding())
+            .expect("we're not planning to encode 13835 or more Petabytes at once anytime soon :)");
         let mut buf: SmallVec<[u8; 96]> = SmallVec::from_elem(0, encoded_len);
         let encoded = base64url
             .encode_slice(slice, &mut buf)
@@ -703,9 +651,7 @@ impl<const N: usize, K: BlobKind> VarBlob<N, K> {
 
     /// Decodes a base64url (no padding) string into a `VarBlob`.
     #[inline]
-    pub fn try_from_base64url(
-        s: impl AsRef<[u8]>,
-    ) -> Result<Self, IntoBlobError> {
+    pub fn try_from_base64url(s: impl AsRef<[u8]>) -> Result<Self, IntoBlobError> {
         let mut buf: [u8; N] = [0u8; N];
         let decoded_len = base64url
             .decode_slice(s.as_ref(), &mut buf)
@@ -752,8 +698,7 @@ impl<const N: usize, K: BlobKind> From<[u8; N]> for VarBlob<N, K> {
         let result = Self::wrap(value);
         let len_until_null = result.len();
         assert!(
-            len_until_null == N
-                || result.0[len_until_null..].iter().all(|b| *b == 0),
+            len_until_null == N || result.0[len_until_null..].iter().all(|b| *b == 0),
             "Source array contains a null byte with trailing non-null bytes"
         );
         result
@@ -809,8 +754,7 @@ impl<'de, const N: usize> Deserialize<'de> for VarBlob<N, Bytes> {
         D: Deserializer<'de>,
     {
         let encoded = String::deserialize(deserializer)?;
-        VarBlob::try_from_base64url(encoded.as_bytes())
-            .map_err(serde::de::Error::custom)
+        VarBlob::try_from_base64url(encoded.as_bytes()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -829,10 +773,7 @@ impl<'de, const N: usize> Deserialize<'de> for VarBlob<N, Str> {
 
 impl<const N: usize, K: BlobKind> ToSql<Binary, Sqlite> for VarBlob<N, K> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.as_bytes());
         Ok(serialize::IsNull::No)
     }
@@ -847,10 +788,7 @@ impl<const N: usize, K: BlobKind> FromSql<Binary, Sqlite> for VarBlob<N, K> {
 
 impl<const N: usize> ToSql<Text, Sqlite> for VarBlob<N, Str> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.as_str_unchecked());
         Ok(serialize::IsNull::No)
     }
@@ -858,10 +796,7 @@ impl<const N: usize> ToSql<Text, Sqlite> for VarBlob<N, Str> {
 
 impl<const N: usize> ToSql<Text, Sqlite> for VarBlob<N, Bytes> {
     #[inline]
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut Output<'b, '_, Sqlite>,
-    ) -> serialize::Result {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Sqlite>) -> serialize::Result {
         out.set_value(self.to_base64url());
         Ok(serialize::IsNull::No)
     }
@@ -885,8 +820,8 @@ impl<const N: usize> FromSql<Text, Sqlite> for VarBlob<N, Bytes> {
 
 // --- Comparison (VarBlob with VarBlob) ---
 
-impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind>
-    PartialEq<VarBlob<M, K2>> for VarBlob<N, K1>
+impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind> PartialEq<VarBlob<M, K2>>
+    for VarBlob<N, K1>
 {
     #[inline]
     fn eq(&self, other: &VarBlob<M, K2>) -> bool {
@@ -910,8 +845,8 @@ impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind>
 
 impl<const N: usize, K: BlobKind> Eq for VarBlob<N, K> {}
 
-impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind>
-    PartialOrd<VarBlob<M, K2>> for VarBlob<N, K1>
+impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind> PartialOrd<VarBlob<M, K2>>
+    for VarBlob<N, K1>
 {
     #[inline]
     fn partial_cmp(&self, other: &VarBlob<M, K2>) -> Option<Ordering> {
@@ -1021,15 +956,9 @@ impl<const N: usize, K: BlobKind> fmt::Debug for VarBlob<N, K> {
 // --- ToSchema ---
 
 impl<const N: usize> oapi::ToSchema for VarBlob<N, Bytes> {
-    fn to_schema(
-        components: &mut oapi::Components,
-    ) -> oapi::RefOr<oapi::schema::Schema> {
-        let name =
-            oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
-        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!(
-            "#/components/schemas/{}",
-            name
-        )));
+    fn to_schema(components: &mut oapi::Components) -> oapi::RefOr<oapi::schema::Schema> {
+        let name = oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
+        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!("#/components/schemas/{}", name)));
         if !components.schemas.contains_key(&name) {
             components.schemas.insert(name.clone(), ref_or.clone());
             let schema = oapi::Object::new()
@@ -1047,15 +976,9 @@ impl<const N: usize> oapi::ToSchema for VarBlob<N, Bytes> {
 }
 
 impl<const N: usize> oapi::ToSchema for VarBlob<N, Str> {
-    fn to_schema(
-        components: &mut oapi::Components,
-    ) -> oapi::RefOr<oapi::schema::Schema> {
-        let name =
-            oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
-        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!(
-            "#/components/schemas/{}",
-            name
-        )));
+    fn to_schema(components: &mut oapi::Components) -> oapi::RefOr<oapi::schema::Schema> {
+        let name = oapi::naming::assign_name::<Self>(oapi::naming::NameRule::Auto);
+        let ref_or = oapi::RefOr::Ref(oapi::Ref::new(format!("#/components/schemas/{}", name)));
         if !components.schemas.contains_key(&name) {
             components.schemas.insert(name.clone(), ref_or.clone());
             let schema = oapi::Object::new()
@@ -1124,10 +1047,7 @@ impl_as_expression!(FixedBlob, Binary, Text, Nullable<Binary>, Nullable<Text>);
 impl_as_expression!(VarBlob, Binary, Text, Nullable<Binary>, Nullable<Text>);
 
 #[derive(Debug)]
-pub struct WritableFixedBlob<const N: usize, K: BlobKind = Bytes>(
-    Cursor<[u8; N]>,
-    PhantomData<K>,
-);
+pub struct WritableFixedBlob<const N: usize, K: BlobKind = Bytes>(Cursor<[u8; N]>, PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> WritableFixedBlob<N, K> {
     pub const fn new() -> Self {
@@ -1161,10 +1081,7 @@ impl<const N: usize, K: BlobKind> Default for WritableFixedBlob<N, K> {
 }
 
 #[derive(Debug)]
-pub struct WritableVarBlob<const N: usize, K: BlobKind = Bytes>(
-    Cursor<[u8; N]>,
-    PhantomData<K>,
-);
+pub struct WritableVarBlob<const N: usize, K: BlobKind = Bytes>(Cursor<[u8; N]>, PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> WritableVarBlob<N, K> {
     pub const fn new() -> Self {

@@ -60,15 +60,7 @@ impl TryFrom<String> for SessionToken {
     type Error = TokenDecodeError;
 }
 
-#[derive(
-    diesel_derive_newtype::DieselNewType,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-)]
+#[derive(diesel_derive_newtype::DieselNewType, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SessionTokenHash(FixedBlob<32>);
 
 impl SessionTokenHash {

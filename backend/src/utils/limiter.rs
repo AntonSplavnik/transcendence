@@ -33,10 +33,7 @@ pub fn periodic_rate_limit_report() {
                 out + counter.swap(0, std::sync::atomic::Ordering::Relaxed)
             });
             if total > 0 {
-                tracing::warn!(
-                    "Rate limited requests in the last 10 minutes: {}",
-                    total
-                );
+                tracing::warn!("Rate limited requests in the last 10 minutes: {}", total);
             }
         }
     });
@@ -103,9 +100,8 @@ impl RateLimit {
         let observed = self.rate.observe(key, 1);
 
         if observed <= 0 || observed > self.limit as isize {
-            RATE_LIMITED_COUNTERS
-                [observed as usize % RATE_LIMITED_COUNTERS.len()]
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            RATE_LIMITED_COUNTERS[observed as usize % RATE_LIMITED_COUNTERS.len()]
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             res.status_code(StatusCode::TOO_MANY_REQUESTS);
             ctrl.cease();
         }
