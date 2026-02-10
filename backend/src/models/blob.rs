@@ -2,7 +2,6 @@ use base64::Engine;
 use base64::engine::Config;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 use diesel::deserialize::{self, FromSql, FromSqlRow};
-use diesel::expression::AsExpression;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::{Binary, Nullable, Text};
 use diesel::sqlite::Sqlite;

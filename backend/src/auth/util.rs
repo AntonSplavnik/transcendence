@@ -184,3 +184,63 @@ pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {
         .hash_password(password.as_bytes(), &salt)
         .map(|ph| ph.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_password_produces_valid_hash() {
+        let hash = hash_password("test-password").unwrap();
+        // Argon2 hashes start with "$argon2"
+        assert!(
+            hash.starts_with("$argon2"),
+            "hash must be a valid Argon2 string: {hash}"
+        );
+    }
+
+    #[test]
+    fn hash_password_different_salts() {
+        let h1 = hash_password("same-password").unwrap();
+        let h2 = hash_password("same-password").unwrap();
+        assert_ne!(
+            h1, h2,
+            "two hashes of the same password must differ (random salt)"
+        );
+    }
+
+    #[test]
+    fn verify_correct_password_succeeds() {
+        let hash = hash_password("correct-password").unwrap();
+        assert!(
+            verify_password("correct-password", Some(&hash)).is_ok(),
+            "correct password must verify"
+        );
+    }
+
+    #[test]
+    fn verify_wrong_password_fails() {
+        let hash = hash_password("correct-password").unwrap();
+        let result = verify_password("wrong-password", Some(&hash));
+        assert!(result.is_err(), "wrong password must fail verification");
+    }
+
+    #[test]
+    fn verify_no_hash_constant_time_rejection() {
+        // When no hash exists (user not found), verify_password must still
+        // return Error::Password (not a different error variant).
+        let result = verify_password("any-password", None);
+        assert!(result.is_err(), "None hash must fail");
+        match result.unwrap_err() {
+            password_hash::Error::Password => {} // expected
+            err => panic!("expected Error::Password, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn hash_and_verify_roundtrip() {
+        let pw = "roundtrip-password-123!@#";
+        let hash = hash_password(pw).unwrap();
+        assert!(verify_password(pw, Some(&hash)).is_ok());
+    }
+}

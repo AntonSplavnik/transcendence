@@ -135,3 +135,106 @@ impl From<blake3::Hash> for FixedBlob<32> {
         FixedBlob::from(bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_produces_32_bytes() {
+        let token = SessionToken::generate();
+        assert_eq!(token.0.len(), 32);
+    }
+
+    #[test]
+    fn encode_decode_roundtrip() {
+        let token = SessionToken::generate();
+        let encoded = token.encoded();
+        let decoded = SessionToken::try_from(encoded.as_str()).unwrap();
+        assert_eq!(token, decoded);
+    }
+
+    #[test]
+    fn decode_invalid_base64_fails() {
+        let result = SessionToken::try_from("not-valid-base64!!!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decode_wrong_length_fails() {
+        let short = base64url.encode([0u8; 16]); // 16 bytes instead of 32
+        let result = SessionToken::try_from(short.as_str());
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            TokenDecodeError::InvalidLength { expected, actual } => {
+                assert_eq!(expected, 32);
+                assert_eq!(actual, 16);
+            }
+            err => panic!("unexpected error variant: {err:?}"),
+        }
+    }
+
+    #[test]
+    fn hash_is_deterministic() {
+        let token = SessionToken::generate();
+        let h1 = token.to_hash();
+        let h2 = token.to_hash();
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn different_tokens_produce_different_hashes() {
+        let t1 = SessionToken::generate();
+        let t2 = SessionToken::generate();
+        assert_ne!(t1.to_hash(), t2.to_hash());
+    }
+
+    #[test]
+    fn truncated_uses_first_16_bytes() {
+        let token = SessionToken::generate();
+        let hash = token.to_hash();
+        let truncated = hash.to_truncated();
+        // The truncated hash should contain the first 16 bytes of the full hash.
+        assert_eq!(&hash.0[..16], &truncated.0[..]);
+    }
+
+    #[test]
+    fn hash_equals_truncated_cross_type() {
+        let token = SessionToken::generate();
+        let hash = token.to_hash();
+        let truncated = hash.to_truncated();
+        assert_eq!(
+            hash, truncated,
+            "SessionTokenHash == SessionTokenHashTruncated"
+        );
+        assert_eq!(
+            truncated, hash,
+            "SessionTokenHashTruncated == SessionTokenHash"
+        );
+    }
+
+    #[test]
+    fn different_tokens_truncated_not_equal() {
+        let t1 = SessionToken::generate();
+        let t2 = SessionToken::generate();
+        let trunc1 = t1.to_hash().to_truncated();
+        let trunc2 = t2.to_hash().to_truncated();
+        assert_ne!(trunc1, trunc2);
+    }
+
+    #[test]
+    fn truncated_encode_decode_roundtrip() {
+        let token = SessionToken::generate();
+        let truncated = token.to_hash().to_truncated();
+        let encoded = truncated.encoded();
+        let decoded = SessionTokenHashTruncated::try_from(encoded).unwrap();
+        assert_eq!(truncated, decoded);
+    }
+
+    #[test]
+    fn truncated_decode_wrong_length_fails() {
+        let short = base64url.encode([0u8; 8]); // 8 bytes instead of 16
+        let result = SessionTokenHashTruncated::try_from(short);
+        assert!(result.is_err());
+    }
+}

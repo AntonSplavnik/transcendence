@@ -69,10 +69,7 @@ impl User<Registered> {
     /// user.assert_requires_auth(|c| c.get("/api/user/me")).await;
     /// user.assert_requires_auth(|c| c.post("/api/user/logout")).await;
     /// ```
-    pub async fn assert_requires_auth(
-        &mut self,
-        build_req: impl Fn(&ApiClient) -> RequestBuilder,
-    ) {
+    pub async fn assert_requires_auth(&mut self, build_req: impl Fn(&ApiClient) -> RequestBuilder) {
         let mut unauthed = self.client.unauthenticated();
         let req = build_req(&unauthed);
         let res = unauthed.send(req).await;
