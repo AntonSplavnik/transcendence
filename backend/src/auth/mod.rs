@@ -14,6 +14,11 @@ pub use hoops::{AuthError, DepotAuthExt, RouterAuthExt, device_id_inserter_hoop}
 pub use router::router;
 pub use two_factor::TwoFactorError;
 pub use user::router as user_router;
+#[cfg(test)]
+pub use user::{SessionInfo, TwoFaConfirmOutput, TwoFaStartOutput, UserSessionInfo};
+
+#[cfg(test)]
+mod tests;
 
 use crate::models::Session;
 

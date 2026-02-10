@@ -243,3 +243,121 @@ impl<T, P: BufferParams> AsMut<[T]> for AdaptiveBuffer<T, P> {
         &mut self.inner
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Small params for fast testing of the shrink policy.
+    struct TestParams;
+    impl BufferParams for TestParams {
+        const MIN_CAPACITY: usize = 8;
+        const SHRINK_FACTOR: usize = 3;
+        const SHRINK_CHECK_INTERVAL: usize = 4;
+    }
+
+    type TestBuf = AdaptiveBuffer<u8, TestParams>;
+
+    #[test]
+    fn new_has_min_capacity() {
+        let buf = TestBuf::new();
+        assert_eq!(buf.capacity(), TestParams::MIN_CAPACITY);
+    }
+
+    #[test]
+    fn finish_clears_buffer() {
+        let mut buf = TestBuf::new();
+        buf.as_mut_vec().extend_from_slice(&[1, 2, 3]);
+        assert_eq!(buf.len(), 3);
+        buf.finish();
+        assert_eq!(buf.len(), 0);
+    }
+
+    #[test]
+    fn no_shrink_before_interval() {
+        let mut buf = TestBuf::new();
+        // Force a large allocation.
+        buf.as_mut_vec().extend(std::iter::repeat(0u8).take(1024));
+        let big_cap = buf.capacity();
+        // Finish only once — below SHRINK_CHECK_INTERVAL (4).
+        buf.finish();
+        assert!(
+            buf.capacity() >= big_cap,
+            "capacity must not shrink before reaching SHRINK_CHECK_INTERVAL"
+        );
+    }
+
+    #[test]
+    fn shrinks_after_interval_with_small_usage() {
+        let mut buf = TestBuf::new();
+        // Fill window 1 with the large write so max_seen is big. After the
+        // interval resets, subsequent small writes in window 2 will trigger
+        // a shrink since capacity >> max_seen * SHRINK_FACTOR.
+        for _ in 0..TestParams::SHRINK_CHECK_INTERVAL {
+            buf.as_mut_vec().extend(std::iter::repeat(0u8).take(4096));
+            buf.finish();
+        }
+        // Window 1 completed: max_seen was 4096, capacity >= 4096.
+        // Now we're in window 2 — only do tiny writes.
+        for _ in 0..TestParams::SHRINK_CHECK_INTERVAL {
+            buf.as_mut_vec().push(1);
+            buf.finish();
+        }
+
+        assert!(
+            buf.capacity() < 4096,
+            "capacity should have shrunk after the interval with small usage"
+        );
+    }
+
+    #[test]
+    fn does_not_shrink_below_min_capacity() {
+        let mut buf = TestBuf::new();
+        // Only empty finish calls — max_seen stays at MIN_CAPACITY.
+        for _ in 0..TestParams::SHRINK_CHECK_INTERVAL * 3 {
+            buf.finish();
+        }
+        assert!(
+            buf.capacity() >= TestParams::MIN_CAPACITY,
+            "capacity must never go below MIN_CAPACITY"
+        );
+    }
+
+    #[test]
+    fn sustained_large_usage_prevents_shrink() {
+        let mut buf = TestBuf::new();
+        for _ in 0..TestParams::SHRINK_CHECK_INTERVAL * 2 {
+            buf.as_mut_vec().extend(std::iter::repeat(0u8).take(2048));
+            buf.finish();
+        }
+        // Capacity should still be large enough for the sustained usage.
+        // (It shouldn't have shrunk aggressively.)
+        assert!(
+            buf.capacity() >= 2048,
+            "sustained large usage should keep capacity high"
+        );
+    }
+
+    #[test]
+    fn clone_resets_tracking_state() {
+        let mut buf = TestBuf::new();
+        buf.as_mut_vec().extend(std::iter::repeat(0u8).take(100));
+        // Finish a few times to build up uses counter.
+        for _ in 0..3 {
+            buf.finish();
+            buf.as_mut_vec().push(1);
+        }
+
+        let cloned = buf.clone();
+        assert_eq!(cloned.uses, 0, "cloned buffer must reset uses counter");
+    }
+
+    #[test]
+    fn default_params_reasonable() {
+        let buf: AdaptiveBuffer<u8> = AdaptiveBuffer::new();
+        assert_eq!(buf.capacity(), DefaultBufferParams::MIN_CAPACITY);
+        assert_eq!(DefaultBufferParams::MIN_CAPACITY, 256);
+        assert_eq!(DefaultBufferParams::SHRINK_FACTOR, 3);
+        assert_eq!(DefaultBufferParams::SHRINK_CHECK_INTERVAL, 64);
+    }
+}
