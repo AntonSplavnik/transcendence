@@ -191,3 +191,57 @@ fn run_migrations(conn: &mut SqliteConnection) {
     conn.run_pending_migrations(MIGRATIONS)
         .expect("migrations should succeed");
 }
+
+#[cfg(test)]
+mod tests {
+    use diesel::RunQueryDsl as _;
+
+    #[tokio::test]
+    async fn parallel_writers_should_not_fail() {
+        use super::*;
+        use std::sync::Arc;
+        use tokio::sync::Barrier;
+
+        const N: i32 = 100;
+
+        let db = Arc::new(SqliteDatabase::new_test().expect("Failed to create test database"));
+        let barrier = Arc::new(Barrier::new(N as usize));
+
+        // create test_table
+        db.write(|conn| {
+            diesel::sql_query(
+				"CREATE TABLE test_table (id INTEGER PRIMARY KEY AUTOINCREMENT, value BINARY NOT NULL)",
+			)
+			.execute(conn)
+        })
+        .await
+        .expect("Failed to create test_table")
+        .expect("Query should succeed");
+
+        let mut handles = Vec::new();
+        for i in 0..N {
+            let db_clone = db.clone();
+            let value = vec![i as u8; 20000]; // arbitrary data to write
+            let barrier_clone = barrier.clone();
+            let handle = tokio::spawn(async move {
+                barrier_clone.wait().await; // Synchronize start
+                println!("Task {i} starting write");
+                let _ = db_clone
+                    .write(move |conn| {
+                        diesel::sql_query("INSERT INTO test_table (value) VALUES (?)")
+                            .bind::<diesel::sql_types::Binary, _>(value)
+                            .execute(conn)
+                    })
+                    .await
+                    .expect("Write should succeed")
+                    .expect("Query should succeed");
+                println!("Task {i} finished");
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.await.expect("Task should not panic");
+        }
+    }
+}
