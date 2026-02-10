@@ -14,7 +14,8 @@ pub mod users;
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api(database: Db) -> Router {
+pub fn rest_api(database: Db, game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
+
     let api_routes = Router::with_path("api")
         .hoop(affix_state::inject(NickCache::new(
             crate::utils::NICK_CACHE_TTI,
@@ -28,6 +29,7 @@ pub fn rest_api(database: Db) -> Router {
             users::router("users"),
             crate::avatar::router("avatar"),
             crate::stream::router("stream"),
+            crate::game::router(game_manager),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -50,8 +52,8 @@ pub fn rest_api(database: Db) -> Router {
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root(database: Db) -> Router {
-    let api_routes = rest_api(database);
+pub fn root(database: Db, game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
+    let api_routes = rest_api(database, game_manager);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(

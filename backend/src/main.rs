@@ -14,6 +14,7 @@ mod avatar;
 mod config;
 pub mod db;
 mod error;
+mod game;
 mod models;
 mod notifications;
 mod prelude;
@@ -84,8 +85,23 @@ async fn async_main() -> ExitCode {
     // Initialize database (reader pool + single writer, runs migrations)
     let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
 
+    // Initialize game system
+    let game_manager = std::sync::Arc::new(crate::game::GameManager::new());
+
+    // Start the game
+    game_manager.clone().start().await;
+    tracing::info!("Game engine started");
+
+    // Spawn game loop in background
+    tokio::spawn({
+        let gm = game_manager.clone();
+        async move {
+            gm.run_game_loop().await;
+        }
+    });
+
     let mut router =
-        routers::root(database).hoop(ForceHttps::new().https_port(config.listen_https_port));
+        routers::root(database, game_manager).hoop(ForceHttps::new().https_port(config.listen_https_port));
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router).await;

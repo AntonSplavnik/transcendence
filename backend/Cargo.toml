@@ -1,8 +1,8 @@
 [package]
 name = "transcendence-backend"
 version = "0.1.1"
-edition = "2024"
-rust-version = "1.89"
+edition = "2021"
+rust-version = "1.70"
 readme = "./README.md"
 
 [dependencies]
@@ -14,7 +14,7 @@ blake3 = "1.8"
 diesel-autoincrement-new-struct = "0.1"
 # config library
 figment = { version = "0.10", features = ["env", "toml"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "9", features = ["use_pem"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
@@ -126,6 +126,9 @@ mini-moka = "0.10.3"
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+[build-dependencies]
+cc = "1.0"
 
 # ---------------------------------------------------------------------------
 # Always compile CPU-intensive dependencies with optimizations, even in

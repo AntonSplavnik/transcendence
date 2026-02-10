@@ -28,6 +28,7 @@ pub enum StreamType {
     /// two-step auth handshake.  Subsequent messages on this stream are
     /// [`CtrlMessage`] values.
     Ctrl(stream_manager::PendingConnectionKey),
+    Game,
 }
 
 /// Messages sent on the [`StreamType::Ctrl`] uni stream after the header.
@@ -66,3 +67,8 @@ async fn on_connect(
         .await?;
     Ok(())
 }
+
+// TODO need AUTH (while the connection is open: session could expire, get deleted, logged out, user deleted, etc.)
+// maybe enforce regular access verification by requiring the client to continuously
+// use a rest endpoint where the access for a user is verified.
+// And if that doesnt happen for a while, the stream is closed.
