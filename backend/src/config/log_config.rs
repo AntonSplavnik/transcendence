@@ -58,16 +58,13 @@ impl LogConfig {
     ///
     /// Caller should hold the guard.
     pub fn guard(&self) -> WorkerGuard {
-        let (non_blocking, guard) =
-            tracing_appender::non_blocking(std::io::stdout());
+        let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
 
         // Tracing subscriber init.
         let subscriber = tracing_subscriber::fmt()
             .with_env_filter(
                 tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or(tracing_subscriber::EnvFilter::new(
-                        &self.filter_level,
-                    )),
+                    .unwrap_or(tracing_subscriber::EnvFilter::new(&self.filter_level)),
             )
             .with_ansi(self.with_ansi)
             .with_writer(non_blocking);

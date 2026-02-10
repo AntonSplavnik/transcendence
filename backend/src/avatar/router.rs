@@ -6,9 +6,7 @@
 use super::cache;
 use crate::avatar::DEFAULT_AVATAR_LARGE;
 use crate::avatar::DEFAULT_AVATAR_SMALL;
-use crate::avatar::validate::{
-    AvatarValidationError, validate_large, validate_small,
-};
+use crate::avatar::validate::{AvatarValidationError, validate_large, validate_small};
 use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 use base64::Engine as _;
@@ -47,9 +45,7 @@ struct UploadAvatarRequest {
 
 impl UploadAvatarRequest {
     /// get large and small avatar images as bytes
-    fn decode_base64_bytes(
-        &self,
-    ) -> Result<(Vec<u8>, Vec<u8>), AvatarValidationError> {
+    fn decode_base64_bytes(&self) -> Result<(Vec<u8>, Vec<u8>), AvatarValidationError> {
         Ok((
             BASE64_STANDARD.decode(&self.large)?,
             BASE64_STANDARD.decode(&self.small)?,
@@ -57,17 +53,15 @@ impl UploadAvatarRequest {
     }
 }
 
-/// Upload or update avatar images
+/// Upload avatar
 ///
 /// Accepts both large (450x450) and small (200x200) avatar variants.
 /// Both must be valid AVIF images without transparency or animation.
-#[endpoint(
-    summary = "Upload avatar",
-    description = "Upload both large and small avatar variants. Images must be AVIF format."
-)]
+#[endpoint]
 async fn upload_avatar(
     depot: &mut Depot,
     json: JsonBody<UploadAvatarRequest>,
+    db: Db,
 ) -> AppResult<()> {
     let user_id = depot.user_id();
     let request = json.into_inner();
@@ -77,20 +71,21 @@ async fn upload_avatar(
     validate_large(&large_data)?;
     validate_small(&small_data)?;
 
-    // Store in database (upsert)
-    let conn = &mut db::get();
-
     let avatar_large = AvatarLarge::new(user_id, large_data);
     let avatar_small = AvatarSmall::new(user_id, small_data.clone());
 
-    // Use INSERT OR REPLACE for upsert behavior
-    diesel::replace_into(crate::schema::avatars_large::table)
-        .values(&avatar_large)
-        .execute(conn)?;
+    // Store in database (upsert)
+    db.write(move |conn| {
+        diesel::replace_into(crate::schema::avatars_large::table)
+            .values(&avatar_large)
+            .execute(conn)?;
 
-    diesel::replace_into(crate::schema::avatars_small::table)
-        .values(&avatar_small)
-        .execute(conn)?;
+        diesel::replace_into(crate::schema::avatars_small::table)
+            .values(&avatar_small)
+            .execute(conn)?;
+        Ok::<_, ApiError>(())
+    })
+    .await??;
 
     // Update cache with small avatar
     cache::insert(user_id, small_data);
@@ -100,28 +95,23 @@ async fn upload_avatar(
     Ok(())
 }
 
-/// Get large avatar for a user
-#[endpoint(
-    summary = "Get large avatar",
-    description = "Retrieve the large (450x450) avatar for a user. Returns default avatar if none set."
-)]
-async fn get_avatar_large(
-    req: &mut Request,
-    res: &mut Response,
-    user_id: PathParam<i32>,
-) -> AppResult<()> {
+/// Get large avatar
+///
+/// Retrieve the large (450x450) avatar for a user. Returns default avatar if none set.
+#[endpoint]
+async fn get_avatar_large(res: &mut Response, user_id: PathParam<i32>, db: Db) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
-    let conn = &mut db::get();
-
     use crate::schema::avatars_large::dsl;
-    let data = match dsl::avatars_large
-        .filter(dsl::user_id.eq(user_id))
-        .first::<AvatarLarge>(conn)
-    {
-        Ok(avatar) => avatar.data,
-        Err(_) => DEFAULT_AVATAR_LARGE.to_vec(),
-    };
+    let data = db
+        .read(move |conn| {
+            dsl::avatars_large
+                .filter(dsl::user_id.eq(user_id))
+                .first::<AvatarLarge>(conn)
+        })
+        .await?
+        .map(|avatar| avatar.data)
+        .unwrap_or_else(|_| DEFAULT_AVATAR_LARGE.to_vec());
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
@@ -137,15 +127,10 @@ async fn get_avatar_large(
 }
 
 /// Get small avatar for a user
-#[endpoint(
-    summary = "Get small avatar",
-    description = "Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached."
-)]
-async fn get_avatar_small(
-    req: &mut Request,
-    res: &mut Response,
-    user_id: PathParam<i32>,
-) -> AppResult<()> {
+///
+/// Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached.
+#[endpoint]
+async fn get_avatar_small(res: &mut Response, user_id: PathParam<i32>, db: Db) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
     // Try cache first
@@ -163,20 +148,19 @@ async fn get_avatar_small(
     }
 
     // Fallback to database
-    let conn = &mut db::get();
-
     use crate::schema::avatars_small::dsl;
-    let data = match dsl::avatars_small
-        .filter(dsl::user_id.eq(user_id))
-        .first::<AvatarSmall>(conn)
-    {
-        Ok(avatar) => {
-            // Populate cache for next time
+    let data = db
+        .read(move |conn| {
+            dsl::avatars_small
+                .filter(dsl::user_id.eq(user_id))
+                .first::<AvatarSmall>(conn)
+        })
+        .await?
+        .map(|avatar| {
             cache::insert(user_id, avatar.data.clone());
             avatar.data
-        }
-        Err(_) => DEFAULT_AVATAR_SMALL.to_vec(),
-    };
+        })
+        .unwrap_or_else(|_| DEFAULT_AVATAR_SMALL.to_vec());
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
@@ -192,29 +176,29 @@ async fn get_avatar_small(
 }
 
 /// Delete own avatar
-#[endpoint(
-    summary = "Delete avatar",
-    description = "Delete the authenticated user's avatar (both sizes)"
-)]
-async fn delete_avatar(depot: &mut Depot) -> AppResult<()> {
+#[endpoint]
+async fn delete_avatar(depot: &mut Depot, db: Db) -> AppResult<()> {
     let user_id = depot.user_id();
 
-    let conn = &mut db::get();
+    db.write(move |conn| {
+        // Delete from both tables
+        {
+            use crate::schema::avatars_large::dsl;
+            diesel::delete(dsl::avatars_large.filter(dsl::user_id.eq(user_id)))
+                .execute(conn)
+                .ok();
+        }
 
-    // Delete from both tables
-    {
-        use crate::schema::avatars_large::dsl;
-        diesel::delete(dsl::avatars_large.filter(dsl::user_id.eq(user_id)))
-            .execute(conn)
-            .ok();
-    }
+        {
+            use crate::schema::avatars_small::dsl;
+            diesel::delete(dsl::avatars_small.filter(dsl::user_id.eq(user_id)))
+                .execute(conn)
+                .ok();
+        }
 
-    {
-        use crate::schema::avatars_small::dsl;
-        diesel::delete(dsl::avatars_small.filter(dsl::user_id.eq(user_id)))
-            .execute(conn)
-            .ok();
-    }
+        Ok::<_, ApiError>(())
+    })
+    .await??;
 
     // Invalidate cache
     cache::invalidate(user_id);

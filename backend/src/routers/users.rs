@@ -58,44 +58,47 @@ struct CheckNicknameOutput {
 ///
 /// Does not require authentication
 #[endpoint]
-fn check_nickname(json: JsonBody<Nickname>) -> JsonResult<CheckNicknameOutput> {
+async fn check_nickname(json: JsonBody<Nickname>, db: Db) -> JsonResult<CheckNicknameOutput> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get();
     let input = json.into_inner();
-
-    let exists =
-        diesel::select(diesel::dsl::exists(users.filter(nickname.eq(&input))))
-            .get_result(conn)?;
-
     let valid = crate::validate::nickname(&input).is_ok();
+    let input_clone = input.clone();
+
+    let exists = db
+        .read(move |conn| {
+            diesel::select(diesel::dsl::exists(users.filter(nickname.eq(&input_clone))))
+                .get_result(conn)
+        })
+        .await??;
 
     json_ok(CheckNicknameOutput { exists, valid })
 }
 
 /// Retrieve users by their IDs
 #[endpoint]
-fn get_users_by_id(json: JsonBody<Vec<i32>>) -> JsonResult<Vec<PublicUser>> {
+async fn get_users_by_id(json: JsonBody<Vec<i32>>, db: Db) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get();
     let user_ids = json.into_inner();
 
-    let result = users.filter(id.eq_any(user_ids)).load::<User>(conn)?;
+    let result = db
+        .read(move |conn| users.filter(id.eq_any(user_ids)).load::<User>(conn))
+        .await??;
 
     json_ok(result.into_iter().map(PublicUser::from).collect())
 }
 
 /// Retrieve users by their nicknames
 #[endpoint]
-fn get_users_by_nickname(
+async fn get_users_by_nickname(
     json: JsonBody<Vec<Nickname>>,
+    db: Db,
 ) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get();
     let nicknames = json.into_inner();
 
-    let result = users
-        .filter(nickname.eq_any(nicknames))
-        .load::<User>(conn)?;
+    let result = db
+        .read(move |conn| users.filter(nickname.eq_any(nicknames)).load::<User>(conn))
+        .await??;
 
     json_ok(result.into_iter().map(PublicUser::from).collect())
 }
@@ -117,12 +120,11 @@ impl From<(i32, Nickname)> for UserNickname {
 
 /// High-performance endpoint for retrieving only the Nickname of a user
 #[endpoint]
-fn get_nicknames_by_ids(
-    json: JsonBody<Vec<i32>>,
-) -> JsonResult<Vec<UserNickname>> {
+async fn get_nicknames_by_ids(json: JsonBody<Vec<i32>>, db: Db) -> JsonResult<Vec<UserNickname>> {
     let user_ids = json.into_inner();
-
-    let result = NICK_CACHE.try_get_many(user_ids)?;
+    let result = db
+        .read(move |conn| NICK_CACHE.try_get_many(user_ids, conn))
+        .await??;
 
     json_ok(result.into_iter().map(UserNickname::from).collect())
 }

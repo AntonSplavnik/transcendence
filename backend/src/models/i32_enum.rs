@@ -1,3 +1,4 @@
+#[allow(unused)]
 macro_rules! diesel_i32_enum {
     (
         $(#[$meta:meta])*

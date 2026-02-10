@@ -16,6 +16,7 @@ mod models;
 mod prelude;
 mod routers;
 mod schema;
+#[allow(dead_code)]
 mod stream;
 mod utils;
 mod validate;
@@ -32,9 +33,13 @@ async fn main() -> ExitCode {
     let _guard = config.log.guard();
     crate::utils::limiter::periodic_rate_limit_report();
 
+    // Initialize database (reader pool + single writer, runs migrations)
+    let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
+
     tracing::info!("log level: {}", &config.log.filter_level);
 
     let mut router = routers::root()
+        .hoop(db::DatabaseHoop::new(database))
         .hoop(ForceHttps::new().https_port(config.listen_https_port))
         .hoop(crate::auth::device_id_inserter_hoop);
 
@@ -42,8 +47,7 @@ async fn main() -> ExitCode {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router, config).await;
     } else if let Some(domain) = &config.domain {
-        let acceptor =
-            setup_acme_acceptor_socket(&config, domain, &mut router).await;
+        let acceptor = setup_acme_acceptor_socket(&config, domain, &mut router).await;
         run_server(acceptor, router, &config).await;
     } else {
         eprintln!("⚠️  No TLS configuration and no domain provided. Exiting.");
@@ -53,28 +57,19 @@ async fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn setup_acceptor_socket(
-    cfg: &ServerConfig,
-    tls: &TlsConfig,
-) -> impl Acceptor {
+async fn setup_acceptor_socket(cfg: &ServerConfig, tls: &TlsConfig) -> impl Acceptor {
     // Load TLS certificates for https from files
-    let (cert, key) =
-        tokio::join!(tokio::fs::read(&tls.cert), tokio::fs::read(&tls.key));
+    let (cert, key) = tokio::join!(tokio::fs::read(&tls.cert), tokio::fs::read(&tls.key));
     let cert = cert.expect("Valid cert.pem path must be provided");
     let key = key.expect("Valid key.pem path must be provided");
     let tls_config = RustlsConfig::new(Keycert::new().cert(cert).key(key));
     // Set up a TCP listener on port 80 for HTTP
-    let http =
-        TcpListener::new((cfg.listen_addr.clone(), cfg.listen_http_port));
+    let http = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_http_port));
     // Set up a TCP listener on port 443 for HTTPS
-    let https =
-        TcpListener::new((cfg.listen_addr.clone(), cfg.listen_https_port))
-            .rustls(tls_config.clone());
+    let https = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_https_port))
+        .rustls(tls_config.clone());
     // Enable QUIC/HTTP3 support on the same port
-    let http3 = QuinnListener::new(
-        tls_config,
-        (cfg.listen_addr.clone(), cfg.listen_https_port),
-    );
+    let http3 = QuinnListener::new(tls_config, (cfg.listen_addr.clone(), cfg.listen_https_port));
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
     let acceptor = http3.join(https).join(http).bind().await;
     acceptor
@@ -86,15 +81,13 @@ async fn setup_acme_acceptor_socket(
     mut router: &mut Router,
 ) -> impl Acceptor + use<> {
     // Set up a TCP listener on port 80 for HTTP
-    let http =
-        TcpListener::new((cfg.listen_addr.clone(), cfg.listen_http_port));
-    let https =
-        TcpListener::new((cfg.listen_addr.clone(), cfg.listen_https_port))
-            .acme() // Enable ACME for automatic SSL certificate management
-            .cache_path("temp/letsencrypt") // Path to store the certificate cache
-            .add_domain(domain)
-            .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
-            .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
+    let http = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_http_port));
+    let https = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_https_port))
+        .acme() // Enable ACME for automatic SSL certificate management
+        .cache_path("temp/letsencrypt") // Path to store the certificate cache
+        .add_domain(domain)
+        .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
+        .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
     let acceptor = https.join(http).bind().await;
     acceptor

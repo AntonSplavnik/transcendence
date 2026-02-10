@@ -13,9 +13,8 @@ pub fn nickname(nickname: &Nickname) -> Result<(), ValidationError> {
             "Must not have leading or trailing whitespace.",
         ))
     } else if len < 3 || len > 16 {
-        ValidationError::new("length").with_message(Cow::Borrowed(
-            "Must be between 3 and 16 characters long.",
-        ))
+        ValidationError::new("length")
+            .with_message(Cow::Borrowed("Must be between 3 and 16 characters long."))
     } else if nickname.split_whitespace().count() != 1 {
         ValidationError::new("whitespace")
             .with_message(Cow::Borrowed("Must not contain whitespace."))
@@ -36,9 +35,8 @@ pub fn password(password: &str) -> Result<(), ValidationError> {
     let len = password.len();
 
     if len < 8 || len > 128 {
-        let err = ValidationError::new("length").with_message(Cow::Borrowed(
-            "Must be between 8 and 128 characters long.",
-        ));
+        let err = ValidationError::new("length")
+            .with_message(Cow::Borrowed("Must be between 8 and 128 characters long."));
         return Err(err);
     }
 

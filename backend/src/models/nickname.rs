@@ -8,17 +8,7 @@ use crate::models::blob::VarStr;
 
 /// Nickname with max 16 bytes, null-terminated if shorter.
 #[derive(
-    DieselNewType,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
+    DieselNewType, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
 #[serde(transparent)]
 pub struct Nickname(pub VarStr<16>);
