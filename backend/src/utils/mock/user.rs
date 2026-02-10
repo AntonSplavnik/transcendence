@@ -1,11 +1,14 @@
 use std::{fmt::Display, sync::Arc};
 
+use salvo::http::StatusCode;
+use salvo::test::RequestBuilder;
+
 use crate::{
     models::nickname::Nickname,
     utils::mock::{api_client::ApiClient, server::Server},
 };
 
-pub struct Registered(i32);
+pub struct Registered(pub i32);
 pub struct Unregistered;
 
 pub struct User<T = Unregistered> {
@@ -49,6 +52,35 @@ impl Display for User<Unregistered> {
             "User<Unregistered> {{ nick: {}, email: {}, pw: {} }}",
             self.nickname, self.email, self.password
         )
+    }
+}
+
+impl User<Registered> {
+    pub fn user_id(&self) -> i32 {
+        self.id.0
+    }
+
+    /// Assert that a guarded endpoint requires authentication.
+    ///
+    /// Builds the request via `build_req` on a **fresh unauthenticated** client
+    /// (no cookies) and asserts the response is `401 UNAUTHORIZED`.
+    ///
+    /// ```ignore
+    /// user.assert_requires_auth(|c| c.get("/api/user/me")).await;
+    /// user.assert_requires_auth(|c| c.post("/api/user/logout")).await;
+    /// ```
+    pub async fn assert_requires_auth(
+        &mut self,
+        build_req: impl Fn(&ApiClient) -> RequestBuilder,
+    ) {
+        let mut unauthed = self.client.unauthenticated();
+        let req = build_req(&unauthed);
+        let res = unauthed.send(req).await;
+        assert_eq!(
+            res.status_code,
+            Some(StatusCode::UNAUTHORIZED),
+            "endpoint must reject unauthenticated requests"
+        );
     }
 }
 
