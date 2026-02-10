@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from 'lucide-react';
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'lucide-react';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
+import AvatarDisplay from './ui/AvatarDisplay';
 import type { User, Session } from '../api/types';
 
 interface HomeProps {
@@ -15,6 +16,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
+	const [showEditProfile, setShowEditProfile] = useState(false);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -33,11 +35,13 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
-				<div>
-					<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
-					<p className="text-wood-300">Welcome back, {user.nickname}.</p>
+				<div className="flex items-center gap-4">
+					<AvatarDisplay userId={user.id} size="large" className="w-14 h-14"/>
+					<div>
+						<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
+						<p className="text-wood-300">Welcome back, {user.nickname}.</p>
+					</div>
 				</div>
-
 				{/* User Menu Dropdown */}
 				<div className="relative">
 					<button
@@ -70,6 +74,18 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 
 								{/* Menu Options */}
 								<div className="py-2">
+									<button
+										onClick={() => {
+											setShowEditProfile(true);
+											setIsMenuOpen(false);
+										}}
+										className="w-full px-4 py-2 text-left text-sm text-wood-200 hover:bg-wood-700 
+                               flex items-center gap-3 transition-colors"
+									>
+										<Pen className="w-4 h-4" />
+										<span>Edit Profile</span>
+									</button>
+
 									<button
 										onClick={() => {
 											setShow2FASettings(true);
@@ -130,23 +146,28 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				</Card>
 
 				<Card>
-					<h2 className="text-xl font-bold mb-2 text-wood-100">User Stats</h2>
-					<div className="space-y-2 text-sm">
-						<p className="text-wood-300">
-							<span className="text-wood-400">Email:</span> {user.email}
-						</p>
-						<p className="text-wood-300">
-							<span className="text-wood-400">Member since:</span>{' '}
-							{new Date(user.created_at).toLocaleDateString()}
-						</p>
-						<p className="text-wood-300">
-							<span className="text-wood-400">2FA:</span>{' '}
-							{user.totp_enabled ? (
-								<span className="text-green-400">✅ Enabled</span>
-							) : (
-								<span className="text-yellow-400">❌ Disabled</span>
-							)}
-						</p>
+					<div className="flex justify-between items-center">
+						<div>
+							<h2 className="text-xl font-bold mb-2 text-wood-100">User Stats</h2>
+							<div className="space-y-2 text-sm">
+								<p className="text-wood-300">
+									<span className="text-wood-400">Email:</span> {user.email}
+								</p>
+								<p className="text-wood-300">
+									<span className="text-wood-400">Member since:</span>{' '}
+									{new Date(user.created_at).toLocaleDateString()}
+								</p>
+								<p className="text-wood-300">
+									<span className="text-wood-400">2FA:</span>{' '}
+									{user.totp_enabled ? (
+										<span className="text-green-400">✅ Enabled</span>
+									) : (
+										<span className="text-yellow-400">❌ Disabled</span>
+									)}
+								</p>
+							</div>
+						</div>
+						<AvatarDisplay userId={user.id} size="large" className="w-28 h-28 rounded-lg"/>
 					</div>
 				</Card>
 
@@ -173,6 +194,8 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 					onClose={() => setShowSessionDetails(false)}
 				/>
 			)}
+
+			{/*  */}
 		</main>
 	);
 }

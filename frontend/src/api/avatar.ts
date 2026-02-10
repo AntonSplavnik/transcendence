@@ -16,7 +16,7 @@ export async function fetchAvatar(
     userId: number,
     size: 'large' | 'small'
 ): Promise<string> {
-    const response = await apiClient.get<string>(`/avatar/${userId}/${size}`, {responseType: 'blob'});
+    const response = await apiClient.get<Blob>(`/avatar/${userId}/${size}`, {responseType: 'blob'});
     return URL.createObjectURL(response.data);
 }
 
