@@ -4,6 +4,7 @@ import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'luc
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
+import AvatarUpload from './ui/AvatarUpload';
 import type { User, Session } from '../api/types';
 
 interface HomeProps {
@@ -194,6 +195,13 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 					onClose={() => setShowSessionDetails(false)}
 				/>
 			)}
+
+			{/* Edit profile Modal */}
+			{showEditProfile && (
+      			<AvatarUpload
+					user={user}
+					onClose={() => setShowEditProfile(false)} />
+  			)}
 
 			{/*  */}
 		</main>

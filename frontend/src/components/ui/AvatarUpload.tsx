@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
+import AvatarDisplay from './AvatarDisplay';
+import Button from './Button';
 
 interface EditProfileProps {
 	user: User;
@@ -64,8 +66,36 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
                         ×
                     </button>
                 </div>
-            </div>
+                <div className="flex justify-center mb-4">
+                    {previewUrl ? (
+                        <img src={previewUrl} alt="preview" className="w-32 h-32 rounded-full object-cover" />
+                    ) : (
+                        <AvatarDisplay userId={user.id} size="large" className="w-32 h-32 rounded-full" />
+                )}
+                </div>
+                <div className="space-y-4">
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="w-full text-sm text-wood-300"
+                    />
 
+                    {error && (
+                        <div className="bg-red-900/50 border border-red-500 rounded p-3 text-sm text-red-200">
+                            {error}
+                        </div>
+                    )}
+                    
+                    <div className="flex gap-3">
+                        <Button onClick={handleUpload} disabled={!selectedFile ||
+                            loading}>Upload</Button>
+                        <Button onClick={handleDelete} variant="danger"
+                            disabled={loading}>Delete</Button>
+                        <Button onClick={onClose} variant="secondary">Cancel</Button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
