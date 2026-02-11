@@ -147,31 +147,25 @@ async fn register_hit(req: JsonBody<RegisterHitRequest>, depot: &mut Depot) -> S
 // Router
 // =============================================================================
 
-pub fn router(gm: Arc<GameManager>) -> Router {
-    // Create separate router for each endpoint with game_manager cloned
-    let join_handler = {
-        let gm = gm.clone();
-        #[endpoint]
-        async fn handler(req: JsonBody<JoinGameRequest>, gm: Data<&Arc<GameManager>>) -> Json<JoinGameResponse> {
-            let req = req.into_inner();
-            let success = gm.add_player(req.player_id, &req.name).await;
-            if success {
-                Json(JoinGameResponse {
-                    success: true,
-                    message: format!("Player {} joined successfully", req.name),
-                })
-            } else {
-                Json(JoinGameResponse {
-                    success: false,
-                    message: "Failed to join game (game full or player already exists)".to_string(),
-                })
-            }
-        }
-        handler
-    };
+struct GameManagerHoop(Arc<GameManager>);
 
+#[handler]
+impl GameManagerHoop {
+    async fn handle(
+        &self,
+        req: &mut Request,
+        depot: &mut Depot,
+        res: &mut Response,
+        ctrl: &mut FlowCtrl,
+    ) {
+        depot.insert("game_manager", self.0.clone());
+        ctrl.call_next(req, depot, res).await;
+    }
+}
+
+pub fn router(gm: Arc<GameManager>) -> Router {
     Router::with_path("game")
-        .with_data(gm)
+        .hoop(GameManagerHoop(gm))
         .push(Router::with_path("join").post(join_game))
         .push(Router::with_path("leave").post(leave_game))
         .push(Router::with_path("input").post(handle_input))

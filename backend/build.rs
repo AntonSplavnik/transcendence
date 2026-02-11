@@ -19,8 +19,7 @@ fn main() {
         .opt_level(3) // Optimize for release
         .compile("game");
 
-    // Link against C++ standard library
-    println!("cargo:rustc-link-lib=dylib=stdc++");
+    // Note: cc crate handles C++ stdlib linking automatically (libc++ on macOS, libstdc++ on Linux)
 
     // Tell cargo to invalidate the built crate whenever the C++ files change
     println!("cargo:rerun-if-changed={}", game_engine_path);
