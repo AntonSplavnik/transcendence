@@ -22,10 +22,8 @@ pub fn root() -> Router {
         .push(crate::stream::webtransport_router("api/stream/connect"));
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(
-        Router::with_path("{*path}").get(
-            StaticDir::new(&crate::config::get().serve_dir)
-                .defaults("index.html"),
-        ),
+        Router::with_path("{*path}")
+            .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html")),
     );
     router
         .unshift(doc.into_router(OPENAPI_JSON))

@@ -90,10 +90,9 @@ use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use super::StreamType;
-use super::compress_cbor_codec::{
-    CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder,
-};
+use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use crate::models::Session;
+use crate::models::blob::FixedBlob;
 use crate::prelude::*;
 use crate::utils::adaptive_buffer::BufferParams;
 
@@ -128,12 +127,10 @@ const STREAM_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_STREAM_FRAME_SIZE: usize = 8 * 1024 * 1024;
 
 /// Send half of a WebTransport bidirectional stream (raw, unframed).
-type WtSend =
-    salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes>, Bytes>;
+type WtSend = salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes>, Bytes>;
 
 /// Receive half of a WebTransport bidirectional stream (raw, unframed).
-type WtRecv =
-    salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
+type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
 
 /// A sink for sending typed messages to a client.
 ///
@@ -142,8 +139,7 @@ type WtRecv =
 /// use futures::SinkExt;
 /// sender.send(MyMessage { ... }).await?;
 /// ```
-pub type Sender<S, BP = CodecBufferParams> =
-    FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
+pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -207,11 +203,7 @@ struct ConnectionEntry {
 }
 
 impl ConnectionEntry {
-    fn new(
-        session: &Session,
-        connection_id: u64,
-        tx: mpsc::Sender<ConnectionCommand>,
-    ) -> Self {
+    fn new(session: &Session, connection_id: u64, tx: mpsc::Sender<ConnectionCommand>) -> Self {
         Self {
             tx,
             connection_id,
@@ -225,14 +217,10 @@ impl ConnectionEntry {
             return;
         }
         self.unregister_task.abort();
-        self.unregister_task =
-            Self::new_unregister_task(session, self.connection_id);
+        self.unregister_task = Self::new_unregister_task(session, self.connection_id);
     }
 
-    fn new_unregister_task(
-        session: &Session,
-        connection_id: u64,
-    ) -> AbortHandle {
+    fn new_unregister_task(session: &Session, connection_id: u64) -> AbortHandle {
         let unregister_at = session.access_expiry();
         let user_id = session.user_id;
         tokio::spawn(async move {
@@ -241,11 +229,7 @@ impl ConnectionEntry {
                 .to_std()
                 .unwrap_or_default();
             tokio::time::sleep(until_unregister).await;
-            StreamManager::global().unregister(
-                user_id,
-                Some(connection_id),
-                None,
-            );
+            StreamManager::global().unregister(user_id, Some(connection_id), None);
         })
         .abort_handle()
     }
@@ -257,20 +241,9 @@ impl Drop for ConnectionEntry {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
-pub struct RandomNonce([u8; 32]);
+pub type RandomNonce = FixedBlob<32>;
 
-impl RandomNonce {
-    pub fn new() -> Self {
-        RandomNonce(rand::random())
-    }
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct PendingConnectionKey {
     connection_id: u64,
     challenge: RandomNonce,
@@ -280,7 +253,7 @@ impl PendingConnectionKey {
     pub fn new(connection_id: u64) -> Self {
         Self {
             connection_id,
-            challenge: RandomNonce::new(),
+            challenge: rand::random(),
         }
     }
 }
@@ -321,11 +294,8 @@ impl PendingConnectionGuard {
 /// allowing external components to request new streams.
 pub struct StreamManager {
     /// Registry mapping pending connection keys to their session senders.
-    pending_connections: DashMap<
-        PendingConnectionKey,
-        oneshot::Sender<Session>,
-        ahash::RandomState,
-    >,
+    pending_connections:
+        DashMap<PendingConnectionKey, oneshot::Sender<Session>, ahash::RandomState>,
     /// Registry mapping user IDs to their connection entries.
     connections: DashMap<i32, ConnectionEntry, ahash::RandomState>,
     /// Counter for generating unique connection IDs.
@@ -335,12 +305,11 @@ pub struct StreamManager {
 impl StreamManager {
     /// Get the global StreamManager instance.
     pub fn global() -> &'static Self {
-        static INSTANCE: LazyLock<StreamManager> =
-            LazyLock::new(|| StreamManager {
-                pending_connections: DashMap::default(),
-                connections: DashMap::default(),
-                connection_id_counter: AtomicU64::new(0),
-            });
+        static INSTANCE: LazyLock<StreamManager> = LazyLock::new(|| StreamManager {
+            pending_connections: DashMap::default(),
+            connections: DashMap::default(),
+            connection_id_counter: AtomicU64::new(0),
+        });
         &INSTANCE
     }
 
@@ -356,11 +325,8 @@ impl StreamManager {
             .and_modify(|c| c.refresh_auth(session));
     }
 
-    fn register_pending(
-        &self,
-    ) -> (oneshot::Receiver<Session>, PendingConnectionGuard) {
-        let connection_id =
-            self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
+    fn register_pending(&self) -> (oneshot::Receiver<Session>, PendingConnectionGuard) {
+        let connection_id = self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
         let key = PendingConnectionKey::new(connection_id);
         let (tx, rx) = oneshot::channel();
         self.pending_connections.insert(key, tx);
@@ -452,10 +418,7 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    async fn request_unframed_stream(
-        &self,
-        user_id: i32,
-    ) -> Result<((WtSend, WtRecv), u64)> {
+    async fn request_unframed_stream(&self, user_id: i32) -> Result<((WtSend, WtRecv), u64)> {
         let entry = self
             .connections
             .get(&user_id)
@@ -537,8 +500,7 @@ impl StreamManager {
         R: DeserializeOwned,
     {
         self.request_custom_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            user_id,
-            r#type,
+            user_id, r#type,
         )
         .await
     }
@@ -570,8 +532,7 @@ impl StreamManager {
         R: DeserializeOwned,
         BP: BufferParams,
     {
-        let ((send, recv), connection_id) =
-            self.request_unframed_stream(user_id).await?;
+        let ((send, recv), connection_id) = self.request_unframed_stream(user_id).await?;
 
         frame_stream::<S, R, BP, MAX_FRAME>(send, recv, r#type)
             .await
@@ -605,15 +566,15 @@ where
     R: DeserializeOwned,
     BP: BufferParams,
 {
-    let mut sender =
-        FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
+    let mut sender = FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
     sender
         .send(&r#type)
         .await
         .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
-    sender.flush().await.with_context(|| {
-        format!("failed to flush stream type: {:?}", r#type)
-    })?;
+    sender
+        .flush()
+        .await
+        .with_context(|| format!("failed to flush stream type: {:?}", r#type))?;
     let sender = sender.map_encoder(|_| CompressedCborEncoder::new());
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
@@ -639,9 +600,7 @@ where
 /// Each user can have only one active WebTransport connection. Connecting from a new
 /// device or tab will automatically disconnect the previous connection.
 #[endpoint]
-pub async fn connect_stream(
-    req: &mut Request,
-) -> std::result::Result<(), salvo::Error> {
+pub async fn connect_stream(req: &mut Request) -> std::result::Result<(), salvo::Error> {
     let wt_session = req.web_transport_mut().await.unwrap();
     let session_id = wt_session.session_id();
 
@@ -664,13 +623,10 @@ pub async fn connect_stream(
     drop(control_rx);
     drop(control_tx);
 
-    let user_session =
-        tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx)
-            .await
-            .context("pending connection timeout while waiting for bind/auth")?
-            .context(
-                "pending connection was dropped while waiting for bind/auth",
-            )?;
+    let user_session = tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx)
+        .await
+        .context("pending connection timeout while waiting for bind/auth")?
+        .context("pending connection was dropped while waiting for bind/auth")?;
     pending_key_guard.disarm();
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);

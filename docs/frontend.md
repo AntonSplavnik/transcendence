@@ -354,3 +354,31 @@ navigate('/home');
 // ✅ Global error handling
 // ErrorBanner only in AppRoutes
 ```
+
+## Two-Factor Authentication
+
+The frontend supports TOTP-based two-factor authentication. Users can enable 2FA from their dashboard, and will be prompted for a code during login if enabled.
+
+**See [frontend-2fa.md](frontend-2fa.md) for detailed documentation.**
+
+### Components
+
+| Component             | Location                         | Purpose                       |
+| --------------------- | -------------------------------- | ----------------------------- |
+| `TwoFactorAuthModal`  | `modals/TwoFactorAuthModal.tsx`  | Enable/disable 2FA            |
+| `TwoFactorLoginModal` | `modals/TwoFactorLoginModal.tsx` | 2FA verification during login |
+| `ReauthModal`         | `modals/ReauthModal.tsx`         | Session re-authentication     |
+
+### API Endpoints
+
+| Endpoint                               | Purpose                               |
+| -------------------------------------- | ------------------------------------- |
+| `POST /user/2fa/start`                 | Get QR code for setup                 |
+| `POST /user/2fa/confirm`               | Confirm setup, get recovery codes     |
+| `POST /user/2fa/disable`               | Disable 2FA                           |
+| `POST /auth/login`                     | Login (accepts optional `mfa_code`)   |
+| `POST /auth/session-management/reauth` | Refresh session (optional `mfa_code`) |
+
+### Key Pattern: Refs for Sensitive Data
+
+All 2FA modals use `useRef` instead of `useState` for passwords and codes to avoid keeping sensitive data in the React state tree.

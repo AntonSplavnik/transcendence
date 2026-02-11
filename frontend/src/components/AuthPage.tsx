@@ -4,7 +4,8 @@ import Button from "./ui/Button";
 import Card from "./ui/Card";
 import { useAuth } from "../contexts/AuthContext";
 import * as usersApi from "../api/users";
-import { getErrorMessage } from "../api/error";
+import { getErrorMessage, getErrorBrief } from "../api/error";
+import TwoFactorLoginModal from "./modals/TwoFactorLoginModal";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
 	const { login, register } = useAuth();
@@ -15,7 +16,10 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const [error, setError] = useState("");
 	const [nicknameValidation, setNicknameValidation] = useState("");
 	const [isCheckingNickname, setIsCheckingNickname] = useState(false);
+	const [showMfaModal, setShowMfaModal] = useState(false);
+	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
+	const emailRef = useRef<HTMLInputElement>(null);
 	const nicknameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
@@ -63,7 +67,13 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 			onAuthSuccess();
 		} catch (error) {
-			setError(getErrorMessage(error, 'Authentication failed'));
+			const brief = getErrorBrief(error);
+			if (brief === 'TwoFactorRequired') {
+				setPendingEmail(email);
+				setShowMfaModal(true);
+			} else {
+				setError(getErrorMessage(error, 'Authentication failed'));
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -72,6 +82,18 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 		if (isCheckingNickname) return "text-wood-400";
 		if (nicknameValidation.includes("❌")) return "text-red-400";
 		return "text-wood-400";
+	};
+
+	const handleMfaSuccess = () => {
+		setShowMfaModal(false);
+		setPendingEmail(null);
+		if (passwordRef.current) passwordRef.current.value = '';
+		onAuthSuccess();
+	};
+
+	const handleMfaCancel = () => {
+		setShowMfaModal(false);
+		setPendingEmail(null);
 	};
 
 	return (
@@ -125,7 +147,9 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						<div className="relative">
 							<Mail size={18} className="absolute left-3 top-3 text-wood-500" />
 							<input
+								ref={emailRef}
 								id="email"
+								autoFocus
 								name="email"
 								autoComplete="email"
 								type="email"
@@ -178,6 +202,15 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 					</button>
 				</div>
 			</Card>
+
+			{showMfaModal && pendingEmail && (
+				<TwoFactorLoginModal
+					email={pendingEmail}
+					getPassword={() => passwordRef.current?.value || ''}
+					onSuccess={handleMfaSuccess}
+					onCancel={handleMfaCancel}
+				/>
+			)}
 		</div >
 	);
 }

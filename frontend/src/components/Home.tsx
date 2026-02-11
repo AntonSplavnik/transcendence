@@ -6,6 +6,12 @@ import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
 import AvatarUpload from './ui/AvatarUpload';
 import type { User, Session } from '../api/types';
+import TwoFactorModal from './modals/TwoFactorAuthModal';
+import SessionDetailsModal from './modals/SessionDetailModal';
+import ReauthModal from './modals/ReauthModal';
+
+
+const REAUTH_THRESHOLD_MINUTES = 30;
 
 interface HomeProps {
 	onGame: () => void;
@@ -18,6 +24,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
+	const [showReauthModal, setShowReauthModal] = useState(false);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -29,7 +36,26 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	}
 
 	const handlePlayGame = () => {
+		const expiryTime = new Date(session.access_expiry).getTime();
+		const now = Date.now();
+		const minutesLeft = (expiryTime - now) / (1000 * 60);
+
+		if (minutesLeft < REAUTH_THRESHOLD_MINUTES) {
+			setShowReauthModal(true);
+			return;
+		}
+
 		onGame();
+	};
+
+	const handleReauthSuccess = () => {
+		setShowReauthModal(false);
+		onGame();
+	};
+
+	const handle2FASuccess = () => {
+		setShow2FASettings(false);
+		//probably no reload necessary, because frontend state is updated in 2FA modal, and backend as well.
 	};
 
 	return (
@@ -180,15 +206,15 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				</Card>
 			</section>
 
-			{/* 2FA Settings Modal */}
+			{/* Modals */}
 			{show2FASettings && (
 				<TwoFactorModal
 					user={user}
 					onClose={() => setShow2FASettings(false)}
+					onSuccess={handle2FASuccess}
 				/>
 			)}
 
-			{/* Session Details Modal */}
 			{showSessionDetails && (
 				<SessionDetailsModal
 					session={session}
@@ -204,206 +230,12 @@ export default function Home({ onGame, onLogout }: HomeProps) {
   			)}
 
 			{/*  */}
+			{showReauthModal && (
+				<ReauthModal
+					onSuccess={handleReauthSuccess}
+					onCancel={() => setShowReauthModal(false)}
+				/>
+			)}
 		</main>
-	);
-}
-
-// ============= Two-Factor Authentication Modal =============
-
-interface TwoFactorModalProps {
-	user: User;
-	onClose: () => void;
-}
-
-function TwoFactorModal({ user, onClose }: TwoFactorModalProps) {
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	const handleToggle2FA = async () => {
-		setIsLoading(true);
-		setError(null);
-
-		try {
-			if (user.totp_enabled) {
-				// TODO: Disable 2FA
-				console.log('Disable 2FA');
-				// await authApi.disable2FA();
-			} else {
-				// TODO: Enable 2FA (show QR code flow)
-				console.log('Enable 2FA');
-				// await authApi.enable2FA();
-			}
-		} catch {
-			setError('Failed to update 2FA settings');
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	return (
-		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-			<div className="bg-wood-800 border-2 border-wood-600 rounded-lg p-6 max-w-md w-full">
-				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-2xl font-bold text-wood-100 flex items-center gap-2">
-						<Shield className="w-6 h-6" />
-						Two-Factor Authentication
-					</h2>
-					<button
-						onClick={onClose}
-						className="text-wood-400 hover:text-wood-200 text-2xl leading-none" aria-label="Close"
-					>
-						×
-					</button>
-				</div>
-
-				<div className="space-y-4">
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-sm text-wood-300 mb-2">
-							Current Status:
-						</p>
-						<p className="text-lg font-semibold">
-							{user.totp_enabled ? (
-								<span className="text-green-400">✅ Enabled</span>
-							) : (
-								<span className="text-yellow-400">❌ Disabled</span>
-							)}
-						</p>
-						{user.totp_confirmed_at && (
-							<p className="text-xs text-wood-400 mt-1">
-								Activated: {new Date(user.totp_confirmed_at).toLocaleDateString()}
-							</p>
-						)}
-					</div>
-
-					<p className="text-sm text-wood-300">
-						Two-factor authentication adds an extra layer of security to your account.
-						You'll need to enter a code from your authenticator app when logging in.
-					</p>
-
-					{error && (
-						<div className="bg-red-900/50 border border-red-500 rounded p-3 text-sm text-red-200">
-							{error}
-						</div>
-					)}
-
-					<div className="flex gap-3">
-						<Button
-							onClick={handleToggle2FA}
-							disabled={isLoading}
-							variant={user.totp_enabled ? 'secondary' : 'primary'}
-							className="flex-1"
-						>
-							{isLoading ? 'Processing...' : user.totp_enabled ? 'Disable 2FA' : 'Enable 2FA'}
-						</Button>
-						<Button onClick={onClose} variant="secondary">
-							Cancel
-						</Button>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-// ============= Session Details Modal =============
-
-interface SessionDetailsModalProps {
-	session: Session;
-	onClose: () => void;
-}
-
-function SessionDetailsModal({ session, onClose }: SessionDetailsModalProps) {
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleString();
-	};
-
-	const getTimeRemaining = (expiryString: string) => {
-		const expiry = new Date(expiryString);
-		const now = new Date();
-		const diff = expiry.getTime() - now.getTime();
-
-		if (diff < 0) return 'Expired';
-
-		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-		const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-		const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-		if (days > 0) return `${days}d ${hours}h`;
-		if (hours > 0) return `${hours}h ${minutes}m`;
-		return `${minutes}m`;
-	};
-
-	return (
-		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-			<div className="bg-wood-800 border-2 border-wood-600 rounded-lg p-6 max-w-lg w-full">
-				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-2xl font-bold text-wood-100 flex items-center gap-2">
-						<Monitor className="w-6 h-6" />
-						Session Details
-					</h2>
-					<button
-						onClick={onClose}
-						className="text-wood-400 hover:text-wood-200 text-2xl leading-none"
-					>
-						×
-					</button>
-				</div>
-
-				<div className="space-y-4">
-					{/* Session ID */}
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-1">Session ID</p>
-						<p className="text-sm font-mono text-wood-200">{session.session_id}</p>
-					</div>
-
-					{/* Created */}
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-1">Created</p>
-						<p className="text-sm text-wood-200">{formatDate(session.created_at)}</p>
-					</div>
-
-					{/* Last Used */}
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-1">Last Used</p>
-						<p className="text-sm text-wood-200">{formatDate(session.last_used_at)}</p>
-					</div>
-
-					{/* JWT Expiry */}
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-1">JWT Expiry (Access Token)</p>
-						<p className="text-sm text-wood-200">{formatDate(session.access_expiry)}</p>
-						<p className="text-xs text-wood-400 mt-1">
-							Expires in: {getTimeRemaining(session.access_expiry)}
-						</p>
-					</div>
-
-					{/* Session Expiry */}
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-1">Session Expiry (Login Required)</p>
-						<p className="text-sm text-wood-200">{formatDate(session.login_expiry)}</p>
-						<p className="text-xs text-wood-400 mt-1">
-							Expires in: {getTimeRemaining(session.login_expiry)}
-						</p>
-					</div>
-
-					{/* Device Info */}
-					{(session.device_name || session.ip_address) && (
-						<div className="bg-wood-900 rounded p-4">
-							<p className="text-xs text-wood-400 mb-2">Device Information</p>
-							{session.device_name && (
-								<p className="text-sm text-wood-200">Device: {session.device_name}</p>
-							)}
-							{session.ip_address && (
-								<p className="text-sm text-wood-200">IP: {session.ip_address}</p>
-							)}
-						</div>
-					)}
-
-					<Button onClick={onClose} className="w-full">
-						Close
-					</Button>
-				</div>
-			</div>
-		</div>
 	);
 }

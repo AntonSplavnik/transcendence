@@ -1,10 +1,16 @@
+use crate::{auth::session_token::SessionTokenHash, models::nickname::Nickname};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
 use serde::Serialize;
 
-use crate::auth::session_token::SessionTokenHash;
+#[macro_use]
+mod i32_enum;
+#[allow(dead_code)]
+pub mod blob;
+pub mod nickname;
+mod ulid;
 
 #[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, ToSchema, Serialize, Debug, Clone)]
@@ -13,7 +19,7 @@ use crate::auth::session_token::SessionTokenHash;
 pub struct User {
     pub id: i32,
     pub email: String,
-    pub nickname: String,
+    pub nickname: Nickname,
     pub totp_enabled: bool,
     #[serde(skip)]
     pub totp_secret_enc: Option<String>,
@@ -33,7 +39,7 @@ impl User {
 }
 
 impl NewUser {
-    pub fn new(email: String, nickname: String, password_hash: String) -> Self {
+    pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
         NewUser {
             email,
             nickname,

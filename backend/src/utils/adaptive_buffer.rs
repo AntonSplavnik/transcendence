@@ -164,8 +164,7 @@ impl<T, P: BufferParams> AdaptiveBuffer<T, P> {
         // Every N uses, check if we should shrink
         if self.uses >= P::SHRINK_CHECK_INTERVAL {
             // Shrink threshold: capacity > max_seen * SHRINK_FACTOR
-            let shrink_threshold =
-                self.max_seen.saturating_mul(P::SHRINK_FACTOR);
+            let shrink_threshold = self.max_seen.saturating_mul(P::SHRINK_FACTOR);
             if self.inner.capacity() > shrink_threshold {
                 // Shrink to ~1.5x max_seen, but not below MIN_CAPACITY
                 let target = (self.max_seen * 3 / 2).max(P::MIN_CAPACITY);
