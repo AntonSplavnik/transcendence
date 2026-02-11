@@ -1,22 +1,28 @@
 use super::ffi::{Game, GameStateSnapshot, Vector3D};
-use crate::stream::StreamManager;
+use super::messages::GameServerMessage;
+use crate::stream::{Sender, StreamManager};
 use futures::SinkExt;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time;
-use tracing::{info, error, debug};
+use tracing::{debug, error, info};
 
 pub struct GameManager {
     game: Arc<RwLock<Game>>,
+    /// Map of player_id -> stream sender for broadcasting snapshots
+    player_streams: Arc<RwLock<HashMap<u32, Sender<GameServerMessage>>>>,
 }
 
 impl GameManager {
     pub fn new() -> Self {
         let game = Arc::new(RwLock::new(Game::new()));
+        let player_streams = Arc::new(RwLock::new(HashMap::new()));
 
         Self {
             game,
+            player_streams,
         }
     }
 
@@ -97,6 +103,20 @@ impl GameManager {
         debug!("Player {} hit player {} for {} damage", attacker_id, victim_id, damage);
     }
 
+    /// Add a player's stream sender for snapshot broadcasting
+    pub async fn add_player_stream(&self, player_id: u32, sender: Sender<GameServerMessage>) {
+        let mut streams = self.player_streams.write().await;
+        streams.insert(player_id, sender);
+        info!("Added stream for player {}", player_id);
+    }
+
+    /// Remove a player's stream sender
+    pub async fn remove_player_stream(&self, player_id: u32) {
+        let mut streams = self.player_streams.write().await;
+        streams.remove(&player_id);
+        info!("Removed stream for player {}", player_id);
+    }
+
     /// Main game loop - runs in background task
     /// Updates physics and broadcasts snapshots to all players
     pub async fn run_game_loop(self: Arc<Self>) {
@@ -120,27 +140,27 @@ impl GameManager {
                         game.get_snapshot()
                     };
 
-                    // Serialize to JSON (or CBOR in production)
-                    match serde_json::to_vec(&snapshot) {
-                        Ok(snapshot_bytes) => {
-                            // Broadcast to all connected players
-                            let stream_manager = StreamManager::global();
-                            for character in &snapshot.characters {
-                                let player_id = character.player_id as i32;
+                    let server_msg = GameServerMessage::Snapshot(snapshot);
 
-                                if let Ok((mut sender, _receiver)) = stream_manager
-                                    .request_stream::<Vec<u8>, Vec<u8>>(player_id, crate::stream::StreamType::Game)
-                                    .await
-                                {
-                                    if let Err(e) = sender.send(snapshot_bytes.clone()).await {
-                                        error!("Failed to send snapshot to player {}: {}", player_id, e);
-                                    }
-                                }
-                            }
+                    // Broadcast to all players with active streams
+                    let mut streams = self.player_streams.write().await;
+                    let mut disconnected = Vec::new();
+
+                    for (player_id, sender) in streams.iter_mut() {
+                        if let Err(e) = sender.send(server_msg.clone()).await {
+                            error!("Failed to send snapshot to player {}: {}", player_id, e);
+                            disconnected.push(*player_id);
                         }
-                        Err(e) => {
-                            error!("Failed to serialize snapshot: {}", e);
-                        }
+                    }
+
+                    // Remove disconnected players
+                    for player_id in disconnected {
+                        streams.remove(&player_id);
+                        info!("Removed disconnected player {} from streams", player_id);
+
+                        // Also remove from game state
+                        let mut game = self.game.write().await;
+                        game.remove_player(player_id);
                     }
                 }
             }
