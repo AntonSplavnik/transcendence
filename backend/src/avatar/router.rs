@@ -17,8 +17,16 @@ use salvo::http::StatusCode;
 use salvo::oapi::extract::PathParam;
 use std::sync::LazyLock;
 
-/// Static ETag for the default avatar (never changes)
-static DEFAULT_AVATAR_ETAG: LazyLock<String> = LazyLock::new(|| {
+/// Static ETag for the default large avatar (never changes)
+static DEFAULT_AVATAR_ETAG_LARGE: LazyLock<String> = LazyLock::new(|| {
+    let hash = blake3::hash(DEFAULT_AVATAR_LARGE);
+    let hex = hash.to_hex();
+    let short = &hex.as_str()[..16];
+    format!("\"{short}\"")
+});
+
+/// Static ETag for the default small avatar (never changes)
+static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<String> = LazyLock::new(|| {
     let hash = blake3::hash(DEFAULT_AVATAR_SMALL);
     let hex = hash.to_hex();
     let short = &hex.as_str()[..16];
@@ -38,6 +46,8 @@ fn write_avatar_response(req: &Request, res: &mut Response, data: impl AsRef<[u8
     if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
         if if_none_match.as_bytes() == etag.as_bytes() {
             res.status_code(StatusCode::NOT_MODIFIED);
+            res.headers_mut()
+                .insert(header::ETAG, etag.parse().unwrap());
             return;
         }
     }
@@ -162,7 +172,7 @@ async fn get_avatar_large(
             write_avatar_response(req, res, avatar.data, &etag);
         }
         Err(_) => {
-            write_avatar_response(req, res, DEFAULT_AVATAR_LARGE, &DEFAULT_AVATAR_ETAG);
+            write_avatar_response(req, res, DEFAULT_AVATAR_LARGE, &DEFAULT_AVATAR_ETAG_LARGE);
         }
     }
 
@@ -205,7 +215,7 @@ async fn get_avatar_small(
             write_avatar_response(req, res, avatar.data, &etag);
         }
         Err(_) => {
-            write_avatar_response(req, res, DEFAULT_AVATAR_SMALL, &DEFAULT_AVATAR_ETAG);
+            write_avatar_response(req, res, DEFAULT_AVATAR_SMALL, &DEFAULT_AVATAR_ETAG_SMALL);
         }
     }
 
