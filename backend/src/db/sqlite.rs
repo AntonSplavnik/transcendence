@@ -56,14 +56,7 @@ impl SqliteDatabase {
             readers.push(conn);
         }
 
-        info!(
-            "SQLite database initialized: {reader_count} reader(s), 1 writer | url = {}",
-            if database_url.contains("memory") {
-                database_url
-            } else {
-                "<file>"
-            },
-        );
+        info!("db initialized: {reader_count} reader(s), 1 writer");
 
         Ok(Self {
             inner: Arc::new(SqliteInner {
