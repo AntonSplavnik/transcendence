@@ -1,0 +1,34 @@
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "cargo-fmt"
+name = "Cargo Format Check"
+entry = "bash -c 'cd backend && cargo fmt -- --check'"
+language = "system"
+files = '^backend/.*\.rs$'
+pass_filenames = false
+
+[[hooks]]
+id = "cargo-check-debug"
+name = "Cargo Check (Debug)"
+entry = "bash -c 'cd backend && cargo check --all-targets -- -D warnings'"
+language = "system"
+files = '^backend/.*\.rs$'
+pass_filenames = false
+
+[[hooks]]
+id = "cargo-check-release"
+name = "Cargo Check (Release)"
+entry = "bash -c 'cd backend && cargo check --release --all-targets -- -D warnings'"
+language = "system"
+files = '^backend/.*\.rs$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "cargo-test"
+name = "Cargo Test"
+entry = "bash -c 'cd backend && cargo test'"
+language = "system"
+files = '^backend/.*\.rs$'
+pass_filenames = false
