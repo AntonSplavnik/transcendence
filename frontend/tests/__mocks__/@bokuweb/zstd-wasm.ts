@@ -9,7 +9,7 @@ export async function init(): Promise<void> {
 	initialized = true;
 }
 
-export function compress(data: Uint8Array, _level?: number): Uint8Array {
+export function compress(data: Uint8Array): Uint8Array {
 	if (!initialized) {
 		throw new Error('Zstd not initialized');
 	}

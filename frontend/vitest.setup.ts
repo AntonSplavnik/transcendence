@@ -17,14 +17,9 @@ afterEach(() => {
 // Close server after all tests
 afterAll(() => server.close());
 
-// Mock window.location.reload
-Object.defineProperty(window, 'location', {
-	value: {
-		...window.location,
-		reload: vi.fn(),
-	},
-	writable: true,
-});
+// Mock window.location.reload (jsdom marks reload as non-configurable,
+// so we replace the entire location object via Vitest's stubGlobal API)
+vi.stubGlobal('location', { ...window.location, reload: vi.fn() });
 
 // Mock navigator.clipboard (only if not already defined)
 if (!navigator.clipboard) {

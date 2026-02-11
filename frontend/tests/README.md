@@ -134,6 +134,14 @@ Provides pass-through compression/decompression for testing the `CompressedCborC
 - `compress()` - Prepends Zstd magic bytes
 - `decompress()` - Strips magic bytes
 
+### Global Setup (`../vitest.setup.ts`)
+
+Runs before every test file. Handles:
+
+- **MSW lifecycle**: starts server (`beforeAll`), resets handlers + cleans up DOM/localStorage (`afterEach`), closes server (`afterAll`)
+- **`window.location.reload` mock**: jsdom marks `location.reload` as non-configurable, so `vi.spyOn(window.location, 'reload')` throws. We use `vi.stubGlobal` to replace the entire location object with a copy that has `reload` as a `vi.fn()`. The `unstubGlobals: true` option in `vitest.config.ts` ensures automatic restoration after each test.
+- **`navigator.clipboard` mock**: Provides `writeText`/`readText` stubs for tests that copy to clipboard (e.g. recovery codes)
+
 ## Coverage Summary
 
 Current coverage (enforced thresholds in `vitest.config.ts`):
