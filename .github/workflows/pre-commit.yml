@@ -10,6 +10,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libdav1d-dev libsqlite3-dev libzstd-dev pkg-config
+
+      # Cache Rust target directory for the backend
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "backend -> target"
+
+      # Cache Node modules for the frontend
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
       - uses: j178/prek-action@v1
         with:
           extra_args: --all-files --stage manual
