@@ -60,13 +60,15 @@ reset-db:
 
 install-prek:
 	@curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.2/prek-installer.sh | sh
-	@prek install
+	@prek self update
+	@prek install --hook-type pre-push
 
 prek-update:
 	@prek self update
+	@prek install --hook-type pre-push
 
 prek:
-	@prek run
+	@prek run --all-files --stage pre-push
 
 clean:
 	@echo "🗑️  Cleaning build artifacts..."

@@ -16,6 +16,7 @@ entry = "bash -c 'cd backend && RUSTFLAGS=\"-D warnings\" cargo check --all-targ
 language = "system"
 files = '^backend/'
 pass_filenames = false
+stages = ["pre-push"]
 
 [[repos.hooks]]
 id = "cargo-check-release"
@@ -24,6 +25,7 @@ entry = "bash -c 'cd backend && RUSTFLAGS=\"-D warnings\" cargo check --release 
 language = "system"
 files = '^backend/'
 pass_filenames = false
+stages = ["pre-push"]
 
 [[repos.hooks]]
 id = "cargo-test"
@@ -32,3 +34,4 @@ entry = "bash -c 'cd backend && cargo test'"
 language = "system"
 files = '^backend/'
 pass_filenames = false
+stages = ["pre-push"]
