@@ -6,7 +6,7 @@ pub mod users;
 
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn root() -> Router {
+pub fn rest_api() -> Router {
     let api_routes = Router::with_path("api")
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
@@ -17,9 +17,14 @@ pub fn root() -> Router {
             crate::avatar::router("avatar"),
             crate::stream::router("stream"),
         ]);
-    let api_routes = Router::new()
+
+    Router::new()
         .push(api_routes)
-        .push(crate::stream::webtransport_router("api/stream/connect"));
+        .push(crate::stream::webtransport_router("api/stream/connect"))
+}
+
+pub fn root() -> Router {
+    let api_routes = rest_api();
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(
         Router::with_path("{*path}")

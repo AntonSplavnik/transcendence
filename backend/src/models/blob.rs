@@ -1,7 +1,7 @@
 use base64::Engine;
 use base64::engine::Config;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
-use diesel::deserialize::{self, FromSql};
+use diesel::deserialize::{self, FromSql, FromSqlRow};
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::{Binary, Nullable, Text};
 use diesel::sqlite::Sqlite;
@@ -72,7 +72,7 @@ pub enum IntoBlobError {
 /// - Write: all N bytes are stored as-is.
 /// - Read: exactly N bytes are expected; a mismatched length will cause
 ///   deserialization from the database to return an error rather than panic.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, FromSqlRow)]
 pub struct FixedBlob<const N: usize, K: BlobKind = Bytes>(pub [u8; N], PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> FixedBlob<N, K> {
@@ -471,7 +471,7 @@ impl<const N: usize> Distribution<FixedBlob<N, Bytes>> for StandardUniform {
 /// - Read: bytes are read and padded with null bytes up to N if shorter.
 ///
 /// Panics if a value read from the database exceeds N bytes.
-#[derive(Clone, Copy, Hash)]
+#[derive(Clone, Copy, Hash, FromSqlRow)]
 pub struct VarBlob<const N: usize, K: BlobKind = Bytes>([u8; N], PhantomData<K>);
 
 impl<const N: usize, K: BlobKind> VarBlob<N, K> {

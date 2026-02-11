@@ -32,7 +32,7 @@ pub fn router(path: &str) -> Router {
         ])
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UserSessionInfo {
     pub user: User,
     pub session: SessionInfo,
@@ -67,15 +67,15 @@ async fn get_me(depot: &mut Depot, db: Db) -> JsonResult<UserSessionInfo> {
     json_ok(info)
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-struct ChangePasswordInput {
-    password: String,
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub(crate) struct ChangePasswordInput {
+    pub password: String,
     #[serde(default)]
-    mfa_code: Option<String>,
+    pub mfa_code: Option<String>,
     #[validate(custom(function = "crate::validate::password"))]
-    new_password: String,
+    pub new_password: String,
     #[serde(default)]
-    keep_other_sessions_logged_in: bool,
+    pub keep_other_sessions_logged_in: bool,
 }
 
 /// Change password for the current User
@@ -142,12 +142,12 @@ async fn logout(depot: &mut Depot, res: &mut Response, db: Db) -> JsonResult<()>
     json_ok(())
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-struct SessionsInput {
-    password: String,
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub(crate) struct SessionsInput {
+    pub password: String,
     #[serde(default)]
-    mfa_code: Option<String>,
-    session_ids: HashSet<i32>,
+    pub mfa_code: Option<String>,
+    pub session_ids: HashSet<i32>,
 }
 
 /// Logout the specified Sessions for the current User
@@ -220,7 +220,7 @@ async fn logout_other_sessions(
     json_ok(())
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SessionInfo {
     pub session_id: i32,
     pub user_id: i32,
@@ -386,19 +386,19 @@ fn deauth_sessions(conn: &mut DbConn, target_user: i32, session_ids: &[i32]) -> 
     Ok(result)
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-struct TwoFaStartInput {
-    password: String,
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub(crate) struct TwoFaStartInput {
+    pub password: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-struct TwoFaStartOutput {
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct TwoFaStartOutput {
     /// The raw base32-encoded TOTP secret for users to be manually added to authenticator apps
-    base32_secret: String,
+    pub base32_secret: String,
     /// The otpauth URL for the TOTP secret for integration with authenticator apps
-    url: String,
+    pub url: String,
     /// A base64-encoded PNG QR code representing the otpauth URL
-    qr_base64: String,
+    pub qr_base64: String,
 }
 
 /// Start 2FA enrollment for the current user
@@ -460,15 +460,15 @@ async fn two_fa_start(
     json_ok(output)
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-struct TwoFaConfirmInput {
-    password: String,
-    code: String,
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub(crate) struct TwoFaConfirmInput {
+    pub password: String,
+    pub code: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-struct TwoFaConfirmOutput {
-    recovery_codes: Vec<String>,
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct TwoFaConfirmOutput {
+    pub recovery_codes: Vec<String>,
 }
 
 /// Confirm 2FA enrollment and generate recovery codes
@@ -538,10 +538,10 @@ async fn two_fa_confirm(
     json_ok(TwoFaConfirmOutput { recovery_codes })
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-struct TwoFaDisableInput {
-    password: String,
-    mfa_code: String,
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub(crate) struct TwoFaDisableInput {
+    pub password: String,
+    pub mfa_code: String,
 }
 
 /// Disable 2FA for the current user.

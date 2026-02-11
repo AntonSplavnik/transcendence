@@ -36,8 +36,8 @@ pub fn router(path: &str) -> Router {
     ])
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-struct RegisterInput {
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub(crate) struct RegisterInput {
     #[validate(email(message = "Must be a valid email address."))]
     pub email: String,
     #[validate(custom(function = "crate::validate::password"))]
@@ -98,12 +98,12 @@ async fn register(
     json_ok(UserSessionInfo::new(user, session))
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-struct LoginInput {
-    email: String,
-    password: String,
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub(crate) struct LoginInput {
+    pub email: String,
+    pub password: String,
     #[serde(default)]
-    mfa_code: Option<String>,
+    pub mfa_code: Option<String>,
 }
 
 /// Login a User and create a new Session
@@ -171,7 +171,7 @@ async fn login(
     json_ok(UserSessionInfo::new(user, session))
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PasswordInput {
     pub password: String,
     #[serde(default)]

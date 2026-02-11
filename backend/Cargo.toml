@@ -122,3 +122,41 @@ smallvec = { version = "1.15.1", features = [
 	"const_generics",
 ] }
 mini-moka = "0.10.3"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+# ---------------------------------------------------------------------------
+# Always compile CPU-intensive dependencies with optimizations, even in
+# debug / test builds.  This makes argon2 hashing ~20–40× faster and avoids
+# blocking the tokio runtime during tests.
+# ---------------------------------------------------------------------------
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake3]
+opt-level = 3
+[profile.dev.package.chacha20poly1305]
+opt-level = 3
+[profile.dev.package.zstd]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 2
+[profile.dev.package.zstd-safe]
+opt-level = 3
+[profile.dev.package.zstd-sys]
+opt-level = 3
+
+[profile.test.package.argon2]
+opt-level = 3
+[profile.test.package.blake3]
+opt-level = 3
+[profile.test.package.chacha20poly1305]
+opt-level = 3
+[profile.test.package.zstd]
+opt-level = 3
+[profile.test.package.image]
+opt-level = 2
+[profile.test.package.zstd-safe]
+opt-level = 3
+[profile.test.package.zstd-sys]
+opt-level = 3

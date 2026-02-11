@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod i32_enum;
@@ -13,7 +13,7 @@ pub mod nickname;
 mod ulid;
 
 #[apply(NewInsertable!)]
-#[derive(Queryable, Selectable, ToSchema, Serialize, Debug, Clone)]
+#[derive(Queryable, Selectable, ToSchema, Serialize, Deserialize, Debug, Clone)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct User {
