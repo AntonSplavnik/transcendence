@@ -12,7 +12,7 @@ pass_filenames = false
 [[repos.hooks]]
 id = "cargo-check-debug"
 name = "Cargo Check (Debug)"
-entry = "bash -c 'cd backend && cargo check --all-targets -- -D warnings'"
+entry = "bash -c 'cd backend && RUSTFLAGS=\"-D warnings\" cargo check --all-targets'"
 language = "system"
 files = '^backend/.*\.rs$'
 pass_filenames = false
@@ -20,7 +20,7 @@ pass_filenames = false
 [[repos.hooks]]
 id = "cargo-check-release"
 name = "Cargo Check (Release)"
-entry = "bash -c 'cd backend && cargo check --release --all-targets -- -D warnings'"
+entry = "bash -c 'cd backend && RUSTFLAGS=\"-D warnings\" cargo check --release --all-targets'"
 language = "system"
 files = '^backend/.*\.rs$'
 pass_filenames = false
