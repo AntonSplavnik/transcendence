@@ -11,8 +11,47 @@ use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use chrono::NaiveDateTime;
 use salvo::http::header;
+use salvo::http::StatusCode;
 use salvo::oapi::extract::PathParam;
+use std::sync::LazyLock;
+
+/// Static ETag for the default avatar (never changes)
+static DEFAULT_AVATAR_ETAG: LazyLock<String> = LazyLock::new(|| {
+    let hash = blake3::hash(DEFAULT_AVATAR_SMALL);
+    let hex = hash.to_hex();
+    let short = &hex.as_str()[..16];
+    format!("\"{short}\"")
+});
+
+/// Generate an ETag from an `updated_at` timestamp
+fn make_etag(updated_at: &NaiveDateTime) -> String {
+    let hash = blake3::hash(updated_at.to_string().as_bytes());
+    let hex = hash.to_hex();
+    let short = &hex.as_str()[..16];
+    format!("\"{short}\"")
+}
+
+/// Write an avatar response with ETag support, returning 304 if the client's cache is fresh
+fn write_avatar_response(req: &Request, res: &mut Response, data: impl AsRef<[u8]>, etag: &str) {
+    if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
+        if if_none_match.as_bytes() == etag.as_bytes() {
+            res.status_code(StatusCode::NOT_MODIFIED);
+            return;
+        }
+    }
+
+    res.headers_mut()
+        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
+    res.headers_mut()
+        .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+    res.headers_mut()
+        .insert(header::ETAG, etag.parse().unwrap());
+    res.headers_mut()
+        .insert(header::CONTENT_LENGTH, data.as_ref().len().into());
+    res.write_body(data.as_ref().to_vec()).ok();
+}
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -73,6 +112,7 @@ async fn upload_avatar(
 
     let avatar_large = AvatarLarge::new(user_id, large_data);
     let avatar_small = AvatarSmall::new(user_id, small_data.clone());
+    let updated_at = avatar_small.updated_at;
 
     // Store in database (upsert)
     db.write(move |conn| {
@@ -88,7 +128,7 @@ async fn upload_avatar(
     .await??;
 
     // Update cache with small avatar
-    cache::insert(user_id, small_data);
+    cache::insert(user_id, small_data, updated_at);
 
     tracing::info!(user_id = user_id, "Avatar uploaded successfully");
 
@@ -99,29 +139,32 @@ async fn upload_avatar(
 ///
 /// Retrieve the large (450x450) avatar for a user. Returns default avatar if none set.
 #[endpoint]
-async fn get_avatar_large(res: &mut Response, user_id: PathParam<i32>, db: Db) -> AppResult<()> {
+async fn get_avatar_large(
+    req: &mut Request,
+    res: &mut Response,
+    user_id: PathParam<i32>,
+    db: Db,
+) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
     use crate::schema::avatars_large::dsl;
-    let data = db
+    let avatar = db
         .read(move |conn| {
             dsl::avatars_large
                 .filter(dsl::user_id.eq(user_id))
                 .first::<AvatarLarge>(conn)
         })
-        .await?
-        .map(|avatar| avatar.data)
-        .unwrap_or_else(|_| DEFAULT_AVATAR_LARGE.to_vec());
+        .await?;
 
-    res.headers_mut()
-        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-    res.headers_mut().insert(
-        header::CACHE_CONTROL,
-        "public, max-age=3600".parse().unwrap(),
-    );
-    res.headers_mut()
-        .insert(header::CONTENT_LENGTH, data.len().into());
-    res.write_body(data).ok();
+    match avatar {
+        Ok(avatar) => {
+            let etag = make_etag(&avatar.updated_at);
+            write_avatar_response(req, res, avatar.data, &etag);
+        }
+        Err(_) => {
+            write_avatar_response(req, res, DEFAULT_AVATAR_LARGE, &DEFAULT_AVATAR_ETAG);
+        }
+    }
 
     Ok(())
 }
@@ -130,47 +173,41 @@ async fn get_avatar_large(res: &mut Response, user_id: PathParam<i32>, db: Db) -
 ///
 /// Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached.
 #[endpoint]
-async fn get_avatar_small(res: &mut Response, user_id: PathParam<i32>, db: Db) -> AppResult<()> {
+async fn get_avatar_small(
+    req: &mut Request,
+    res: &mut Response,
+    user_id: PathParam<i32>,
+    db: Db,
+) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
     // Try cache first
     if let Some(cached) = cache::get(user_id) {
-        res.headers_mut()
-            .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-        res.headers_mut().insert(
-            header::CACHE_CONTROL,
-            "public, max-age=3600".parse().unwrap(),
-        );
-        res.headers_mut()
-            .insert(header::CONTENT_LENGTH, cached.len().into());
-        res.write_body(cached.as_ref().clone()).ok();
+        let etag = make_etag(&cached.updated_at);
+        write_avatar_response(req, res, cached.data.as_ref(), &etag);
         return Ok(());
     }
 
     // Fallback to database
     use crate::schema::avatars_small::dsl;
-    let data = db
+    let avatar = db
         .read(move |conn| {
             dsl::avatars_small
                 .filter(dsl::user_id.eq(user_id))
                 .first::<AvatarSmall>(conn)
         })
-        .await?
-        .map(|avatar| {
-            cache::insert(user_id, avatar.data.clone());
-            avatar.data
-        })
-        .unwrap_or_else(|_| DEFAULT_AVATAR_SMALL.to_vec());
+        .await?;
 
-    res.headers_mut()
-        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-    res.headers_mut().insert(
-        header::CACHE_CONTROL,
-        "public, max-age=3600".parse().unwrap(),
-    );
-    res.headers_mut()
-        .insert(header::CONTENT_LENGTH, data.len().into());
-    res.write_body(data).ok();
+    match avatar {
+        Ok(avatar) => {
+            let etag = make_etag(&avatar.updated_at);
+            cache::insert(user_id, avatar.data.clone(), avatar.updated_at);
+            write_avatar_response(req, res, avatar.data, &etag);
+        }
+        Err(_) => {
+            write_avatar_response(req, res, DEFAULT_AVATAR_SMALL, &DEFAULT_AVATAR_ETAG);
+        }
+    }
 
     Ok(())
 }
