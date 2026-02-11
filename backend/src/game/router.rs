@@ -1,51 +1,17 @@
 use crate::prelude::*;
 use std::sync::Arc;
 
-use super::{GameManager, Vector3D, GameStateSnapshot};
+use super::{stream_handler, GameManager, GameStateSnapshot, Vector3D};
 
 // =============================================================================
 // Request/Response Types
 // =============================================================================
 
+/// Request to join the game and establish a WebTransport stream
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct JoinGameRequest {
-    pub player_id: u32,
+pub struct JoinStreamRequest {
+    /// Player's display name
     pub name: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct JoinGameResponse {
-    pub success: bool,
-    pub message: String,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct LeaveGameRequest {
-    pub player_id: u32,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct InputRequest {
-    pub player_id: u32,
-    pub movement: Vector3D,
-    pub look_direction: Vector3D,
-    #[serde(default)]
-    pub attacking: bool,
-    #[serde(default)]
-    pub jumping: bool,
-    #[serde(default)]
-    pub ability1: bool,
-    #[serde(default)]
-    pub ability2: bool,
-    #[serde(default)]
-    pub dodging: bool,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct RegisterHitRequest {
-    pub attacker_id: u32,
-    pub victim_id: u32,
-    pub damage: f32,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -59,52 +25,47 @@ pub struct GameStatusResponse {
 // Handlers
 // =============================================================================
 
+/// Join the game and establish a WebTransport stream for bidirectional communication
+///
+/// This endpoint:
+/// 1. Adds the player to the game
+/// 2. Spawns a background task to handle the player's stream
+/// 3. Returns immediately after spawning the task
+///
+/// The actual stream communication happens asynchronously via WebTransport.
 #[endpoint]
-async fn join_game(req: JsonBody<JoinGameRequest>, depot: &mut Depot) -> Json<JoinGameResponse> {
+async fn join_stream(
+    req: JsonBody<JoinStreamRequest>,
+    depot: &mut Depot,
+) -> Result<StatusCode, StatusError> {
+    let user_id: i32 = depot.user_id();
     let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
     let req = req.into_inner();
 
-    let success = game_manager.add_player(req.player_id, &req.name).await;
+    // Use user_id as player_id (or implement custom player_id assignment logic)
+    let player_id = user_id as u32;
 
-    if success {
-        Json(JoinGameResponse {
-            success: true,
-            message: format!("Player {} joined successfully", req.name),
-        })
-    } else {
-        Json(JoinGameResponse {
-            success: false,
-            message: "Failed to join game (game full or player already exists)".to_string(),
-        })
+    // Add player to the game
+    let success = game_manager.add_player(player_id, &req.name).await;
+    if !success {
+        return Err(StatusError::bad_request()
+            .detail("Failed to join game (game full or player already exists)"));
     }
-}
 
-#[endpoint]
-async fn leave_game(req: JsonBody<LeaveGameRequest>, depot: &mut Depot) -> StatusCode {
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-    let req = req.into_inner();
+    // Spawn background task to handle the WebTransport stream
+    tokio::spawn({
+        let gm = game_manager.clone();
+        let name = req.name.clone();
+        async move {
+            if let Err(e) =
+                stream_handler::handle_player_stream(user_id, player_id, name, gm).await
+            {
+                tracing::error!("Game stream handler error for player {}: {}", player_id, e);
+            }
+        }
+    });
 
-    game_manager.remove_player(req.player_id).await;
-    StatusCode::OK
-}
-
-#[endpoint]
-async fn handle_input(req: JsonBody<InputRequest>, depot: &mut Depot) -> StatusCode {
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-    let input = req.into_inner();
-
-    game_manager.set_input(
-        input.player_id,
-        input.movement,
-        input.look_direction,
-        input.attacking,
-        input.jumping,
-        input.ability1,
-        input.ability2,
-        input.dodging,
-    ).await;
-
-    StatusCode::OK
+    Ok(StatusCode::OK)
 }
 
 #[endpoint]
@@ -129,19 +90,6 @@ async fn get_snapshot(depot: &mut Depot) -> Json<GameStateSnapshot> {
     Json(snapshot)
 }
 
-#[endpoint]
-async fn register_hit(req: JsonBody<RegisterHitRequest>, depot: &mut Depot) -> StatusCode {
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-    let req = req.into_inner();
-
-    game_manager.register_hit(
-        req.attacker_id,
-        req.victim_id,
-        req.damage,
-    ).await;
-
-    StatusCode::OK
-}
 
 // =============================================================================
 // Router
@@ -166,10 +114,7 @@ impl GameManagerHoop {
 pub fn router(gm: Arc<GameManager>) -> Router {
     Router::with_path("game")
         .hoop(GameManagerHoop(gm))
-        .push(Router::with_path("join").post(join_game))
-        .push(Router::with_path("leave").post(leave_game))
-        .push(Router::with_path("input").post(handle_input))
+        .push(Router::with_path("join_stream").post(join_stream))
         .push(Router::with_path("status").get(get_status))
         .push(Router::with_path("snapshot").get(get_snapshot))
-        .push(Router::with_path("hit").post(register_hit))
 }
