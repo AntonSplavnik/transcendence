@@ -46,6 +46,8 @@ fn write_avatar_response(req: &Request, res: &mut Response, data: impl AsRef<[u8
     if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
         if if_none_match.as_bytes() == etag.as_bytes() {
             res.status_code(StatusCode::NOT_MODIFIED);
+            res.headers_mut()
+                .insert(header::ETAG, etag.parse().unwrap());
             return;
         }
     }
