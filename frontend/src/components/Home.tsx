@@ -64,7 +64,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay key={avatarKey} userId={user.id} size="large" className="w-14 h-14"/>
+					<AvatarDisplay key={avatarKey} userId={user.id} size="small" className="w-14 h-14"/>
 					<div>
 						<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
 						<p className="text-wood-300">Welcome back, {user.nickname}.</p>
