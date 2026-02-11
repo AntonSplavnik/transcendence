@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
@@ -16,9 +16,20 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string  | null>(null);
 
+    useEffect(() => {
+        return () => {
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+
     function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
+        if(previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
         setError(null);
@@ -60,7 +71,7 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
             <div className="bg-wood-800 border-2 border-wood-600 rounded-lg p-6 max-w-md w-full">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold text-wood-100">
-                        Edit Profil
+                        Edit Profile
                     </h2>
                     <button onClick={onClose} className="text-wood-400 hover:text-wood-200 text-2xl leading-none">
                         ×
