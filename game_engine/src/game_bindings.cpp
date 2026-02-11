@@ -1,13 +1,15 @@
 // C FFI bindings for Rust integration
 // This file provides a C-compatible API that Rust can call
+// Updated to work with Entity-Component-System architecture
 
 #include "../include/ArenaGame.hpp"
 #include <cstring>
 
 using namespace ArenaGame;
+using namespace ArenaGame::Core;
 using Game = ::ArenaGame::ArenaGame;
 
-// Opaque pointer type for Rust
+// Opaque pointer types for Rust
 extern "C" {
 
 // =============================================================================
@@ -39,7 +41,7 @@ bool game_is_running(Game* game) {
 }
 
 // =============================================================================
-// Player Management
+// Player Management (Backwards Compatible)
 // =============================================================================
 
 bool game_add_player(Game* game, uint32_t player_id, const char* name) {
@@ -55,7 +57,132 @@ size_t game_get_player_count(Game* game) {
 }
 
 // =============================================================================
-// Input Handling
+// Entity Management (NEW - ECS Features)
+// =============================================================================
+
+// Create a projectile entity
+bool game_create_projectile(
+    Game* game,
+    uint32_t entity_id,
+    float pos_x, float pos_y, float pos_z,
+    float vel_x, float vel_y, float vel_z
+) {
+    Vector3D position(pos_x, pos_y, pos_z);
+    Vector3D velocity(vel_x, vel_y, vel_z);
+
+    Entity* entity = game->getWorld().createProjectile(entity_id, position, velocity);
+    return entity != nullptr;
+}
+
+// Create a wall entity
+bool game_create_wall(
+    Game* game,
+    uint32_t entity_id,
+    float pos_x, float pos_y, float pos_z,
+    float half_x, float half_y, float half_z
+) {
+    Vector3D position(pos_x, pos_y, pos_z);
+    Vector3D halfExtents(half_x, half_y, half_z);
+
+    Entity* entity = game->getWorld().createWall(entity_id, position, halfExtents);
+    return entity != nullptr;
+}
+
+// Destroy any entity by ID
+bool game_destroy_entity(Game* game, uint32_t entity_id) {
+    return game->getWorld().destroyEntity(entity_id);
+}
+
+// Check if entity exists
+bool game_entity_exists(Game* game, uint32_t entity_id) {
+    return game->getEntity(entity_id) != nullptr;
+}
+
+// Check if entity is alive (has health and health > 0)
+bool game_entity_is_alive(Game* game, uint32_t entity_id) {
+    Entity* entity = game->getEntity(entity_id);
+    return entity && entity->isAlive();
+}
+
+// =============================================================================
+// Component Access (NEW - Direct component manipulation)
+// =============================================================================
+
+// Get entity health
+bool game_get_entity_health(Game* game, uint32_t entity_id, float* out_current, float* out_max) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasHealth()) {
+        return false;
+    }
+
+    *out_current = entity->getHealth().current;
+    *out_max = entity->getHealth().maximum;
+    return true;
+}
+
+// Set entity health
+bool game_set_entity_health(Game* game, uint32_t entity_id, float health) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasHealth()) {
+        return false;
+    }
+
+    entity->getHealth().setHealth(health);
+    return true;
+}
+
+// Get entity position
+bool game_get_entity_position(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasTransform()) {
+        return false;
+    }
+
+    const auto& pos = entity->getTransform().position;
+    *out_x = pos.x;
+    *out_y = pos.y;
+    *out_z = pos.z;
+    return true;
+}
+
+// Set entity position
+bool game_set_entity_position(Game* game, uint32_t entity_id, float x, float y, float z) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasTransform()) {
+        return false;
+    }
+
+    entity->getTransform().position = Vector3D(x, y, z);
+    return true;
+}
+
+// Get entity velocity
+bool game_get_entity_velocity(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasPhysics()) {
+        return false;
+    }
+
+    const auto& vel = entity->getPhysics().velocity;
+    *out_x = vel.x;
+    *out_y = vel.y;
+    *out_z = vel.z;
+    return true;
+}
+
+// Set entity velocity
+bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, float z) {
+    Entity* entity = game->getEntity(entity_id);
+    if (!entity || !entity->hasPhysics()) {
+        return false;
+    }
+
+    entity->getPhysics().velocity = Vector3D(x, y, z);
+    return true;
+}
+
+// =============================================================================
+// Input Handling (Backwards Compatible)
 // =============================================================================
 
 void game_set_input(
@@ -82,7 +209,7 @@ void game_set_input(
 }
 
 // =============================================================================
-// Snapshot Retrieval
+// Snapshot Retrieval (Backwards Compatible)
 // =============================================================================
 
 // C-compatible snapshot structure
@@ -129,7 +256,7 @@ void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
 }
 
 // =============================================================================
-// Game State Queries
+// Game State Queries (Backwards Compatible)
 // =============================================================================
 
 uint64_t game_get_frame_number(Game* game) {
@@ -141,7 +268,7 @@ double game_get_game_time(Game* game) {
 }
 
 // =============================================================================
-// Combat
+// Combat (Backwards Compatible)
 // =============================================================================
 
 void game_register_hit(Game* game, uint32_t attacker_id, uint32_t victim_id, float damage) {

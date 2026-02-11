@@ -1,13 +1,15 @@
 #pragma once
 
+#include "Core/Core.hpp"
 #include "GameTypes.hpp"
-#include "Character.hpp"
 #include <vector>
-#include <unordered_map>
-#include <memory>
 #include <chrono>
+#include <cmath>
 
 namespace ArenaGame {
+
+// Forward declarations (for backwards compatibility)
+class Character;
 
 // =============================================================================
 // GameState - Snapshot of the entire game state for network sync
@@ -23,15 +25,6 @@ struct CharacterSnapshot {
     float maxHealth;
 
     CharacterSnapshot() = default;
-    CharacterSnapshot(const Character& character)
-        : playerID(character.getPlayerID())
-        , position(character.getPosition())
-        , velocity(character.getVelocity())
-        , yaw(character.getYaw())
-        , state(character.getState())
-        , health(character.getStats().currentHealth)
-        , maxHealth(character.getStats().maxHealth)
-    {}
 };
 
 struct GameStateSnapshot {
@@ -45,10 +38,23 @@ struct GameStateSnapshot {
 // =============================================================================
 // ArenaGame - Main game loop with server-authoritative physics
 // =============================================================================
+// Now built on top of World and Entity-Component-System architecture
+//
+// This maintains backwards compatibility with the old Character-based API
+// while using the new World/Entity system internally.
+//
+// Usage:
+//   ArenaGame game;
+//   game.start();
+//   game.addPlayer(1, "Player1");
+//   game.update();  // Updates all systems
+//   GameStateSnapshot snapshot = game.createSnapshot();
+// =============================================================================
 
 class ArenaGame {
 public:
     ArenaGame();
+    ~ArenaGame() = default;
 
     // Game lifecycle
     void start();
@@ -62,8 +68,15 @@ public:
     // Player management
     bool addPlayer(PlayerID playerID, const std::string& name);
     bool removePlayer(PlayerID playerID);
+
+    // Backwards compatibility: Get entity as Character-like interface
+    // Note: Returns nullptr - Character class is deprecated
     Character* getCharacter(PlayerID playerID);
     const Character* getCharacter(PlayerID playerID) const;
+
+    // New API: Direct entity access
+    Core::Entity* getEntity(PlayerID playerID) { return m_world.getEntity(playerID); }
+    const Core::Entity* getEntity(PlayerID playerID) const { return m_world.getEntity(playerID); }
 
     // Input handling
     void setPlayerInput(PlayerID playerID, const InputState& input);
@@ -72,43 +85,32 @@ public:
     GameStateSnapshot createSnapshot() const;
     uint64_t getFrameNumber() const { return m_frameNumber; }
     double getGameTime() const { return m_gameTime; }
-    size_t getPlayerCount() const { return m_characters.size(); }
+    size_t getPlayerCount() const { return m_world.getPlayerCount(); }
 
     // Combat
     void registerHit(PlayerID attackerID, PlayerID victimID, float damage);
 
+    // World access (for advanced usage)
+    Core::World& getWorld() { return m_world; }
+    const Core::World& getWorld() const { return m_world; }
+
 private:
-    // Physics simulation with fixed timestep
-    void physicsUpdate(float deltaTime);
-
-    // Collision detection and resolution
-    void resolveCollisions();
-    void resolveCharacterCollision(Character& a, Character& b);
-
-    // Combat processing
-    void processCombat();
-
-    // Spawn logic
-    Vector3D getSpawnPosition() const;
+    // World manages all entities and systems
+    Core::World m_world;
 
     // Game state
     bool m_isRunning;
     uint64_t m_frameNumber;
     double m_gameTime;
-
-    // Timing for fixed timestep
-    std::chrono::steady_clock::time_point m_lastUpdateTime;
     float m_accumulator;
+    std::chrono::steady_clock::time_point m_lastUpdateTime;
 
-    // Network snapshot timing
-    float m_snapshotAccumulator;
-
-    // Characters (players)
-    std::unordered_map<PlayerID, std::unique_ptr<Character>> m_characters;
-
-    // Spawn points
-    std::vector<Vector3D> m_spawnPoints;
+    // Spawn positions for players
+    std::vector<Vector3D> m_spawnPositions;
     size_t m_nextSpawnIndex;
+
+    void initializeSpawnPositions();
+    Vector3D getSpawnPosition();
 };
 
 // =============================================================================
@@ -119,31 +121,21 @@ inline ArenaGame::ArenaGame()
     : m_isRunning(false)
     , m_frameNumber(0)
     , m_gameTime(0.0)
-    , m_lastUpdateTime()
-    , m_accumulator(0.0f)
-    , m_snapshotAccumulator(0.0f)
+    , m_accumulator(0.0)
     , m_nextSpawnIndex(0)
 {
-    // Initialize spawn points around the arena
-    // Place spawn points in a circle pattern
-    const float spawnRadius = GameConfig::ARENA_WIDTH * 0.3f;
-    const float centerX = GameConfig::ARENA_WIDTH * 0.5f;
-    const float centerZ = GameConfig::ARENA_LENGTH * 0.5f;
+    // Initialize world (creates and initializes all systems)
+    m_world.initialize();
 
-    for (int i = 0; i < GameConfig::MAX_PLAYERS; ++i) {
-        float angle = (2.0f * 3.14159f * i) / GameConfig::MAX_PLAYERS;
-        float x = centerX + spawnRadius * std::cos(angle);
-        float z = centerZ + spawnRadius * std::sin(angle);
-        m_spawnPoints.push_back(Vector3D(x, GameConfig::GROUND_Y, z));
-    }
+    // Setup spawn positions in a circle around center
+    initializeSpawnPositions();
 }
 
 inline void ArenaGame::start() {
     m_isRunning = true;
     m_frameNumber = 0;
     m_gameTime = 0.0;
-    m_accumulator = 0.0f;
-    m_snapshotAccumulator = 0.0f;
+    m_accumulator = 0.0;
     m_lastUpdateTime = std::chrono::steady_clock::now();
 }
 
@@ -158,179 +150,72 @@ inline void ArenaGame::update() {
 
     // Calculate delta time since last update
     auto currentTime = std::chrono::steady_clock::now();
-    std::chrono::duration<float> elapsed = currentTime - m_lastUpdateTime;
-    float deltaTime = elapsed.count();
+    float deltaTime = std::chrono::duration<float>(currentTime - m_lastUpdateTime).count();
     m_lastUpdateTime = currentTime;
 
-    // Cap delta time to prevent spiral of death
-    if (deltaTime > GameConfig::FIXED_TIMESTEP * GameConfig::MAX_PHYSICS_ITERATIONS) {
-        deltaTime = GameConfig::FIXED_TIMESTEP * GameConfig::MAX_PHYSICS_ITERATIONS;
+    // Clamp delta time to prevent spiral of death
+    if (deltaTime > 0.1f) {
+        deltaTime = 0.1f;
     }
 
-    // Accumulate time for fixed timestep updates
+    // Accumulate time for fixed timestep
     m_accumulator += deltaTime;
 
-    // Fixed timestep physics loop
+    // PHASE 1: EarlyUpdate - Input processing (variable dt)
+    m_world.earlyUpdate(deltaTime);
+
+    // PHASE 2: FixedUpdate - Physics & Collision (fixed dt, deterministic)
     int iterations = 0;
     while (m_accumulator >= GameConfig::FIXED_TIMESTEP && iterations < GameConfig::MAX_PHYSICS_ITERATIONS) {
-        physicsUpdate(GameConfig::FIXED_TIMESTEP);
+        m_world.fixedUpdate(GameConfig::FIXED_TIMESTEP);
+
         m_accumulator -= GameConfig::FIXED_TIMESTEP;
-        m_gameTime += GameConfig::FIXED_TIMESTEP;
         m_frameNumber++;
+        m_gameTime += GameConfig::FIXED_TIMESTEP;
         iterations++;
     }
 
-    // Update snapshot timing
-    m_snapshotAccumulator += deltaTime;
-}
-
-inline void ArenaGame::physicsUpdate(float deltaTime) {
-    // Update all characters
-    for (auto& [playerID, character] : m_characters) {
-        if (character->isAlive()) {
-            character->update(deltaTime);
-        }
+    // If we hit the iteration limit, reset accumulator to prevent spiral of death
+    if (iterations >= GameConfig::MAX_PHYSICS_ITERATIONS) {
+        m_accumulator = 0.0f;
     }
 
-    // Resolve collisions between characters
-    resolveCollisions();
+    // PHASE 3: Update - Game logic, Combat, AI (variable dt)
+    m_world.update(deltaTime);
 
-    // Process combat
-    processCombat();
-}
-
-inline void ArenaGame::resolveCollisions() {
-    // Simple O(n^2) collision detection
-    // For larger player counts, use spatial partitioning (quadtree, grid, etc.)
-
-    std::vector<Character*> activeCharacters;
-    activeCharacters.reserve(m_characters.size());
-
-    for (auto& [playerID, character] : m_characters) {
-        if (character->isAlive()) {
-            activeCharacters.push_back(character.get());
-        }
-    }
-
-    // Check all pairs
-    for (size_t i = 0; i < activeCharacters.size(); ++i) {
-        for (size_t j = i + 1; j < activeCharacters.size(); ++j) {
-            Cylinder cylA = activeCharacters[i]->getCollisionCylinder();
-            Cylinder cylB = activeCharacters[j]->getCollisionCylinder();
-
-            if (cylA.intersects(cylB)) {
-                resolveCharacterCollision(*activeCharacters[i], *activeCharacters[j]);
-            }
-        }
-    }
-}
-
-inline void ArenaGame::resolveCharacterCollision(Character& a, Character& b) {
-    // Simple push-apart collision resolution
-    Vector3D posA = a.getPosition();
-    Vector3D posB = b.getPosition();
-
-    // Calculate horizontal separation vector (ignore Y)
-    Vector3D separation(posB.x - posA.x, 0.0f, posB.z - posA.z);
-    float distance = separation.length();
-
-    if (distance < 0.0001f) {
-        // Characters are at exactly the same position, push them apart arbitrarily
-        separation = Vector3D(1.0f, 0.0f, 0.0f);
-        distance = 1.0f;
-    }
-
-    // Calculate overlap
-    float minDistance = GameConfig::CHARACTER_COLLISION_RADIUS * 2.0f;
-    float overlap = minDistance - distance;
-
-    if (overlap > 0.0f) {
-        // Normalize separation vector
-        Vector3D direction = separation * (1.0f / distance);
-
-        // Push both characters apart equally
-        Vector3D pushVector = direction * (overlap * 0.5f);
-
-        posA = posA - pushVector;
-        posB = posB + pushVector;
-
-        a.setPosition(posA);
-        b.setPosition(posB);
-    }
-}
-
-inline void ArenaGame::processCombat() {
-    // This is where you'd process melee attacks, projectile collisions, etc.
-    // For now, this is a placeholder for combat logic
-
-    for (auto& [playerID, character] : m_characters) {
-        if (!character->isAlive()) {
-            continue;
-        }
-
-        const InputState& input = character->getInput();
-
-        // Handle attack input
-        if (input.isAttacking) {
-            if (character->tryAttack()) {
-                // Attack was initiated successfully
-                // TODO: Create projectile or melee attack hitbox
-                // TODO: Check for hits against other players
-            }
-        }
-    }
+    // PHASE 4: LateUpdate - Post-processing, interpolation (variable dt)
+    m_world.lateUpdate(deltaTime);
 }
 
 inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name) {
-    // Check if player already exists
-    if (m_characters.find(playerID) != m_characters.end()) {
-        return false;
-    }
-
-    // Check if we've reached max players
-    if (m_characters.size() >= GameConfig::MAX_PLAYERS) {
-        return false;
-    }
-
-    // Create new character at spawn position
+    // Get spawn position
     Vector3D spawnPos = getSpawnPosition();
-    auto character = std::make_unique<Character>(playerID, name, spawnPos);
 
-    m_characters[playerID] = std::move(character);
-    return true;
+    // Create player entity through World
+    Core::Entity* entity = m_world.addPlayer(playerID, name, spawnPos);
+
+    return entity != nullptr;
 }
 
 inline bool ArenaGame::removePlayer(PlayerID playerID) {
-    auto it = m_characters.find(playerID);
-    if (it == m_characters.end()) {
-        return false;
-    }
-
-    m_characters.erase(it);
-    return true;
+    return m_world.removePlayer(playerID);
 }
 
 inline Character* ArenaGame::getCharacter(PlayerID playerID) {
-    auto it = m_characters.find(playerID);
-    if (it != m_characters.end()) {
-        return it->second.get();
-    }
+    // Backwards compatibility: Return nullptr
+    // The Character class is deprecated in favor of Entity
+    // This method exists only for FFI compatibility and will be removed
     return nullptr;
 }
 
 inline const Character* ArenaGame::getCharacter(PlayerID playerID) const {
-    auto it = m_characters.find(playerID);
-    if (it != m_characters.end()) {
-        return it->second.get();
-    }
+    // Backwards compatibility: Return nullptr
     return nullptr;
 }
 
 inline void ArenaGame::setPlayerInput(PlayerID playerID, const InputState& input) {
-    Character* character = getCharacter(playerID);
-    if (character && character->isAlive()) {
-        character->setInput(input);
-    }
+    // Delegate to World
+    m_world.setPlayerInput(playerID, input);
 }
 
 inline GameStateSnapshot ArenaGame::createSnapshot() const {
@@ -338,36 +223,76 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     snapshot.frameNumber = m_frameNumber;
     snapshot.timestamp = m_gameTime;
 
-    snapshot.characters.reserve(m_characters.size());
-    for (const auto& [playerID, character] : m_characters) {
-        snapshot.characters.emplace_back(*character);
+    // Get all entities that represent players (have all player components)
+    auto& world = const_cast<Core::World&>(m_world);
+    auto entities = world.getEntitiesWith(
+        true,   // Transform
+        true,   // Physics
+        false,  // Collider (don't filter on this)
+        true,   // Health
+        true,   // Controller
+        false   // Combat (don't filter on this)
+    );
+
+    // Convert entities to character snapshots
+    for (const auto* entity : entities) {
+        if (!entity || !entity->isAlive()) {
+            continue;
+        }
+
+        CharacterSnapshot charSnapshot;
+        charSnapshot.playerID = entity->id;
+        charSnapshot.position = entity->transform->position;
+        charSnapshot.velocity = entity->physics->velocity;
+        charSnapshot.yaw = entity->transform->getYaw();
+        charSnapshot.state = entity->controller->state;
+        charSnapshot.health = entity->health->current;
+        charSnapshot.maxHealth = entity->health->maximum;
+
+        snapshot.characters.push_back(charSnapshot);
     }
 
     return snapshot;
 }
 
 inline void ArenaGame::registerHit(PlayerID attackerID, PlayerID victimID, float damage) {
-    Character* victim = getCharacter(victimID);
-    if (victim && victim->isAlive()) {
-        victim->takeDamage(damage, attackerID);
+    // Delegate to World (which delegates to CombatSystem)
+    m_world.registerHit(attackerID, victimID, damage);
+}
 
-        // TODO: Track kill/death statistics
-        // TODO: Handle respawning
+inline void ArenaGame::initializeSpawnPositions() {
+    // Create spawn positions in a circle around the center of the arena
+    const float centerX = GameConfig::ARENA_WIDTH / 2.0f;
+    const float centerZ = GameConfig::ARENA_LENGTH / 2.0f;
+    const float radius = GameConfig::ARENA_WIDTH * 0.3f;  // 30% of arena width
+    const int numSpawns = GameConfig::MAX_PLAYERS;
+    const float angleStep = 2.0f * 3.14159265359f / numSpawns;
+
+    m_spawnPositions.clear();
+    m_spawnPositions.reserve(numSpawns);
+
+    for (int i = 0; i < numSpawns; ++i) {
+        float angle = i * angleStep;
+        float x = centerX + radius * std::cos(angle);
+        float z = centerZ + radius * std::sin(angle);
+        m_spawnPositions.push_back(Vector3D(x, GameConfig::GROUND_Y, z));
     }
 }
 
-inline Vector3D ArenaGame::getSpawnPosition() const {
-    if (m_spawnPoints.empty()) {
+inline Vector3D ArenaGame::getSpawnPosition() {
+    if (m_spawnPositions.empty()) {
         // Fallback: center of arena
         return Vector3D(
-            GameConfig::ARENA_WIDTH * 0.5f,
+            GameConfig::ARENA_WIDTH / 2.0f,
             GameConfig::GROUND_Y,
-            GameConfig::ARENA_LENGTH * 0.5f
+            GameConfig::ARENA_LENGTH / 2.0f
         );
     }
 
-    // Simple round-robin spawn selection
-    return m_spawnPoints[m_nextSpawnIndex % m_spawnPoints.size()];
+    // Round-robin spawn selection
+    Vector3D pos = m_spawnPositions[m_nextSpawnIndex];
+    m_nextSpawnIndex = (m_nextSpawnIndex + 1) % m_spawnPositions.size();
+    return pos;
 }
 
 } // namespace ArenaGame
