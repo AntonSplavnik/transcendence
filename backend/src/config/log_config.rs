@@ -51,7 +51,7 @@ impl Default for LogConfig {
             with_ansi: true,
             format: default_format(),
             with_level: true,
-            with_thread_ids: true,
+            with_thread_ids: false,
             with_thread_names: true,
             with_source_location: true,
         }
