@@ -9,7 +9,7 @@ FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
 BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f 2>/dev/null) \
               backend/Cargo.toml backend/Cargo.lock
 
-.PHONY: all dev run-opt run setup reset-db create-db install-hooks prek-update prek clean
+.PHONY: all dev run-opt run setup reset-db create-db install-prek prek-update prek clean
 
 all: run
 
@@ -58,7 +58,7 @@ reset-db:
 	@rm -f $(DB_FILE)*
 	@sqlite3 $(DB_FILE) 'VACUUM;'
 
-install-hooks:
+install-prek:
 	@curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.2/prek-installer.sh | sh
 	@prek install
 
