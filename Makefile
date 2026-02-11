@@ -68,7 +68,7 @@ prek-update:
 	@prek install --hook-type pre-push
 
 prek:
-	@prek run --all-files --stage pre-push
+	@prek run --all-files --stage manual
 
 clean:
 	@echo "🗑️  Cleaning build artifacts..."
