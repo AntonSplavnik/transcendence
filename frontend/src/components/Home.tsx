@@ -25,6 +25,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
+	const [avatarKey, setAvatarKey] = useState(0);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -63,7 +64,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={user.id} size="large" className="w-14 h-14"/>
+					<AvatarDisplay key={avatarKey} userId={user.id} size="large" className="w-14 h-14"/>
 					<div>
 						<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
 						<p className="text-wood-300">Welcome back, {user.nickname}.</p>
@@ -194,7 +195,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 								</p>
 							</div>
 						</div>
-						<AvatarDisplay userId={user.id} size="large" className="w-28 h-28 rounded-lg"/>
+						<AvatarDisplay key={avatarKey} userId={user.id} size="large" className="w-28 h-28 rounded-lg"/>
 					</div>
 				</Card>
 
@@ -226,8 +227,9 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 			{showEditProfile && (
       			<AvatarUpload
 					user={user}
-					onClose={() => setShowEditProfile(false)} />
-  			)}
+					onClose={() => setShowEditProfile(false)}
+					onAvatarChanged={() => setAvatarKey(k => k + 1)} />
+)}
 
 			{/*  */}
 			{showReauthModal && (

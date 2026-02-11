@@ -8,9 +8,10 @@ import Button from './Button';
 interface EditProfileProps {
 	user: User;
 	onClose: () => void;
+	onAvatarChanged: () => void;
 }
 
-export default function AvatarUpload({ user, onClose}: EditProfileProps) {
+export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditProfileProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string  | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
@@ -46,6 +47,7 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
                 return;
             }
             await uploadAvatar(result.data.large, result.data.small);
+            onAvatarChanged();
             onClose();
         } catch (error) {
             setError("Failed to upload avatar");
@@ -59,7 +61,8 @@ export default function AvatarUpload({ user, onClose}: EditProfileProps) {
         setError(null);
         try {
             await deleteAvatar();
-            onClose();    
+            onAvatarChanged();
+            onClose();
         } catch (error) {
             setError("Failed to delete avatar");
         } finally {
