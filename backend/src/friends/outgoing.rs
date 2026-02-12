@@ -3,7 +3,7 @@
 use crate::models::{FriendRequest, User};
 use crate::prelude::*;
 
-use super::types::{FriendRequestResponse, RequestStatus};
+use super::types::{FriendRequestResponse, MAX_LIST_RESULTS, RequestStatus};
 
 /// Get outgoing friend requests
 #[endpoint]
@@ -23,6 +23,7 @@ pub async fn get_outgoing_requests(
                 .filter(fr::sender_id.eq(user_id))
                 .filter(fr::status.eq(RequestStatus::PENDING))
                 .order(fr::created_at.desc())
+                .limit(MAX_LIST_RESULTS)
                 .load(conn)?;
 
             let receiver_ids: Vec<i32> = requests.iter().map(|r| r.receiver_id).collect();

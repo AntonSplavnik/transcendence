@@ -21,6 +21,9 @@ pub fn parse_param<T: std::str::FromStr>(req: &Request, name: &str) -> Result<T,
         .map_err(|_| FriendError::InvalidParam(format!("invalid {}", name)))
 }
 
+/// Maximum number of results returned by list endpoints.
+pub const MAX_LIST_RESULTS: i64 = 100;
+
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SendFriendRequestInput {
     pub user_id: Option<i32>,
