@@ -10,7 +10,7 @@ mod outgoing;
 mod reject;
 mod remove;
 mod send;
-mod types;
+pub(crate) mod types;
 
 use crate::prelude::*;
 

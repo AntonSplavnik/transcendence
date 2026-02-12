@@ -33,7 +33,7 @@ pub async fn cancel_friend_request(
 
         // Must be pending
         if request.status != RequestStatus::PENDING {
-            return Err(FriendError::RequestNotFound.into());
+            return Err(FriendError::RequestNotPending.into());
         }
 
         // Delete the request

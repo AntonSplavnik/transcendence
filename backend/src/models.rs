@@ -241,7 +241,7 @@ impl NewFriendRequest {
         Self {
             sender_id,
             receiver_id,
-            status: "pending".to_string(),
+            status: crate::friends::types::RequestStatus::PENDING.to_string(),
             created_at: now,
             updated_at: now,
         }

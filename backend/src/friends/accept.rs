@@ -35,7 +35,7 @@ pub async fn accept_friend_request(
 
             // Must be pending
             if request.status != RequestStatus::PENDING {
-                return Err(FriendError::RequestNotFound.into());
+                return Err(FriendError::RequestNotPending.into());
             }
 
             // Update status to accepted

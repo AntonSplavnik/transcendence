@@ -17,6 +17,8 @@ pub enum FriendError {
     AlreadyFriends,
     #[error("friend request not found")]
     RequestNotFound,
+    #[error("friend request is no longer pending")]
+    RequestNotPending,
     #[error("not authorized to perform this action")]
     NotAuthorized,
     #[error("user not found")]
@@ -153,6 +155,9 @@ impl Scribe for ApiError {
                 }
                 FriendError::RequestNotFound | FriendError::NotFriends => {
                     StatusError::not_found().brief(err.to_string())
+                }
+                FriendError::RequestNotPending => {
+                    StatusError::conflict().brief(err.to_string())
                 }
                 FriendError::NotAuthorized => {
                     StatusError::forbidden().brief(err.to_string())

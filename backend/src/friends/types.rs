@@ -24,10 +24,23 @@ pub fn parse_param<T: std::str::FromStr>(req: &Request, name: &str) -> Result<T,
 /// Maximum number of results returned by list endpoints.
 pub const MAX_LIST_RESULTS: i64 = 100;
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct SendFriendRequestInput {
     pub user_id: Option<i32>,
+    #[validate(length(min = 1))]
     pub nickname: Option<String>,
+}
+
+impl SendFriendRequestInput {
+    /// Validate that at least one identifier is provided.
+    pub fn validate_target(&self) -> Result<(), FriendError> {
+        if self.user_id.is_none() && self.nickname.as_ref().is_none_or(|n| n.is_empty()) {
+            return Err(FriendError::InvalidParam(
+                "provide either user_id or nickname".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]

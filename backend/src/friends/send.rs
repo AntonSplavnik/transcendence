@@ -20,6 +20,8 @@ pub async fn send_friend_request(
 
     let sender_id = depot.session().user_id;
     let input = json.into_inner();
+    input.validate()?;
+    input.validate_target()?;
 
     let (request, sender, receiver) = db
         .write(move |conn| {
