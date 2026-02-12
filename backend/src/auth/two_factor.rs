@@ -248,7 +248,7 @@ pub fn consume_recovery_code(
 ) -> AppResult<bool> {
     use crate::schema::two_fa_recovery_codes::dsl::*;
 
-    let now = chrono::Utc::now().naive_utc();
+    let now = chrono::Utc::now();
     let hash = hash_recovery_code(code_plain);
 
     let updated = diesel::update(

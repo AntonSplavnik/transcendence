@@ -3,6 +3,8 @@
 //! With this you can query users by ID or nickname.
 //!
 
+use chrono::{DateTime, Utc};
+
 use crate::models::nickname::Nickname;
 use crate::prelude::*;
 use crate::{models::User, stream::StreamManager};
@@ -32,17 +34,16 @@ pub fn router(path: &str) -> Router {
 pub struct PublicUser {
     pub id: i32,
     pub nickname: Nickname,
-    pub created_at: chrono::NaiveDateTime,
+    pub created_at: DateTime<Utc>,
     pub online: bool,
 }
 
 impl From<User> for PublicUser {
     fn from(user: User) -> Self {
-        let created_at = user.created_at().naive_utc();
         Self {
             id: user.id,
             nickname: user.nickname,
-            created_at,
+            created_at: user.created_at,
             online: StreamManager::global().is_connected(user.id),
         }
     }
