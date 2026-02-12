@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { AxiosRequestConfig } from 'axios';
 import type {
 	AuthResponse,
 	Session,
@@ -16,7 +17,7 @@ import type {
 export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
 	const response = await apiClient.get<AuthResponse>('/user/me', {
 		_silent: options?.silent
-	} as any);
+	} as AxiosRequestConfig & { _silent?: boolean });
 	return response.data;
 }
 
