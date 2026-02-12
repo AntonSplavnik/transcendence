@@ -15,7 +15,8 @@ fn main() {
         .cpp(true)
         .file(format!("{}/src/game_bindings.cpp", game_engine_path))
         .include(format!("{}/include", game_engine_path))
-        .flag("-std=c++17")
+        .include(format!("{}/external/entt/src", game_engine_path))
+        .flag("-std=c++20")  // EnTT requires C++20
         .opt_level(3) // Optimize for release
         .compile("game");
 

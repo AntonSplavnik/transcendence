@@ -2,12 +2,26 @@
 // This file provides a C-compatible API that Rust can call
 // Updated to work with Entity-Component-System architecture
 
-#include "../include/ArenaGame.hpp"
+// =============================================================================
+// EnTT Migration Toggle
+// =============================================================================
+// Set to 1 to use EnTT implementation, 0 to use original implementation
+// This allows switching between implementations with zero Rust code changes
+#define USE_ENTT 1
+// =============================================================================
+
+#if USE_ENTT
+    #include "../include/ArenaGameEnTT.hpp"
+    using Game = ::ArenaGame::ArenaGameEnTT;
+#else
+    #include "../include/ArenaGame.hpp"
+    using Game = ::ArenaGame::ArenaGame;
+#endif
+
 #include <cstring>
 
 using namespace ArenaGame;
 using namespace ArenaGame::Core;
-using Game = ::ArenaGame::ArenaGame;
 
 // Opaque pointer types for Rust
 extern "C" {
@@ -70,8 +84,13 @@ bool game_create_projectile(
     Vector3D position(pos_x, pos_y, pos_z);
     Vector3D velocity(vel_x, vel_y, vel_z);
 
+#if USE_ENTT
+    entt::entity entity = game->getWorld().createProjectile(entity_id, position, velocity);
+    return entity != entt::null;
+#else
     Entity* entity = game->getWorld().createProjectile(entity_id, position, velocity);
     return entity != nullptr;
+#endif
 }
 
 // Create a wall entity
@@ -84,8 +103,13 @@ bool game_create_wall(
     Vector3D position(pos_x, pos_y, pos_z);
     Vector3D halfExtents(half_x, half_y, half_z);
 
+#if USE_ENTT
+    entt::entity entity = game->getWorld().createWall(entity_id, position, halfExtents);
+    return entity != entt::null;
+#else
     Entity* entity = game->getWorld().createWall(entity_id, position, halfExtents);
     return entity != nullptr;
+#endif
 }
 
 // Destroy any entity by ID
@@ -95,13 +119,26 @@ bool game_destroy_entity(Game* game, uint32_t entity_id) {
 
 // Check if entity exists
 bool game_entity_exists(Game* game, uint32_t entity_id) {
+#if USE_ENTT
+    return game->getEntity(entity_id) != entt::null;
+#else
     return game->getEntity(entity_id) != nullptr;
+#endif
 }
 
 // Check if entity is alive (has health and health > 0)
 bool game_entity_is_alive(Game* game, uint32_t entity_id) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* health = registry.try_get<Components::Health>(entity);
+    return health && health->isAlive();
+#else
     Entity* entity = game->getEntity(entity_id);
     return entity && entity->isAlive();
+#endif
 }
 
 // =============================================================================
@@ -110,6 +147,18 @@ bool game_entity_is_alive(Game* game, uint32_t entity_id) {
 
 // Get entity health
 bool game_get_entity_health(Game* game, uint32_t entity_id, float* out_current, float* out_max) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* health = registry.try_get<Components::Health>(entity);
+    if (!health) return false;
+
+    *out_current = health->current;
+    *out_max = health->maximum;
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasHealth()) {
         return false;
@@ -118,10 +167,22 @@ bool game_get_entity_health(Game* game, uint32_t entity_id, float* out_current, 
     *out_current = entity->getHealth().current;
     *out_max = entity->getHealth().maximum;
     return true;
+#endif
 }
 
 // Set entity health
 bool game_set_entity_health(Game* game, uint32_t entity_id, float health) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* healthComp = registry.try_get<Components::Health>(entity);
+    if (!healthComp) return false;
+
+    healthComp->setHealth(health);
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasHealth()) {
         return false;
@@ -129,10 +190,24 @@ bool game_set_entity_health(Game* game, uint32_t entity_id, float health) {
 
     entity->getHealth().setHealth(health);
     return true;
+#endif
 }
 
 // Get entity position
 bool game_get_entity_position(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* transform = registry.try_get<Components::Transform>(entity);
+    if (!transform) return false;
+
+    *out_x = transform->position.x;
+    *out_y = transform->position.y;
+    *out_z = transform->position.z;
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasTransform()) {
         return false;
@@ -143,10 +218,22 @@ bool game_get_entity_position(Game* game, uint32_t entity_id, float* out_x, floa
     *out_y = pos.y;
     *out_z = pos.z;
     return true;
+#endif
 }
 
 // Set entity position
 bool game_set_entity_position(Game* game, uint32_t entity_id, float x, float y, float z) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* transform = registry.try_get<Components::Transform>(entity);
+    if (!transform) return false;
+
+    transform->position = Vector3D(x, y, z);
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasTransform()) {
         return false;
@@ -154,10 +241,24 @@ bool game_set_entity_position(Game* game, uint32_t entity_id, float x, float y, 
 
     entity->getTransform().position = Vector3D(x, y, z);
     return true;
+#endif
 }
 
 // Get entity velocity
 bool game_get_entity_velocity(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* physics = registry.try_get<Components::PhysicsBody>(entity);
+    if (!physics) return false;
+
+    *out_x = physics->velocity.x;
+    *out_y = physics->velocity.y;
+    *out_z = physics->velocity.z;
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasPhysics()) {
         return false;
@@ -168,10 +269,22 @@ bool game_get_entity_velocity(Game* game, uint32_t entity_id, float* out_x, floa
     *out_y = vel.y;
     *out_z = vel.z;
     return true;
+#endif
 }
 
 // Set entity velocity
 bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, float z) {
+#if USE_ENTT
+    entt::entity entity = game->getEntity(entity_id);
+    if (entity == entt::null) return false;
+
+    auto& registry = game->getWorld().getRegistry();
+    auto* physics = registry.try_get<Components::PhysicsBody>(entity);
+    if (!physics) return false;
+
+    physics->velocity = Vector3D(x, y, z);
+    return true;
+#else
     Entity* entity = game->getEntity(entity_id);
     if (!entity || !entity->hasPhysics()) {
         return false;
@@ -179,6 +292,7 @@ bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, 
 
     entity->getPhysics().velocity = Vector3D(x, y, z);
     return true;
+#endif
 }
 
 // =============================================================================
