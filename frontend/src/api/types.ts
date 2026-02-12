@@ -50,6 +50,23 @@ export interface SessionManagementPayload extends PasswordMfaPayload {
 	session_ids: number[];
 }
 
+// ==================== FRIENDS ====================
+
+export interface PublicUser {
+	id: number;
+	nickname: string;
+	created_at: string;
+	online: boolean;
+}
+
+export interface FriendRequestResponse {
+	id: number;
+	sender: PublicUser;
+	receiver: PublicUser;
+	status: string;
+	created_at: string;
+}
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {

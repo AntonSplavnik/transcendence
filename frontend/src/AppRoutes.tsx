@@ -9,6 +9,7 @@ import Home from './components/Home';
 import GameBoard from './components/GameBoard';
 import Layout from './components/ui/Layout';
 import ErrorBanner from './components/ui/ErrorBanner';
+import FriendsDrawer from './components/friends/FriendsDrawer';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
 	const { user } = useAuth();
@@ -27,7 +28,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppRoutes() {
-	const { logout, authChecked } = useAuth();
+	const { user, logout, authChecked } = useAuth();
 	const navigate = useNavigate();
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
@@ -51,12 +52,16 @@ export default function AppRoutes() {
 		setCurrentError(null);
 	}, []);
 
+	const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+	const toggleFriends = useCallback(() => setIsFriendsOpen((prev) => !prev), []);
+
 	if (!authChecked) {
 		return <Layout>{null}</Layout>;
 	}
 	return (
 		<Layout>
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
+			{user && <FriendsDrawer isOpen={isFriendsOpen} onToggle={toggleFriends} />}
 			<Routes>
 				<Route path="/landing" element={
 					<PublicRoute>
