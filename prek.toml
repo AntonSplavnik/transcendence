@@ -36,3 +36,21 @@ language = "system"
 files = '^backend/'
 pass_filenames = false
 stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
+id = "eslint"
+name = "ESLint Check"
+entry = "bash -c 'cd frontend && npx eslint .'"
+language = "system"
+files = '^frontend/.*\.(ts|tsx)$'
+pass_filenames = false
+stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
+id = "typescript-check"
+name = "TypeScript Check"
+entry = "bash -c 'cd frontend && npx tsc -b'"
+language = "system"
+files = '^frontend/.*\.(ts|tsx)$'
+pass_filenames = false
+stages = ["pre-push", "manual"]
