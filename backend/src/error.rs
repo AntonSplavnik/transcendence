@@ -143,6 +143,7 @@ impl Scribe for ApiError {
                     StatusError::not_found().brief("Avatar not found")
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
+            },
             Self::Friend(err) => match err {
                 FriendError::SelfRequest
                 | FriendError::DuplicateRequest

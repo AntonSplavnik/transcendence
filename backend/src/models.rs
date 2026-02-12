@@ -187,6 +187,7 @@ impl AvatarLarge {
             updated_at: chrono::Utc::now().naive_utc(),
         }
     }
+}
 
 #[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
@@ -232,6 +233,8 @@ impl AvatarSmall {
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at.and_utc()
     }
+}
+
 impl NewFriendRequest {
     pub fn new(sender_id: i32, receiver_id: i32) -> Self {
         let now = chrono::Utc::now().naive_utc();

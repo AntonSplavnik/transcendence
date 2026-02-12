@@ -15,7 +15,6 @@ pub fn rest_api() -> Router {
             crate::auth::user_router("user"),
             users::router("users"),
             crate::avatar::router("avatar"),
-            friends::router("friends"),
             crate::friends::router("friends"),
             crate::stream::router("stream"),
         ]);

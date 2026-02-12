@@ -12,6 +12,11 @@ diesel::table! {
     avatars_small (user_id) {
         user_id -> Integer,
         data -> Binary,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     friend_requests (id) {
         id -> Integer,
         sender_id -> Integer,
