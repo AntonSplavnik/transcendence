@@ -12,4 +12,5 @@ CREATE TABLE friend_requests (
 
 CREATE INDEX idx_friend_requests_receiver_status ON friend_requests(receiver_id, status);
 CREATE INDEX idx_friend_requests_sender_status ON friend_requests(sender_id, status);
-CREATE INDEX idx_friend_requests_pair ON friend_requests(sender_id, receiver_id);
+CREATE UNIQUE INDEX idx_friend_requests_unique_pair 
+    ON friend_requests(MIN(sender_id, receiver_id), MAX(sender_id,receiver_id));
