@@ -3,6 +3,8 @@
 use crate::models::{FriendRequest, User};
 use crate::prelude::*;
 
+use std::collections::HashMap;
+
 use super::types::{FriendRequestResponse, MAX_LIST_RESULTS, RequestStatus};
 
 /// Get outgoing friend requests
@@ -27,8 +29,13 @@ pub async fn get_outgoing_requests(
                 .load(conn)?;
 
             let receiver_ids: Vec<i32> = requests.iter().map(|r| r.receiver_id).collect();
-            let receivers: Vec<User> =
-                u::users.filter(u::id.eq_any(&receiver_ids)).load(conn)?;
+            let receivers: HashMap<i32, User> = u::users
+            .filter(u::id
+            .eq_any(&receiver_ids))
+            .load::<User>(conn)?
+            .into_iter()
+            .map(|user| (user.id, user))
+            .collect();
 
             let sender: User = u::users.filter(u::id.eq(user_id)).first(conn)?;
 
@@ -36,10 +43,7 @@ pub async fn get_outgoing_requests(
                 requests
                     .iter()
                     .filter_map(|request| {
-                        let receiver = receivers
-                            .iter()
-                            .find(|r| r.id == request.receiver_id)?
-                            .clone();
+                        let receiver = receivers.get(&request.receiver_id)?.clone();
                         Some(FriendRequestResponse::new(
                             request,
                             sender.clone(),
