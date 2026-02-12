@@ -1,5 +1,8 @@
 use std::collections::HashSet;
 
+use chrono::DateTime;
+use chrono::Utc;
+
 use super::two_factor;
 use super::util;
 use crate::auth::TwoFactorError;
@@ -226,10 +229,10 @@ pub struct SessionInfo {
     pub user_id: i32,
     pub device_name: Option<String>,
     pub ip_address: Option<String>,
-    pub created_at: chrono::NaiveDateTime,
-    pub last_used_at: chrono::NaiveDateTime,
-    pub access_expiry: chrono::NaiveDateTime,
-    pub login_expiry: chrono::NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    pub access_expiry: DateTime<Utc>,
+    pub login_expiry: DateTime<Utc>,
 }
 
 impl From<&Session> for SessionInfo {
@@ -239,10 +242,10 @@ impl From<&Session> for SessionInfo {
             user_id: session.user_id,
             device_name: session.device_name.clone(),
             ip_address: session.ip_address.clone(),
-            created_at: session.created_at().naive_utc(),
-            last_used_at: session.last_used_at().naive_utc(),
-            access_expiry: session.access_expiry().naive_utc(),
-            login_expiry: session.login_expiry().naive_utc(),
+            created_at: session.created_at,
+            last_used_at: session.last_used_at,
+            access_expiry: session.access_expiry(),
+            login_expiry: session.login_expiry(),
         }
     }
 }
@@ -368,7 +371,7 @@ fn deauth_other_sessions(
 
 fn deauth_sessions(conn: &mut DbConn, target_user: i32, session_ids: &[i32]) -> AppResult<usize> {
     use crate::schema::sessions::dsl::*;
-    let epoch = chrono::DateTime::UNIX_EPOCH.naive_utc();
+    let epoch = chrono::DateTime::UNIX_EPOCH;
     let result = diesel::update(
         sessions
             .filter(user_id.eq(target_user))
@@ -441,7 +444,7 @@ async fn two_fa_start(
                 diesel::update(users.filter(id.eq(user.id)).filter(totp_enabled.eq(false)))
                     .set((
                         totp_secret_enc.eq(Some(secret_enc)),
-                        totp_confirmed_at.eq::<Option<chrono::NaiveDateTime>>(None),
+                        totp_confirmed_at.eq::<Option<DateTime<Utc>>>(None),
                     ))
                     .execute(conn)?;
 
@@ -511,7 +514,7 @@ async fn two_fa_confirm(
             }
 
             let recovery_codes = conn.transaction::<_, ApiError, _>(|conn| {
-                let now = chrono::Utc::now().naive_utc();
+                let now = chrono::Utc::now();
                 let updated = diesel::update(
                     users
                         .filter(id.eq(user.id))
@@ -580,7 +583,7 @@ async fn two_fa_disable(
             .set((
                 totp_enabled.eq(false),
                 totp_secret_enc.eq::<Option<String>>(None),
-                totp_confirmed_at.eq::<Option<chrono::NaiveDateTime>>(None),
+                totp_confirmed_at.eq::<Option<DateTime<Utc>>>(None),
             ))
             .execute(conn)?;
 

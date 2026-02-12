@@ -79,11 +79,11 @@ struct JwtClaims {
 impl Session {
     // This includes any form of expiry which can happen to this session
     pub fn access_expiry(&self) -> DateTime<Utc> {
-        (self.refreshed_at() + SESSION_ACCESS_EXPIRY).min(self.login_expiry())
+        (self.refreshed_at + SESSION_ACCESS_EXPIRY).min(self.login_expiry())
     }
 
     pub fn login_expiry(&self) -> DateTime<Utc> {
-        (self.refreshed_at() + SESSION_LOGIN_EXPIRY_ROLLING)
-            .min(self.last_authenticated_at() + SESSION_LOGIN_EXPIRY)
+        (self.refreshed_at + SESSION_LOGIN_EXPIRY_ROLLING)
+            .min(self.last_authenticated_at + SESSION_LOGIN_EXPIRY)
     }
 }
