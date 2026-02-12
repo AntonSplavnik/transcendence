@@ -25,6 +25,8 @@ pub enum FriendError {
     UserNotFound,
     #[error("not friends with this user")]
     NotFriends,
+    #[error("too many pending friend requests")]
+    TooManyPending,
     #[error("invalid parameter: {0}")]
     InvalidParam(String),
 }
@@ -150,21 +152,14 @@ impl Scribe for ApiError {
                 FriendError::SelfRequest
                 | FriendError::DuplicateRequest
                 | FriendError::AlreadyFriends
-                | FriendError::InvalidParam(_) => {
-                    StatusError::bad_request().brief(err.to_string())
-                }
+                | FriendError::TooManyPending
+                | FriendError::InvalidParam(_) => StatusError::bad_request().brief(err.to_string()),
                 FriendError::RequestNotFound | FriendError::NotFriends => {
                     StatusError::not_found().brief(err.to_string())
                 }
-                FriendError::RequestNotPending => {
-                    StatusError::conflict().brief(err.to_string())
-                }
-                FriendError::NotAuthorized => {
-                    StatusError::forbidden().brief(err.to_string())
-                }
-                FriendError::UserNotFound => {
-                    StatusError::not_found().brief(err.to_string())
-                }
+                FriendError::RequestNotPending => StatusError::conflict().brief(err.to_string()),
+                FriendError::NotAuthorized => StatusError::forbidden().brief(err.to_string()),
+                FriendError::UserNotFound => StatusError::not_found().brief(err.to_string()),
             },
         };
 

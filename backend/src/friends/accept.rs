@@ -1,10 +1,9 @@
 //! POST /api/friends/accept/<request_id> - Accept a friend request
 
-use crate::error::FriendError;
 use crate::models::{FriendRequest, User};
 use crate::prelude::*;
 
-use super::types::{parse_param, FriendRequestResponse, RequestStatus};
+use super::types::{FriendRequestResponse, RequestStatus, find_pending_request, parse_param};
 
 /// Accept a friend request
 #[endpoint]
@@ -21,28 +20,16 @@ pub async fn accept_friend_request(
 
     let (updated_request, sender, receiver) = db
         .write(move |conn| {
-            // Find the request
-            let request: FriendRequest = fr::friend_requests
-                .filter(fr::id.eq(request_id))
-                .first(conn)
-                .optional()?
-                .ok_or(FriendError::RequestNotFound)?;
-
-            // Only the receiver can accept
-            if request.receiver_id != user_id {
-                return Err(FriendError::NotAuthorized.into());
-            }
-
-            // Must be pending
-            if request.status != RequestStatus::PENDING {
-                return Err(FriendError::RequestNotPending.into());
-            }
+            let request = find_pending_request(conn, request_id, user_id, false)?;
 
             // Update status to accepted
             let now = chrono::Utc::now().naive_utc();
             let updated_request: FriendRequest =
                 diesel::update(fr::friend_requests.filter(fr::id.eq(request_id)))
-                    .set((fr::status.eq(RequestStatus::ACCEPTED), fr::updated_at.eq(now)))
+                    .set((
+                        fr::status.eq(RequestStatus::ACCEPTED),
+                        fr::updated_at.eq(now),
+                    ))
                     .get_result(conn)?;
 
             let sender: User = u::users.filter(u::id.eq(request.sender_id)).first(conn)?;

@@ -35,8 +35,11 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
                 })
                 .collect();
 
-            // Load friend users
-            let friends: Vec<User> = u::users.filter(u::id.eq_any(&friend_ids)).load(conn)?;
+            // Load friend users, ordered by nickname
+            let friends: Vec<User> = u::users
+                .filter(u::id.eq_any(&friend_ids))
+                .order(u::nickname.asc())
+                .load(conn)?;
 
             Ok::<_, ApiError>(friends.into_iter().map(PublicUser::from).collect())
         })

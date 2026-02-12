@@ -4,15 +4,11 @@ use crate::error::FriendError;
 use crate::models::FriendRequest;
 use crate::prelude::*;
 
-use super::types::{parse_param, RequestStatus};
+use super::types::{RequestStatus, parse_param};
 
 /// Remove a friend
 #[endpoint]
-pub async fn remove_friend(
-    depot: &mut Depot,
-    req: &mut Request,
-    db: Db,
-) -> JsonResult<()> {
+pub async fn remove_friend(depot: &mut Depot, req: &mut Request, db: Db) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 
     let user_id = depot.session().user_id;

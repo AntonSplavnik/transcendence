@@ -1,10 +1,14 @@
 //! POST /api/friends/request - Send a friend request
 
+use diesel::result::{DatabaseErrorKind, Error as DieselError};
+
 use crate::error::FriendError;
 use crate::models::{FriendRequest, NewFriendRequest, User};
 use crate::prelude::*;
 
-use super::types::{FriendRequestResponse, RequestStatus, SendFriendRequestInput};
+use super::types::{
+    FriendRequestResponse, MAX_PENDING_REQUESTS, RequestStatus, SendFriendRequestInput,
+};
 
 /// Send a friend request to another user
 ///
@@ -66,29 +70,28 @@ pub async fn send_friend_request(
                 return Err(FriendError::AlreadyFriends.into());
             }
 
-            // Check if pending request exists
-            let existing: Option<FriendRequest> = fr::friend_requests
+            // Check spam: limit pending requests per user
+            let pending_count: i64 = fr::friend_requests
+                .filter(fr::sender_id.eq(sender_id))
                 .filter(fr::status.eq(RequestStatus::PENDING))
-                .filter(
-                    fr::sender_id
-                        .eq(sender_id)
-                        .and(fr::receiver_id.eq(receiver_id))
-                        .or(fr::sender_id
-                            .eq(receiver_id)
-                            .and(fr::receiver_id.eq(sender_id))),
-                )
-                .first(conn)
-                .optional()?;
+                .count()
+                .get_result(conn)?;
 
-            if existing.is_some() {
-                return Err(FriendError::DuplicateRequest.into());
+            if pending_count >= MAX_PENDING_REQUESTS {
+                return Err(FriendError::TooManyPending.into());
             }
 
-            // Create the request
+            // Create the request — catch UniqueViolation from the DB constraint
             let new_request = NewFriendRequest::new(sender_id, receiver_id);
             let request: FriendRequest = diesel::insert_into(fr::friend_requests)
                 .values(&new_request)
-                .get_result(conn)?;
+                .get_result(conn)
+                .map_err(|e| match e {
+                    DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
+                        ApiError::Friend(FriendError::DuplicateRequest)
+                    }
+                    other => ApiError::DatabaseQuery(other),
+                })?;
 
             let sender: User = u::users.filter(u::id.eq(sender_id)).first(conn)?;
 
