@@ -114,6 +114,7 @@ impl GameManagerHoop {
 pub fn router(gm: Arc<GameManager>) -> Router {
     Router::with_path("game")
         .hoop(GameManagerHoop(gm))
+        .requires_user_login()
         .push(Router::with_path("join_stream").post(join_stream))
         .push(Router::with_path("status").get(get_status))
         .push(Router::with_path("snapshot").get(get_snapshot))
