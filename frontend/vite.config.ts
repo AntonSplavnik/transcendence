@@ -13,4 +13,7 @@ export default defineConfig({
 			},
 		},
 	},
+	optimizeDeps: {
+		exclude: ['@bokuweb/zstd-wasm'],
+	},
 })
