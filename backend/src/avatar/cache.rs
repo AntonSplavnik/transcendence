@@ -3,7 +3,7 @@
 //! Caches small avatars (200x200, ~4kb each) to reduce database load.
 //! With 1000 users cached, memory usage is approximately 4MB.
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use quick_cache::sync::Cache;
 use std::sync::{Arc, LazyLock};
 
@@ -14,7 +14,7 @@ const CACHE_CAPACITY: usize = 1000;
 #[derive(Clone)]
 pub struct CachedAvatar {
     pub data: Arc<Vec<u8>>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 // TODO remove global cache and replace with injected shared value
@@ -32,7 +32,7 @@ pub fn get(user_id: i32) -> Option<CachedAvatar> {
 }
 
 /// Insert a small avatar into the cache
-pub fn insert(user_id: i32, data: Vec<u8>, updated_at: NaiveDateTime) {
+pub fn insert(user_id: i32, data: Vec<u8>, updated_at: DateTime<Utc>) {
     SMALL_AVATAR_CACHE.insert(
         user_id,
         CachedAvatar {
