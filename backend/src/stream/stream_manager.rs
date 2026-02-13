@@ -69,7 +69,8 @@
 //! # Thread safety
 //!
 //! The [`StreamManager`] uses [`DashMap`] for concurrent access and is safe to call
-//! from multiple tasks. The singleton is created lazily via [`StreamManager::global`].
+//! from multiple tasks. Instances are provided via dependency injection and accessed
+//! through the [`StreamManagerDepotExt`] trait rather than a global singleton.
 
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU64, Ordering};
