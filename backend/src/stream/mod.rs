@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 
 mod compress_cbor_codec;
-mod echo_example;
 mod stream_manager;
 
 pub use futures::SinkExt;
