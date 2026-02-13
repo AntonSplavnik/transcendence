@@ -3,7 +3,9 @@ use std::sync::Arc;
 #[cfg(debug_assertions)]
 use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 
-use crate::{prelude::*, stream::StreamManager, utils::NickCache};
+use crate::{
+    notifications::NotificationManager, prelude::*, stream::StreamManager, utils::NickCache,
+};
 
 pub mod users;
 
@@ -29,6 +31,7 @@ pub fn rest_api(database: Db) -> Router {
 
     Router::new()
         .hoop(affix_state::inject(Arc::new(StreamManager::new())))
+        .hoop(affix_state::inject(NotificationManager::new()))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }

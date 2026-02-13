@@ -752,7 +752,7 @@ pub async fn connect_stream(
     let session_id = wt_session.session_id();
 
     // Register this connection (replaces any existing connection for this user)
-    let streams = depot.stream_manager();
+    let streams = depot.stream_manager().clone();
     let (session_rx, pending_key_guard) = streams.register_pending();
     let connection_id = pending_key_guard.connection_id;
     // Open control stream with initial message
@@ -778,12 +778,19 @@ pub async fn connect_stream(
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
     let connection_id = streams.register(&user_session, cmd_tx, connection_id);
 
-    tracing::info!(
-        user_session.user_id,
-        user_session.id,
-        connection_id,
-        "User successfully connected via WebTransport"
-    );
+    let db = depot.db().clone();
+    if let Err(err) = super::on_connect(user_session.user_id, &db, &*streams, depot).await {
+        tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
+        streams.unregister(user_session.user_id, Some(connection_id), None);
+    } else {
+        tracing::info!(
+            user_session.user_id,
+            user_session.id,
+            connection_id,
+            "User successfully connected via WebTransport"
+        );
+    }
+
     // TODO check whether connection closure leads to handler panic
     // if not, how do we detect whether the connection is closed? (-> reimpl heartbeat stream idea)
     loop {
