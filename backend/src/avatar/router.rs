@@ -12,8 +12,8 @@ use crate::prelude::*;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use chrono::{DateTime, Utc};
-use salvo::http::header;
 use salvo::http::StatusCode;
+use salvo::http::header;
 use salvo::oapi::extract::PathParam;
 use std::sync::LazyLock;
 
@@ -111,7 +111,7 @@ async fn upload_avatar(
     depot: &mut Depot,
     json: JsonBody<UploadAvatarRequest>,
     db: Db,
-) -> AppResult<()> {
+) -> AppResult<StatusCode> {
     let user_id = depot.user_id();
     let request = json.into_inner();
 
@@ -142,7 +142,7 @@ async fn upload_avatar(
 
     tracing::info!(user_id = user_id, "Avatar uploaded successfully");
 
-    Ok(())
+    Ok(StatusCode::OK)
 }
 
 /// Get large avatar
@@ -224,7 +224,7 @@ async fn get_avatar_small(
 
 /// Delete own avatar
 #[endpoint]
-async fn delete_avatar(depot: &mut Depot, db: Db) -> AppResult<()> {
+async fn delete_avatar(depot: &mut Depot, db: Db) -> AppResult<StatusCode> {
     let user_id = depot.user_id();
 
     db.write(move |conn| {
@@ -252,5 +252,5 @@ async fn delete_avatar(depot: &mut Depot, db: Db) -> AppResult<()> {
 
     tracing::info!(user_id = user_id, "Avatar deleted");
 
-    Ok(())
+    Ok(StatusCode::OK)
 }

@@ -49,7 +49,7 @@ export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditPro
             await uploadAvatar(result.data.large, result.data.small);
             onAvatarChanged();
             onClose();
-        } catch (error) {
+        } catch {
             setError("Failed to upload avatar");
         } finally {
             setLoading(false);
@@ -63,7 +63,7 @@ export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditPro
             await deleteAvatar();
             onAvatarChanged();
             onClose();
-        } catch (error) {
+        } catch {
             setError("Failed to delete avatar");
         } finally {
             setLoading(false);

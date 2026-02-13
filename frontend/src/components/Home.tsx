@@ -5,7 +5,6 @@ import Button from "./ui/Button";
 import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
 import AvatarUpload from './ui/AvatarUpload';
-import type { User, Session } from '../api/types';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
 import SessionDetailsModal from './modals/SessionDetailModal';
 import ReauthModal from './modals/ReauthModal';
