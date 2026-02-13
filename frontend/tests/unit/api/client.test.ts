@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../helpers/msw-handlers';
 import { createMockApiError } from '../../fixtures/errors';
+import type { AxiosRequestConfig } from 'axios';
 
 describe('API client interceptors', () => {
 	beforeEach(() => {
@@ -71,7 +72,7 @@ describe('API client interceptors', () => {
 		const { default: apiClient } = await import('../../../src/api/client');
 
 		await expect(
-			apiClient.get('/silent-test', { _silent: true } as any)
+			apiClient.get('/silent-test', { _silent: true } as AxiosRequestConfig & { _silent?: boolean })
 		).rejects.toThrow();
 
 		expect(localStorage.getItem('auth_error')).toBeNull();

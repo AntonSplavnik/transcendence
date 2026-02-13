@@ -129,7 +129,7 @@ describe('AuthPage', () => {
 			await user.type(screen.getByPlaceholderText('••••••••'), 'password');
 			await user.click(screen.getByText('Sign In'));
 
-			expect(screen.getByText('Signing In....')).toBeInTheDocument();
+			expect(screen.getByText('Signing In...')).toBeInTheDocument();
 		});
 
 		it('opens MFA modal when TwoFactorRequired', async () => {

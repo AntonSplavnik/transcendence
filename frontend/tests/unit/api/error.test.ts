@@ -11,6 +11,7 @@ import {
 	createMockNetworkError,
 	createMockStoredError,
 } from '../../fixtures/errors';
+import type { InternalAxiosRequestConfig } from 'axios';
 
 describe('error utilities', () => {
 	beforeEach(() => {
@@ -85,7 +86,7 @@ describe('error utilities', () => {
 
 		it('returns axios error message when no response data', () => {
 			const error = createMockAxiosError(500);
-			error.response = { status: 500, statusText: 'Error', headers: {}, config: {} as any, data: {} };
+			error.response = { status: 500, statusText: 'Error', headers: {}, config: {} as InternalAxiosRequestConfig, data: {} };
 			expect(getErrorMessage(error)).toBe('Request failed with status code 500');
 		});
 

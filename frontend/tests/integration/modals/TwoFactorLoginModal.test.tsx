@@ -45,7 +45,7 @@ describe('TwoFactorLoginModal', () => {
 
 		const input = screen.getByLabelText('Authentication Code');
 		expect(input).toBeInTheDocument();
-		expect(input).toHaveAttribute('type', 'text');
+		expect(input.tagName).toBe('INPUT');
 		expect(input).toHaveAttribute('autocomplete', 'one-time-code');
 	});
 

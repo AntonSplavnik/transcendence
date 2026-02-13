@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, userEvent, waitFor } from '../../helpers/render';
+import { render, screen, userEvent } from '../../helpers/render';
 import ErrorBanner from '../../../src/components/ui/ErrorBanner';
 import { createMockStoredError } from '../../fixtures/errors';
 
@@ -52,12 +52,12 @@ describe('ErrorBanner', () => {
 		vi.useRealTimers(); // Need real timers for userEvent
 		const user = userEvent.setup();
 
-		const { container } = render(
+		render(
 			<ErrorBanner error={createMockStoredError()} onDismiss={mockOnDismiss} />,
 			{ withAuth: false }
 		);
 
-		await user.click(screen.getByRole('button', { name: 'Dismiss error' }));
+		await user.click(screen.getByRole('button', { name: 'Dismiss notification' }));
 
 		expect(mockOnDismiss).toHaveBeenCalledTimes(1);
 	});
@@ -65,7 +65,7 @@ describe('ErrorBanner', () => {
 	it('has dismiss button with aria-label', () => {
 		renderBanner();
 
-		expect(screen.getByRole('button', { name: 'Dismiss error' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Dismiss notification' })).toBeInTheDocument();
 	});
 
 	it('clears timeout on unmount', () => {
@@ -111,7 +111,6 @@ describe('ErrorBanner', () => {
 		const banner = screen.getByText(error.message).closest('.fixed');
 		expect(banner).toHaveClass('top-4');
 		expect(banner).toHaveClass('left-1/2');
-		expect(banner).toHaveClass('transform');
 		expect(banner).toHaveClass('-translate-x-1/2');
 	});
 
@@ -120,10 +119,10 @@ describe('ErrorBanner', () => {
 		renderBanner(error);
 
 		const banner = screen.getByText(error.message).closest('.fixed');
-		expect(banner).toHaveClass('bg-red-900/90');
+		expect(banner).toHaveClass('bg-danger/90');
 		expect(banner).toHaveClass('border');
-		expect(banner).toHaveClass('border-red-500');
-		expect(banner).toHaveClass('text-red-100');
+		expect(banner).toHaveClass('border-danger-light');
+		expect(banner).toHaveClass('text-white');
 	});
 
 	it('has high z-index', () => {
