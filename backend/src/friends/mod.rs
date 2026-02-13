@@ -23,23 +23,23 @@ pub fn router(path: &str) -> Router {
                 .user_rate_limit(&RateLimit::per_minute(30))
                 .post(send::send_friend_request)
                 .push(
-                    Router::with_path("<request_id>")
+                    Router::with_path("{request_id}")
                         .user_rate_limit(&RateLimit::per_minute(30))
                         .delete(cancel::cancel_friend_request),
                 ),
         )
         .push(
-            Router::with_path("accept/<request_id>")
+            Router::with_path("accept/{request_id}")
                 .user_rate_limit(&RateLimit::per_minute(30))
                 .post(accept::accept_friend_request),
         )
         .push(
-            Router::with_path("reject/<request_id>")
+            Router::with_path("reject/{request_id}")
                 .user_rate_limit(&RateLimit::per_minute(30))
                 .post(reject::reject_friend_request),
         )
         .push(
-            Router::with_path("<user_id>")
+            Router::with_path("{user_id}")
                 .user_rate_limit(&RateLimit::per_minute(30))
                 .delete(remove::remove_friend),
         )
