@@ -11,7 +11,7 @@ use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use salvo::http::header;
 use salvo::http::StatusCode;
 use salvo::oapi::extract::PathParam;
@@ -34,7 +34,7 @@ static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<String> = LazyLock::new(|| {
 });
 
 /// Generate an ETag from an `updated_at` timestamp
-fn make_etag(updated_at: &NaiveDateTime) -> String {
+fn make_etag(updated_at: &DateTime<Utc>) -> String {
     let hash = blake3::hash(updated_at.to_string().as_bytes());
     let hex = hash.to_hex();
     let short = &hex.as_str()[..16];
