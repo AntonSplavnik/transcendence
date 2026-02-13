@@ -5,9 +5,9 @@
 
 use chrono::{DateTime, Utc};
 
+use crate::models::User;
 use crate::models::nickname::Nickname;
 use crate::prelude::*;
-use crate::{models::User, stream::StreamManager};
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -38,13 +38,13 @@ pub struct PublicUser {
     pub online: bool,
 }
 
-impl From<User> for PublicUser {
-    fn from(user: User) -> Self {
+impl PublicUser {
+    pub fn new(user: User, online: bool) -> Self {
         Self {
             id: user.id,
             nickname: user.nickname,
             created_at: user.created_at,
-            online: StreamManager::global().is_connected(user.id),
+            online,
         }
     }
 }
@@ -77,7 +77,11 @@ async fn check_nickname(json: JsonBody<Nickname>, db: Db) -> JsonResult<CheckNic
 
 /// Retrieve users by their IDs
 #[endpoint]
-async fn get_users_by_id(json: JsonBody<Vec<i32>>, db: Db) -> JsonResult<Vec<PublicUser>> {
+async fn get_users_by_id(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<Vec<i32>>,
+) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
     let user_ids = json.into_inner();
 
@@ -85,14 +89,25 @@ async fn get_users_by_id(json: JsonBody<Vec<i32>>, db: Db) -> JsonResult<Vec<Pub
         .read(move |conn| users.filter(id.eq_any(user_ids)).load::<User>(conn))
         .await??;
 
-    json_ok(result.into_iter().map(PublicUser::from).collect())
+    let streams = depot.stream_manager();
+
+    json_ok(
+        result
+            .into_iter()
+            .map(|user| {
+                let online = streams.is_connected(user.id);
+                PublicUser::new(user, online)
+            })
+            .collect(),
+    )
 }
 
 /// Retrieve users by their nicknames
 #[endpoint]
 async fn get_users_by_nickname(
-    json: JsonBody<Vec<Nickname>>,
+    depot: &mut Depot,
     db: Db,
+    json: JsonBody<Vec<Nickname>>,
 ) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
     let nicknames = json.into_inner();
@@ -101,7 +116,16 @@ async fn get_users_by_nickname(
         .read(move |conn| users.filter(nickname.eq_any(nicknames)).load::<User>(conn))
         .await??;
 
-    json_ok(result.into_iter().map(PublicUser::from).collect())
+    let streams = depot.stream_manager();
+    json_ok(
+        result
+            .into_iter()
+            .map(|user| {
+                let online = streams.is_connected(user.id);
+                PublicUser::new(user, online)
+            })
+            .collect(),
+    )
 }
 
 #[derive(Debug, Clone, Copy, Serialize, ToSchema)]
@@ -121,10 +145,15 @@ impl From<(i32, Nickname)> for UserNickname {
 
 /// High-performance endpoint for retrieving only the Nickname of a user
 #[endpoint]
-async fn get_nicknames_by_ids(json: JsonBody<Vec<i32>>, db: Db) -> JsonResult<Vec<UserNickname>> {
+async fn get_nicknames_by_ids(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<Vec<i32>>,
+) -> JsonResult<Vec<UserNickname>> {
     let user_ids = json.into_inner();
+    let nick_cache = depot.nickname_cache().clone();
     let result = db
-        .read(move |conn| NICK_CACHE.try_get_many(user_ids, conn))
+        .read(move |conn| nick_cache.try_get_many(user_ids, conn))
         .await??;
 
     json_ok(result.into_iter().map(UserNickname::from).collect())

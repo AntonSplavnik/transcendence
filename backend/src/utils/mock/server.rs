@@ -56,9 +56,7 @@ impl Server {
 impl Default for Server {
     fn default() -> Self {
         let db = Db::new_test().expect("Failed to create test database");
-        let router = crate::routers::rest_api()
-            .hoop(crate::db::DatabaseHoop::new(db.clone()))
-            .hoop(crate::auth::device_id_inserter_hoop);
+        let router = crate::routers::rest_api(db.clone());
         Server {
             host: "http://localhost".into(),
             db,

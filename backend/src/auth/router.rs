@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use diesel::OptionalExtension;
 
 use crate::auth::AuthError;
@@ -7,6 +9,7 @@ use crate::auth::user::{SessionInfo, UserSessionInfo};
 use crate::models::nickname::Nickname;
 use crate::models::{NewSession, NewUser, Session, User};
 use crate::prelude::*;
+use crate::stream::StreamManager;
 
 use super::util;
 
@@ -93,7 +96,7 @@ async fn register(
         .await??;
 
     let jwt = util::jwt_create(&session, token_truncated)?;
-    NICK_CACHE.add(user.id, user.nickname);
+    depot.nickname_cache().add(user.id, user.nickname);
     set_auth_cookies(res, token, jwt);
     json_ok(UserSessionInfo::new(user, session))
 }
@@ -130,6 +133,7 @@ async fn login(
     let token = SessionToken::generate();
     let token_hash_value = token.to_hash();
     let token_truncated = token_hash_value.to_truncated();
+    let streams = depot.stream_manager().clone();
 
     let (user, session) = db
         .write(move |conn| {
@@ -145,6 +149,7 @@ async fn login(
             {
                 Ok(Some(session)) => rotate_session::<true>(
                     conn,
+                    &streams,
                     &session,
                     &device_id_value,
                     device_name_value,
@@ -199,6 +204,7 @@ async fn reauth(
     let token_hash_value = token.to_hash();
     let token_truncated = token_hash_value.to_truncated();
     let session = session.clone();
+    let streams = depot.stream_manager().clone();
 
     let session = db
         .write(move |conn| {
@@ -211,6 +217,7 @@ async fn reauth(
 
             rotate_session::<true>(
                 conn,
+                &streams,
                 &session,
                 &device_id_value,
                 device_name_value,
@@ -246,11 +253,13 @@ async fn refresh_jwt(
     let token_hash_value = token.to_hash();
     let token_truncated = token_hash_value.to_truncated();
     let session = session.clone();
+    let streams = depot.stream_manager().clone();
 
     let session = db
         .write(move |conn| {
             rotate_session::<false>(
                 conn,
+                &streams,
                 &session,
                 &device_id_value,
                 device_name_value,
@@ -272,6 +281,7 @@ fn set_auth_cookies(res: &mut Response, token: SessionToken, jwt: String) {
 
 fn rotate_session<const DO_REAUTH: bool>(
     conn: &mut DbConn,
+    streams: &Arc<StreamManager>,
     session: &Session,
     device_id: &str,
     device_name: Option<String>,
@@ -297,7 +307,7 @@ fn rotate_session<const DO_REAUTH: bool>(
         return Err(AuthError::SessionMismatch.into());
     }
 
-    crate::stream::StreamManager::global().refresh_auth(&rotated);
+    streams.refresh_auth(&rotated);
     Ok(rotated)
 }
 

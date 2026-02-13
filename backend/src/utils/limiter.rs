@@ -1,4 +1,5 @@
 use std::sync::Arc;
+#[cfg(not(test))]
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
@@ -11,6 +12,7 @@ use crate::auth::DepotAuthExt;
 const RATE_HASHES: usize = 3;
 const RATE_SLOTS: usize = 512;
 
+#[cfg(not(test))]
 static RATE_LIMITED_COUNTERS: [AtomicUsize; 8] = [
     AtomicUsize::new(0),
     AtomicUsize::new(0),
@@ -22,6 +24,7 @@ static RATE_LIMITED_COUNTERS: [AtomicUsize; 8] = [
     AtomicUsize::new(0),
 ];
 
+#[cfg(not(test))]
 pub fn periodic_rate_limit_report() {
     use tokio::time::interval;
 
@@ -100,6 +103,7 @@ impl RateLimit {
         let observed = self.rate.observe(key, 1);
 
         if observed <= 0 || observed > self.limit as isize {
+            #[cfg(not(test))]
             RATE_LIMITED_COUNTERS[observed as usize % RATE_LIMITED_COUNTERS.len()]
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             res.status_code(StatusCode::TOO_MANY_REQUESTS);

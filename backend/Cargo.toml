@@ -30,6 +30,7 @@ salvo = { version = "0.89", features = [
 	"rustls",
 	"test",
 	"timeout",
+	"affix-state",
 ] }
 # serialization and deserialization library
 serde = { version = "1", features = ["derive", "rc"] }

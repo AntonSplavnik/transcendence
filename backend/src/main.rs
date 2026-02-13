@@ -61,24 +61,23 @@ async fn async_main() -> ExitCode {
             listen_addr.replace("0.0.0.0", "127.0.0.1")
         );
     }
+
     let logger = config.log.guard();
     tokio::spawn(async move {
         let _logger = logger;
         // block infinitely
         std::future::pending::<()>().await;
     });
+
+    #[cfg(not(test))]
     crate::utils::limiter::periodic_rate_limit_report();
 
+    tracing::info!("log level: {}", &config.log.filter_level);
     // Initialize database (reader pool + single writer, runs migrations)
     let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
 
-    tracing::info!("log level: {}", &config.log.filter_level);
-
-    let mut router = routers::root()
-        .hoop(db::DatabaseHoop::new(database))
-        .hoop(ForceHttps::new().https_port(config.listen_https_port))
-        .hoop(crate::auth::device_id_inserter_hoop);
-
+    let mut router =
+        routers::root(database).hoop(ForceHttps::new().https_port(config.listen_https_port));
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router).await;
