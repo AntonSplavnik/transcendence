@@ -74,7 +74,7 @@
 
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, LazyLock, Weak};
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use anyhow::Context;
