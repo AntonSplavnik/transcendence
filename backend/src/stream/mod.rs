@@ -1,6 +1,8 @@
 #![allow(unused_imports)]
 
 mod compress_cbor_codec;
+mod compress_flatbuffers_codec;
+mod compress_flexbuffers_codec;
 mod echo_example;
 mod stream_manager;
 

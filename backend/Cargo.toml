@@ -122,6 +122,8 @@ smallvec = { version = "1.15.1", features = [
 	"const_generics",
 ] }
 mini-moka = "0.10.3"
+flatbuffers = { version = "25.12.19" }
+flexbuffers = "25.12.19"
 
 [dev-dependencies]
 tokio-test = "0.4"
