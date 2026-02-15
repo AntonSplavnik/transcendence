@@ -1,4 +1,4 @@
-// Example usage of the ArenaGame engine
+// Example usage of the ArenaGame engine (EnTT version)
 // This demonstrates how to integrate the game loop with a server
 
 #include "../include/ArenaGame.hpp"
@@ -8,7 +8,7 @@
 
 // Use the namespace to avoid repetition
 using namespace ArenaGame;
-using Game = ::ArenaGame::ArenaGame; // Alias the class to avoid ambiguity
+using Game = ::ArenaGame::ArenaGame;
 
 // =============================================================================
 // Example: Running the game loop on the server

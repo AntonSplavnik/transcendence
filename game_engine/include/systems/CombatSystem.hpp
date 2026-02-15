@@ -1,44 +1,44 @@
 #pragma once
 
-#include "System.hpp"
+#include "Systems/System.hpp"
+#include "Components/PlayerInfo.hpp"
+#include "Components/Transform.hpp"
+#include "Components/Health.hpp"
+#include "Components/CombatController.hpp"
+#include "Components/CharacterController.hpp"
 #include "GameTypes.hpp"
-#include "Core/Entity.hpp"
-#include <vector>
+#include <entt/entt.hpp>
 #include <queue>
 
 namespace ArenaGame {
 
 // =============================================================================
-// CombatSystem - Handles all combat logic
+// CombatSystem - EnTT-based combat system
 // =============================================================================
-// Responsibilities:
-// - Process attack commands
-// - Handle damage application
-// - Manage attack cooldowns
-// - Process death/respawn
-// - Future: Projectile damage, area-of-effect, buffs/debuffs
+// Drop-in replacement for CombatSystem using EnTT views
+// - Uses view<Health, CombatController> for iteration
+// - Uses World for PlayerID → entity lookups
+// - Identical combat logic to CombatSystem.hpp
 //
-// Works with entities that have Health and CombatController components
+// Performance improvements:
+// - Packed storage for better cache locality
+// - Automatic filtering (view only returns entities with required components)
+// - No manual entity tracking
 // =============================================================================
 
 class CombatSystem : public System {
 public:
-    CombatSystem();
+    CombatSystem() = default;
 
     // System interface
     void update(float deltaTime) override;
     const char* getName() const override { return "CombatSystem"; }
 
-    // Register entities for combat processing
-    void addEntity(Core::Entity* entity);
-    void removeEntity(Core::Entity* entity);
-    void clear();
-
     // Combat actions
     void registerHit(PlayerID attackerID, PlayerID victimID, float damage);
     void requestAttack(PlayerID playerID);
 
-    // Combat configuration
+    // Combat configuration (same as CombatSystem)
     struct Config {
         float meleeRange = 2.0f;        // Range for melee attacks
         float meleeDamage = 10.0f;      // Base melee damage
@@ -49,8 +49,13 @@ public:
     const Config& getConfig() const { return m_config; }
     void setConfig(const Config& config) { m_config = config; }
 
+    // Clear pending actions (for shutdown)
+    void clear() {
+        while (!m_pendingHits.empty()) m_pendingHits.pop();
+        while (!m_pendingAttacks.empty()) m_pendingAttacks.pop();
+    }
+
 private:
-    std::vector<Core::Entity*> m_entities;
     Config m_config;
 
     // Pending hits to process
@@ -68,7 +73,7 @@ private:
     std::queue<PendingAttack> m_pendingAttacks;
 
     // Helper methods
-    Core::Entity* findEntity(PlayerID playerID);
+    entt::entity findEntity(PlayerID playerID);
     void processAttacks();
     void processDamage();
     void updateCooldowns(float deltaTime);
@@ -77,10 +82,6 @@ private:
 // =============================================================================
 // Implementation
 // =============================================================================
-
-inline CombatSystem::CombatSystem() {
-    m_entities.reserve(32);
-}
 
 inline void CombatSystem::update(float deltaTime) {
     // Process all pending attacks
@@ -93,27 +94,6 @@ inline void CombatSystem::update(float deltaTime) {
     updateCooldowns(deltaTime);
 }
 
-inline void CombatSystem::addEntity(Core::Entity* entity) {
-    if (entity && (entity->hasHealth() || entity->hasCombat())) {
-        m_entities.push_back(entity);
-    }
-}
-
-inline void CombatSystem::removeEntity(Core::Entity* entity) {
-    m_entities.erase(
-        std::remove(m_entities.begin(), m_entities.end(), entity),
-        m_entities.end()
-    );
-}
-
-inline void CombatSystem::clear() {
-    m_entities.clear();
-
-    // Clear pending actions
-    while (!m_pendingHits.empty()) m_pendingHits.pop();
-    while (!m_pendingAttacks.empty()) m_pendingAttacks.pop();
-}
-
 inline void CombatSystem::registerHit(PlayerID attackerID, PlayerID victimID, float damage) {
     m_pendingHits.push({attackerID, victimID, damage});
 }
@@ -122,13 +102,21 @@ inline void CombatSystem::requestAttack(PlayerID playerID) {
     m_pendingAttacks.push({playerID});
 }
 
-inline Core::Entity* CombatSystem::findEntity(PlayerID playerID) {
-    for (Core::Entity* entity : m_entities) {
-        if (entity && entity->id == playerID) {
+inline entt::entity CombatSystem::findEntity(PlayerID playerID) {
+    if (!m_registry) {
+        return entt::null;
+    }
+
+    // Search through all entities with PlayerInfo component
+    auto view = m_registry->view<Components::PlayerInfo>();
+    for (auto entity : view) {
+        auto& playerInfo = view.get<Components::PlayerInfo>(entity);
+        if (playerInfo.playerID == playerID) {
             return entity;
         }
     }
-    return nullptr;
+
+    return entt::null;
 }
 
 inline void CombatSystem::processAttacks() {
@@ -136,20 +124,26 @@ inline void CombatSystem::processAttacks() {
         PendingAttack attack = m_pendingAttacks.front();
         m_pendingAttacks.pop();
 
-        Core::Entity* attacker = findEntity(attack.playerID);
-        if (!attacker || !attacker->hasCombat() || !attacker->isAlive()) {
+        entt::entity attacker = findEntity(attack.playerID);
+        if (attacker == entt::null) {
             continue;
         }
 
-        auto& combat = attacker->getCombat();
+        // Check if entity has combat component and is alive
+        auto* combat = m_registry->try_get<Components::CombatController>(attacker);
+        auto* health = m_registry->try_get<Components::Health>(attacker);
+
+        if (!combat || (health && !health->isAlive())) {
+            continue;
+        }
 
         // Try to initiate attack
-        if (combat.canPerformAttack()) {
-            combat.startAttack();
+        if (combat->canPerformAttack()) {
+            combat->startAttack();
 
             // Update character state if has controller
-            if (attacker->hasController()) {
-                attacker->getController().setState(CharacterState::Attacking);
+            if (auto* controller = m_registry->try_get<Components::CharacterController>(attacker)) {
+                controller->setState(CharacterState::Attacking);
             }
 
             // In a full implementation, you'd:
@@ -168,8 +162,14 @@ inline void CombatSystem::processDamage() {
         PendingHit hit = m_pendingHits.front();
         m_pendingHits.pop();
 
-        Core::Entity* victim = findEntity(hit.victimID);
-        if (!victim || !victim->hasHealth() || !victim->isAlive()) {
+        entt::entity victim = findEntity(hit.victimID);
+        if (victim == entt::null) {
+            continue;
+        }
+
+        // Get health component
+        auto* health = m_registry->try_get<Components::Health>(victim);
+        if (!health || !health->isAlive()) {
             continue;
         }
 
@@ -179,13 +179,13 @@ inline void CombatSystem::processDamage() {
         }
 
         // Apply damage
-        victim->getHealth().takeDamage(hit.damage, hit.attackerID);
+        health->takeDamage(hit.damage, hit.attackerID);
 
         // Check if victim died
-        if (!victim->isAlive()) {
+        if (!health->isAlive()) {
             // Update character state if has controller
-            if (victim->hasController()) {
-                victim->getController().setState(CharacterState::Dead);
+            if (auto* controller = m_registry->try_get<Components::CharacterController>(victim)) {
+                controller->setState(CharacterState::Dead);
             }
 
             // Could trigger death events, respawn logic, etc.
@@ -195,25 +195,24 @@ inline void CombatSystem::processDamage() {
 }
 
 inline void CombatSystem::updateCooldowns(float deltaTime) {
-    for (Core::Entity* entity : m_entities) {
-        if (!entity || !entity->hasCombat()) {
-            continue;
-        }
+    // Get all entities with combat controller
+    auto view = m_registry->view<Components::CombatController>();
 
-        auto& combat = entity->getCombat();
+    for (auto entity : view) {
+        auto& combat = view.get<Components::CombatController>(entity);
 
         // Update timers
         combat.updateTimers(deltaTime);
 
         // Check if attack finished and update state
-        if (entity->hasController() && !combat.isAttacking) {
-            auto& controller = entity->getController();
-            if (controller.state == CharacterState::Attacking) {
+        auto* controller = m_registry->try_get<Components::CharacterController>(entity);
+        if (controller && !combat.isAttacking) {
+            if (controller->state == CharacterState::Attacking) {
                 // Return to idle or moving based on input
-                if (controller.hasMovementInput()) {
-                    controller.setState(CharacterState::Moving);
+                if (controller->hasMovementInput()) {
+                    controller->setState(CharacterState::Moving);
                 } else {
-                    controller.setState(CharacterState::Idle);
+                    controller->setState(CharacterState::Idle);
                 }
             }
         }
