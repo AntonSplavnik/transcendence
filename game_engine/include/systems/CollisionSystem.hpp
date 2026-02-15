@@ -1,40 +1,40 @@
 #pragma once
 
-#include "System.hpp"
+#include "Systems/System.hpp"
+#include "Components/Transform.hpp"
+#include "Components/Collider.hpp"
+#include "Components/PhysicsBody.hpp"
+#include "Components/Health.hpp"
 #include "GameTypes.hpp"
-#include "Core/Entity.hpp"
-#include <vector>
+#include <entt/entt.hpp>
 #include <algorithm>
 
 namespace ArenaGame {
 
 // =============================================================================
-// CollisionSystem - Handles collision detection and resolution
+// CollisionSystem - EnTT-based collision detection and resolution
 // =============================================================================
-// Responsibilities:
-// - Detect collisions between entities
-// - Resolve collisions (push-apart, bounce, etc.)
-// - Raycasting for projectiles (future)
-// - Wall collision detection (future)
+// Drop-in replacement for CollisionSystem using EnTT views
+// - Uses view<Transform, Collider> for iteration
+// - Better performance with EnTT groups (cache-friendly)
+// - Identical collision logic to CollisionSystem.hpp
 //
-// Works with entities that have Transform + Collider components
+// Performance improvements:
+// - Packed storage for better cache locality
+// - Can use EnTT groups for hot path optimization
+// - No manual entity tracking needed
 // =============================================================================
 
 class CollisionSystem : public System {
 public:
-    CollisionSystem();
+    CollisionSystem() = default;
 
     // System interface
-    void fixedUpdate(float fixedDeltaTime) override;  // Collision uses fixed timestep
+    void fixedUpdate(float fixedDeltaTime) override;
     const char* getName() const override { return "CollisionSystem"; }
     bool needsFixedUpdate() const override { return true; }
 
-    // Register entities for collision detection
-    void addEntity(Core::Entity* entity);
-    void removeEntity(Core::Entity* entity);
-    void clear();
-
-    // Collision configuration
+    // Collision configuration (same as CollisionSystem)
     struct Config {
         bool enableCharacterCollision = true;
         float pushStrength = 0.5f;  // How much to push entities apart
@@ -49,93 +49,93 @@ public:
         bool hit = false;
         Vector3D point;
         float distance = 0.0f;
-        Core::Entity* hitEntity = nullptr;
+        entt::entity hitEntity = entt::null;
     };
 
-    // RaycastHit raycast(const Vector3D& origin, const Vector3D& direction, float maxDistance);
-
 private:
-    std::vector<Core::Entity*> m_entities;
     Config m_config;
 
-    // Collision detection
-    bool checkCollision(const Core::Entity* a, const Core::Entity* b) const;
-    void resolveCollision(Core::Entity* a, Core::Entity* b);
+    // Collision detection helpers
+    bool checkCollision(
+        const Components::Transform& transformA, const Components::Collider& colliderA,
+        const Components::Transform& transformB, const Components::Collider& colliderB
+    ) const;
+
+    void resolveCollision(
+        Components::Transform& transformA, const Components::Collider& colliderA,
+        Components::Transform& transformB, const Components::Collider& colliderB,
+        const Components::PhysicsBody* physicsA, const Components::PhysicsBody* physicsB
+    );
 };
 
 // =============================================================================
 // Implementation
 // =============================================================================
 
-inline CollisionSystem::CollisionSystem() {
-    m_entities.reserve(32);
-}
-
 inline void CollisionSystem::fixedUpdate(float fixedDeltaTime) {
     if (!m_config.enableCharacterCollision) {
         return;
     }
 
+    // Get view of all entities with Transform + Collider
+    auto view = m_registry->view<Components::Transform, Components::Collider>();
+
+    // Convert view to vector for indexed access (needed for O(n²) pair iteration)
+    std::vector<entt::entity> entities;
+    entities.reserve(view.size_hint());
+    for (auto entity : view) {
+        entities.push_back(entity);
+    }
+
     // Simple O(n²) collision detection
-    // For larger entity counts (>50), use spatial partitioning (quadtree, grid)
-    for (size_t i = 0; i < m_entities.size(); ++i) {
-        Core::Entity* entityA = m_entities[i];
-        if (!entityA || !entityA->hasTransform() || !entityA->hasCollider()) {
-            continue;
-        }
+    // For larger entity counts (>50), use spatial partitioning
+    for (size_t i = 0; i < entities.size(); ++i) {
+        entt::entity entityA = entities[i];
+
+        auto& transformA = m_registry->get<Components::Transform>(entityA);
+        auto& colliderA = m_registry->get<Components::Collider>(entityA);
 
         // Skip if dead (has health and is not alive)
-        if (entityA->hasHealth() && !entityA->isAlive()) {
-            continue;
-        }
-
-        for (size_t j = i + 1; j < m_entities.size(); ++j) {
-            Core::Entity* entityB = m_entities[j];
-            if (!entityB || !entityB->hasTransform() || !entityB->hasCollider()) {
+        if (auto* healthA = m_registry->try_get<Components::Health>(entityA)) {
+            if (!healthA->isAlive()) {
                 continue;
             }
+        }
+
+        for (size_t j = i + 1; j < entities.size(); ++j) {
+            entt::entity entityB = entities[j];
+
+            auto& transformB = m_registry->get<Components::Transform>(entityB);
+            auto& colliderB = m_registry->get<Components::Collider>(entityB);
 
             // Skip if dead
-            if (entityB->hasHealth() && !entityB->isAlive()) {
-                continue;
+            if (auto* healthB = m_registry->try_get<Components::Health>(entityB)) {
+                if (!healthB->isAlive()) {
+                    continue;
+                }
             }
 
             // Check if they should collide (layer filtering)
-            if (!entityA->getCollider().shouldCollideWith(entityB->getCollider())) {
+            if (!colliderA.shouldCollideWith(colliderB)) {
                 continue;
             }
 
             // Check collision
-            if (checkCollision(entityA, entityB)) {
-                resolveCollision(entityA, entityB);
+            if (checkCollision(transformA, colliderA, transformB, colliderB)) {
+                // Get physics bodies (may be null)
+                auto* physicsA = m_registry->try_get<Components::PhysicsBody>(entityA);
+                auto* physicsB = m_registry->try_get<Components::PhysicsBody>(entityB);
+
+                resolveCollision(transformA, colliderA, transformB, colliderB, physicsA, physicsB);
             }
         }
     }
 }
 
-inline void CollisionSystem::addEntity(Core::Entity* entity) {
-    if (entity && entity->hasCollider()) {
-        m_entities.push_back(entity);
-    }
-}
-
-inline void CollisionSystem::removeEntity(Core::Entity* entity) {
-    m_entities.erase(
-        std::remove(m_entities.begin(), m_entities.end(), entity),
-        m_entities.end()
-    );
-}
-
-inline void CollisionSystem::clear() {
-    m_entities.clear();
-}
-
-inline bool CollisionSystem::checkCollision(const Core::Entity* a, const Core::Entity* b) const {
-    const auto& transformA = a->getTransform();
-    const auto& transformB = b->getTransform();
-    const auto& colliderA = a->getCollider();
-    const auto& colliderB = b->getCollider();
-
+inline bool CollisionSystem::checkCollision(
+    const Components::Transform& transformA, const Components::Collider& colliderA,
+    const Components::Transform& transformB, const Components::Collider& colliderB
+) const {
     // Get collision cylinders
     Cylinder cylA = colliderA.getCylinder(transformA.position);
     Cylinder cylB = colliderB.getCylinder(transformB.position);
@@ -144,12 +144,11 @@ inline bool CollisionSystem::checkCollision(const Core::Entity* a, const Core::E
     return cylA.intersects(cylB);
 }
 
-inline void CollisionSystem::resolveCollision(Core::Entity* a, Core::Entity* b) {
-    auto& transformA = a->getTransform();
-    auto& transformB = b->getTransform();
-    const auto& colliderA = a->getCollider();
-    const auto& colliderB = b->getCollider();
-
+inline void CollisionSystem::resolveCollision(
+    Components::Transform& transformA, const Components::Collider& colliderA,
+    Components::Transform& transformB, const Components::Collider& colliderB,
+    const Components::PhysicsBody* physicsA, const Components::PhysicsBody* physicsB
+) {
     Vector3D posA = transformA.position;
     Vector3D posB = transformB.position;
 
@@ -173,8 +172,8 @@ inline void CollisionSystem::resolveCollision(Core::Entity* a, Core::Entity* b) 
         float overlap = requiredDistance - distance;
 
         // Determine push ratios based on whether entities are static
-        bool aIsStatic = a->hasPhysics() && a->getPhysics().isKinematic;
-        bool bIsStatic = b->hasPhysics() && b->getPhysics().isKinematic;
+        bool aIsStatic = physicsA && physicsA->isKinematic;
+        bool bIsStatic = physicsB && physicsB->isKinematic;
 
         Vector3D pushVector = pushDirection * (overlap * m_config.pushStrength);
 

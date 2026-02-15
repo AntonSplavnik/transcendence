@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Systems/SystemEnTT.hpp"
+#include "Systems/System.hpp"
 #include "Components/Transform.hpp"
 #include "Components/PhysicsBody.hpp"
 #include "Components/CharacterController.hpp"
@@ -10,7 +10,7 @@
 namespace ArenaGame {
 
 // =============================================================================
-// CharacterControllerSystemEnTT - Processes character input and movement
+// CharacterControllerSystem - Processes character input and movement
 // =============================================================================
 // Handles player input and translates it into physics velocity
 // - Reads CharacterController component for input
@@ -20,13 +20,13 @@ namespace ArenaGame {
 // Should run in earlyUpdate phase (before physics)
 // =============================================================================
 
-class CharacterControllerSystemEnTT : public SystemEnTT {
+class CharacterControllerSystem : public System {
 public:
-    CharacterControllerSystemEnTT() = default;
+    CharacterControllerSystem() = default;
 
     // System interface
     void earlyUpdate(float deltaTime) override;
-    const char* getName() const override { return "CharacterControllerSystemEnTT"; }
+    const char* getName() const override { return "CharacterControllerSystem"; }
     bool needsEarlyUpdate() const override { return true; }
 
 private:
@@ -42,7 +42,7 @@ private:
 // Implementation
 // =============================================================================
 
-inline void CharacterControllerSystemEnTT::earlyUpdate(float deltaTime) {
+inline void CharacterControllerSystem::earlyUpdate(float deltaTime) {
     // View: iterate entities with CharacterController, PhysicsBody, and Transform
     auto view = m_registry->view<
         Components::CharacterController,
@@ -59,7 +59,7 @@ inline void CharacterControllerSystemEnTT::earlyUpdate(float deltaTime) {
     }
 }
 
-inline void CharacterControllerSystemEnTT::processCharacterMovement(
+inline void CharacterControllerSystem::processCharacterMovement(
     Components::CharacterController& controller,
     Components::PhysicsBody& physics,
     Components::Transform& transform,

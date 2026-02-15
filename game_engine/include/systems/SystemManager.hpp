@@ -1,6 +1,6 @@
 #pragma once
 
-#include "System.hpp"
+#include "Systems/System.hpp"
 #include <vector>
 #include <memory>
 #include <algorithm>
@@ -9,12 +9,12 @@
 namespace ArenaGame {
 
 // =============================================================================
-// SystemManager - Manages and updates all game systems
+// SystemManager - Manages EnTT-based game systems
 // =============================================================================
-// Responsibilities:
-// - Register/unregister systems
-// - Update all systems in the correct phase order
-// - System lifecycle management
+// Drop-in replacement for SystemManager that works with System instances
+// - Identical interface to SystemManager
+// - Manages System lifecycle
+// - Handles multi-phase updates
 //
 // Update phases (in order):
 //   1. start() - Called once after initialization
@@ -65,11 +65,11 @@ public:
 
     // Lifecycle
     void initialize();
-    void start();     // NEW: Called once after initialization
+    void start();
     void shutdown();
     void clear();
 
-    // Update phases (NEW: separate methods for each phase)
+    // Update phases
     void earlyUpdate(float deltaTime);
     void fixedUpdate(float fixedDeltaTime);
     void update(float deltaTime);
