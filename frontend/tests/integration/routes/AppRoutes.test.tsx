@@ -17,6 +17,14 @@ vi.mock('../../../src/components/GameBoard', () => ({
 	),
 }));
 
+// Mock Avatar components to avoid XHR/ProgressEvent issues in jsdom
+vi.mock('../../../src/components/ui/AvatarDisplay', () => ({
+	default: () => <div data-testid="avatar-display" />,
+}));
+vi.mock('../../../src/components/ui/AvatarUpload', () => ({
+	default: () => <div data-testid="avatar-upload" />,
+}));
+
 // Mock LandingPage
 vi.mock('../../../src/components/LandingPage', () => ({
 	default: ({ onLogin }: { onLogin: () => void }) => (

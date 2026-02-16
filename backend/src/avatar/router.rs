@@ -57,12 +57,7 @@ fn etag_matches(if_none_match: &str, etag: &str) -> bool {
 }
 
 /// Write an avatar response with ETag support, returning 304 if the client's cache is fresh
-fn write_avatar_response(
-    req: &Request,
-    res: &mut Response,
-    data: Cow<'_, [u8]>,
-    etag: &str,
-) {
+fn write_avatar_response(req: &Request, res: &mut Response, data: Cow<'_, [u8]>, etag: &str) {
     if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
         if let Ok(value) = if_none_match.to_str() {
             if etag_matches(value, etag) {
@@ -197,7 +192,12 @@ async fn get_avatar_large(
             write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
         }
         None => {
-            write_avatar_response(req, res, Cow::Borrowed(DEFAULT_AVATAR_LARGE), &DEFAULT_AVATAR_ETAG_LARGE);
+            write_avatar_response(
+                req,
+                res,
+                Cow::Borrowed(DEFAULT_AVATAR_LARGE),
+                &DEFAULT_AVATAR_ETAG_LARGE,
+            );
         }
     }
 
@@ -241,7 +241,12 @@ async fn get_avatar_small(
             write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
         }
         None => {
-            write_avatar_response(req, res, Cow::Borrowed(DEFAULT_AVATAR_SMALL), &DEFAULT_AVATAR_ETAG_SMALL);
+            write_avatar_response(
+                req,
+                res,
+                Cow::Borrowed(DEFAULT_AVATAR_SMALL),
+                &DEFAULT_AVATAR_ETAG_SMALL,
+            );
         }
     }
 
