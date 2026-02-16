@@ -15,6 +15,7 @@ use chrono::{DateTime, Utc};
 use salvo::http::StatusCode;
 use salvo::http::header;
 use salvo::oapi::extract::PathParam;
+use std::borrow::Cow;
 use std::sync::LazyLock;
 
 /// Static ETag for the default large avatar (never changes)
@@ -41,14 +42,37 @@ fn make_etag(updated_at: &DateTime<Utc>) -> String {
     format!("\"{short}\"")
 }
 
+/// Check whether the `If-None-Match` header matches `etag`.
+///
+/// Handles the wildcard `*`, multiple comma-separated ETags, and weak tags
+/// (`W/"…"`) by stripping the `W/` prefix before comparison (per RFC 7232 §3.2,
+/// weak comparison only checks the opaque-tag).
+fn etag_matches(if_none_match: &str, etag: &str) -> bool {
+    let inm = if_none_match.trim();
+    if inm == "*" {
+        return true;
+    }
+    inm.split(',')
+        .any(|tag| tag.trim().strip_prefix("W/").unwrap_or(tag.trim()) == etag)
+}
+
 /// Write an avatar response with ETag support, returning 304 if the client's cache is fresh
-fn write_avatar_response(req: &Request, res: &mut Response, data: impl AsRef<[u8]>, etag: &str) {
+fn write_avatar_response(
+    req: &Request,
+    res: &mut Response,
+    data: Cow<'_, [u8]>,
+    etag: &str,
+) {
     if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
-        if if_none_match.as_bytes() == etag.as_bytes() {
-            res.status_code(StatusCode::NOT_MODIFIED);
-            res.headers_mut()
-                .insert(header::ETAG, etag.parse().unwrap());
-            return;
+        if let Ok(value) = if_none_match.to_str() {
+            if etag_matches(value, etag) {
+                res.status_code(StatusCode::NOT_MODIFIED);
+                res.headers_mut()
+                    .insert(header::ETAG, etag.parse().unwrap());
+                res.headers_mut()
+                    .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+                return;
+            }
         }
     }
 
@@ -59,8 +83,8 @@ fn write_avatar_response(req: &Request, res: &mut Response, data: impl AsRef<[u8
     res.headers_mut()
         .insert(header::ETAG, etag.parse().unwrap());
     res.headers_mut()
-        .insert(header::CONTENT_LENGTH, data.as_ref().len().into());
-    res.write_body(data.as_ref().to_vec()).ok();
+        .insert(header::CONTENT_LENGTH, data.len().into());
+    res.write_body(data.into_owned()).ok();
 }
 
 pub fn router(path: &str) -> Router {
@@ -165,16 +189,17 @@ async fn get_avatar_large(
             dsl::avatars_large
                 .filter(dsl::user_id.eq(user_id))
                 .first::<AvatarLarge>(conn)
+                .optional()
         })
-        .await?;
+        .await??;
 
     match avatar {
-        Ok(avatar) => {
+        Some(avatar) => {
             let etag = make_etag(&avatar.updated_at);
-            write_avatar_response(req, res, avatar.data, &etag);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
         }
-        Err(_) => {
-            write_avatar_response(req, res, DEFAULT_AVATAR_LARGE, &DEFAULT_AVATAR_ETAG_LARGE);
+        None => {
+            write_avatar_response(req, res, Cow::Borrowed(DEFAULT_AVATAR_LARGE), &DEFAULT_AVATAR_ETAG_LARGE);
         }
     }
 
@@ -196,7 +221,7 @@ async fn get_avatar_small(
     // Try cache first
     if let Some(cached) = cache::get(user_id) {
         let etag = make_etag(&cached.updated_at);
-        write_avatar_response(req, res, cached.data.as_ref(), &etag);
+        write_avatar_response(req, res, Cow::Borrowed(cached.data.as_ref()), &etag);
         return Ok(());
     }
 
@@ -207,17 +232,18 @@ async fn get_avatar_small(
             dsl::avatars_small
                 .filter(dsl::user_id.eq(user_id))
                 .first::<AvatarSmall>(conn)
+                .optional()
         })
-        .await?;
+        .await??;
 
     match avatar {
-        Ok(avatar) => {
+        Some(avatar) => {
             let etag = make_etag(&avatar.updated_at);
             cache::insert(user_id, avatar.data.clone(), avatar.updated_at);
-            write_avatar_response(req, res, avatar.data, &etag);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
         }
-        Err(_) => {
-            write_avatar_response(req, res, DEFAULT_AVATAR_SMALL, &DEFAULT_AVATAR_ETAG_SMALL);
+        None => {
+            write_avatar_response(req, res, Cow::Borrowed(DEFAULT_AVATAR_SMALL), &DEFAULT_AVATAR_ETAG_SMALL);
         }
     }
 
