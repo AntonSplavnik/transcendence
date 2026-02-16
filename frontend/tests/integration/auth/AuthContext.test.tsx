@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../../src/contexts/AuthContext';
 import { server, mockUnauthenticatedUser, mockLoginFailure } from '../../helpers/msw-handlers';
@@ -15,6 +15,10 @@ describe('AuthContext', () => {
 	beforeEach(() => {
 		vi.spyOn(console, 'log').mockImplementation(() => { });
 		vi.spyOn(console, 'error').mockImplementation(() => { });
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
 	});
 
 	describe('initial state', () => {
