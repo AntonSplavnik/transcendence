@@ -782,6 +782,9 @@ pub async fn connect_stream(
     if let Err(err) = super::on_connect(user_session.user_id, &db, &*streams, depot).await {
         tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
         streams.unregister(user_session.user_id, Some(connection_id), None);
+        // Terminate the handler immediately on on_connect failure so the
+        // WebTransport session and any associated state are cleaned up
+        return Ok(());
     } else {
         tracing::info!(
             user_session.user_id,
