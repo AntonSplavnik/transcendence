@@ -1,20 +1,4 @@
-import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest';
-
-// Mock the zstd-wasm module before importing the codec
-vi.mock('@bokuweb/zstd-wasm', () => ({
-	init: vi.fn().mockResolvedValue(undefined),
-	compress: vi.fn((data: Uint8Array) => {
-		// Simulate compression by prepending magic bytes
-		const result = new Uint8Array(4 + data.length);
-		result.set([0x28, 0xb5, 0x2f, 0xfd], 0);
-		result.set(data, 4);
-		return result;
-	}),
-	decompress: vi.fn((data: Uint8Array) => {
-		// Simulate decompression by stripping magic bytes
-		return data.slice(4);
-	}),
-}));
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 
 import {
 	CompressedCborEncoder,
