@@ -5,6 +5,14 @@ import { server } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
 import { createMockAuthResponse } from '../../fixtures/users';
 
+// Mock Avatar components to avoid XHR/ProgressEvent issues in jsdom
+vi.mock('../../../src/components/ui/AvatarDisplay', () => ({
+	default: () => <div data-testid="avatar-display" />,
+}));
+vi.mock('../../../src/components/ui/AvatarUpload', () => ({
+	default: () => <div data-testid="avatar-upload" />,
+}));
+
 describe('Home', () => {
 	const mockOnGame = vi.fn();
 	const mockOnLogout = vi.fn();
