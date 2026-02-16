@@ -4,7 +4,7 @@ import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'luc
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
-import AvatarUpload from './ui/AvatarUpload';
+import AvatarUploadModal from './modals/AvatarUploadModal';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
 import SessionDetailsModal from './modals/SessionDetailModal';
 import ReauthModal from './modals/ReauthModal';
@@ -224,11 +224,12 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 
 			{/* Edit profile Modal */}
 			{showEditProfile && (
-      			<AvatarUpload
+				<AvatarUploadModal
 					user={user}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={() => setAvatarKey(k => k + 1)} />
-)}
+					onAvatarChanged={() => setAvatarKey(k => k + 1)}
+				/>
+			)}
 
 			{/*  */}
 			{showReauthModal && (

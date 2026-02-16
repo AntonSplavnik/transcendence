@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
-import AvatarDisplay from './AvatarDisplay';
-import Button from './Button';
+import AvatarDisplay from '../ui/AvatarDisplay';
+import Button from '../ui/Button';
 
 interface EditProfileProps {
 	user: User;
@@ -11,7 +11,7 @@ interface EditProfileProps {
 	onAvatarChanged: () => void;
 }
 
-export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditProfileProps) {
+export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: EditProfileProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string  | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
@@ -100,7 +100,7 @@ export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditPro
                             {error}
                         </div>
                     )}
-                    
+
                     <div className="flex gap-3">
                         <Button onClick={handleUpload} disabled={!selectedFile ||
                             loading}>Upload</Button>
@@ -113,4 +113,3 @@ export default function AvatarUpload({ user, onClose, onAvatarChanged }: EditPro
         </div>
     );
 }
-
