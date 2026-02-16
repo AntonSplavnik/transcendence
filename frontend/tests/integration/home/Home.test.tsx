@@ -4,9 +4,6 @@ import Home from '../../../src/components/Home';
 import { server } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
 import { createMockAuthResponse } from '../../fixtures/users';
-import { AuthProvider } from '../../../src/contexts/AuthContext';
-import { MemoryRouter } from 'react-router-dom';
-import type { ReactNode } from 'react';
 
 describe('Home', () => {
 	const mockOnGame = vi.fn();
@@ -25,16 +22,7 @@ describe('Home', () => {
 			})
 		);
 
-		const wrapper = ({ children }: { children: ReactNode }) => (
-			<MemoryRouter>
-				<AuthProvider>{children}</AuthProvider>
-			</MemoryRouter>
-		);
-
-		return render(
-			<Home onGame={mockOnGame} onLogout={mockOnLogout} />,
-			{ wrapper }
-		);
+		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
 	};
 
 	describe('user info display', () => {
@@ -229,13 +217,7 @@ describe('Home', () => {
 				})
 			);
 
-			const wrapper = ({ children }: { children: ReactNode }) => (
-				<MemoryRouter>
-					<AuthProvider>{children}</AuthProvider>
-				</MemoryRouter>
-			);
-
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />, { wrapper });
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -258,13 +240,7 @@ describe('Home', () => {
 				})
 			);
 
-			const wrapper = ({ children }: { children: ReactNode }) => (
-				<MemoryRouter>
-					<AuthProvider>{children}</AuthProvider>
-				</MemoryRouter>
-			);
-
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />, { wrapper });
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
