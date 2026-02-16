@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'lucide-react';
 import { fetchAvatar } from '../api/avatar';
@@ -28,12 +28,11 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | null>(null);
 	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | null>(null);
 
-	const loadAvatars = useCallback(async () => {
-		if (!user) return;
+	const loadAvatars = async (userId: number) => {
 		try {
 			const [small, large] = await Promise.all([
-				fetchAvatar(user.id, 'small'),
-				fetchAvatar(user.id, 'large'),
+				fetchAvatar(userId, 'small'),
+				fetchAvatar(userId, 'large'),
 			]);
 			setAvatarSmallUrl(prev => { if (prev) URL.revokeObjectURL(prev); return small; });
 			setAvatarLargeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return large; });
@@ -41,11 +40,12 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 			setAvatarSmallUrl(null);
 			setAvatarLargeUrl(null);
 		}
-	}, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+	};
 
 	useEffect(() => {
-		loadAvatars();
-	}, [loadAvatars]);
+		if (!user) return;
+		loadAvatars(user.id);
+	}, [user]);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -248,7 +248,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				<AvatarUploadModal
 					user={user}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={loadAvatars}
+					onAvatarChanged={() => loadAvatars(user.id)}
 					avatarUrl={avatarLargeUrl}
 				/>
 			)}
