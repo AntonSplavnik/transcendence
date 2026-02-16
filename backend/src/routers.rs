@@ -14,7 +14,6 @@ const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
 pub fn rest_api(database: Db) -> Router {
     let api_routes = Router::with_path("api")
-        .hoop(affix_state::inject(database))
         .hoop(affix_state::inject(NickCache::new(
             crate::utils::NICK_CACHE_TTI,
         )))
@@ -30,6 +29,7 @@ pub fn rest_api(database: Db) -> Router {
         ]);
 
     Router::new()
+        .hoop(affix_state::inject(database))
         .hoop(affix_state::inject(Arc::new(StreamManager::new())))
         .hoop(affix_state::inject(NotificationManager::new()))
         .push(api_routes)
