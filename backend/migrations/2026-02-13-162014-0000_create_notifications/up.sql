@@ -6,3 +6,4 @@ CREATE TABLE notifications (
 	created_at DATETIME NOT NULL,
 	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_notifications_user_created_at ON notifications (user_id, created_at);

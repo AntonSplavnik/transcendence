@@ -7,7 +7,6 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use diesel::prelude::*;
-use futures::SinkExt as _;
 use thiserror::Error;
 
 use super::NotificationPayload;
@@ -15,7 +14,7 @@ use crate::db::{Database as _, Db, DbError};
 use crate::models::NewOfflineNotification;
 use crate::models::cbor_blob::CborBlob;
 use crate::schema::notifications::{self};
-use crate::stream::{Sender, StreamManager, StreamManagerError, StreamType};
+use crate::stream::{Sender, SharedSender, StreamManager, StreamManagerError, StreamType};
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
@@ -41,7 +40,7 @@ pub enum NotificationError {
 #[derive(Clone)]
 pub struct NotificationManager {
     /// Active notification streams keyed by `user_id`.
-    streams: Arc<DashMap<i32, Sender<NotificationPayload>, ahash::RandomState>>,
+    streams: Arc<DashMap<i32, SharedSender<NotificationPayload>, ahash::RandomState>>,
 }
 
 #[allow(dead_code)]
@@ -69,18 +68,22 @@ impl NotificationManager {
     ) -> Result<(), NotificationError> {
         let created_at = chrono::Utc::now();
         // Fast path: try the open stream first.
-        if let Some(mut sender) = self.streams.get_mut(&user_id) {
+        let sender = {
+            self.streams
+                .get(&user_id)
+                .map(|sender_ref| sender_ref.value().clone())
+        };
+
+        if let Some(sender) = sender {
             match sender.send(payload.clone()).await {
                 Ok(()) => return Ok(()),
-                Err(e) => {
-                    // Stream is dead – drop the ref before removing.
+                Err(_) => {
                     tracing::warn!(
                         user_id,
-                        error = %e,
-                        "notification stream broken, falling back to DB"
+                        "notification stream channel closed, falling back to DB"
                     );
-                    drop(sender);
-                    self.streams.remove(&user_id);
+
+                    self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
                 }
             }
         }
@@ -106,9 +109,18 @@ impl NotificationManager {
         streams: &StreamManager,
         user_id: i32,
     ) -> Result<(), NotificationError> {
-        let mut sender: Sender<NotificationPayload> = streams
+        let sender: Sender<NotificationPayload> = streams
             .request_uni_stream(user_id, StreamType::Notifications)
             .await?;
+
+        let sender = SharedSender::new(sender);
+
+        // Register (replaces any previous sender for this user).
+        // Inserting before draining the DB ensures that a parallel send() call
+        // that comes in while we're draining will write to the new stream
+        // instead of falling back to the DB, leaving the DB entry undelivered until the next reconnect.
+        // Drawback of this approach: Might deliver new notifications before the backlog, which could be confusing for the user.
+        self.streams.insert(user_id, sender.clone());
 
         // Drain the DB backlog.
         let pending = Self::drain_from_db(db, user_id).await?;
@@ -128,9 +140,6 @@ impl NotificationManager {
                     })?;
             }
         }
-
-        // Register (replaces any previous sender for this user).
-        self.streams.insert(user_id, sender);
         Ok(())
     }
 
