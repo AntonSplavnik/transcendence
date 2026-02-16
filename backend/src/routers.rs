@@ -1,15 +1,22 @@
+use std::sync::Arc;
+
 #[cfg(debug_assertions)]
 use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 
-use crate::prelude::*;
+use crate::{prelude::*, stream::StreamManager, utils::NickCache};
 
 pub mod users;
 
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api() -> Router {
+pub fn rest_api(database: Db) -> Router {
     let api_routes = Router::with_path("api")
+        .hoop(affix_state::inject(database))
+        .hoop(affix_state::inject(NickCache::new(
+            crate::utils::NICK_CACHE_TTI,
+        )))
+        .hoop(crate::auth::device_id_inserter_hoop)
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
         .append(&mut vec![
@@ -21,12 +28,13 @@ pub fn rest_api() -> Router {
         ]);
 
     Router::new()
+        .hoop(affix_state::inject(Arc::new(StreamManager::new())))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root() -> Router {
-    let api_routes = rest_api();
+pub fn root(database: Db) -> Router {
+    let api_routes = rest_api(database);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(

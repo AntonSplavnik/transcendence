@@ -132,52 +132,14 @@ impl salvo::oapi::EndpointArgRegister for Db {
 pub trait DepotDatabaseExt {
     /// Retrieve a reference to the injected database.
     ///
-    /// # Panics
-    ///
-    /// Panics if [`DatabaseHoop`] was not added upstream in the router.
+    /// Panics if the database is not present in the depot. Make sure to inject it in the router with affix_state::inject or similar.
     fn db(&self) -> &Db;
 }
 
 impl DepotDatabaseExt for salvo::Depot {
     fn db(&self) -> &Db {
-        self.get::<Db>("database")
-            .expect("Database not in depot. Add DatabaseHoop to your router.")
-    }
-}
-
-/// Salvo middleware that injects a cloned [`Database`] into every request's
-/// depot.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let db = db::Db::new(&config.database_url, 4)?;
-/// let router = Router::new()
-///     .hoop(db::DatabaseHoop::new(db))
-///     .push(/* routes */);
-/// ```
-pub struct DatabaseHoop {
-    db: Db,
-}
-
-impl DatabaseHoop {
-    /// Create a new hoop that will inject `db` into every request.
-    pub fn new(db: Db) -> Self {
-        Self { db }
-    }
-}
-
-#[salvo::async_trait]
-impl salvo::Handler for DatabaseHoop {
-    async fn handle(
-        &self,
-        req: &mut salvo::Request,
-        depot: &mut salvo::Depot,
-        res: &mut salvo::Response,
-        ctrl: &mut salvo::FlowCtrl,
-    ) {
-        depot.insert("database", self.db.clone());
-        ctrl.call_next(req, depot, res).await;
+        self.obtain::<Db>()
+            .expect("Database not found in depot. Make sure it is injected in the router with affix_state::inject")
     }
 }
 

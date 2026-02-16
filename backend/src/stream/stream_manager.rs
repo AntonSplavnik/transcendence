@@ -69,11 +69,12 @@
 //! # Thread safety
 //!
 //! The [`StreamManager`] uses [`DashMap`] for concurrent access and is safe to call
-//! from multiple tasks. The singleton is created lazily via [`StreamManager::global`].
+//! from multiple tasks. Instances are provided via dependency injection and accessed
+//! through the [`StreamManagerDepotExt`] trait rather than a global singleton.
 
 use std::ops::Deref;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use anyhow::Context;
@@ -203,24 +204,33 @@ struct ConnectionEntry {
 }
 
 impl ConnectionEntry {
-    fn new(session: &Session, connection_id: u64, tx: mpsc::Sender<ConnectionCommand>) -> Self {
+    fn new(
+        streams: Weak<StreamManager>,
+        session: &Session,
+        connection_id: u64,
+        tx: mpsc::Sender<ConnectionCommand>,
+    ) -> Self {
         Self {
             tx,
             connection_id,
             session_id: session.id,
-            unregister_task: Self::new_unregister_task(session, connection_id),
+            unregister_task: Self::new_unregister_task(streams, session, connection_id),
         }
     }
 
-    fn refresh_auth(&mut self, session: &Session) {
+    fn refresh_auth(&mut self, streams: Weak<StreamManager>, session: &Session) {
         if session.id != self.session_id {
             return;
         }
         self.unregister_task.abort();
-        self.unregister_task = Self::new_unregister_task(session, self.connection_id);
+        self.unregister_task = Self::new_unregister_task(streams, session, self.connection_id);
     }
 
-    fn new_unregister_task(session: &Session, connection_id: u64) -> AbortHandle {
+    fn new_unregister_task(
+        streams: Weak<StreamManager>,
+        session: &Session,
+        connection_id: u64,
+    ) -> AbortHandle {
         let unregister_at = session.access_expiry();
         let user_id = session.user_id;
         tokio::spawn(async move {
@@ -229,7 +239,9 @@ impl ConnectionEntry {
                 .to_std()
                 .unwrap_or_default();
             tokio::time::sleep(until_unregister).await;
-            StreamManager::global().unregister(user_id, Some(connection_id), None);
+            if let Some(streams) = streams.upgrade() {
+                streams.unregister(user_id, Some(connection_id), None);
+            }
         })
         .abort_handle()
     }
@@ -258,9 +270,12 @@ impl PendingConnectionKey {
     }
 }
 
-struct PendingConnectionGuard(PendingConnectionKey);
+struct PendingConnectionGuard<'a>(
+    PendingConnectionKey,
+    &'a DashMap<PendingConnectionKey, oneshot::Sender<Session>, ahash::RandomState>,
+);
 
-impl Deref for PendingConnectionGuard {
+impl Deref for PendingConnectionGuard<'_> {
     type Target = PendingConnectionKey;
 
     fn deref(&self) -> &Self::Target {
@@ -268,23 +283,9 @@ impl Deref for PendingConnectionGuard {
     }
 }
 
-impl Drop for PendingConnectionGuard {
+impl Drop for PendingConnectionGuard<'_> {
     fn drop(&mut self) {
-        StreamManager::global().pending_connections.remove(&self.0);
-    }
-}
-
-impl PendingConnectionGuard {
-    /// Prevent the guard from cleaning up the pending connection.
-    ///
-    /// Only use, if we are sure that the pending connection has been
-    /// taken from the map already (e.g., after awaiting the session receiver).
-    /// Otherwise, this will lead to a memory leak.
-    fn disarm(self) {
-        // consume self, so that the drop impl of Self is not called
-        // could use std::mem::forget(self) as well, as long as the inner value isn't heap allocated.
-        // This is safer in the case the inner variable changes in the future.
-        let _ = self.0;
+        self.1.remove(&self.0);
     }
 }
 
@@ -303,14 +304,12 @@ pub struct StreamManager {
 }
 
 impl StreamManager {
-    /// Get the global StreamManager instance.
-    pub fn global() -> &'static Self {
-        static INSTANCE: LazyLock<StreamManager> = LazyLock::new(|| StreamManager {
-            pending_connections: DashMap::default(),
-            connections: DashMap::default(),
-            connection_id_counter: AtomicU64::new(0),
-        });
-        &INSTANCE
+    pub fn new() -> Self {
+        Self {
+            pending_connections: Default::default(),
+            connections: Default::default(),
+            connection_id_counter: Default::default(),
+        }
     }
 
     /// Returns whether the given user is connected
@@ -319,18 +318,18 @@ impl StreamManager {
     }
 
     /// This reauthenticates the stream associated to this session (if any)
-    pub fn refresh_auth(&self, session: &Session) {
+    pub fn refresh_auth(self: &Arc<Self>, session: &Session) {
         self.connections
             .entry(session.user_id)
-            .and_modify(|c| c.refresh_auth(session));
+            .and_modify(|c| c.refresh_auth(Arc::downgrade(self), session));
     }
 
-    fn register_pending(&self) -> (oneshot::Receiver<Session>, PendingConnectionGuard) {
+    fn register_pending<'a>(&'a self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'a>) {
         let connection_id = self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
         let key = PendingConnectionKey::new(connection_id);
         let (tx, rx) = oneshot::channel();
         self.pending_connections.insert(key, tx);
-        (rx, PendingConnectionGuard(key))
+        (rx, PendingConnectionGuard(key, &self.pending_connections))
     }
 
     /// Register a user's WebTransport connection command channel.
@@ -339,14 +338,14 @@ impl StreamManager {
     /// If the user already has a connection, the old sender is dropped,
     /// causing the old handler's `rx.recv()` to return `None` and exit.
     fn register(
-        &self,
+        self: &Arc<Self>,
         session: &Session,
         tx: mpsc::Sender<ConnectionCommand>,
         connection_id: u64,
     ) -> u64 {
         self.connections.insert(
             session.user_id,
-            ConnectionEntry::new(session, connection_id, tx),
+            ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
         );
         tracing::info!(
             session.user_id,
@@ -600,13 +599,16 @@ where
 /// Each user can have only one active WebTransport connection. Connecting from a new
 /// device or tab will automatically disconnect the previous connection.
 #[endpoint]
-pub async fn connect_stream(req: &mut Request) -> std::result::Result<(), salvo::Error> {
+pub async fn connect_stream(
+    req: &mut Request,
+    depot: &mut Depot,
+) -> std::result::Result<(), salvo::Error> {
     let wt_session = req.web_transport_mut().await.unwrap();
     let session_id = wt_session.session_id();
 
     // Register this connection (replaces any existing connection for this user)
-    let manager = StreamManager::global();
-    let (session_rx, pending_key_guard) = manager.register_pending();
+    let streams = depot.stream_manager();
+    let (session_rx, pending_key_guard) = streams.register_pending();
     let connection_id = pending_key_guard.connection_id;
     // Open control stream with initial message
     let (control_tx, control_rx) = {
@@ -627,10 +629,9 @@ pub async fn connect_stream(req: &mut Request) -> std::result::Result<(), salvo:
         .await
         .context("pending connection timeout while waiting for bind/auth")?
         .context("pending connection was dropped while waiting for bind/auth")?;
-    pending_key_guard.disarm();
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
-    let connection_id = manager.register(&user_session, cmd_tx, connection_id);
+    let connection_id = streams.register(&user_session, cmd_tx, connection_id);
 
     tracing::info!(
         user_session.user_id,
@@ -670,7 +671,7 @@ pub async fn connect_stream(req: &mut Request) -> std::result::Result<(), salvo:
         }
     }
 
-    manager.unregister(user_session.user_id, Some(connection_id), None);
+    streams.unregister(user_session.user_id, Some(connection_id), None);
     tracing::info!(
         user_session.user_id,
         connection_id,
@@ -685,9 +686,10 @@ pub async fn bind_pending_stream(
     json: JsonBody<PendingConnectionKey>,
 ) -> JsonResult<()> {
     let session = depot.session();
+    let streams = depot.stream_manager();
 
     let key = json.into_inner();
-    let sender = StreamManager::global()
+    let sender = streams
         .pending_connections
         .remove(&key)
         .ok_or(StreamApiError::InvalidPendingStreamKey)?
@@ -700,4 +702,14 @@ pub async fn bind_pending_stream(
         .map_err(|_| StreamApiError::InvalidPendingStreamKey)?;
 
     json_ok(())
+}
+
+pub trait StreamManagerDepotExt {
+    fn stream_manager(&self) -> &Arc<StreamManager>;
+}
+
+impl StreamManagerDepotExt for Depot {
+    fn stream_manager(&self) -> &Arc<StreamManager> {
+        self.obtain().expect("StreamManager not found in depot. Make sure to inject it in the router with affix_state::inject")
+    }
 }

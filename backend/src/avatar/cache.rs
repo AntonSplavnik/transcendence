@@ -17,6 +17,11 @@ pub struct CachedAvatar {
     pub updated_at: DateTime<Utc>,
 }
 
+// TODO remove global cache and replace with injected shared value
+// via affix_state::inject inside crate::router::api_router()
+// need to make wrapper struct around TTIMemCache
+// then remove quick_cache dependency, as its no longer needed
+
 /// Global cache for small avatars
 static SMALL_AVATAR_CACHE: LazyLock<Cache<i32, CachedAvatar>> =
     LazyLock::new(|| Cache::new(CACHE_CAPACITY));
