@@ -127,7 +127,8 @@ impl NotificationManager {
         // Inserting before draining the DB ensures that a parallel send() call
         // that comes in while we're draining will write to the new stream
         // instead of falling back to the DB, leaving the DB entry undelivered until the next reconnect.
-        // Drawback of this approach: Might deliver new notifications before the backlog, which could be confusing for the user.
+        // This might deliver new notifications before the backlog, but because every payload
+        // is tagged with the send timestamp, the client can sort them correctly.
         self.streams.insert(user_id, sender.clone());
 
         // Drain the DB backlog.
