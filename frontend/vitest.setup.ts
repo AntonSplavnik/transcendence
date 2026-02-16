@@ -10,7 +10,7 @@ if (typeof globalThis.ProgressEvent === 'undefined') {
 			this.loaded = params.loaded ?? 0;
 			this.total = params.total ?? 0;
 		}
-	} as any;
+	} as unknown as typeof ProgressEvent;
 }
 
 import '@testing-library/jest-dom';
