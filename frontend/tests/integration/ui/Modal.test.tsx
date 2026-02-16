@@ -72,9 +72,8 @@ describe('Modal', () => {
 	it('does not render icon placeholder when not provided', () => {
 		renderModal();
 
-		// Title should not have an icon sibling
 		const title = screen.getByText('Test Modal');
-		expect(title.previousElementSibling).toBeNull();
+		expect(title.children.length).toBe(0);
 	});
 
 	it('uses md max width by default', () => {

@@ -5,9 +5,6 @@ import { server } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
 import { createMockAuthResponse } from '../../fixtures/users';
 import { createMockApiError } from '../../fixtures/errors';
-import { AuthProvider } from '../../../src/contexts/AuthContext';
-import { MemoryRouter } from 'react-router-dom';
-import type { ReactNode } from 'react';
 
 describe('ReauthModal', () => {
 	const mockOnSuccess = vi.fn();
@@ -26,15 +23,8 @@ describe('ReauthModal', () => {
 			})
 		);
 
-		const wrapper = ({ children }: { children: ReactNode }) => (
-			<MemoryRouter>
-				<AuthProvider>{children}</AuthProvider>
-			</MemoryRouter>
-		);
-
 		return render(
-			<ReauthModal onSuccess={mockOnSuccess} onCancel={mockOnCancel} />,
-			{ wrapper }
+			<ReauthModal onSuccess={mockOnSuccess} onCancel={mockOnCancel} />
 		);
 	};
 
