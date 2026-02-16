@@ -61,6 +61,8 @@ impl NotificationManagerDepotExt for salvo::Depot {
 /// Every variant must be cheaply de/serializable.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum NotificationPayload {
+    /// Client successfully connected to the server's streaming infrastructure.
+    ServerHello,
     // example:
     // FriendRequest { invitation_id: i32, sender_id: i32 },
 }

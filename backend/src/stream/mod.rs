@@ -33,5 +33,15 @@ async fn on_connect(
         .notification_manager()
         .open_stream(db, streams, user_id)
         .await?;
+
+    // When everything else succeeds, send a welcome notification to the user
+    depot
+        .notification_manager()
+        .send(
+            db,
+            user_id,
+            crate::notifications::NotificationPayload::ServerHello,
+        )
+        .await?;
     Ok(())
 }
