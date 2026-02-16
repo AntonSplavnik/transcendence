@@ -54,3 +54,12 @@ language = "system"
 files = '^frontend/.*\.(ts|tsx)$'
 pass_filenames = false
 stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
+id = "vitest"
+name = "Vitest Test"
+entry = "bash -c 'cd frontend && npx vitest run'"
+language = "system"
+files = '^frontend/.*\.(ts|tsx)$'
+pass_filenames = false
+stages = ["pre-push", "manual"]
