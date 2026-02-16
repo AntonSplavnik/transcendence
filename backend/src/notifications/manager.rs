@@ -132,7 +132,15 @@ impl NotificationManager {
         self.streams.insert(user_id, sender.clone());
 
         // Drain the DB backlog.
-        let pending = Self::drain_from_db(db, user_id).await?;
+        let pending = match Self::drain_from_db(db, user_id).await {
+            Ok(pending) => pending,
+            Err(err) => {
+                // Clean up the sender we just registered if draining fails,
+                // to avoid leaving a stale sender in the manager.
+                self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
+                return Err(err.into());
+            }
+        };
         if !pending.is_empty() {
             tracing::debug!(
                 user_id,
