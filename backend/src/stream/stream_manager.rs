@@ -360,7 +360,10 @@ impl StreamManager {
 
     /// Returns whether the given user is connected
     pub fn is_connected(&self, user_id: i32) -> bool {
-        self.connections.contains_key(&user_id)
+        self.connections
+            .get(&user_id)
+            .map(|conn| !conn.tx.is_closed())
+            .unwrap_or(false)
     }
 
     /// This reauthenticates the stream associated to this session (if any)

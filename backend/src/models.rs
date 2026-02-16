@@ -194,6 +194,7 @@ impl AvatarSmall {
 }
 
 /// Notification Database model for offline notifications
+#[derive(Insertable)]
 #[apply(NewInsertable!)]
 #[derive(Queryable, Selectable, Associations, AsChangeset, Debug, Clone)]
 #[diesel(belongs_to(User))]

@@ -20,6 +20,7 @@
 
 mod manager;
 
+use chrono::{DateTime, Utc};
 #[allow(unused_imports)]
 pub use manager::{NotificationError, NotificationManager};
 
@@ -65,4 +66,10 @@ pub enum NotificationPayload {
     ServerHello,
     // example:
     // FriendRequest { invitation_id: i32, sender_id: i32 },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WireNotification {
+    pub payload: NotificationPayload,
+    pub created_at: DateTime<Utc>,
 }

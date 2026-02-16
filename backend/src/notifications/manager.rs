@@ -7,12 +7,14 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use diesel::prelude::*;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use super::NotificationPayload;
 use crate::db::{Database as _, Db, DbError};
-use crate::models::NewOfflineNotification;
 use crate::models::cbor_blob::CborBlob;
+use crate::models::{NewOfflineNotification, OfflineNotification};
+use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
 use crate::stream::{Sender, SharedSender, StreamManager, StreamManagerError, StreamType};
 
@@ -40,7 +42,7 @@ pub enum NotificationError {
 #[derive(Clone)]
 pub struct NotificationManager {
     /// Active notification streams keyed by `user_id`.
-    streams: Arc<DashMap<i32, SharedSender<NotificationPayload>, ahash::RandomState>>,
+    streams: Arc<DashMap<i32, SharedSender<WireNotification>, ahash::RandomState>>,
 }
 
 #[allow(dead_code)]
@@ -75,8 +77,14 @@ impl NotificationManager {
         };
 
         if let Some(sender) = sender {
-            match sender.send(payload.clone()).await {
-                Ok(()) => return Ok(()),
+            match sender
+                .send(WireNotification {
+                    payload: payload.clone(),
+                    created_at,
+                })
+                .await
+            {
+                Ok(_) => return Ok(()),
                 Err(_) => {
                     tracing::warn!(
                         user_id,
@@ -109,7 +117,7 @@ impl NotificationManager {
         streams: &StreamManager,
         user_id: i32,
     ) -> Result<(), NotificationError> {
-        let sender: Sender<NotificationPayload> = streams
+        let sender: Sender<WireNotification> = streams
             .request_uni_stream(user_id, StreamType::Notifications)
             .await?;
 
@@ -130,14 +138,31 @@ impl NotificationManager {
                 count = pending.len(),
                 "draining stored notifications"
             );
-            for payload in pending {
-                sender
-                    .send(payload)
-                    .await
-                    .map_err(|e| NotificationError::Send {
-                        user_id,
-                        reason: e.to_string(),
-                    })?;
+            let mut res = None;
+            let mut unsent = SmallVec::<[OfflineNotification; 5]>::new();
+            for notification in pending {
+                if res.is_none() {
+                    match sender
+                        .send(WireNotification {
+                            payload: notification.data.clone().into_inner(),
+                            created_at: notification.created_at,
+                        })
+                        .await
+                        .map_err(|e| NotificationError::Send {
+                            user_id,
+                            reason: e.to_string(),
+                        }) {
+                        Ok(_) => continue,
+                        Err(err) => {
+                            res = Some(err);
+                            self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
+                        }
+                    }
+                }
+                unsent.push(notification);
+            }
+            if !unsent.is_empty() {
+                Self::store_back_to_db(db, unsent).await?;
             }
         }
         Ok(())
@@ -176,27 +201,37 @@ impl NotificationManager {
         Ok(())
     }
 
+    async fn store_back_to_db(
+        db: &Db,
+        offline: SmallVec<[OfflineNotification; 5]>,
+    ) -> Result<(), DbError> {
+        db.write(move |conn| {
+            diesel::insert_into(notifications::table)
+                .values(&*offline)
+                .execute(conn)
+        })
+        .await??;
+        Ok(())
+    }
+
     /// Load **and delete** all stored notifications for `user_id`, ordered
     /// oldest-first.
     ///
     /// Runs inside a write transaction so no notification can slip through
     /// between the SELECT and the DELETE.
-    async fn drain_from_db(db: &Db, user_id: i32) -> Result<Vec<NotificationPayload>, DbError> {
+    async fn drain_from_db(db: &Db, user_id: i32) -> Result<Vec<OfflineNotification>, DbError> {
         Ok(db
             .transaction_write(move |conn| {
-                let rows: Vec<CborBlob<NotificationPayload>> = notifications::table
+                let rows: Vec<OfflineNotification> = notifications::table
                     .filter(notifications::user_id.eq(user_id))
                     .order(notifications::created_at.asc())
-                    .select(notifications::data)
                     .load(conn)?;
 
-                diesel::delete(notifications::table.filter(notifications::user_id.eq(user_id)))
+                let to_delete = rows.iter().map(|row| row.id);
+                diesel::delete(notifications::table.filter(notifications::id.eq_any(to_delete)))
                     .execute(conn)?;
 
-                Ok(rows
-                    .into_iter()
-                    .map(CborBlob::into_inner)
-                    .collect::<Vec<_>>())
+                Ok(rows)
             })
             .await?)
     }
