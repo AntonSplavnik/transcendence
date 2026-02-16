@@ -1,7 +1,8 @@
 //! WebTransport Stream Manager
 //!
 //! This module manages WebTransport (HTTP/3) connections and exposes a small API
-//! for *server-side* components to open bidirectional streams to a connected user.
+//! for *server-side* components to open bidirectional or uni-directional streams
+//! to a connected user.
 //!
 //! # What the current implementation does
 //!
@@ -47,7 +48,9 @@
 //!
 //! Server-side components call [`StreamManager::request_stream`] (or
 //! [`StreamManager::request_custom_stream`]) to open a fresh bidirectional stream
-//! on the user's WebTransport session.
+//! on the user's WebTransport session, or [`StreamManager::request_uni_stream`]
+//! (or [`StreamManager::request_custom_uni_stream`]) for a server → client
+//! send-only stream.
 //!
 //! The server always sends a first CBOR message describing the [`StreamType`] of
 //! that stream. The returned `Sender`/`Receiver` then carry typed CBOR messages
@@ -192,6 +195,10 @@ enum ConnectionCommand {
     /// Request to open a new bidirectional stream.
     OpenBidiStream {
         response: oneshot::Sender<Result<(WtSend, WtRecv)>>,
+    },
+    /// Request to open a new uni-directional (server → client) stream.
+    OpenUniStream {
+        response: oneshot::Sender<Result<WtSend>>,
     },
 }
 
@@ -456,6 +463,54 @@ impl StreamManager {
         }
     }
 
+    /// Request a new raw uni-directional (server → client) stream for a connected user.
+    ///
+    /// Returns an unframed WebTransport send stream. This is a low-level API;
+    /// prefer [`request_uni_stream`](Self::request_uni_stream) for typed message passing.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    async fn request_unframed_uni_stream(&self, user_id: i32) -> Result<(WtSend, u64)> {
+        let entry = self
+            .connections
+            .get(&user_id)
+            .ok_or(StreamManagerError::UserNotConnected { user_id })?;
+        let tx = entry.tx.clone();
+        let connection_id = entry.connection_id;
+        drop(entry);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        // Send command to handler
+        if tx
+            .send(ConnectionCommand::OpenUniStream {
+                response: response_tx,
+            })
+            .await
+            .is_err()
+        {
+            self.unregister(user_id, Some(connection_id), None);
+            return Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler exited".into(),
+            });
+        }
+
+        // Wait for response with timeout - if timeout or error, connection is dead
+        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            Ok(Ok(result)) => result.map(|stream| (stream, connection_id)),
+            Ok(Err(_)) | Err(_) => {
+                self.unregister(user_id, Some(connection_id), None);
+                Err(StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: "handler unresponsive or crashed".into(),
+                })
+            }
+        }
+    }
+
     /// Request a new bidirectional stream for typed message passing.
     ///
     /// This is the primary API for server-side components to communicate with clients.
@@ -544,6 +599,75 @@ impl StreamManager {
             })
     }
 
+    /// Request a new uni-directional (server → client) stream for typed message passing.
+    ///
+    /// Unlike [`request_stream`](Self::request_stream), this opens a send-only stream.
+    /// The client cannot send data back on this stream. Use this for server-initiated
+    /// push scenarios such as notifications or state updates.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `S`: The type to send (must implement [`Serialize`])
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use futures::SinkExt;
+    ///
+    /// let mut send = manager
+    ///     .request_uni_stream::<Notification>(user_id, StreamType::Notifications)
+    ///     .await?;
+    ///
+    /// send.send(Notification::NewMessage { from: 42 }).await?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_uni_stream<S>(&self, user_id: i32, r#type: StreamType) -> Result<Sender<S>>
+    where
+        S: Serialize,
+    {
+        self.request_custom_uni_stream::<S, CodecBufferParams>(user_id, r#type)
+            .await
+    }
+
+    /// Request a new uni-directional stream with custom codec parameters.
+    ///
+    /// This is an advanced API for cases where you need to customize the codec
+    /// buffer behavior. For most use cases, prefer
+    /// [`request_uni_stream`](Self::request_uni_stream) which uses sensible defaults.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `S`: The type to send (must implement [`Serialize`])
+    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_custom_uni_stream<S, BP>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+    ) -> Result<Sender<S, BP>>
+    where
+        S: Serialize,
+        BP: BufferParams,
+    {
+        let (send, connection_id) = self.request_unframed_uni_stream(user_id).await?;
+
+        frame_uni_stream::<S, BP>(send, r#type).await.map_err(|e| {
+            self.unregister(user_id, Some(connection_id), None);
+            StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: format!("failed to frame uni stream: {e}"),
+            }
+        })
+    }
+
     /// Force-disconnect a user's WebTransport connection.
     ///
     /// This is useful for logout, ban, or other administrative actions that
@@ -578,6 +702,27 @@ where
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
     Ok((sender, receiver))
+}
+
+/// Frame a uni-directional (server → client) WebTransport stream.
+///
+/// Sends the [`StreamType`] header as the first CBOR message, then returns a
+/// typed [`Sender`] for subsequent messages.
+async fn frame_uni_stream<S, BP>(tx: WtSend, r#type: StreamType) -> anyhow::Result<Sender<S, BP>>
+where
+    S: Serialize,
+    BP: BufferParams,
+{
+    let mut sender = FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
+    sender
+        .send(&r#type)
+        .await
+        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+    sender
+        .flush()
+        .await
+        .with_context(|| format!("failed to flush stream type: {:?}", r#type))?;
+    Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
 }
 
 /// WebTransport connection endpoint.
@@ -657,6 +802,19 @@ pub async fn connect_stream(
                                 Err(StreamManagerError::ConnectionClosed {
                                     user_id: user_session.user_id,
                                     reason: format!("stream open failed: {}", e),
+                                })
+                            }
+                        };
+                        let _ = response.send(result);
+                    }
+                    Some(ConnectionCommand::OpenUniStream { response }) => {
+                        let result = match wt_session.open_uni(session_id).await {
+                            Ok(stream) => Ok(stream),
+                            Err(e) => {
+                                tracing::warn!(user_session.user_id, connection_id, error = %e, "Uni stream open failed");
+                                Err(StreamManagerError::ConnectionClosed {
+                                    user_id: user_session.user_id,
+                                    reason: format!("uni stream open failed: {}", e),
                                 })
                             }
                         };
