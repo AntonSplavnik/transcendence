@@ -44,7 +44,25 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 
 	useEffect(() => {
 		if (!user) return;
-		loadAvatars(user.id);
+		let cancelled = false;
+		(async () => {
+			try {
+				const [small, large] = await Promise.all([
+					fetchAvatar(user.id, 'small'),
+					fetchAvatar(user.id, 'large'),
+				]);
+				if (!cancelled) {
+					setAvatarSmallUrl(prev => { if (prev) URL.revokeObjectURL(prev); return small; });
+					setAvatarLargeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return large; });
+				}
+			} catch {
+				if (!cancelled) {
+					setAvatarSmallUrl(null);
+					setAvatarLargeUrl(null);
+				}
+			}
+		})();
+		return () => { cancelled = true; };
 	}, [user]);
 
 	// authentication guard from context
