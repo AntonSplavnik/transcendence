@@ -5,15 +5,17 @@ import { UserIcon } from 'lucide-react';
 interface AvatarDisplayProps {
     userId : number;
     size: 'large' | 'small';
+    src?: string | null;
     className?: string;
 }
 
-export default function AvatarDisplay( {userId, size, className = "" } : AvatarDisplayProps ) {
+export default function AvatarDisplay( {userId, size, src, className = "" } : AvatarDisplayProps ) {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(src === undefined);
     const [error, setError] = useState<boolean>(false);
 
     useEffect(() => {
+        if (src !== undefined) return;
         let cancelled = false;
         let url: string | null = null;
         async function loadAvatar() {
@@ -27,7 +29,7 @@ export default function AvatarDisplay( {userId, size, className = "" } : AvatarD
                 if(!cancelled) {
                     setError(true);
                     setLoading(false);
-                } 
+                }
             }
         }
         loadAvatar();
@@ -35,17 +37,20 @@ export default function AvatarDisplay( {userId, size, className = "" } : AvatarD
             cancelled = true;
             if (url) URL.revokeObjectURL(url);
         };
-    }, [userId, size]);
+    }, [userId, size, src]);
+
+    const displayUrl = src !== undefined ? src : avatarUrl;
+
     return (
         <div className={`rounded-full overflow-hidden ${className}`}>
             {loading ? (
                 <div className="bg-wood-700 animate-pulse w-full h-full" />
-            ) : error ? (
+            ) : !displayUrl || error ? (
                     <div className="bg-wood-700 w-full h-full flex items-center justify-center">
                         <UserIcon className="w-1/2 h-1/2 text-wood-400" />
                     </div>
             ) : (
-                <img src={avatarUrl!} alt="avatar" className="w-full h-full object-cover" />
+                <img src={displayUrl} alt="avatar" className="w-full h-full object-cover" />
             )}
         </div>
     );

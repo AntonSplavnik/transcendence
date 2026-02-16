@@ -9,9 +9,10 @@ interface EditProfileProps {
 	user: User;
 	onClose: () => void;
 	onAvatarChanged: () => void;
+	avatarUrl?: string | null;
 }
 
-export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: EditProfileProps) {
+export default function AvatarUploadModal({ user, onClose, onAvatarChanged, avatarUrl }: EditProfileProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string  | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
@@ -84,7 +85,7 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: Ed
                     {previewUrl ? (
                         <img src={previewUrl} alt="preview" className="w-32 h-32 rounded-full object-cover" />
                     ) : (
-                        <AvatarDisplay userId={user.id} size="large" className="w-32 h-32 rounded-full" />
+                        <AvatarDisplay userId={user.id} size="large" src={avatarUrl} className="w-32 h-32 rounded-full" />
                 )}
                 </div>
                 <div className="space-y-4">

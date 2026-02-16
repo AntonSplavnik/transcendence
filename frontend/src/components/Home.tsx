@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'lucide-react';
+import { fetchAvatar } from '../api/avatar';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
@@ -24,7 +25,27 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const [avatarKey, setAvatarKey] = useState(0);
+	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | null>(null);
+	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | null>(null);
+
+	const loadAvatars = useCallback(async () => {
+		if (!user) return;
+		try {
+			const [small, large] = await Promise.all([
+				fetchAvatar(user.id, 'small'),
+				fetchAvatar(user.id, 'large'),
+			]);
+			setAvatarSmallUrl(prev => { if (prev) URL.revokeObjectURL(prev); return small; });
+			setAvatarLargeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return large; });
+		} catch {
+			setAvatarSmallUrl(null);
+			setAvatarLargeUrl(null);
+		}
+	}, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	useEffect(() => {
+		loadAvatars();
+	}, [loadAvatars]);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -63,7 +84,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay key={avatarKey} userId={user.id} size="small" className="w-14 h-14"/>
+					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-14 h-14"/>
 					<div>
 						<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
 						<p className="text-wood-300">Welcome back, {user.nickname}.</p>
@@ -194,7 +215,7 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 								</p>
 							</div>
 						</div>
-						<AvatarDisplay key={avatarKey} userId={user.id} size="large" className="w-28 h-28 rounded-lg"/>
+						<AvatarDisplay userId={user.id} size="large" src={avatarLargeUrl} className="w-28 h-28 rounded-lg"/>
 					</div>
 				</Card>
 
@@ -227,7 +248,8 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				<AvatarUploadModal
 					user={user}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={() => setAvatarKey(k => k + 1)}
+					onAvatarChanged={loadAvatars}
+					avatarUrl={avatarLargeUrl}
 				/>
 			)}
 
