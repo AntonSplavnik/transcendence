@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'lucide-react';
-import { fetchAvatar } from '../api/avatar';
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import AvatarDisplay from './ui/AvatarDisplay';
@@ -25,45 +24,8 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | null>(null);
-	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | null>(null);
-
-	const loadAvatars = async (userId: number) => {
-		try {
-			const [small, large] = await Promise.all([
-				fetchAvatar(userId, 'small'),
-				fetchAvatar(userId, 'large'),
-			]);
-			setAvatarSmallUrl(prev => { if (prev) URL.revokeObjectURL(prev); return small; });
-			setAvatarLargeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return large; });
-		} catch {
-			setAvatarSmallUrl(null);
-			setAvatarLargeUrl(null);
-		}
-	};
-
-	useEffect(() => {
-		if (!user) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const [small, large] = await Promise.all([
-					fetchAvatar(user.id, 'small'),
-					fetchAvatar(user.id, 'large'),
-				]);
-				if (!cancelled) {
-					setAvatarSmallUrl(prev => { if (prev) URL.revokeObjectURL(prev); return small; });
-					setAvatarLargeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return large; });
-				}
-			} catch {
-				if (!cancelled) {
-					setAvatarSmallUrl(null);
-					setAvatarLargeUrl(null);
-				}
-			}
-		})();
-		return () => { cancelled = true; };
-	}, [user]);
+	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | undefined>(undefined);
+	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | undefined>(undefined);
 
 	// authentication guard from context
 	if (!user || !session) {
@@ -266,8 +228,10 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				<AvatarUploadModal
 					user={user}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={() => loadAvatars(user.id)}
-					avatarUrl={avatarLargeUrl}
+					onAvatarChanged={(smallUrl, largeUrl) => {
+						setAvatarSmallUrl(smallUrl ?? undefined);
+						setAvatarLargeUrl(largeUrl ?? undefined);
+					}}
 				/>
 			)}
 

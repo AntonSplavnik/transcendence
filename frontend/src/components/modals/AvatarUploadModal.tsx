@@ -8,11 +8,10 @@ import Button from '../ui/Button';
 interface EditProfileProps {
 	user: User;
 	onClose: () => void;
-	onAvatarChanged: () => void;
-	avatarUrl?: string | null;
+	onAvatarChanged: (smallUrl: string | null, largeUrl: string | null) => void;
 }
 
-export default function AvatarUploadModal({ user, onClose, onAvatarChanged, avatarUrl }: EditProfileProps) {
+export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: EditProfileProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string  | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
@@ -48,7 +47,10 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged, avat
                 return;
             }
             await uploadAvatar(result.data.large, result.data.small);
-            onAvatarChanged();
+            onAvatarChanged(
+                URL.createObjectURL(result.data.small),
+                URL.createObjectURL(result.data.large),
+            );
             onClose();
         } catch {
             setError("Failed to upload avatar");
@@ -62,7 +64,7 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged, avat
         setError(null);
         try {
             await deleteAvatar();
-            onAvatarChanged();
+            onAvatarChanged(null, null);
             onClose();
         } catch {
             setError("Failed to delete avatar");
@@ -85,7 +87,7 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged, avat
                     {previewUrl ? (
                         <img src={previewUrl} alt="preview" className="w-32 h-32 rounded-full object-cover" />
                     ) : (
-                        <AvatarDisplay userId={user.id} size="large" src={avatarUrl} className="w-32 h-32 rounded-full" />
+                        <AvatarDisplay userId={user.id} size="large" className="w-32 h-32 rounded-full" />
                 )}
                 </div>
                 <div className="space-y-4">
