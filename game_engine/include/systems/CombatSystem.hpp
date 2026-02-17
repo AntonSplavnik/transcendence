@@ -207,7 +207,8 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
         // Check if attack finished and update state
         auto* controller = m_registry->try_get<Components::CharacterController>(entity);
         if (controller && !combat.isAttacking) {
-            if (controller->state == CharacterState::Attacking) {
+            // Only reset state if player isn't still holding attack button
+            if (controller->state == CharacterState::Attacking && !controller->input.isAttacking) {
                 // Return to idle or moving based on input
                 if (controller->hasMovementInput()) {
                     controller->setState(CharacterState::Moving);

@@ -1,55 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGameConnection } from '../hooks/useGameConnection';
+import { useAuth } from '../contexts/AuthContext';
 import Button from './ui/Button';
 import Card from './ui/Card';
+import SimpleGameClient from './GameBoard/SimpleGameClient';
 
 export default function GameTestUI() {
-  const { state, error, snapshot, connect, joinGame, sendInput, leaveGame, disconnect } = useGameConnection();
+  const { state, error, snapshot, connect, joinGame, sendInput, disconnect } = useGameConnection();
+  const { user } = useAuth();
   const [playerName, setPlayerName] = useState('TestPlayer');
 
-  // Simple keyboard input (arrow keys)
-  useEffect(() => {
-    if (state !== 'in-game') return;
 
-    // Track which keys are currently pressed
-    const keysPressed = new Set<string>();
+  // Render 3D game client when in-game
+  if (state === 'in-game') {
+    return (
+      <SimpleGameClient
+        snapshot={snapshot}
+        onSendInput={sendInput}
+        localPlayerId={user?.id}
+      />
+    );
+  }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        keysPressed.add(e.key);
-        updateMovement();
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        keysPressed.delete(e.key);
-        updateMovement();
-      }
-    };
-
-    const updateMovement = () => {
-      const movement = { x: 0, y: 0, z: 0 };
-      const lookDirection = { x: 0, y: 1, z: 0 };
-
-      if (keysPressed.has('ArrowUp')) movement.z = 1;
-      if (keysPressed.has('ArrowDown')) movement.z = -1;
-      if (keysPressed.has('ArrowLeft')) movement.x = -1;
-      if (keysPressed.has('ArrowRight')) movement.x = 1;
-
-      console.log('Sending input:', movement);
-      sendInput(movement, lookDirection);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [state, sendInput]);
-
+  // Otherwise show connection UI
   return (
     <div className="p-4 space-y-4">
       <Card>
@@ -59,9 +32,7 @@ export default function GameTestUI() {
         <div className="mb-4">
           <span className="font-semibold">Status: </span>
           <span className={`px-2 py-1 rounded ${
-            state === 'in-game' ? 'bg-green-200' :
-            state === 'error' ? 'bg-red-200' :
-            'bg-gray-200'
+            state === 'error' ? 'bg-red-200' : 'bg-gray-200'
           }`}>
             {state}
           </span>
@@ -103,65 +74,12 @@ export default function GameTestUI() {
           <div className="text-gray-600">Joining game...</div>
         )}
 
-        {state === 'in-game' && (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600">
-              Use arrow keys to move
-            </p>
-            <Button variant="danger" onClick={leaveGame}>Leave Game</Button>
-          </div>
-        )}
-
         {state === 'connected' && (
           <Button variant="secondary" onClick={disconnect} className="mt-2">
             Disconnect
           </Button>
         )}
       </Card>
-
-      {/* Game State Display */}
-      {snapshot && (
-        <Card>
-          <h3 className="font-bold mb-2">Game State</h3>
-          <div className="space-y-1 text-sm">
-            <div>Frame: {snapshot.frame_number}</div>
-            <div>Timestamp: {snapshot.timestamp.toFixed(2)}s</div>
-            <div>Players: {snapshot.characters.length}</div>
-          </div>
-
-          {snapshot.characters.length > 0 && (
-            <div className="mt-4">
-              <h4 className="font-semibold mb-2">Characters:</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-1">ID</th>
-                      <th className="text-left p-1">Position</th>
-                      <th className="text-left p-1">Health</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {snapshot.characters.map(char => (
-                      <tr key={char.player_id} className="border-b">
-                        <td className="p-1">{char.player_id}</td>
-                        <td className="p-1">
-                          ({char.position.x.toFixed(1)},
-                           {char.position.y.toFixed(1)},
-                           {char.position.z.toFixed(1)})
-                        </td>
-                        <td className="p-1">
-                          {char.health.toFixed(0)}/{char.max_health.toFixed(0)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
     </div>
   );
 }

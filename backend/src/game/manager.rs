@@ -78,6 +78,7 @@ impl GameManager {
         ability1: bool,
         ability2: bool,
         dodging: bool,
+        sprinting: bool,
     ) {
         let mut game = self.game.write().await;
         game.set_input(
@@ -89,6 +90,7 @@ impl GameManager {
             ability1,
             ability2,
             dodging,
+            sprinting,
         );
     }
 
@@ -123,7 +125,7 @@ impl GameManager {
         info!("Starting game loop");
 
         let mut physics_interval = time::interval(Duration::from_micros(500));
-        let mut snapshot_interval = time::interval(Duration::from_millis(50)); // 20 Hz
+        let mut snapshot_interval = time::interval(Duration::from_micros(16667)); // 60 Hz (~16.67ms)
 
         loop {
             tokio::select! {
@@ -133,7 +135,7 @@ impl GameManager {
                     game.update();
                 }
 
-                // Broadcast snapshots at 20 Hz
+                // Broadcast snapshots at 60 Hz
                 _ = snapshot_interval.tick() => {
                     let snapshot = {
                         let game = self.game.read().await;

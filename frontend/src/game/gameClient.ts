@@ -12,7 +12,6 @@ import type { GameClientMessage, GameServerMessage } from './types';
  */
 export class GameClient {
   private transport: WebTransport | null = null;
-  private encoder = new CompressedCborEncoder();
   private state: 'idle' | 'connecting' | 'connected' = 'idle';
 
   async connect(): Promise<void> {
