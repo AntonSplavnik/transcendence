@@ -182,17 +182,8 @@ pub struct FriendRequest {
     pub sender_id: i32,
     pub receiver_id: i32,
     pub status: String,
-    created_at: NaiveDateTime,
-    updated_at: NaiveDateTime,
-}
-
-impl FriendRequest {
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
-    pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at.and_utc()
-    }
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Small avatar (200x200, AVIF format)
@@ -221,7 +212,7 @@ impl AvatarSmall {
 
 impl NewFriendRequest {
     pub fn new(sender_id: i32, receiver_id: i32) -> Self {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         Self {
             sender_id,
             receiver_id,

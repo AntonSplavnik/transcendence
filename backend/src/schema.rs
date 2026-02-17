@@ -17,6 +17,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    friend_requests (id) {
+        id -> Integer,
+        sender_id -> Integer,
+        receiver_id -> Integer,
+        status -> Text,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     notifications (id) {
         id -> Integer,
         user_id -> Integer,

@@ -2,6 +2,7 @@
 
 use crate::error::FriendError;
 use crate::models::FriendRequest;
+use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
 use super::types::{RequestStatus, parse_param};
@@ -34,6 +35,19 @@ pub async fn remove_friend(depot: &mut Depot, req: &mut Request, db: Db) -> Json
         Ok::<_, ApiError>(())
     })
     .await??;
+
+    let nm = depot.notification_manager();
+    let db = depot.db();
+    if let Err(e) = nm
+        .send(
+            &db,
+            friend_id,
+            NotificationPayload::FriendRemoved { user_id },
+        )
+        .await
+    {
+        tracing::warn!(error = %e, "failed to send friend removed notification");
+    }
 
     json_ok(())
 }

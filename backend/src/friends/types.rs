@@ -1,6 +1,7 @@
 //! Types and helpers for the friends module.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
@@ -8,6 +9,7 @@ use crate::error::FriendError;
 use crate::models::{FriendRequest, User};
 use crate::prelude::*;
 use crate::routers::users::PublicUser;
+use crate::stream::StreamManager;
 
 /// Friend request status values stored in the database.
 pub struct RequestStatus;
@@ -78,6 +80,7 @@ pub fn load_pending_requests(
     conn: &mut DbConn,
     user_id: i32,
     direction: RequestDirection,
+    sm: &Arc<StreamManager>,
 ) -> Result<Vec<FriendRequestResponse>, ApiError> {
     use crate::schema::friend_requests::dsl as fr;
     use crate::schema::users::dsl as u;
@@ -128,7 +131,15 @@ pub fn load_pending_requests(
                     (current_user.clone(), receiver)
                 }
             };
-            Some(FriendRequestResponse::new(request, sender, receiver))
+            let sender_online = sm.is_connected(sender.id);
+            let receiver_online = sm.is_connected(receiver.id);
+            Some(FriendRequestResponse::new(
+                request,
+                sender,
+                receiver,
+                sender_online,
+                receiver_online,
+            ))
         })
         .collect();
 
@@ -164,13 +175,19 @@ pub struct FriendRequestResponse {
 }
 
 impl FriendRequestResponse {
-    pub fn new(request: &FriendRequest, sender: User, receiver: User) -> Self {
+    pub fn new(
+        request: &FriendRequest,
+        sender: User,
+        receiver: User,
+        sender_online: bool,
+        receiver_online: bool,
+    ) -> Self {
         Self {
             id: request.id,
-            sender: PublicUser::new(sender, false),
-            receiver: PublicUser::new(receiver, false),
+            sender: PublicUser::new(sender, sender_online),
+            receiver: PublicUser::new(receiver, receiver_online),
             status: request.status.clone(),
-            created_at: request.created_at(),
+            created_at: request.created_at,
         }
     }
 }

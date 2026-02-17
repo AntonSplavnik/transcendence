@@ -1,6 +1,7 @@
 //! POST /api/friends/accept/<request_id> - Accept a friend request
 
 use crate::models::{FriendRequest, User};
+use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
 use super::types::{FriendRequestResponse, RequestStatus, find_pending_request, parse_param};
@@ -23,7 +24,7 @@ pub async fn accept_friend_request(
             let request = find_pending_request(conn, request_id, user_id, false)?;
 
             // Update status to accepted
-            let now = chrono::Utc::now().naive_utc();
+            let now = chrono::Utc::now();
             let updated_request: FriendRequest =
                 diesel::update(fr::friend_requests.filter(fr::id.eq(request_id)))
                     .set((
@@ -39,9 +40,30 @@ pub async fn accept_friend_request(
         })
         .await??;
 
+    let nm = depot.notification_manager();
+    let db = depot.db();
+    if let Err(e) = nm
+        .send(
+            &db,
+            updated_request.sender_id,
+            NotificationPayload::FriendRequestAccepted {
+                request_id: updated_request.id,
+                friend_id: updated_request.receiver_id,
+            },
+        )
+        .await
+    {
+        tracing::warn!(error = %e, "failed to send friend request accepted notification");
+    }
+
+    let sm = depot.stream_manager();
+    let sender_online = sm.is_connected(sender.id);
+    let receiver_online = sm.is_connected(receiver.id);
     json_ok(FriendRequestResponse::new(
         &updated_request,
         sender,
         receiver,
+        sender_online,
+        receiver_online,
     ))
 }

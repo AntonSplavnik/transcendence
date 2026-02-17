@@ -4,6 +4,7 @@ use diesel::result::{DatabaseErrorKind, Error as DieselError};
 
 use crate::error::FriendError;
 use crate::models::{FriendRequest, NewFriendRequest, User};
+use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
 use super::types::{
@@ -99,5 +100,30 @@ pub async fn send_friend_request(
         })
         .await??;
 
-    json_ok(FriendRequestResponse::new(&request, sender, receiver))
+    let nm = depot.notification_manager();
+    let db = depot.db();
+    if let Err(e) = nm
+        .send(
+            &db,
+            receiver.id,
+            NotificationPayload::FriendRequestReceived {
+                request_id: request.id,
+                sender_id: sender.id,
+            },
+        )
+        .await
+    {
+        tracing::warn!(error = %e, "failed to send friend request notification");
+    }
+
+    let sm = depot.stream_manager();
+    let sender_online = sm.is_connected(sender.id);
+    let receiver_online = sm.is_connected(receiver.id);
+    json_ok(FriendRequestResponse::new(
+        &request,
+        sender,
+        receiver,
+        sender_online,
+        receiver_online,
+    ))
 }
