@@ -1,4 +1,5 @@
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use salvo::catcher::Catcher;
 use salvo::conn::Acceptor;
@@ -26,30 +27,64 @@ pub use error::ApiError;
 
 use crate::config::{ServerConfig, TlsConfig};
 
-#[tokio::main]
-async fn main() -> ExitCode {
+fn main() -> ExitCode {
+    #[allow(
+        clippy::expect_used,
+        clippy::diverging_sub_expression,
+        clippy::needless_return,
+        clippy::unwrap_in_result
+    )]
+    return tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_name_fn(|| {
+            static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+            let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+            format!("tokio-{}", id)
+        })
+        .build()
+        .expect("Failed building the Runtime")
+        .block_on(async_main());
+}
+
+async fn async_main() -> ExitCode {
     let _ = dotenvy::dotenv();
     crate::config::init();
     let config = crate::config::get();
-    let _guard = config.log.guard();
+
+    #[cfg(not(debug_assertions))]
+    eprintln!("📖 Open API Pages are only enabled with debug builds.");
+    #[cfg(debug_assertions)]
+    {
+        let listen_addr = &config.listen_addr;
+        let port = config.listen_https_port;
+        eprintln!(
+            "📖 Open API Pages: https://{}:{port}/scalar",
+            listen_addr.replace("0.0.0.0", "127.0.0.1")
+        );
+    }
+
+    let logger = config.log.guard();
+    tokio::spawn(async move {
+        let _logger = logger;
+        // block infinitely
+        std::future::pending::<()>().await;
+    });
+
+    #[cfg(not(test))]
     crate::utils::limiter::periodic_rate_limit_report();
 
+    tracing::info!("log level: {}", &config.log.filter_level);
     // Initialize database (reader pool + single writer, runs migrations)
     let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
 
-    tracing::info!("log level: {}", &config.log.filter_level);
-
-    let mut router = routers::root()
-        .hoop(db::DatabaseHoop::new(database))
-        .hoop(ForceHttps::new().https_port(config.listen_https_port))
-        .hoop(crate::auth::device_id_inserter_hoop);
-
+    let mut router =
+        routers::root(database).hoop(ForceHttps::new().https_port(config.listen_https_port));
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
-        run_server(acceptor, router, config).await;
+        run_server(acceptor, router).await;
     } else if let Some(domain) = &config.domain {
         let acceptor = setup_acme_acceptor_socket(&config, domain, &mut router).await;
-        run_server(acceptor, router, &config).await;
+        run_server(acceptor, router).await;
     } else {
         eprintln!("⚠️  No TLS configuration and no domain provided. Exiting.");
         return ExitCode::FAILURE;
@@ -95,23 +130,12 @@ async fn setup_acme_acceptor_socket(
 }
 
 // generic helper to enable using different acceptor types
-async fn run_server<A>(acceptor: A, router: Router, config: &ServerConfig)
+async fn run_server<A>(acceptor: A, router: Router)
 where
     A: Acceptor + Send,
 {
     let server = Server::new(acceptor);
     tokio::spawn(shutdown_signal(server.handle()));
-
-    let listen_addr = &config.listen_addr;
-    let port = config.listen_https_port;
-    eprintln!(
-        "🚀 Server Listening on https://{}:{port}/",
-        listen_addr.replace("0.0.0.0", "127.0.0.1"),
-    );
-    eprintln!(
-        "📖 Open API Pages:\nhttps://{0}:{port}/scalar\nhttps://{0}:{port}/swagger-ui\nhttps://{0}:{port}/rapidoc\nhttps://{0}:{port}/redoc",
-        listen_addr.replace("0.0.0.0", "127.0.0.1")
-    );
 
     let service = Service::new(router).catcher(Catcher::default());
 

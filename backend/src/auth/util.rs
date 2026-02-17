@@ -91,7 +91,7 @@ pub fn jwt_create(session: &Session, jti: SessionTokenHashTruncated) -> AppResul
         sid: session.id,
         jti,
         exp: session.access_expiry().timestamp() as usize,
-        iat: session.refreshed_at().timestamp() as usize,
+        iat: session.refreshed_at.timestamp() as usize,
     };
     Ok(jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),

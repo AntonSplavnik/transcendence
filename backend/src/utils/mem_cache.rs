@@ -1,4 +1,4 @@
-use std::{cell::LazyCell, convert::Infallible, hash::Hash};
+use std::{cell::LazyCell, convert::Infallible, hash::Hash, sync::Arc};
 
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use schnellru::{ByLength, LruMap};
@@ -153,13 +153,13 @@ where
 ///
 /// Keeps most recently used entries in the cache.
 /// Can be configured to limit by number of entries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LruMemCache<K, V> {
     /// Inner LRU map protected by a mutex for thread safety.
     ///
     /// Uses ahash for fast hashing.
     /// Mutex is used instead of RwLock because write access is needed for reads to update LRU order.
-    inner: Mutex<LruMap<K, V, ByLength, ahash::RandomState>>,
+    inner: Arc<Mutex<LruMap<K, V, ByLength, ahash::RandomState>>>,
 }
 
 impl<K, V> LruMemCache<K, V>
@@ -167,10 +167,10 @@ where
     K: std::hash::Hash + PartialEq,
 {
     #[inline]
-    pub const fn with_max_length(max_length: u32) -> Self {
+    pub fn with_max_length(max_length: u32) -> Self {
         use const_random::const_random;
         Self {
-            inner: Mutex::new(LruMap::with_hasher(
+            inner: Arc::new(Mutex::new(LruMap::with_hasher(
                 ByLength::new(max_length),
                 ahash::RandomState::with_seeds(
                     const_random!(u64),
@@ -178,7 +178,7 @@ where
                     const_random!(u64),
                     const_random!(u64),
                 ),
-            )),
+            ))),
         }
     }
 }

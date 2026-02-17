@@ -1,5 +1,8 @@
 use std::collections::HashSet;
 
+use chrono::DateTime;
+use chrono::Utc;
+
 use super::two_factor;
 use super::util;
 use crate::auth::TwoFactorError;
@@ -102,6 +105,7 @@ async fn change_pw(
         input
     };
     let new_hash = util::hash_password(&new_password)?;
+    let streams = depot.stream_manager().clone();
 
     db.write(move |conn| {
         util::check_password_and_mfa_if_enabled(
@@ -119,7 +123,7 @@ async fn change_pw(
                 .execute(conn)?;
 
             if !keep_other_sessions_logged_in {
-                deauth_other_sessions(conn, user_id_value, session_id)?;
+                deauth_other_sessions(conn, &streams, user_id_value, session_id)?;
             }
             Ok(())
         })
@@ -135,8 +139,9 @@ async fn logout(depot: &mut Depot, res: &mut Response, db: Db) -> JsonResult<()>
     let session = depot.session();
     let user_id = session.user_id;
     let session_id = session.id;
+    let streams = depot.stream_manager().clone();
 
-    db.write(move |conn| deauth_sessions(conn, user_id, &[session_id]))
+    db.write(move |conn| deauth_sessions(conn, &streams, user_id, &[session_id]))
         .await??;
     delete_auth_cookies(res);
     json_ok(())
@@ -169,6 +174,7 @@ async fn logout_sessions(
     let user_id_value = session.user_id;
     let session_id = session.id;
     let session_ids_vec: Vec<i32> = session_ids.iter().copied().collect();
+    let streams = depot.stream_manager().clone();
 
     db.write(move |conn| {
         util::check_password_and_mfa_if_enabled(
@@ -178,7 +184,7 @@ async fn logout_sessions(
             conn,
         )?;
 
-        deauth_sessions(conn, user_id_value, &session_ids_vec)?;
+        deauth_sessions(conn, &streams, user_id_value, &session_ids_vec)?;
         Ok::<_, ApiError>(())
     })
     .await??;
@@ -204,6 +210,7 @@ async fn logout_other_sessions(
     let PasswordInput { password, mfa_code } = json.into_inner();
     let user_id_value = session.user_id;
     let session_id = session.id;
+    let streams = depot.stream_manager().clone();
 
     db.write(move |conn| {
         util::check_password_and_mfa_if_enabled(
@@ -213,7 +220,7 @@ async fn logout_other_sessions(
             conn,
         )?;
 
-        deauth_other_sessions(conn, user_id_value, session_id)?;
+        deauth_other_sessions(conn, &streams, user_id_value, session_id)?;
         Ok::<_, ApiError>(())
     })
     .await??;
@@ -226,10 +233,10 @@ pub struct SessionInfo {
     pub user_id: i32,
     pub device_name: Option<String>,
     pub ip_address: Option<String>,
-    pub created_at: chrono::NaiveDateTime,
-    pub last_used_at: chrono::NaiveDateTime,
-    pub access_expiry: chrono::NaiveDateTime,
-    pub login_expiry: chrono::NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    pub access_expiry: DateTime<Utc>,
+    pub login_expiry: DateTime<Utc>,
 }
 
 impl From<&Session> for SessionInfo {
@@ -239,10 +246,10 @@ impl From<&Session> for SessionInfo {
             user_id: session.user_id,
             device_name: session.device_name.clone(),
             ip_address: session.ip_address.clone(),
-            created_at: session.created_at().naive_utc(),
-            last_used_at: session.last_used_at().naive_utc(),
-            access_expiry: session.access_expiry().naive_utc(),
-            login_expiry: session.login_expiry().naive_utc(),
+            created_at: session.created_at,
+            last_used_at: session.last_used_at,
+            access_expiry: session.access_expiry(),
+            login_expiry: session.login_expiry(),
         }
     }
 }
@@ -331,11 +338,12 @@ async fn delete_sessions(
     })
     .await??;
 
+    let streams = depot.stream_manager();
     // short-circuiting to avoid iterating all sessions,
     // as there can be at maximum only one session where closing a stream returns true.
     session_ids
         .iter()
-        .any(|session_id| StreamManager::global().close_stream(session.user_id, Some(*session_id)));
+        .any(|session_id| streams.close_stream(session.user_id, Some(*session_id)));
 
     if session_ids.contains(&session_id) {
         delete_auth_cookies(res);
@@ -352,6 +360,7 @@ fn delete_auth_cookies(res: &mut Response) {
 
 fn deauth_other_sessions(
     conn: &mut DbConn,
+    streams: &StreamManager,
     target_user: i32,
     current_session_id: i32,
 ) -> AppResult<usize> {
@@ -363,12 +372,17 @@ fn deauth_other_sessions(
         .select(id)
         .load::<i32>(conn)?;
 
-    deauth_sessions(conn, target_user, &other_sessions)
+    deauth_sessions(conn, streams, target_user, &other_sessions)
 }
 
-fn deauth_sessions(conn: &mut DbConn, target_user: i32, session_ids: &[i32]) -> AppResult<usize> {
+fn deauth_sessions(
+    conn: &mut DbConn,
+    streams: &StreamManager,
+    target_user: i32,
+    session_ids: &[i32],
+) -> AppResult<usize> {
     use crate::schema::sessions::dsl::*;
-    let epoch = chrono::DateTime::UNIX_EPOCH.naive_utc();
+    let epoch = chrono::DateTime::UNIX_EPOCH;
     let result = diesel::update(
         sessions
             .filter(user_id.eq(target_user))
@@ -381,7 +395,7 @@ fn deauth_sessions(conn: &mut DbConn, target_user: i32, session_ids: &[i32]) -> 
     // as there can be at maximum only one session where closing a stream returns true.
     session_ids
         .iter()
-        .any(|session_id| StreamManager::global().close_stream(target_user, Some(*session_id)));
+        .any(|session_id| streams.close_stream(target_user, Some(*session_id)));
 
     Ok(result)
 }
@@ -441,7 +455,7 @@ async fn two_fa_start(
                 diesel::update(users.filter(id.eq(user.id)).filter(totp_enabled.eq(false)))
                     .set((
                         totp_secret_enc.eq(Some(secret_enc)),
-                        totp_confirmed_at.eq::<Option<chrono::NaiveDateTime>>(None),
+                        totp_confirmed_at.eq::<Option<DateTime<Utc>>>(None),
                     ))
                     .execute(conn)?;
 
@@ -511,7 +525,7 @@ async fn two_fa_confirm(
             }
 
             let recovery_codes = conn.transaction::<_, ApiError, _>(|conn| {
-                let now = chrono::Utc::now().naive_utc();
+                let now = chrono::Utc::now();
                 let updated = diesel::update(
                     users
                         .filter(id.eq(user.id))
@@ -580,7 +594,7 @@ async fn two_fa_disable(
             .set((
                 totp_enabled.eq(false),
                 totp_secret_enc.eq::<Option<String>>(None),
-                totp_confirmed_at.eq::<Option<chrono::NaiveDateTime>>(None),
+                totp_confirmed_at.eq::<Option<DateTime<Utc>>>(None),
             ))
             .execute(conn)?;
 

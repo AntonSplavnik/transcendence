@@ -4,7 +4,7 @@ diesel::table! {
     avatars_large (user_id) {
         user_id -> Integer,
         data -> Binary,
-        updated_at -> Timestamp,
+        updated_at -> TimestamptzSqlite,
     }
 }
 
@@ -12,7 +12,7 @@ diesel::table! {
     avatars_small (user_id) {
         user_id -> Integer,
         data -> Binary,
-        updated_at -> Timestamp,
+        updated_at -> TimestamptzSqlite,
     }
 }
 
@@ -35,10 +35,10 @@ diesel::table! {
         device_id -> Text,
         device_name -> Nullable<Text>,
         ip_address -> Nullable<Text>,
-        created_at -> Timestamp,
-        refreshed_at -> Timestamp,
-        last_used_at -> Timestamp,
-        last_authenticated_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
+        refreshed_at -> TimestamptzSqlite,
+        last_used_at -> TimestamptzSqlite,
+        last_authenticated_at -> TimestamptzSqlite,
     }
 }
 
@@ -47,8 +47,8 @@ diesel::table! {
         id -> Integer,
         user_id -> Integer,
         code_hash -> Binary,
-        used_at -> Nullable<Timestamp>,
-        created_at -> Timestamp,
+        used_at -> Nullable<TimestamptzSqlite>,
+        created_at -> TimestamptzSqlite,
     }
 }
 
@@ -59,9 +59,9 @@ diesel::table! {
         nickname -> Text,
         totp_enabled -> Bool,
         totp_secret_enc -> Nullable<Text>,
-        totp_confirmed_at -> Nullable<Timestamp>,
+        totp_confirmed_at -> Nullable<TimestamptzSqlite>,
         password_hash -> Text,
-        created_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
     }
 }
 
