@@ -14,6 +14,7 @@ mod config;
 pub mod db;
 mod error;
 mod models;
+mod notifications;
 mod prelude;
 mod routers;
 mod schema;
