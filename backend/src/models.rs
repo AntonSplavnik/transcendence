@@ -11,7 +11,7 @@
 //! (and the corresponding patch workflow) so models and schema stay in sync.
 
 use crate::{auth::session_token::SessionTokenHash, models::nickname::Nickname};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
@@ -210,7 +210,7 @@ impl AvatarSmall {
     }
 
     pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at.and_utc()
+        self.updated_at
     }
 }
 

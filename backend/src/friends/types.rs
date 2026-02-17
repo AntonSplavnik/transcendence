@@ -167,8 +167,8 @@ impl FriendRequestResponse {
     pub fn new(request: &FriendRequest, sender: User, receiver: User) -> Self {
         Self {
             id: request.id,
-            sender: PublicUser::from(sender),
-            receiver: PublicUser::from(receiver),
+            sender: PublicUser::new(sender, false),
+            receiver: PublicUser::new(receiver, false),
             status: request.status.clone(),
             created_at: request.created_at(),
         }

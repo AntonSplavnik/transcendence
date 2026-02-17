@@ -41,7 +41,7 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
                 .order(u::nickname.asc())
                 .load(conn)?;
 
-            Ok::<_, ApiError>(friends.into_iter().map(PublicUser::from).collect())
+            Ok::<_, ApiError>(friends.into_iter().map(|u| PublicUser::new(u, false)).collect())
         })
         .await??;
 
