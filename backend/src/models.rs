@@ -10,8 +10,12 @@
 //! This applies migrations to the local database and regenerates `src/schema.rs`
 //! (and the corresponding patch workflow) so models and schema stay in sync.
 
-use crate::{auth::session_token::SessionTokenHash, models::nickname::Nickname};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use crate::{
+    auth::session_token::SessionTokenHash,
+    models::{cbor_blob::CborBlob, nickname::Nickname},
+    notifications::NotificationPayload,
+};
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
@@ -21,6 +25,7 @@ use serde::{Deserialize, Serialize};
 mod i32_enum;
 #[allow(dead_code)]
 pub mod blob;
+pub mod cbor_blob;
 pub mod nickname;
 mod ulid;
 
@@ -226,3 +231,19 @@ impl NewFriendRequest {
         }
     }
 }
+
+/// Notification Database model for offline notifications
+#[derive(Insertable)]
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, Associations, AsChangeset, Debug, Clone)]
+#[diesel(belongs_to(User))]
+#[diesel(table_name = crate::schema::notifications)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct OfflineNotification {
+    pub id: i32,
+    pub user_id: i32,
+    pub data: CborBlob<NotificationPayload>,
+    pub created_at: DateTime<Utc>,
+}
+
+// construct and use NewOfflineNotification (which omits the id field) for insertion

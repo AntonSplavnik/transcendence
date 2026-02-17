@@ -145,6 +145,45 @@ type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Byte
 /// ```
 pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
 
+/// A sharable (by clone) and comparable Sender for stream messages.
+///
+/// This is a thin wrapper around `mpsc::Sender` that spawns a task to forward messages to the actual `Sender`.
+#[derive(Clone)]
+pub struct SharedSender<T>(pub mpsc::Sender<T>);
+
+impl<T: Serialize + Send + 'static> SharedSender<T> {
+    /// When creating Shared Managers, you want to use SharedSender instead of Sender.
+    pub fn new<BP: Send + BufferParams + 'static>(sender: Sender<T, BP>) -> SharedSender<T> {
+        let (tx, mut rx) = mpsc::channel(32);
+        tokio::spawn(async move {
+            let mut sender = sender;
+            while let Some(payload) = rx.recv().await {
+                if let Err(err) = sender.send(payload).await {
+                    tracing::warn!(error = %err, "failed to send message to client, closing stream");
+                    break;
+                }
+            }
+        });
+        Self(tx)
+    }
+}
+
+impl<T> Deref for SharedSender<T> {
+    type Target = mpsc::Sender<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> PartialEq for SharedSender<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.same_channel(&other.0)
+    }
+}
+
+impl<T> Eq for SharedSender<T> {}
+
 /// A stream for receiving typed messages from a client.
 ///
 /// Use with [`futures::StreamExt`] to receive messages:
@@ -321,7 +360,10 @@ impl StreamManager {
 
     /// Returns whether the given user is connected
     pub fn is_connected(&self, user_id: i32) -> bool {
-        self.connections.contains_key(&user_id)
+        self.connections
+            .get(&user_id)
+            .map(|conn| !conn.tx.is_closed())
+            .unwrap_or(false)
     }
 
     /// This reauthenticates the stream associated to this session (if any)
@@ -752,7 +794,7 @@ pub async fn connect_stream(
     let session_id = wt_session.session_id();
 
     // Register this connection (replaces any existing connection for this user)
-    let streams = depot.stream_manager();
+    let streams = depot.stream_manager().clone();
     let (session_rx, pending_key_guard) = streams.register_pending();
     let connection_id = pending_key_guard.connection_id;
     // Open control stream with initial message
@@ -778,12 +820,21 @@ pub async fn connect_stream(
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
     let connection_id = streams.register(&user_session, cmd_tx, connection_id);
 
-    tracing::info!(
-        user_session.user_id,
-        user_session.id,
-        connection_id,
-        "User successfully connected via WebTransport"
-    );
+    let db = depot.db().clone();
+    if let Err(err) = super::on_connect(user_session.user_id, &db, &*streams, depot).await {
+        tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
+        streams.unregister(user_session.user_id, Some(connection_id), None);
+        // Terminate the handler immediately on on_connect failure
+        return Ok(());
+    } else {
+        tracing::info!(
+            user_session.user_id,
+            user_session.id,
+            connection_id,
+            "User successfully connected via WebTransport"
+        );
+    }
+
     // TODO check whether connection closure leads to handler panic
     // if not, how do we detect whether the connection is closed? (-> reimpl heartbeat stream idea)
     loop {

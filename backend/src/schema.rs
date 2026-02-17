@@ -17,13 +17,11 @@ diesel::table! {
 }
 
 diesel::table! {
-    friend_requests (id) {
+    notifications (id) {
         id -> Integer,
-        sender_id -> Integer,
-        receiver_id -> Integer,
-        status -> Text,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
+        user_id -> Integer,
+        data -> Binary,
+        created_at -> TimestamptzSqlite,
     }
 }
 
@@ -67,6 +65,7 @@ diesel::table! {
 
 diesel::joinable!(avatars_large -> users (user_id));
 diesel::joinable!(avatars_small -> users (user_id));
+diesel::joinable!(notifications -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 
@@ -74,6 +73,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
     friend_requests,
+    notifications,
     sessions,
     two_fa_recovery_codes,
     users,
