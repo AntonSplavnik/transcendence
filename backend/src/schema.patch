@@ -1,0 +1,97 @@
+diff --git a/backend/src/schema.rs b/backend/src/schema.rs
+index 5a8da59..1169aee 100644
+--- a/backend/src/schema.rs
++++ b/backend/src/schema.rs
+@@ -1,79 +1,79 @@
+ // @generated automatically by Diesel CLI.
+ 
+ diesel::table! {
+     avatars_large (user_id) {
+         user_id -> Integer,
+         data -> Binary,
+-        updated_at -> Timestamp,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     avatars_small (user_id) {
+         user_id -> Integer,
+         data -> Binary,
+-        updated_at -> Timestamp,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     friend_requests (id) {
+         id -> Integer,
+         sender_id -> Integer,
+         receiver_id -> Integer,
+         status -> Text,
+-        created_at -> Timestamp,
+-        updated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     notifications (id) {
+         id -> Integer,
+         user_id -> Integer,
+         data -> Binary,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     sessions (id) {
+         id -> Integer,
+         user_id -> Integer,
+         token_hash -> Binary,
+         device_id -> Text,
+         device_name -> Nullable<Text>,
+         ip_address -> Nullable<Text>,
+-        created_at -> Timestamp,
+-        refreshed_at -> Timestamp,
+-        last_used_at -> Timestamp,
+-        last_authenticated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
++        refreshed_at -> TimestamptzSqlite,
++        last_used_at -> TimestamptzSqlite,
++        last_authenticated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     two_fa_recovery_codes (id) {
+         id -> Integer,
+         user_id -> Integer,
+         code_hash -> Binary,
+-        used_at -> Nullable<Timestamp>,
+-        created_at -> Timestamp,
++        used_at -> Nullable<TimestamptzSqlite>,
++        created_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     users (id) {
+         id -> Integer,
+         email -> Text,
+         nickname -> Text,
+         totp_enabled -> Bool,
+         totp_secret_enc -> Nullable<Text>,
+-        totp_confirmed_at -> Nullable<Timestamp>,
++        totp_confirmed_at -> Nullable<TimestamptzSqlite>,
+         password_hash -> Text,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::joinable!(avatars_large -> users (user_id));
+ diesel::joinable!(avatars_small -> users (user_id));
+ diesel::joinable!(notifications -> users (user_id));

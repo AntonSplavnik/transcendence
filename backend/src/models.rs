@@ -1,5 +1,21 @@
-use crate::{auth::session_token::SessionTokenHash, models::nickname::Nickname};
-use chrono::{DateTime, NaiveDateTime, Utc};
+//! Database models used by the backend.
+//!
+//! These structs are mapped to Diesel tables declared in `crate::schema`.
+//! The schema file is generated from migrations and then customized via
+//! `src/schema.patch`.
+//!
+//! When changing anything related to database migrations, run:
+//! `backend/scripts/run_migrations_update_schema.sh`
+//!
+//! This applies migrations to the local database and regenerates `src/schema.rs`
+//! (and the corresponding patch workflow) so models and schema stay in sync.
+
+use crate::{
+    auth::session_token::SessionTokenHash,
+    models::{cbor_blob::CborBlob, nickname::Nickname},
+    notifications::NotificationPayload,
+};
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
@@ -9,6 +25,7 @@ use serde::{Deserialize, Serialize};
 mod i32_enum;
 #[allow(dead_code)]
 pub mod blob;
+pub mod cbor_blob;
 pub mod nickname;
 mod ulid;
 
@@ -23,19 +40,10 @@ pub struct User {
     pub totp_enabled: bool,
     #[serde(skip)]
     pub totp_secret_enc: Option<String>,
-    totp_confirmed_at: Option<NaiveDateTime>,
+    pub totp_confirmed_at: Option<DateTime<Utc>>,
     #[serde(skip)]
     pub password_hash: String,
-    created_at: NaiveDateTime,
-}
-
-impl User {
-    pub fn totp_confirmed_at(&self) -> Option<DateTime<Utc>> {
-        self.totp_confirmed_at.map(|dt| dt.and_utc())
-    }
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
+    pub created_at: DateTime<Utc>,
 }
 
 impl NewUser {
@@ -47,7 +55,7 @@ impl NewUser {
             totp_secret_enc: None,
             totp_confirmed_at: None,
             password_hash,
-            created_at: chrono::Utc::now().naive_utc(),
+            created_at: chrono::Utc::now(),
         }
     }
 }
@@ -64,25 +72,10 @@ pub struct Session {
     pub device_id: String,
     pub device_name: Option<String>,
     pub ip_address: Option<String>,
-    created_at: NaiveDateTime,
-    refreshed_at: NaiveDateTime,
-    last_used_at: NaiveDateTime,
-    last_authenticated_at: NaiveDateTime,
-}
-
-impl Session {
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
-    pub fn refreshed_at(&self) -> DateTime<Utc> {
-        self.refreshed_at.and_utc()
-    }
-    pub fn last_used_at(&self) -> DateTime<Utc> {
-        self.last_used_at.and_utc()
-    }
-    pub fn last_authenticated_at(&self) -> DateTime<Utc> {
-        self.last_authenticated_at.and_utc()
-    }
+    pub created_at: DateTime<Utc>,
+    pub refreshed_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    pub last_authenticated_at: DateTime<Utc>,
 }
 
 #[apply(NewInsertable!)]
@@ -94,17 +87,8 @@ pub struct TwoFaRecoveryCode {
     pub id: i32,
     pub user_id: i32,
     pub code_hash: Vec<u8>,
-    used_at: Option<NaiveDateTime>,
-    created_at: NaiveDateTime,
-}
-
-impl TwoFaRecoveryCode {
-    pub fn used_at(&self) -> Option<DateTime<Utc>> {
-        self.used_at.map(|dt| dt.and_utc())
-    }
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
+    pub used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
 
 impl NewTwoFaRecoveryCode {
@@ -113,7 +97,7 @@ impl NewTwoFaRecoveryCode {
             user_id,
             code_hash,
             used_at: None,
-            created_at: chrono::Utc::now().naive_utc(),
+            created_at: chrono::Utc::now(),
         }
     }
 }
@@ -126,7 +110,7 @@ impl Session {
         device_name: Option<String>,
         ip_address: Option<String>,
     ) -> Self {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
 
         Self {
             id: self.id,
@@ -154,7 +138,7 @@ impl NewSession {
         device_name: Option<String>,
         ip_address: Option<String>,
     ) -> Self {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         Self {
             user_id,
             token_hash,
@@ -176,7 +160,7 @@ impl NewSession {
 pub struct AvatarLarge {
     pub user_id: i32,
     pub data: Vec<u8>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl AvatarLarge {
@@ -184,7 +168,7 @@ impl AvatarLarge {
         Self {
             user_id,
             data,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now(),
         }
     }
 }
@@ -198,17 +182,8 @@ pub struct FriendRequest {
     pub sender_id: i32,
     pub receiver_id: i32,
     pub status: String,
-    created_at: NaiveDateTime,
-    updated_at: NaiveDateTime,
-}
-
-impl FriendRequest {
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
-    }
-    pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at.and_utc()
-    }
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Small avatar (200x200, AVIF format)
@@ -218,7 +193,7 @@ impl FriendRequest {
 pub struct AvatarSmall {
     pub user_id: i32,
     pub data: Vec<u8>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl AvatarSmall {
@@ -226,18 +201,18 @@ impl AvatarSmall {
         Self {
             user_id,
             data,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now(),
         }
     }
 
     pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at.and_utc()
+        self.updated_at
     }
 }
 
 impl NewFriendRequest {
     pub fn new(sender_id: i32, receiver_id: i32) -> Self {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         Self {
             sender_id,
             receiver_id,
@@ -247,3 +222,19 @@ impl NewFriendRequest {
         }
     }
 }
+
+/// Notification Database model for offline notifications
+#[derive(Insertable)]
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, Associations, AsChangeset, Debug, Clone)]
+#[diesel(belongs_to(User))]
+#[diesel(table_name = crate::schema::notifications)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct OfflineNotification {
+    pub id: i32,
+    pub user_id: i32,
+    pub data: CborBlob<NotificationPayload>,
+    pub created_at: DateTime<Utc>,
+}
+
+// construct and use NewOfflineNotification (which omits the id field) for insertion

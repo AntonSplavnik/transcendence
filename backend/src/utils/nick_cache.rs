@@ -1,8 +1,15 @@
-use crate::{db::DbConn, models::nickname::Nickname, utils::mem_cache::LruMemCache};
+use crate::{
+    db::DbConn,
+    models::nickname::Nickname,
+    utils::mem_cache::{LruMemCache, TTIMemCache},
+};
 use diesel::prelude::*;
+use salvo::Depot;
 use smallvec::SmallVec;
 
-pub trait NicknameCache: Sync + Send {
+pub type NicknameCacheImpl = NickTTICache;
+
+pub trait NicknameCache: Sync + Send + Clone {
     type TryGetManyError;
 
     /// Should only fail if the user does not exist.
@@ -40,11 +47,11 @@ pub trait NicknameCache: Sync + Send {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NickLruMapCache(LruMemCache<i32, Nickname>);
 
 impl NickLruMapCache {
-    pub const fn new(max_length: u32) -> Self {
+    pub fn new(max_length: u32) -> Self {
         Self(LruMemCache::with_max_length(max_length))
     }
 }
@@ -97,16 +104,14 @@ impl NicknameCache for NickLruMapCache {
 /// are only evicted when they have not been accessed for the configured TTI
 /// duration. This makes it ideal for workloads where the active user set
 /// fluctuates but should never be artificially capped.
-#[derive(Debug)]
-pub struct NickTTICache(crate::utils::mem_cache::TTIMemCache<i32, Nickname>);
+#[derive(Debug, Clone)]
+pub struct NickTTICache(TTIMemCache<i32, Nickname>);
 
 impl NickTTICache {
     /// Creates a new unbounded TTI nickname cache.
     #[inline]
     pub fn new(tti: std::time::Duration) -> Self {
-        Self(crate::utils::mem_cache::TTIMemCache::unbounded_with_tti(
-            tti,
-        ))
+        Self(TTIMemCache::unbounded_with_tti(tti))
     }
 }
 
@@ -172,4 +177,15 @@ fn bulk_get<const N: usize>(
         .load(conn)?;
     results.extend(rows);
     Ok(())
+}
+
+pub trait NicknameCacheDepotExt {
+    fn nickname_cache(&self) -> &NicknameCacheImpl;
+}
+
+impl NicknameCacheDepotExt for Depot {
+    fn nickname_cache(&self) -> &NicknameCacheImpl {
+        self.obtain::<NicknameCacheImpl>()
+            .expect("NicknameCache not found in depot. Make sure it is injected in the router with affix_state::inject")
+    }
 }

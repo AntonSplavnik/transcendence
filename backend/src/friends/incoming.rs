@@ -11,9 +11,10 @@ pub async fn get_incoming_requests(
     db: Db,
 ) -> JsonResult<Vec<FriendRequestResponse>> {
     let user_id = depot.session().user_id;
+    let sm = depot.stream_manager().clone();
 
     let result = db
-        .read(move |conn| load_pending_requests(conn, user_id, RequestDirection::Incoming))
+        .read(move |conn| load_pending_requests(conn, user_id, RequestDirection::Incoming, &sm))
         .await??;
 
     json_ok(result)

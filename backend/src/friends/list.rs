@@ -14,7 +14,9 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
 
     let user_id = depot.session().user_id;
 
-    let result = db
+    let sm = depot.stream_manager().clone();
+
+    let friends = db
         .read(move |conn| {
             // Get all accepted friend requests where user is either sender or receiver
             let friendships: Vec<FriendRequest> = fr::friend_requests
@@ -41,9 +43,17 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
                 .order(u::nickname.asc())
                 .load(conn)?;
 
-            Ok::<_, ApiError>(friends.into_iter().map(PublicUser::from).collect())
+            Ok::<_, ApiError>(friends)
         })
         .await??;
+
+    let result: Vec<PublicUser> = friends
+        .into_iter()
+        .map(|u| {
+            let online = sm.is_connected(u.id);
+            PublicUser::new(u, online)
+        })
+        .collect();
 
     json_ok(result)
 }
