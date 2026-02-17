@@ -120,6 +120,7 @@ extern "C" {
         ability1: bool,
         ability2: bool,
         dodging: bool,
+        sprinting: bool,
     );
 
     // Snapshot retrieval (backwards compatible)
@@ -314,6 +315,7 @@ impl Game {
         ability1: bool,
         ability2: bool,
         dodging: bool,
+        sprinting: bool,
     ) {
         unsafe {
             game_set_input(
@@ -326,6 +328,7 @@ impl Game {
                 ability1,
                 ability2,
                 dodging,
+                sprinting,
             )
         }
     }

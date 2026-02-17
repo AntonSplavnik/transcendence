@@ -43,6 +43,8 @@ pub enum GameClientMessage {
         ability2: bool,
         #[serde(default)]
         dodging: bool,
+        #[serde(default)]
+        sprinting: bool,
     },
 
     /// Register a hit on another player (client-authoritative for now)

@@ -70,6 +70,9 @@ inline void CharacterControllerSystem::processCharacterMovement(
         return;
     }
 
+    // Update sprinting state from input
+    controller.isSprinting = controller.input.isSprinting;
+
     // Get movement input
     Vector3D moveDir = controller.getMovementDirection();
     float speed = controller.getEffectiveSpeed();

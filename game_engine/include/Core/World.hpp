@@ -24,6 +24,7 @@ namespace Core {
 // =============================================================================
 // - Uses entt::registry for entity storage (packed arrays, cache-friendly)
 // - Maintains PlayerID ↔ entt::entity bidirectional mapping for FFI compatibility
+//
 // - Built-in entity pooling and recycling
 //
 // Usage:

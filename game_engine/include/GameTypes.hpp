@@ -175,6 +175,7 @@ struct InputState {
     bool isUsingAbility2;
     bool isJumping;
     bool isDodging;
+    bool isSprinting;
 
     // Target position (for click-to-move or targeting)
     Vector3D targetPosition;
@@ -193,6 +194,7 @@ struct InputState {
         , isUsingAbility2(false)
         , isJumping(false)
         , isDodging(false)
+        , isSprinting(false)
         , targetPosition()
         , hasTarget(false)
         , targetEntityID(0)
@@ -242,6 +244,11 @@ struct GameConfig {
     static constexpr float CHARACTER_MAX_SPEED = 10.0f;        // Maximum horizontal speed (m/s)
     static constexpr float CHARACTER_MAX_HEALTH = 100.0f;      // Default max health
 
+    // Movement modifiers
+    static constexpr float SPRINT_MULTIPLIER = 2.5f;           // Speed when sprinting (1.5x = 50% faster)
+    static constexpr float CROUCH_MULTIPLIER = 0.5f;           // Speed when crouching (0.5x = 50% slower)
+    static constexpr float AIR_CONTROL_FACTOR = 0.3f;          // Movement control while airborne (0.0-1.0)
+
     // Physics
     static constexpr float GRAVITY = -20.0f;                   // Gravity acceleration (m/s^2)
     static constexpr float GROUND_Y = 0.0f;                    // Ground level
@@ -264,7 +271,7 @@ struct GameConfig {
 
     // Network
     static constexpr int MAX_PLAYERS = 8;
-    static constexpr float SNAPSHOT_RATE = 20.0f;  // Send updates 20 times per second
+    static constexpr float SNAPSHOT_RATE = 60.0f;  // Send updates 60 times per second
     static constexpr float SNAPSHOT_INTERVAL = 1.0f / SNAPSHOT_RATE;
 };
 

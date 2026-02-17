@@ -70,13 +70,8 @@ pub async fn handle_player_stream(
                 ability1,
                 ability2,
                 dodging,
+                sprinting,
             }) => {
-                info!(
-                    user_id,
-                    player_id,
-                    "Received input: movement=({}, {}, {})",
-                    movement.x, movement.y, movement.z
-                );
                 // Update player input in game state
                 game_manager
                     .set_input(
@@ -88,6 +83,7 @@ pub async fn handle_player_stream(
                         ability1,
                         ability2,
                         dodging,
+                        sprinting,
                     )
                     .await;
             }

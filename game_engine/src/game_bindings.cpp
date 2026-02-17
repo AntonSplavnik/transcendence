@@ -208,7 +208,8 @@ void game_set_input(
     bool jumping,
     bool ability1,
     bool ability2,
-    bool dodging
+    bool dodging,
+    bool sprinting
 ) {
     InputState input;
     input.movementDirection = Vector3D(move_x, move_y, move_z);
@@ -218,6 +219,7 @@ void game_set_input(
     input.isUsingAbility1 = ability1;
     input.isUsingAbility2 = ability2;
     input.isDodging = dodging;
+    input.isSprinting = sprinting;
 
     game->setPlayerInput(player_id, input);
 }

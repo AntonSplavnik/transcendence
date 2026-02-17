@@ -78,7 +78,13 @@ export function useGameConnection() {
     }
   };
 
-  const sendInput = async (movement: Vector3D, lookDirection: Vector3D) => {
+  const sendInput = async (
+    movement: Vector3D,
+    lookDirection: Vector3D,
+    attacking: boolean = false,
+    jumping: boolean = false,
+    sprinting: boolean = false
+  ) => {
     if (!streamRef.current) {
       console.warn('Cannot send input - no stream');
       return;
@@ -87,13 +93,17 @@ export function useGameConnection() {
       type: 'Input' as const,
       movement,
       look_direction: lookDirection,
-      attacking: false,
-      jumping: false,
+      attacking,
+      jumping,
+      ability1: false,
+      ability2: false,
+      dodging: false,
+      sprinting,
     };
-    console.log('Sending to server:', msg);
+    // console.log('Sending to server:', msg);  // Too spammy (20/sec)
     try {
       await streamRef.current.send(msg);
-      console.log('✅ Message sent successfully');
+      // console.log('✅ Message sent successfully');  // Too spammy
     } catch (err) {
       console.error('❌ Failed to send message:', err);
       setError('Failed to send input: ' + (err as Error).message);
