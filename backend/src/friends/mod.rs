@@ -39,7 +39,7 @@ pub fn router(path: &str) -> Router {
                 .post(reject::reject_friend_request),
         )
         .push(
-            Router::with_path("{user_id}")
+            Router::with_path("remove/{user_id}")
                 .user_rate_limit(&RateLimit::per_minute(30))
                 .delete(remove::remove_friend),
         )
