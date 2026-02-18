@@ -7,6 +7,11 @@ import {
 import '@babylonjs/loaders/glTF';
 import type { GameStateSnapshot, Vector3D } from '../../game/types';
 
+// Import game assets
+import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
+import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
+import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
+
 // ============ COPIED FROM simple_client.ts ============
 
 interface CharacterSnapshot {
@@ -61,8 +66,8 @@ class AnimatedCharacter {
         this.rootNode = new TransformNode("character_root", scene);
     }
 
-    async loadModel(path: string, filename: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", path, filename, this.scene);
+    async loadModel(assetUrl: string): Promise<void> {
+        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
         result.meshes.forEach(mesh => {
             if (!mesh.parent) mesh.parent = this.rootNode;
             this.meshes.push(mesh);
@@ -77,8 +82,8 @@ class AnimatedCharacter {
         }
     }
 
-    async loadAnimations(path: string, filename: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", path, filename, this.scene);
+    async loadAnimations(assetUrl: string): Promise<void> {
+        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
         // Use THIS character's skeleton, not scene.skeletons[0]!
         if (!this.skeleton) return;
 
@@ -147,9 +152,9 @@ class GameClient {
 
     async initLocalPlayer(): Promise<void> {
         this.localCharacter = new AnimatedCharacter(this.scene);
-        await this.localCharacter.loadModel('/assets/Rig_Medium/', 'Rig_Medium_General.glb');
-        await this.localCharacter.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_MovementBasic.glb');
-        await this.localCharacter.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_CombatMelee.glb');
+        await this.localCharacter.loadModel(generalModel);
+        await this.localCharacter.loadAnimations(movementBasicAnims);
+        await this.localCharacter.loadAnimations(combatMeleeAnims);
 
         // Scale character up 3x to make it more visible
         this.localCharacter.rootNode.scaling.setAll(3);
@@ -302,9 +307,9 @@ class GameClient {
         this.loadingCharacters.add(playerID);
         const remoteChar = new AnimatedCharacter(this.scene);
         try {
-            await remoteChar.loadModel('/assets/Rig_Medium/', 'Rig_Medium_General.glb');
-            await remoteChar.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_MovementBasic.glb');
-            await remoteChar.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_CombatMelee.glb');
+            await remoteChar.loadModel(generalModel);
+            await remoteChar.loadAnimations(movementBasicAnims);
+            await remoteChar.loadAnimations(combatMeleeAnims);
 
             // Scale character up 3x to make it more visible
             remoteChar.rootNode.scaling.setAll(3);
