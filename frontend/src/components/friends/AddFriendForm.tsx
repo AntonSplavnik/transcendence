@@ -1,12 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
-import apiClient from '../../api/client';
 import { sendFriendRequest } from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
-
-const DEBOUNCE_MS = 500;
-
-type ValidationState = '' | 'valid' | 'not_found' | 'invalid' | 'error';
 
 interface AddFriendFormProps {
 	onRequestSent: () => void;
@@ -14,57 +9,10 @@ interface AddFriendFormProps {
 
 export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 	const [nickname, setNickname] = useState('');
-	const [validation, setValidation] = useState<ValidationState>('');
-	const [isChecking, setIsChecking] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 	const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const abortRef = useRef<AbortController | null>(null);
 
-	useEffect(() => {
-		if (nickname.trim().length > 0) {
-			if (timeoutRef.current) clearTimeout(timeoutRef.current);
-			setIsChecking(true);
-			setValidation('');
-			timeoutRef.current = setTimeout(async () => {
-				abortRef.current?.abort();
-				const controller = new AbortController();
-				abortRef.current = controller;
-				try {
-					const response = await apiClient.post<{ exists: boolean; valid: boolean }>(
-						'users/nickname-exists',
-						nickname,
-						{ headers: { 'Content-Type': 'application/json' }, signal: controller.signal },
-					);
-					const { exists, valid } = response.data;
-					if (!valid) {
-						setValidation('invalid');
-					} else if (exists) {
-						setValidation('valid');
-					} else {
-						setValidation('not_found');
-					}
-				} catch {
-					if (!controller.signal.aborted) {
-						setValidation('error');
-					}
-				} finally {
-					if (!controller.signal.aborted) {
-						setIsChecking(false);
-					}
-				}
-			}, DEBOUNCE_MS);
-		} else {
-			setValidation('');
-			setIsChecking(false);
-		}
-		return () => {
-			if (timeoutRef.current) clearTimeout(timeoutRef.current);
-			abortRef.current?.abort();
-		};
-	}, [nickname]);
-
-	const canSend = validation === 'valid' && !isSending && !isChecking;
+	const canSend = nickname.trim().length > 0 && !isSending;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -76,7 +24,6 @@ export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 			await sendFriendRequest(nickname.trim());
 			setMessage({ text: `Request sent to ${nickname}!`, type: 'success' });
 			setNickname('');
-			setValidation('');
 			onRequestSent();
 		} catch (error) {
 			setMessage({ text: getErrorMessage(error, 'Failed to send request'), type: 'error' });
@@ -84,17 +31,6 @@ export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 			setIsSending(false);
 		}
 	};
-
-	const getHint = () => {
-		if (isChecking) return { text: 'Checking...', color: 'text-wood-400' };
-		if (validation === 'valid') return { text: 'User found', color: 'text-green-400' };
-		if (validation === 'not_found') return { text: 'User not found', color: 'text-red-400' };
-		if (validation === 'invalid') return { text: 'Invalid nickname', color: 'text-red-400' };
-		if (validation === 'error') return { text: 'Error checking', color: 'text-red-400' };
-		return null;
-	};
-
-	const hint = getHint();
 
 	return (
 		<form onSubmit={handleSubmit} className="mb-3">
@@ -116,9 +52,6 @@ export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 					<UserPlus className="w-4 h-4" />
 				</button>
 			</div>
-			{hint && nickname.trim().length > 0 && (
-				<p className={`text-xs mt-1 ${hint.color}`}>{hint.text}</p>
-			)}
 			{message && (
 				<p className={`text-xs mt-1 ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
 					{message.text}

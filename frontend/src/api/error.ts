@@ -78,8 +78,17 @@ function getMessageFromBrief(brief: string): string {
 
 		// Success messages
 		'DidLogout': 'You have been logged out successfully.',
+
+		// Friend errors
+		'SelfRequest': 'You cannot add yourself as a friend.',
+		'DuplicateRequest': 'A friend request already exists with this user.',
+		'AlreadyFriends': 'You are already friends with this user.',
+		'UserNotFound': 'User not found.',
+		'NotFriends': 'You are not friends with this user.',
+		'RequestNotFound': 'Friend request not found.',
+		'TooManyPending': 'Too many pending requests. Try again later.',
 	};
-	return briefMessages[brief] || `Authentication error: ${brief}`;
+	return briefMessages[brief] || brief;
 }
 
 /**
