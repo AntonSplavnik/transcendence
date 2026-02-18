@@ -6,7 +6,8 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc -b && vite build",
-		"lint": "eslint .",
+		"lint": "eslint . --ext .ts,.tsx --fix",
+		"typecheck": "tsc --noEmit",
 		"preview": "vite preview",
 		"frontend": "npm run dev",
 		"backend": "cd ../backend && cargo run",

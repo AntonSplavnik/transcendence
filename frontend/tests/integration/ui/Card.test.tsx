@@ -38,12 +38,8 @@ describe('Card', () => {
 		);
 
 		const card = screen.getByTestId('content').parentElement;
-		expect(card).toHaveClass('bg-wood-800');
-		expect(card).toHaveClass('border-2');
-		expect(card).toHaveClass('border-wood-700');
-		expect(card).toHaveClass('rounded-lg');
-		expect(card).toHaveClass('shadow-xl');
-		expect(card).toHaveClass('p-6');
+		expect(card).toHaveClass('card-stone');
+		expect(card).toHaveClass('p-5');
 	});
 
 	it('applies additional className', () => {
@@ -67,7 +63,7 @@ describe('Card', () => {
 		);
 
 		const card = screen.getByTestId('content').parentElement;
-		expect(card).toHaveClass('bg-wood-800');
+		expect(card).toHaveClass('card-stone');
 		expect(card).toHaveClass('extra-padding');
 	});
 
@@ -80,7 +76,7 @@ describe('Card', () => {
 		);
 
 		const card = screen.getByTestId('content').parentElement;
-		expect(card).toHaveClass('bg-wood-800');
+		expect(card).toHaveClass('card-stone');
 	});
 
 	it('renders as div element', () => {
