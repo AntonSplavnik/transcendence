@@ -1,9 +1,8 @@
-import { useState, useRef } from 'react';
-import { Shield, AlertCircle } from 'lucide-react';
-import Button from '../ui/Button';
-import Modal from '../ui/Modal';
-import { useAuth } from '../../contexts/AuthContext';
-import { getErrorMessage, getErrorBrief } from '../../api/error';
+import { useState, useRef } from "react";
+import { Shield } from "lucide-react";
+import { Button, Modal, Input, Alert } from "../ui";
+import { useAuth } from "../../contexts/AuthContext";
+import { getErrorMessage, getErrorBrief } from "../../api/error";
 
 interface TwoFactorLoginModalProps {
 	email: string;
@@ -28,10 +27,10 @@ export default function TwoFactorLoginModal({
 		setError(null);
 		setIsLoading(true);
 
-		const code = codeRef.current?.value || '';
+		const code = codeRef.current?.value || "";
 
 		if (!code) {
-			setError('Authentication code is required');
+			setError("Authentication code is required");
 			setIsLoading(false);
 			return;
 		}
@@ -42,10 +41,10 @@ export default function TwoFactorLoginModal({
 			onSuccess();
 		} catch (err) {
 			const brief = getErrorBrief(err);
-			if (brief === 'TwoFactorInvalid') {
-				setError('Invalid authentication code. Please try again.');
+			if (brief === "TwoFactorInvalid") {
+				setError("Invalid authentication code. Please try again.");
 			} else {
-				setError(getErrorMessage(err, 'Authentication failed'));
+				setError(getErrorMessage(err, "Authentication failed"));
 			}
 		} finally {
 			setIsLoading(false);
@@ -54,39 +53,32 @@ export default function TwoFactorLoginModal({
 
 	return (
 		<Modal onClose={onCancel} title="Two-Factor Authentication" icon={<Shield className="w-6 h-6" />}>
-			<p className="text-sm text-wood-300 mb-4">
+			<p className="text-sm text-stone-300 mb-4">
 				Enter the 6-digit code from your authenticator app, or use a recovery code.
 			</p>
 
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<div>
-					<label htmlFor="mfa-code" className="block text-sm font-medium text-wood-200 mb-2">
-						Authentication Code
-					</label>
-					<input
-						ref={codeRef}
-						type="text"
-						id="mfa-code"
-						autoFocus
-						autoComplete="one-time-code"
-						className="w-full px-4 py-2 bg-wood-900 border border-wood-600 rounded-lg
-						         text-wood-100 placeholder-wood-500 text-center text-xl tracking-widest
-						         focus:outline-none focus:border-primary"
-						placeholder="000000 or recovery code"
-						disabled={isLoading}
-					/>
-				</div>
+			<form onSubmit={handleSubmit} className="space-y-4" aria-label="Two-factor authentication form">
+				<Input
+					ref={codeRef}
+					label="Authentication Code"
+					variant="code"
+					id="mfa-code"
+					autoFocus
+					autoComplete="one-time-code"
+					placeholder="000000 or recovery code"
+					disabled={isLoading}
+				/>
 
-				{error && (
-					<div className="bg-red-900/50 border border-red-500 rounded p-3 flex items-start gap-2">
-						<AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-						<p className="text-sm text-red-200">{error}</p>
-					</div>
-				)}
+				{error && <Alert variant="error">{error}</Alert>}
 
 				<div className="flex gap-3">
-					<Button type="submit" disabled={isLoading} className="flex-1">
-						{isLoading ? 'Verifying...' : 'Continue'}
+					<Button
+						type="submit"
+						loading={isLoading}
+						loadingText="Verifying..."
+						className="flex-1"
+					>
+						Continue
 					</Button>
 					<Button type="button" onClick={onCancel} variant="secondary">
 						Cancel

@@ -1,64 +1,103 @@
-/* This is the tailwind entrypoint  */
+/* Tailwind entrypoint */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root{
+  /* ── Font custom properties (change one line to swap all headings/body) ── */
+  :root {
+    --font-display: 'Fredoka', 'Nunito Sans', system-ui, sans-serif;
+    --font-body: 'Nunito Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
     height: 100%;
     margin: 0;
   }
-  /* Chrome, Safari, Edge autofill */
+
+  html, body, #root { height: 100%; }
+
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    @apply bg-stone-900 text-stone-200 antialiased;
+    font-family: var(--font-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(224, 160, 48, 0.03) 0%, transparent 60%);
+  }
+
+  /* ── Typography ── */
+  h1 { @apply font-display text-4xl font-bold tracking-tight text-stone-50; }
+  h2 { @apply font-display text-2xl font-semibold text-stone-50; }
+  h3 { @apply font-display text-xl font-semibold text-stone-100; }
+  p  { @apply text-base leading-relaxed; }
+
+  /* ── Focus ring (gold instead of blue) ── */
+  :focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgba(224, 160, 48, 0.4);
+  }
+
+  /* ── Selection ── */
+  ::selection {
+    background-color: rgba(224, 160, 48, 0.3);
+    color: #f8f0e0;
+  }
+
+  /* ── Autofill overrides ── */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px #1c1917 inset !important; /* wood-900 */
-    -webkit-text-fill-color: #f5f5f4 !important; /* wood-100 */
+    -webkit-box-shadow: 0 0 0 30px #1a1a1e inset !important;
+    -webkit-text-fill-color: #e8e0d4 !important;
     transition: background-color 5000s ease-in-out 0s;
-    border-radius: 0.25rem; /* Match your rounded class */
+    border-radius: 0.5rem;
   }
-  /* Firefox autofill */
   input:-moz-autofill {
     filter: none !important;
-    background-color: #1c1917 !important; /* wood-900 */
-    color: #f5f5f4 !important; /* wood-100 */
-  }
-  
-  /* Ensure consistent sizing */
-  html {
-    font-size: 16px;
-  }
-  /* light theme overrides (if you prefer default light, swap) */
-  /* .light { */
-  /* } */
-
-  /* .dark { */
-  /*   --color-bg: 6 8 15; */
-  /*   --color-foreground: 229 231 235; */
-  /*   --color-primary: 99 102 241; */
-  /* } */
-
-  html,body,#root { height: 100%; }
-  body {
-    @apply bg-wood-900 text-wood-100 antialiased;
-    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    background-color: #1a1a1e !important;
+    color: #e8e0d4 !important;
   }
 
-  h1 { @apply text-4xl font-bold tracking-tight; }
-  h2 { @apply text-2xl font-semibold; }
-  p  { @apply text-base; }
-
-  :focus {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.25); /* blue ring */
+  /* ── Scrollbar (webkit) ── */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1a1a1e;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #484448;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
   }
 }
 
 @layer components {
-  /* Add reusable components here */
+  /* ── Card stone surface ── */
+  .card-stone {
+    @apply bg-stone-800 border border-stone-700 rounded-lg;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.3),
+      0 2px 4px -2px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 0 rgba(248, 240, 224, 0.03);
+  }
+}
+
+/* ── Animations ── */
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

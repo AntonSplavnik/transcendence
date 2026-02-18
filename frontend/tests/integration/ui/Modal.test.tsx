@@ -96,7 +96,7 @@ describe('Modal', () => {
 		const overlay = screen.getByText('Test Modal').closest('.fixed');
 		expect(overlay).toBeInTheDocument();
 		expect(overlay).toHaveClass('inset-0');
-		expect(overlay).toHaveClass('bg-black/50');
+		expect(overlay).toHaveClass('bg-black/60');
 	});
 
 	it('centers content', () => {
