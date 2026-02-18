@@ -108,11 +108,6 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 		}
 	};
 
-	const sortedFriends = [...friends].sort((a, b) => {
-		if (a.online !== b.online) return a.online ? -1 : 1;
-		return a.nickname.localeCompare(b.nickname);
-	});
-
 	return (
 		<>
 			{/* Toggle Button */}
@@ -202,11 +197,11 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 								<h3 className="text-xs font-semibold text-wood-400 uppercase tracking-wide mb-1">
 									Friends ({friends.length})
 								</h3>
-								{sortedFriends.length === 0 && outgoing.length === 0 ? (
+								{friends.length === 0 && outgoing.length === 0 ? (
 									<p className="text-wood-500 text-sm px-2 py-1">No friends yet.</p>
 								) : (
 									<ul className="space-y-1">
-										{sortedFriends.map((friend) => (
+										{friends.map((friend) => (
 											<li key={friend.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-wood-700/50">
 												<Circle
 													className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-wood-500 text-wood-500'}`}
