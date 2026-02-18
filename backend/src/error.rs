@@ -164,7 +164,6 @@ impl Scribe for ApiError {
                     FriendError::UserNotFound => StatusError::not_found().brief(variant),
                 }
             }
-
         };
 
         res.render(status_error);

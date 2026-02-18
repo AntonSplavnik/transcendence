@@ -44,8 +44,9 @@ pub async fn accept_friend_request(
                 return Err(FriendError::RequestNotPending.into());
             }
 
-            let updated_request: FriendRequest =
-                fr::friend_requests.filter(fr::id.eq(request_id)).first(conn)?;
+            let updated_request: FriendRequest = fr::friend_requests
+                .filter(fr::id.eq(request_id))
+                .first(conn)?;
 
             let sender: User = u::users.filter(u::id.eq(request.sender_id)).first(conn)?;
             let receiver: User = u::users.filter(u::id.eq(request.receiver_id)).first(conn)?;
