@@ -5,18 +5,39 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
+use crate::db::DepotDatabaseExt;
 use crate::error::FriendError;
+use crate::models::nickname::Nickname;
 use crate::models::{FriendRequest, User};
+use crate::notifications::{NotificationManagerDepotExt, NotificationPayload};
 use crate::prelude::*;
 use crate::routers::users::PublicUser;
 use crate::stream::StreamManager;
 
 /// Friend request status values stored in the database.
-pub struct RequestStatus;
+pub enum RequestStatus {
+    Pending,
+    Accepted,
+}
 
 impl RequestStatus {
     pub const PENDING: &'static str = "pending";
     pub const ACCEPTED: &'static str = "accepted";
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Pending => Self::PENDING,
+            Self::Accepted => Self::ACCEPTED,
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            Self::PENDING => Some(Self::Pending),
+            Self::ACCEPTED => Some(Self::Accepted),
+            _ => None,
+        }
+    }
 }
 
 /// Maximum number of results returned by list endpoints.
@@ -31,6 +52,15 @@ pub fn parse_param<T: std::str::FromStr>(req: &Request, name: &str) -> Result<T,
         .ok_or_else(|| FriendError::InvalidParam(format!("missing {}", name)))?
         .parse::<T>()
         .map_err(|_| FriendError::InvalidParam(format!("invalid {}", name)))
+}
+
+/// Send a notification, logging a warning on failure.
+pub async fn send_notification(depot: &Depot, target_id: i32, payload: NotificationPayload) {
+    let nm = depot.notification_manager();
+    let db = depot.db();
+    if let Err(e) = nm.send(db, target_id, payload).await {
+        tracing::warn!(error = %e, target_id, "failed to send friend notification");
+    }
 }
 
 /// Find a pending friend request and verify ownership.
@@ -100,6 +130,10 @@ pub fn load_pending_requests(
             .load(conn)?,
     };
 
+    if requests.is_empty() {
+        return Ok(Vec::new());
+    }
+
     // Load the "other" users in a HashMap for O(1) lookup
     let other_ids: Vec<i32> = requests
         .iter()
@@ -121,15 +155,24 @@ pub fn load_pending_requests(
     let result = requests
         .iter()
         .filter_map(|request| {
+            let other_id = match direction {
+                RequestDirection::Incoming => request.sender_id,
+                RequestDirection::Outgoing => request.receiver_id,
+            };
+            let other = match others.get(&other_id) {
+                Some(user) => user.clone(),
+                None => {
+                    tracing::warn!(
+                        request_id = request.id,
+                        user_id = other_id,
+                        "friend request references missing user, skipping"
+                    );
+                    return None;
+                }
+            };
             let (sender, receiver) = match direction {
-                RequestDirection::Incoming => {
-                    let sender = others.get(&request.sender_id)?.clone();
-                    (sender, current_user.clone())
-                }
-                RequestDirection::Outgoing => {
-                    let receiver = others.get(&request.receiver_id)?.clone();
-                    (current_user.clone(), receiver)
-                }
+                RequestDirection::Incoming => (other, current_user.clone()),
+                RequestDirection::Outgoing => (current_user.clone(), other),
             };
             let sender_online = sm.is_connected(sender.id);
             let receiver_online = sm.is_connected(receiver.id);
@@ -149,8 +192,8 @@ pub fn load_pending_requests(
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct SendFriendRequestInput {
     pub user_id: Option<i32>,
-    #[validate(length(min = 1))]
-    pub nickname: Option<String>,
+    #[validate(custom(function = "crate::validate::nickname"))]
+    pub nickname: Option<Nickname>,
 }
 
 impl SendFriendRequestInput {
@@ -172,6 +215,7 @@ pub struct FriendRequestResponse {
     pub receiver: PublicUser,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl FriendRequestResponse {
@@ -188,6 +232,7 @@ impl FriendRequestResponse {
             receiver: PublicUser::new(receiver, receiver_online),
             status: request.status.clone(),
             created_at: request.created_at,
+            updated_at: request.updated_at,
         }
     }
 }

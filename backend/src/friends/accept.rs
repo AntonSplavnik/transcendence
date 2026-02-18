@@ -4,7 +4,11 @@ use crate::models::{FriendRequest, User};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
-use super::types::{FriendRequestResponse, RequestStatus, find_pending_request, parse_param};
+use crate::error::FriendError;
+
+use super::types::{
+    FriendRequestResponse, RequestStatus, find_pending_request, parse_param, send_notification,
+};
 
 /// Accept a friend request
 #[endpoint]
@@ -23,15 +27,25 @@ pub async fn accept_friend_request(
         .write(move |conn| {
             let request = find_pending_request(conn, request_id, user_id, false)?;
 
-            // Update status to accepted
+            // Atomically update: re-check pending status in WHERE to prevent races
             let now = chrono::Utc::now();
+            let updated_count = diesel::update(
+                fr::friend_requests
+                    .filter(fr::id.eq(request_id))
+                    .filter(fr::status.eq(RequestStatus::PENDING)),
+            )
+            .set((
+                fr::status.eq(RequestStatus::ACCEPTED),
+                fr::updated_at.eq(now),
+            ))
+            .execute(conn)?;
+
+            if updated_count == 0 {
+                return Err(FriendError::RequestNotPending.into());
+            }
+
             let updated_request: FriendRequest =
-                diesel::update(fr::friend_requests.filter(fr::id.eq(request_id)))
-                    .set((
-                        fr::status.eq(RequestStatus::ACCEPTED),
-                        fr::updated_at.eq(now),
-                    ))
-                    .get_result(conn)?;
+                fr::friend_requests.filter(fr::id.eq(request_id)).first(conn)?;
 
             let sender: User = u::users.filter(u::id.eq(request.sender_id)).first(conn)?;
             let receiver: User = u::users.filter(u::id.eq(request.receiver_id)).first(conn)?;
@@ -40,21 +54,15 @@ pub async fn accept_friend_request(
         })
         .await??;
 
-    let nm = depot.notification_manager();
-    let db = depot.db();
-    if let Err(e) = nm
-        .send(
-            &db,
-            updated_request.sender_id,
-            NotificationPayload::FriendRequestAccepted {
-                request_id: updated_request.id,
-                friend_id: updated_request.receiver_id,
-            },
-        )
-        .await
-    {
-        tracing::warn!(error = %e, "failed to send friend request accepted notification");
-    }
+    send_notification(
+        depot,
+        updated_request.sender_id,
+        NotificationPayload::FriendRequestAccepted {
+            request_id: updated_request.id,
+            friend_id: updated_request.receiver_id,
+        },
+    )
+    .await;
 
     let sm = depot.stream_manager();
     let sender_online = sm.is_connected(sender.id);

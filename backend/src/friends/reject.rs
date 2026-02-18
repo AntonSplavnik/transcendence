@@ -1,9 +1,10 @@
 //! POST /api/friends/reject/<request_id> - Reject a friend request
 
+use crate::error::FriendError;
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
-use super::types::{find_pending_request, parse_param};
+use super::types::{RequestStatus, find_pending_request, parse_param, send_notification};
 
 /// Reject a friend request
 #[endpoint]
@@ -18,25 +19,28 @@ pub async fn reject_friend_request(depot: &mut Depot, req: &mut Request, db: Db)
             let request = find_pending_request(conn, request_id, user_id, false)?;
             let sender_id = request.sender_id;
 
-            // Delete the request
-            diesel::delete(fr::friend_requests.filter(fr::id.eq(request.id))).execute(conn)?;
+            // Atomically delete: re-check pending status to prevent deleting accepted requests
+            let deleted_count = diesel::delete(
+                fr::friend_requests
+                    .filter(fr::id.eq(request.id))
+                    .filter(fr::status.eq(RequestStatus::PENDING)),
+            )
+            .execute(conn)?;
+
+            if deleted_count == 0 {
+                return Err(FriendError::RequestNotPending.into());
+            }
 
             Ok::<_, ApiError>(sender_id)
         })
         .await??;
 
-    let nm = depot.notification_manager();
-    let db = depot.db();
-    if let Err(e) = nm
-        .send(
-            &db,
-            sender_id,
-            NotificationPayload::FriendRequestRejected { request_id },
-        )
-        .await
-    {
-        tracing::warn!(error = %e, "failed to send friend request rejected notification");
-    }
+    send_notification(
+        depot,
+        sender_id,
+        NotificationPayload::FriendRequestRejected { request_id },
+    )
+    .await;
 
     json_ok(())
 }
