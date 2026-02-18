@@ -1,0 +1,658 @@
+import { useState, useRef, useCallback } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import {
+	ArrowLeft,
+	LogOut,
+	Key,
+	Monitor,
+	Lock,
+	Trash2,
+	ShieldAlert,
+} from "lucide-react";
+import {
+	Button,
+	Card,
+	Badge,
+	Input,
+	Alert,
+	InfoBlock,
+	LoadingSpinner,
+	Modal,
+} from "./ui";
+import {
+	changePassword,
+	getSessions,
+	logoutSessions,
+	logoutOtherSessions,
+	deleteSessions,
+} from "../api/user";
+import { getErrorMessage } from "../api/error";
+import type { Session } from "../api/types";
+
+interface SessionManagementProps {
+	onBack: () => void;
+	onLogout: () => void;
+}
+
+// ==================== HELPERS ====================
+
+function formatDate(dateString: string): string {
+	return new Date(dateString).toLocaleString();
+}
+
+function getTimeRemaining(expiryString: string): string {
+	const diff = new Date(expiryString).getTime() - Date.now();
+	if (diff < 0) return "Expired";
+	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+	if (days > 0) return `${days}d ${hours}h`;
+	if (hours > 0) return `${hours}h ${minutes}m`;
+	return `${minutes}m`;
+}
+
+// ==================== COMPONENT ====================
+
+export default function SessionManagement({
+	onBack,
+	onLogout,
+}: SessionManagementProps) {
+	const { user, session: authSession } = useAuth();
+	const currentSessionId = authSession?.session_id ?? null;
+
+	// Change password form
+	const [cpCurrentPw, setCpCurrentPw] = useState("");
+	const [cpNewPw, setCpNewPw] = useState("");
+	const [cpConfirmPw, setCpConfirmPw] = useState("");
+	const [cpMfaCode, setCpMfaCode] = useState("");
+	const [cpKeepSessions, setCpKeepSessions] = useState(false);
+	const [cpLoading, setCpLoading] = useState(false);
+	const [cpError, setCpError] = useState("");
+	const [cpSuccess, setCpSuccess] = useState("");
+
+	// All sessions (password-gated)
+	const passwordRef = useRef("");
+	const mfaCodeRef = useRef("");
+	const [unlockPw, setUnlockPw] = useState("");
+	const [unlockMfa, setUnlockMfa] = useState("");
+	const [unlocked, setUnlocked] = useState(false);
+	const [allSessions, setAllSessions] = useState<Session[]>([]);
+	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+	const [sessionsLoading, setSessionsLoading] = useState(false);
+	const [sessionsError, setSessionsError] = useState("");
+	const [sessionsSuccess, setSessionsSuccess] = useState("");
+	const [confirmDelete, setConfirmDelete] = useState(false);
+
+	// Fetch all sessions using stored password
+	const fetchAllSessions = useCallback(async () => {
+		setSessionsLoading(true);
+		setSessionsError("");
+		try {
+			const sessions = await getSessions(
+				passwordRef.current,
+				mfaCodeRef.current || undefined,
+			);
+			setAllSessions(sessions);
+			setSelectedIds(new Set());
+		} catch (err) {
+			setSessionsError(getErrorMessage(err, "Failed to load sessions"));
+		} finally {
+			setSessionsLoading(false);
+		}
+	}, []);
+
+	// ==================== HANDLERS ====================
+
+	const handleUnlock = async () => {
+		if (!unlockPw) return;
+		passwordRef.current = unlockPw;
+		mfaCodeRef.current = unlockMfa;
+		setSessionsError("");
+		setSessionsLoading(true);
+		try {
+			const sessions = await getSessions(
+				unlockPw,
+				unlockMfa || undefined,
+			);
+			setAllSessions(sessions);
+			setUnlocked(true);
+		} catch (err) {
+			setSessionsError(getErrorMessage(err, "Verification failed"));
+			passwordRef.current = "";
+			mfaCodeRef.current = "";
+		} finally {
+			setSessionsLoading(false);
+		}
+	};
+
+	const handleChangePassword = async () => {
+		setCpError("");
+		setCpSuccess("");
+		if (!cpCurrentPw || !cpNewPw || !cpConfirmPw) {
+			setCpError("Please fill in all required fields.");
+			return;
+		}
+		if (cpNewPw.length < 8) {
+			setCpError("New password must be at least 8 characters.");
+			return;
+		}
+		if (cpCurrentPw === cpNewPw) {
+			setCpError("New password must differ from your current password.");
+			return;
+		}
+		if (cpNewPw !== cpConfirmPw) {
+			setCpError("New passwords do not match.");
+			return;
+		}
+		setCpLoading(true);
+		try {
+			await changePassword(
+				cpCurrentPw,
+				cpNewPw,
+				cpMfaCode || undefined,
+				cpKeepSessions,
+			);
+			setCpSuccess("Password changed successfully.");
+			setCpCurrentPw("");
+			setCpNewPw("");
+			setCpConfirmPw("");
+			setCpMfaCode("");
+			// Refresh all sessions if unlocked (some may have been deauthed)
+			if (unlocked) fetchAllSessions();
+		} catch (err) {
+			setCpError(getErrorMessage(err, "Failed to change password"));
+		} finally {
+			setCpLoading(false);
+		}
+	};
+
+	const handleToggleSelect = (sessionId: number) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(sessionId)) next.delete(sessionId);
+			else next.add(sessionId);
+			return next;
+		});
+	};
+
+	const handleLogoutSelected = async () => {
+		if (selectedIds.size === 0) return;
+		setSessionsError("");
+		setSessionsSuccess("");
+		setSessionsLoading(true);
+		try {
+			await logoutSessions(
+				passwordRef.current,
+				Array.from(selectedIds),
+				mfaCodeRef.current || undefined,
+			);
+			setSessionsSuccess(`Logged out ${selectedIds.size} session(s).`);
+			await fetchAllSessions();
+		} catch (err) {
+			setSessionsError(getErrorMessage(err, "Failed to log out sessions"));
+		} finally {
+			setSessionsLoading(false);
+		}
+	};
+
+	const handleLogoutAllOthers = async () => {
+		setSessionsError("");
+		setSessionsSuccess("");
+		setSessionsLoading(true);
+		try {
+			await logoutOtherSessions(
+				passwordRef.current,
+				mfaCodeRef.current || undefined,
+			);
+			setSessionsSuccess("All other sessions logged out.");
+			await fetchAllSessions();
+		} catch (err) {
+			setSessionsError(
+				getErrorMessage(err, "Failed to log out other sessions"),
+			);
+		} finally {
+			setSessionsLoading(false);
+		}
+	};
+
+	const handleDeleteSelected = async () => {
+		if (selectedIds.size === 0) return;
+		setSessionsError("");
+		setSessionsSuccess("");
+		setSessionsLoading(true);
+		try {
+			await deleteSessions(
+				passwordRef.current,
+				Array.from(selectedIds),
+				mfaCodeRef.current || undefined,
+			);
+			setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
+			setConfirmDelete(false);
+			await fetchAllSessions();
+		} catch (err) {
+			setSessionsError(
+				getErrorMessage(err, "Failed to delete session records"),
+			);
+		} finally {
+			setSessionsLoading(false);
+		}
+	};
+
+	if (!user) {
+		return (
+			<main className="p-6 max-w-4xl mx-auto w-full" aria-busy="true">
+				<div className="text-center text-stone-300 flex items-center justify-center gap-2">
+					<LoadingSpinner size="md" />
+					<span>Loading...</span>
+				</div>
+			</main>
+		);
+	}
+
+	return (
+		<main className="p-6 max-w-4xl mx-auto w-full">
+			{/* Header */}
+			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
+				<div className="flex items-center gap-3">
+					<button
+						onClick={onBack}
+						className="p-2 rounded-lg hover:bg-stone-800 transition-colors text-stone-300 hover:text-stone-100"
+						aria-label="Back to dashboard"
+					>
+						<ArrowLeft className="w-5 h-5" />
+					</button>
+					<div>
+						<h1>Session Management</h1>
+						<p className="text-stone-300 text-sm">
+							Manage your sessions and security settings.
+						</p>
+					</div>
+				</div>
+				<Button
+					variant="danger"
+					size="sm"
+					icon={<LogOut className="w-4 h-4" />}
+					onClick={onLogout}
+				>
+					Log Out
+				</Button>
+			</header>
+
+			<div className="space-y-6">
+				{/* ==================== SECTION 1: CURRENT SESSION ==================== */}
+				<Card accent="gold">
+					<div className="flex items-center gap-2 mb-4">
+						<Monitor className="w-5 h-5 text-gold-400" aria-hidden="true" />
+						<h2 className="text-lg font-bold text-stone-50">Current Session</h2>
+						<Badge variant="info" size="sm">
+							This Device
+						</Badge>
+					</div>
+					{authSession && (
+						<div className="grid gap-3 sm:grid-cols-2">
+							<InfoBlock
+								label="Session ID"
+								value={authSession.session_id}
+								mono
+							/>
+							<InfoBlock
+								label="Last Used"
+								value={formatDate(authSession.last_used_at)}
+							/>
+							<InfoBlock
+								label="Created"
+								value={formatDate(authSession.created_at)}
+							/>
+							<InfoBlock
+								label="Session Expiry"
+								value={formatDate(authSession.login_expiry)}
+								sublabel={`Expires in: ${getTimeRemaining(authSession.login_expiry)}`}
+							/>
+							<InfoBlock
+								label="JWT Expiry"
+								value={formatDate(authSession.access_expiry)}
+								sublabel={`Expires in: ${getTimeRemaining(authSession.access_expiry)}`}
+							/>
+							{(authSession.device_name ||
+								authSession.ip_address) && (
+									<InfoBlock
+										label="Device Info"
+										value={
+											<>
+												{authSession.device_name && (
+													<span>{authSession.device_name}</span>
+												)}
+												{authSession.device_name &&
+													authSession.ip_address && <br />}
+												{authSession.ip_address && (
+													<span>IP: {authSession.ip_address}</span>
+												)}
+											</>
+										}
+									/>
+								)}
+						</div>
+					)}
+				</Card>
+
+				{/* ==================== SECTION 2: CHANGE PASSWORD ==================== */}
+				<Card>
+					<div className="flex items-center gap-2 mb-4">
+						<Key className="w-5 h-5 text-gold-400" aria-hidden="true" />
+						<h2 className="text-lg font-bold text-stone-50">Change Password</h2>
+					</div>
+
+					{cpError && (
+						<Alert variant="error" className="mb-4" dismissable onDismiss={() => setCpError("")}>
+							{cpError}
+						</Alert>
+					)}
+					{cpSuccess && (
+						<Alert variant="success" className="mb-4" dismissable onDismiss={() => setCpSuccess("")}>
+							{cpSuccess}
+						</Alert>
+					)}
+
+					<div className="space-y-4">
+						<Input
+							label="Current Password"
+							type="password"
+							value={cpCurrentPw}
+							onChange={(e) => setCpCurrentPw(e.target.value)}
+							autoComplete="current-password"
+							fullWidth
+						/>
+						<div className="grid gap-4 sm:grid-cols-2">
+							<Input
+								label="New Password"
+								type="password"
+								value={cpNewPw}
+								onChange={(e) => setCpNewPw(e.target.value)}
+								autoComplete="new-password"
+								fullWidth
+							/>
+							<Input
+								label="Confirm New Password"
+								type="password"
+								value={cpConfirmPw}
+								onChange={(e) => setCpConfirmPw(e.target.value)}
+								autoComplete="new-password"
+								error={
+									cpConfirmPw && cpNewPw !== cpConfirmPw
+										? "Passwords do not match"
+										: undefined
+								}
+								fullWidth
+							/>
+						</div>
+						{user.totp_enabled && (
+							<Input
+								label="MFA Code"
+								type="text"
+								variant="code"
+								value={cpMfaCode}
+								onChange={(e) => setCpMfaCode(e.target.value)}
+								placeholder="000000"
+								maxLength={6}
+								autoComplete="one-time-code"
+							/>
+						)}
+
+						<label className="flex items-center gap-2 text-sm text-stone-300 cursor-pointer select-none">
+							<input
+								type="checkbox"
+								checked={cpKeepSessions}
+								onChange={(e) => setCpKeepSessions(e.target.checked)}
+								className="rounded border-stone-600 bg-stone-800 text-gold-400 focus:ring-gold-400/50"
+							/>
+							Keep other sessions logged in
+						</label>
+
+						<Button
+							onClick={handleChangePassword}
+							loading={cpLoading}
+							loadingText="Changing..."
+						>
+							Change Password
+						</Button>
+					</div>
+				</Card>
+
+				{/* ==================== SECTION 3: ALL SESSIONS ==================== */}
+				<Card>
+					<div className="flex items-center gap-2 mb-4">
+						<ShieldAlert
+							className="w-5 h-5 text-gold-400"
+							aria-hidden="true"
+						/>
+						<h2 className="text-lg font-bold text-stone-50">All Sessions</h2>
+					</div>
+
+					{!unlocked ? (
+						/* ---- Locked state: password gate ---- */
+						<div className="space-y-4">
+							<p className="text-sm text-stone-400">
+								Enter your password to view and manage all active sessions.
+							</p>
+							{sessionsError && (
+								<Alert variant="error" dismissable onDismiss={() => setSessionsError("")}>
+									{sessionsError}
+								</Alert>
+							)}
+							<Input
+								label="Password"
+								type="password"
+								value={unlockPw}
+								onChange={(e) => setUnlockPw(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+								autoComplete="current-password"
+								fullWidth
+							/>
+							{user.totp_enabled && (
+								<Input
+									label="MFA Code"
+									type="text"
+									variant="code"
+									value={unlockMfa}
+									onChange={(e) => setUnlockMfa(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+									placeholder="000000"
+									maxLength={6}
+									autoComplete="one-time-code"
+								/>
+							)}
+							<Button
+								onClick={handleUnlock}
+								loading={sessionsLoading}
+								loadingText="Verifying..."
+								icon={<Lock className="w-4 h-4" />}
+							>
+								Unlock Sessions
+							</Button>
+						</div>
+					) : (
+						/* ---- Unlocked state: session list ---- */
+						<div className="space-y-4">
+							{sessionsError && (
+								<Alert variant="error" dismissable onDismiss={() => setSessionsError("")}>
+									{sessionsError}
+								</Alert>
+							)}
+							{sessionsSuccess && (
+								<Alert variant="success" dismissable onDismiss={() => setSessionsSuccess("")}>
+									{sessionsSuccess}
+								</Alert>
+							)}
+
+							{sessionsLoading ? (
+								<div className="flex items-center justify-center py-6">
+									<LoadingSpinner size="md" />
+								</div>
+							) : allSessions.length === 0 ? (
+								<p className="text-sm text-stone-400 text-center py-4">
+									No sessions found.
+								</p>
+							) : (
+								<>
+									{/* Session cards */}
+									<div className="space-y-3">
+										{allSessions.map((sess) => {
+											const isCurrent =
+												sess.session_id === currentSessionId;
+											const isSelected = selectedIds.has(sess.session_id);
+											return (
+												<div
+													key={sess.session_id}
+													className={`
+														rounded-lg border p-4 transition-colors
+														${isCurrent
+															? "border-info/40 bg-info-bg/30"
+															: isSelected
+																? "border-gold-400/40 bg-stone-800/60"
+																: "border-stone-700/50 bg-stone-900"
+														}
+													`}
+												>
+													<div className="flex items-start gap-3">
+														<input
+															type="checkbox"
+															checked={isSelected}
+															onChange={() =>
+																handleToggleSelect(sess.session_id)
+															}
+															disabled={isCurrent}
+															className="mt-1 rounded border-stone-600 bg-stone-800 text-gold-400 focus:ring-gold-400/50 disabled:opacity-30"
+															aria-label={`Select session ${sess.session_id}`}
+														/>
+														<div className="flex-1 min-w-0">
+															<div className="flex items-center gap-2 mb-2">
+																<span className="text-sm font-mono text-stone-200">
+																	Session #{sess.session_id}
+																</span>
+																{isCurrent && (
+																	<Badge variant="info" size="sm">
+																		Current
+																	</Badge>
+																)}
+															</div>
+															<div className="grid gap-2 text-xs text-stone-400 sm:grid-cols-2">
+																<span>
+																	Created:{" "}
+																	<span className="text-stone-300">
+																		{formatDate(sess.created_at)}
+																	</span>
+																</span>
+																<span>
+																	Last used:{" "}
+																	<span className="text-stone-300">
+																		{formatDate(sess.last_used_at)}
+																	</span>
+																</span>
+																<span>
+																	Expires:{" "}
+																	<span className="text-stone-300">
+																		{getTimeRemaining(
+																			sess.login_expiry,
+																		)}
+																	</span>
+																</span>
+																{sess.ip_address && (
+																	<span>
+																		IP:{" "}
+																		<span className="text-stone-300">
+																			{sess.ip_address}
+																		</span>
+																	</span>
+																)}
+																{sess.device_name && (
+																	<span>
+																		Device:{" "}
+																		<span className="text-stone-300">
+																			{sess.device_name}
+																		</span>
+																	</span>
+																)}
+															</div>
+														</div>
+													</div>
+												</div>
+											);
+										})}
+									</div>
+
+									{/* Action bar */}
+									<div className="flex flex-wrap gap-3 pt-2 border-t border-stone-700">
+										<Button
+											variant="secondary"
+											size="sm"
+											onClick={handleLogoutSelected}
+											disabled={selectedIds.size === 0}
+											icon={<LogOut className="w-4 h-4" />}
+										>
+											Log Out Selected ({selectedIds.size})
+										</Button>
+										<Button
+											variant="secondary"
+											size="sm"
+											onClick={handleLogoutAllOthers}
+											icon={<LogOut className="w-4 h-4" />}
+										>
+											Log Out All Others
+										</Button>
+										<Button
+											variant="danger"
+											size="sm"
+											onClick={() => setConfirmDelete(true)}
+											disabled={selectedIds.size === 0}
+											icon={<Trash2 className="w-4 h-4" />}
+										>
+											Delete Selected Records
+										</Button>
+									</div>
+								</>
+							)}
+						</div>
+					)}
+				</Card>
+			</div>
+
+			{/* Delete confirmation modal */}
+			{confirmDelete && (
+				<Modal
+					onClose={() => setConfirmDelete(false)}
+					title="Delete Session Records"
+					icon={<Trash2 className="w-6 h-6" />}
+					maxWidth="sm"
+					footer={
+						<div className="flex gap-3 w-full">
+							<Button
+								variant="secondary"
+								onClick={() => setConfirmDelete(false)}
+								fullWidth
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								onClick={handleDeleteSelected}
+								loading={sessionsLoading}
+								loadingText="Deleting..."
+								fullWidth
+							>
+								Delete
+							</Button>
+						</div>
+					}
+				>
+					<p className="text-sm text-stone-300">
+						Are you sure you want to permanently delete{" "}
+						<span className="text-stone-100 font-medium">
+							{selectedIds.size} session record(s)
+						</span>
+						? This action cannot be undone.
+					</p>
+				</Modal>
+			)}
+		</main>
+	);
+}
