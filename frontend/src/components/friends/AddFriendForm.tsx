@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import { sendFriendRequest } from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
 
 interface AddFriendFormProps {
+	isOpen: boolean;
 	onRequestSent: () => void;
 }
 
-export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
+export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormProps) {
 	const [nickname, setNickname] = useState('');
 	const [isSending, setIsSending] = useState(false);
 	const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+	useEffect(() => {
+		if (!isOpen) {
+			setMessage(null);
+			setNickname('');
+		}
+	}, [isOpen]);
 
 	const canSend = nickname.trim().length > 0 && !isSending;
 

@@ -147,7 +147,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 
 				{/* Content */}
 				<div className="flex-1 overflow-y-auto p-3 space-y-4">
-					<AddFriendForm onRequestSent={fetchAll} />
+					<AddFriendForm isOpen={isOpen} onRequestSent={fetchAll} />
 
 					{error && (
 						<p className="text-xs text-red-400">{error}</p>
