@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react-swc'
 import { defineConfig } from 'vite'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,6 +14,12 @@ export default defineConfig({
 	worker: {
 		format: 'es'
 	},
+	resolve: {
+		alias: {
+			'@': path.resolve(__dirname, './src'),
+		},
+	},
+	assetsInclude: ['**/*.glb'],
 	server: {
 		port: 5173,
 		strictPort: true,
@@ -23,8 +30,5 @@ export default defineConfig({
 				secure: false,
 			},
 		},
-	},
-	optimizeDeps: {
-		exclude: ['@bokuweb/zstd-wasm'],
-	},
+	}
 })
