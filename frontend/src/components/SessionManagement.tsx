@@ -51,6 +51,40 @@ function getTimeRemaining(expiryString: string): string {
 	return `${minutes}m`;
 }
 
+// ==================== ACTION MODAL CONFIG ====================
+
+type PendingAction = "logout-selected" | "logout-others" | "delete-selected";
+
+const ACTION_CONFIG: Record<PendingAction, {
+	title: string;
+	icon: React.ReactNode;
+	confirmLabel: string;
+	confirmVariant: "primary" | "secondary" | "danger";
+	loadingText: string;
+}> = {
+	"logout-selected": {
+		title: "Log Out Sessions",
+		icon: <LogOut className="w-6 h-6" />,
+		confirmLabel: "Log Out",
+		confirmVariant: "secondary",
+		loadingText: "Logging out...",
+	},
+	"logout-others": {
+		title: "Log Out All Others",
+		icon: <LogOut className="w-6 h-6" />,
+		confirmLabel: "Log Out",
+		confirmVariant: "secondary",
+		loadingText: "Logging out...",
+	},
+	"delete-selected": {
+		title: "Delete Session Records",
+		icon: <Trash2 className="w-6 h-6" />,
+		confirmLabel: "Delete",
+		confirmVariant: "danger",
+		loadingText: "Deleting...",
+	},
+};
+
 // ==================== COMPONENT ====================
 
 export default function SessionManagement({
@@ -72,32 +106,32 @@ export default function SessionManagement({
 
 	// All sessions (password-gated)
 	const passwordRef = useRef("");
-	const mfaCodeRef = useRef("");
 	const [unlockPw, setUnlockPw] = useState("");
 	const [unlockMfa, setUnlockMfa] = useState("");
 	const [unlocked, setUnlocked] = useState(false);
 	const [allSessions, setAllSessions] = useState<Session[]>([]);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const [sessionsLoading, setSessionsLoading] = useState(false);
+	const [unlockLoading, setUnlockLoading] = useState(false);
 	const [sessionsError, setSessionsError] = useState("");
 	const [sessionsSuccess, setSessionsSuccess] = useState("");
-	const [confirmDelete, setConfirmDelete] = useState(false);
 
-	// Fetch all sessions using stored password
-	const fetchAllSessions = useCallback(async () => {
-		setSessionsLoading(true);
-		setSessionsError("");
+	// Confirmation modal
+	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+	const [modalMfa, setModalMfa] = useState("");
+	const [modalLoading, setModalLoading] = useState(false);
+	const [modalError, setModalError] = useState("");
+
+	// Fetch all sessions using stored password (silent — no spinner)
+	const fetchAllSessions = useCallback(async (mfaCode?: string) => {
 		try {
 			const sessions = await getSessions(
 				passwordRef.current,
-				mfaCodeRef.current || undefined,
+				mfaCode || undefined,
 			);
 			setAllSessions(sessions);
 			setSelectedIds(new Set());
 		} catch (err) {
-			setSessionsError(getErrorMessage(err, "Failed to load sessions"));
-		} finally {
-			setSessionsLoading(false);
+			setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
 		}
 	}, []);
 
@@ -105,23 +139,22 @@ export default function SessionManagement({
 
 	const handleUnlock = async () => {
 		if (!unlockPw) return;
-		passwordRef.current = unlockPw;
-		mfaCodeRef.current = unlockMfa;
 		setSessionsError("");
-		setSessionsLoading(true);
+		setUnlockLoading(true);
 		try {
 			const sessions = await getSessions(
 				unlockPw,
 				unlockMfa || undefined,
 			);
+			passwordRef.current = unlockPw;
 			setAllSessions(sessions);
 			setUnlocked(true);
+			setUnlockPw("");
+			setUnlockMfa("");
 		} catch (err) {
 			setSessionsError(getErrorMessage(err, "Verification failed"));
-			passwordRef.current = "";
-			mfaCodeRef.current = "";
 		} finally {
-			setSessionsLoading(false);
+			setUnlockLoading(false);
 		}
 	};
 
@@ -157,8 +190,12 @@ export default function SessionManagement({
 			setCpNewPw("");
 			setCpConfirmPw("");
 			setCpMfaCode("");
-			// Refresh all sessions if unlocked (some may have been deauthed)
-			if (unlocked) fetchAllSessions();
+			// Password changed — stored password is stale, re-lock sessions
+			if (unlocked) {
+				setUnlocked(false);
+				setAllSessions([]);
+				passwordRef.current = "";
+			}
 		} catch (err) {
 			setCpError(getErrorMessage(err, "Failed to change password"));
 		} finally {
@@ -175,66 +212,47 @@ export default function SessionManagement({
 		});
 	};
 
-	const handleLogoutSelected = async () => {
-		if (selectedIds.size === 0) return;
-		setSessionsError("");
-		setSessionsSuccess("");
-		setSessionsLoading(true);
-		try {
-			await logoutSessions(
-				passwordRef.current,
-				Array.from(selectedIds),
-				mfaCodeRef.current || undefined,
-			);
-			setSessionsSuccess(`Logged out ${selectedIds.size} session(s).`);
-			await fetchAllSessions();
-		} catch (err) {
-			setSessionsError(getErrorMessage(err, "Failed to log out sessions"));
-		} finally {
-			setSessionsLoading(false);
-		}
+	const closeModal = () => {
+		setPendingAction(null);
+		setModalMfa("");
+		setModalError("");
 	};
 
-	const handleLogoutAllOthers = async () => {
-		setSessionsError("");
-		setSessionsSuccess("");
-		setSessionsLoading(true);
+	const handleConfirmAction = async () => {
+		if (!pendingAction) return;
+		const mfa = modalMfa || undefined;
+		setModalError("");
+		setModalLoading(true);
 		try {
-			await logoutOtherSessions(
-				passwordRef.current,
-				mfaCodeRef.current || undefined,
-			);
-			setSessionsSuccess("All other sessions logged out.");
-			await fetchAllSessions();
+			switch (pendingAction) {
+				case "logout-selected":
+					await logoutSessions(
+						passwordRef.current,
+						Array.from(selectedIds),
+						mfa,
+					);
+					setSessionsSuccess(`Logged out ${selectedIds.size} session(s).`);
+					break;
+				case "logout-others":
+					await logoutOtherSessions(passwordRef.current, mfa);
+					setSessionsSuccess("All other sessions logged out.");
+					break;
+				case "delete-selected":
+					await deleteSessions(
+						passwordRef.current,
+						Array.from(selectedIds),
+						mfa,
+					);
+					setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
+					break;
+			}
+			// Close modal first, then refresh list
+			closeModal();
+			setModalLoading(false);
+			await fetchAllSessions(mfa);
 		} catch (err) {
-			setSessionsError(
-				getErrorMessage(err, "Failed to log out other sessions"),
-			);
-		} finally {
-			setSessionsLoading(false);
-		}
-	};
-
-	const handleDeleteSelected = async () => {
-		if (selectedIds.size === 0) return;
-		setSessionsError("");
-		setSessionsSuccess("");
-		setSessionsLoading(true);
-		try {
-			await deleteSessions(
-				passwordRef.current,
-				Array.from(selectedIds),
-				mfaCodeRef.current || undefined,
-			);
-			setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
-			setConfirmDelete(false);
-			await fetchAllSessions();
-		} catch (err) {
-			setSessionsError(
-				getErrorMessage(err, "Failed to delete session records"),
-			);
-		} finally {
-			setSessionsLoading(false);
+			setModalError(getErrorMessage(err, "Action failed"));
+			setModalLoading(false);
 		}
 	};
 
@@ -248,6 +266,22 @@ export default function SessionManagement({
 			</main>
 		);
 	}
+
+	// Modal description text
+	const getModalDescription = () => {
+		switch (pendingAction) {
+			case "logout-selected":
+				return `Log out ${selectedIds.size} selected session(s)? Those devices will need to log in again.`;
+			case "logout-others":
+				return "Log out all sessions except your current one? All other devices will need to log in again.";
+			case "delete-selected":
+				return `Permanently delete ${selectedIds.size} session record(s)? This action cannot be undone.`;
+			default:
+				return "";
+		}
+	};
+
+	const config = pendingAction ? ACTION_CONFIG[pendingAction] : null;
 
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
@@ -394,6 +428,7 @@ export default function SessionManagement({
 								onChange={(e) => setCpMfaCode(e.target.value)}
 								placeholder="000000"
 								maxLength={6}
+								inputMode="numeric"
 								autoComplete="one-time-code"
 							/>
 						)}
@@ -458,12 +493,13 @@ export default function SessionManagement({
 									onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
 									placeholder="000000"
 									maxLength={6}
+									inputMode="numeric"
 									autoComplete="one-time-code"
 								/>
 							)}
 							<Button
 								onClick={handleUnlock}
-								loading={sessionsLoading}
+								loading={unlockLoading}
 								loadingText="Verifying..."
 								icon={<Lock className="w-4 h-4" />}
 							>
@@ -484,11 +520,7 @@ export default function SessionManagement({
 								</Alert>
 							)}
 
-							{sessionsLoading ? (
-								<div className="flex items-center justify-center py-6">
-									<LoadingSpinner size="md" />
-								</div>
-							) : allSessions.length === 0 ? (
+							{allSessions.length === 0 ? (
 								<p className="text-sm text-stone-400 text-center py-4">
 									No sessions found.
 								</p>
@@ -585,7 +617,7 @@ export default function SessionManagement({
 										<Button
 											variant="secondary"
 											size="sm"
-											onClick={handleLogoutSelected}
+											onClick={() => setPendingAction("logout-selected")}
 											disabled={selectedIds.size === 0}
 											icon={<LogOut className="w-4 h-4" />}
 										>
@@ -594,7 +626,7 @@ export default function SessionManagement({
 										<Button
 											variant="secondary"
 											size="sm"
-											onClick={handleLogoutAllOthers}
+											onClick={() => setPendingAction("logout-others")}
 											icon={<LogOut className="w-4 h-4" />}
 										>
 											Log Out All Others
@@ -602,7 +634,7 @@ export default function SessionManagement({
 										<Button
 											variant="danger"
 											size="sm"
-											onClick={() => setConfirmDelete(true)}
+											onClick={() => setPendingAction("delete-selected")}
 											disabled={selectedIds.size === 0}
 											icon={<Trash2 className="w-4 h-4" />}
 										>
@@ -616,41 +648,58 @@ export default function SessionManagement({
 				</Card>
 			</div>
 
-			{/* Delete confirmation modal */}
-			{confirmDelete && (
+			{/* ==================== CONFIRMATION MODAL ==================== */}
+			{pendingAction && config && (
 				<Modal
-					onClose={() => setConfirmDelete(false)}
-					title="Delete Session Records"
-					icon={<Trash2 className="w-6 h-6" />}
+					onClose={closeModal}
+					title={config.title}
+					icon={config.icon}
 					maxWidth="sm"
 					footer={
 						<div className="flex gap-3 w-full">
 							<Button
 								variant="secondary"
-								onClick={() => setConfirmDelete(false)}
+								onClick={closeModal}
 								fullWidth
 							>
 								Cancel
 							</Button>
 							<Button
-								variant="danger"
-								onClick={handleDeleteSelected}
-								loading={sessionsLoading}
-								loadingText="Deleting..."
+								variant={config.confirmVariant}
+								onClick={handleConfirmAction}
+								loading={modalLoading}
+								loadingText={config.loadingText}
 								fullWidth
 							>
-								Delete
+								{config.confirmLabel}
 							</Button>
 						</div>
 					}
 				>
-					<p className="text-sm text-stone-300">
-						Are you sure you want to permanently delete{" "}
-						<span className="text-stone-100 font-medium">
-							{selectedIds.size} session record(s)
-						</span>
-						? This action cannot be undone.
-					</p>
+					<div className="space-y-4">
+						<p className="text-sm text-stone-300">
+							{getModalDescription()}
+						</p>
+						{modalError && (
+							<Alert variant="error" dismissable onDismiss={() => setModalError("")}>
+								{modalError}
+							</Alert>
+						)}
+						{user.totp_enabled && (
+							<Input
+								label="MFA Code"
+								type="text"
+								variant="code"
+								value={modalMfa}
+								onChange={(e) => setModalMfa(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleConfirmAction()}
+								placeholder="000000"
+								maxLength={6}
+								inputMode="numeric"
+								autoComplete="one-time-code"
+							/>
+						)}
+					</div>
 				</Modal>
 			)}
 		</main>
