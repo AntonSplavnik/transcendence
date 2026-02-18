@@ -82,7 +82,11 @@ let zstdReady = false;
  */
 export function initZstd(): Promise<void> {
 	if (!zstdInitPromise) {
-		zstdInitPromise = zstdInit().then(() => {
+		const wasmUrl = new URL(
+			'../../node_modules/@bokuweb/zstd-wasm/dist/esm/zstd.wasm',
+			import.meta.url,
+		).href;
+		zstdInitPromise = (zstdInit as (path?: string) => Promise<void>)(wasmUrl).then(() => {
 			zstdReady = true;
 		});
 	}

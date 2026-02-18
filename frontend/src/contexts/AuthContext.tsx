@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import * as authApi from '../api/auth';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
+import { useNotifications } from '../stream/useNotifications';
 import type { User, Session, AuthResponse } from '../api/types';
+import type { NotificationListener } from '../stream/useNotifications';
 
 interface AuthContextType {
 	user: User | null;
@@ -15,6 +17,8 @@ interface AuthContextType {
 	logout: () => Promise<void>;
 	clearAuth: () => void;
 	refreshUser: () => Promise<void>;
+	subscribeNotifications: (listener: NotificationListener) => () => void;
+	notificationsConnected: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		onSessionUpdate: handleSessionUpdate,
 		onAuthLost: clearAuth,
 	});
+
+	const { subscribe: subscribeNotifications, connected: notificationsConnected } =
+		useNotifications(user !== null);
 
 	// initial auth check on mount
 	useEffect(() => {
@@ -111,7 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			reauth,
 			logout,
 			clearAuth,
-			refreshUser
+			refreshUser,
+			subscribeNotifications,
+			notificationsConnected,
 		}}>
 			{children}
 		</AuthContext.Provider>

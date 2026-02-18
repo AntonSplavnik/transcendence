@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Users, X, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import * as friendsApi from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
+import { useAuth } from '../../contexts/AuthContext';
 import type { PublicUser, FriendRequestResponse } from '../../api/types';
+import type { NotificationPayload } from '../../stream/types';
 import AddFriendForm from './AddFriendForm';
 
 interface FriendsDrawerProps {
@@ -11,6 +13,7 @@ interface FriendsDrawerProps {
 }
 
 export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) {
+	const { subscribeNotifications } = useAuth();
 	const [friends, setFriends] = useState<PublicUser[]>([]);
 	const [incoming, setIncoming] = useState<FriendRequestResponse[]>([]);
 	const [outgoing, setOutgoing] = useState<FriendRequestResponse[]>([]);
@@ -50,6 +53,33 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, [isOpen, onToggle]);
+
+	// Subscribe to real-time notifications
+	useEffect(() => {
+		const unsubscribe = subscribeNotifications((payload: NotificationPayload) => {
+			if ('ServerHello' in payload) return;
+
+			if ('FriendRequestReceived' in payload) {
+				// Re-fetch to get full sender data
+				friendsApi.getIncomingRequests().then(setIncoming).catch(() => {});
+			} else if ('FriendRequestAccepted' in payload) {
+				const { request_id } = payload.FriendRequestAccepted;
+				setOutgoing((prev) => prev.filter((r) => r.id !== request_id));
+				// Re-fetch friends to get full user data
+				friendsApi.getFriends().then(setFriends).catch(() => {});
+			} else if ('FriendRequestRejected' in payload) {
+				const { request_id } = payload.FriendRequestRejected;
+				setOutgoing((prev) => prev.filter((r) => r.id !== request_id));
+			} else if ('FriendRequestCancelled' in payload) {
+				const { request_id } = payload.FriendRequestCancelled;
+				setIncoming((prev) => prev.filter((r) => r.id !== request_id));
+			} else if ('FriendRemoved' in payload) {
+				const { user_id } = payload.FriendRemoved;
+				setFriends((prev) => prev.filter((f) => f.id !== user_id));
+			}
+		});
+		return unsubscribe;
+	}, [subscribeNotifications]);
 
 	const handleRemove = async (userId: number) => {
 		if (actionInProgress !== null) return;
