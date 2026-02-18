@@ -1,4 +1,4 @@
-//! POST /api/friends/reject/<request_id> - Reject a friend request
+//! POST /api/friends/reject/{request_id} - Reject a friend request
 
 use crate::error::FriendError;
 use crate::notifications::NotificationPayload;
@@ -7,7 +7,7 @@ use crate::prelude::*;
 use super::types::{RequestStatus, find_pending_request, parse_param, send_notification};
 
 /// Reject a friend request
-#[endpoint]
+#[endpoint(parameters(("request_id" = i32, description = "Friend request ID")))]
 pub async fn reject_friend_request(depot: &mut Depot, req: &mut Request, db: Db) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 

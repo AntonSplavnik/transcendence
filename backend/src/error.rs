@@ -7,7 +7,7 @@ use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
 use crate::stream::StreamApiError;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, strum::IntoStaticStr)]
 pub enum FriendError {
     #[error("cannot send friend request to yourself")]
     SelfRequest,
@@ -148,19 +148,22 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
-            Self::Friend(err) => match err {
-                FriendError::SelfRequest
-                | FriendError::DuplicateRequest
-                | FriendError::AlreadyFriends
-                | FriendError::TooManyPending
-                | FriendError::InvalidParam(_) => StatusError::bad_request().brief(err.to_string()),
-                FriendError::RequestNotFound | FriendError::NotFriends => {
-                    StatusError::not_found().brief(err.to_string())
+            Self::Friend(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    FriendError::SelfRequest
+                    | FriendError::DuplicateRequest
+                    | FriendError::AlreadyFriends
+                    | FriendError::TooManyPending
+                    | FriendError::InvalidParam(_) => StatusError::bad_request().brief(variant),
+                    FriendError::RequestNotFound | FriendError::NotFriends => {
+                        StatusError::not_found().brief(variant)
+                    }
+                    FriendError::RequestNotPending => StatusError::conflict().brief(variant),
+                    FriendError::NotAuthorized => StatusError::forbidden().brief(variant),
+                    FriendError::UserNotFound => StatusError::not_found().brief(variant),
                 }
-                FriendError::RequestNotPending => StatusError::conflict().brief(err.to_string()),
-                FriendError::NotAuthorized => StatusError::forbidden().brief(err.to_string()),
-                FriendError::UserNotFound => StatusError::not_found().brief(err.to_string()),
-            },
+            }
         };
 
         res.render(status_error);

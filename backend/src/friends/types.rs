@@ -15,29 +15,11 @@ use crate::routers::users::PublicUser;
 use crate::stream::StreamManager;
 
 /// Friend request status values stored in the database.
-pub enum RequestStatus {
-    Pending,
-    Accepted,
-}
+pub struct RequestStatus;
 
 impl RequestStatus {
     pub const PENDING: &'static str = "pending";
     pub const ACCEPTED: &'static str = "accepted";
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Pending => Self::PENDING,
-            Self::Accepted => Self::ACCEPTED,
-        }
-    }
-
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            Self::PENDING => Some(Self::Pending),
-            Self::ACCEPTED => Some(Self::Accepted),
-            _ => None,
-        }
-    }
 }
 
 /// Maximum number of results returned by list endpoints.

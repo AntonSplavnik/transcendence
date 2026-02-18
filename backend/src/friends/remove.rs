@@ -1,4 +1,4 @@
-//! DELETE /api/friends/remove/<user_id> - Remove a friend
+//! DELETE /api/friends/remove/{user_id} - Remove a friend
 
 use crate::error::FriendError;
 use crate::models::FriendRequest;
@@ -8,7 +8,7 @@ use crate::prelude::*;
 use super::types::{RequestStatus, parse_param, send_notification};
 
 /// Remove a friend
-#[endpoint]
+#[endpoint(parameters(("user_id" = i32, description = "ID of the friend to remove")))]
 pub async fn remove_friend(depot: &mut Depot, req: &mut Request, db: Db) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 
