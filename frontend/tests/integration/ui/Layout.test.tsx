@@ -41,7 +41,7 @@ describe('Layout', () => {
 		expect(layoutRoot).toBeInTheDocument();
 	});
 
-	it('applies wood-900 background', () => {
+	it('applies stone-900 background', () => {
 		render(
 			<Layout>
 				<span data-testid="content">Content</span>
@@ -49,11 +49,11 @@ describe('Layout', () => {
 			{ withAuth: false }
 		);
 
-		const layoutRoot = screen.getByTestId('content').closest('.bg-wood-900');
+		const layoutRoot = screen.getByTestId('content').closest('.bg-stone-900');
 		expect(layoutRoot).toBeInTheDocument();
 	});
 
-	it('applies wood-100 text color', () => {
+	it('applies stone-200 text color', () => {
 		render(
 			<Layout>
 				<span data-testid="content">Content</span>
@@ -61,7 +61,7 @@ describe('Layout', () => {
 			{ withAuth: false }
 		);
 
-		const layoutRoot = screen.getByTestId('content').closest('.text-wood-100');
+		const layoutRoot = screen.getByTestId('content').closest('.text-stone-200');
 		expect(layoutRoot).toBeInTheDocument();
 	});
 
@@ -77,7 +77,7 @@ describe('Layout', () => {
 		expect(layoutRoot).toHaveClass('flex-col');
 	});
 
-	it('applies font-sans', () => {
+	it('applies font-body', () => {
 		render(
 			<Layout>
 				<span data-testid="content">Content</span>
@@ -85,7 +85,7 @@ describe('Layout', () => {
 			{ withAuth: false }
 		);
 
-		const layoutRoot = screen.getByTestId('content').closest('.font-sans');
+		const layoutRoot = screen.getByTestId('content').closest('.font-body');
 		expect(layoutRoot).toBeInTheDocument();
 	});
 
@@ -97,8 +97,8 @@ describe('Layout', () => {
 			{ withAuth: false }
 		);
 
-		const layoutRoot = screen.getByTestId('content').closest('.selection\\:bg-primary');
-		expect(layoutRoot).toBeInTheDocument();
+		const layoutRoot = screen.getByTestId('content').closest('.bg-stone-900');
+		expect(layoutRoot).toHaveClass('selection:bg-gold-400/30');
 	});
 
 	it('has nested flex-grow container for children', () => {

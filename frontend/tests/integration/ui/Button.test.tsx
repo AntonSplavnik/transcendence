@@ -13,24 +13,24 @@ describe('Button', () => {
 		render(<Button>Primary</Button>, { withAuth: false });
 
 		const button = screen.getByRole('button');
-		expect(button).toHaveClass('bg-primary');
-		expect(button).toHaveClass('hover:bg-primary-hover');
+		expect(button).toHaveClass('bg-gold-400');
+		expect(button).toHaveClass('hover:bg-gold-500');
 	});
 
 	it('applies secondary variant classes', () => {
 		render(<Button variant="secondary">Secondary</Button>, { withAuth: false });
 
 		const button = screen.getByRole('button');
-		expect(button).toHaveClass('bg-wood-700');
-		expect(button).toHaveClass('hover:bg-wood-600');
+		expect(button).toHaveClass('bg-stone-700');
+		expect(button).toHaveClass('hover:bg-stone-600');
 	});
 
 	it('applies danger variant classes', () => {
 		render(<Button variant="danger">Danger</Button>, { withAuth: false });
 
 		const button = screen.getByRole('button');
-		expect(button).toHaveClass('bg-red-700');
-		expect(button).toHaveClass('hover:bg-red-600');
+		expect(button).toHaveClass('bg-danger');
+		expect(button).toHaveClass('hover:bg-danger/90');
 	});
 
 	it('applies base styles', () => {
@@ -39,9 +39,9 @@ describe('Button', () => {
 		const button = screen.getByRole('button');
 		expect(button).toHaveClass('px-4');
 		expect(button).toHaveClass('py-2');
-		expect(button).toHaveClass('rounded');
+		expect(button).toHaveClass('rounded-md');
 		expect(button).toHaveClass('font-semibold');
-		expect(button).toHaveClass('transition-colors');
+		expect(button).toHaveClass('transition-all');
 	});
 
 	it('passes through additional className', () => {

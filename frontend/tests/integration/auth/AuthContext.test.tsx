@@ -13,8 +13,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 describe('AuthContext', () => {
 	beforeEach(() => {
-		vi.spyOn(console, 'log').mockImplementation(() => { });
-		vi.spyOn(console, 'error').mockImplementation(() => { });
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -295,7 +295,7 @@ describe('AuthContext', () => {
 	describe('useAuth hook', () => {
 		it('throws when used outside AuthProvider', () => {
 			// Suppress console.error for this test
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 			expect(() => {
 				renderHook(() => useAuth());

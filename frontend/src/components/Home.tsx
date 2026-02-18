@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from 'lucide-react';
-import Button from "./ui/Button";
-import Card from "./ui/Card";
-import TwoFactorModal from './modals/TwoFactorAuthModal';
-import SessionDetailsModal from './modals/SessionDetailModal';
-import ReauthModal from './modals/ReauthModal';
-
+import { useAuth } from "../contexts/AuthContext";
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from "lucide-react";
+import { Button, Card, Badge, LoadingSpinner } from "./ui";
+import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
+import TwoFactorModal from "./modals/TwoFactorAuthModal";
+import SessionDetailsModal from "./modals/SessionDetailModal";
+import ReauthModal from "./modals/ReauthModal";
+import { useState } from "react";
 
 const REAUTH_THRESHOLD_MINUTES = 30;
 
@@ -17,16 +16,17 @@ interface HomeProps {
 
 export default function Home({ onGame, onLogout }: HomeProps) {
 	const { user, session } = useAuth();
-	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
 
-	// authentication guard from context
 	if (!user || !session) {
 		return (
-			<main className="p-6 max-w-4xl mx-auto w-full">
-				<div className="text-center text-wood-300">Loading...</div>
+			<main className="p-6 max-w-4xl mx-auto w-full" aria-busy="true">
+				<div className="text-center text-stone-300 flex items-center justify-center gap-2">
+					<LoadingSpinner size="md" />
+					<span>Loading...</span>
+				</div>
 			</main>
 		);
 	}
@@ -51,133 +51,100 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 
 	const handle2FASuccess = () => {
 		setShow2FASettings(false);
-		//probably no reload necessary, because frontend state is updated in 2FA modal, and backend as well.
 	};
 
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			{/* Header with User Menu */}
-			<header className="flex items-center justify-between mb-8 pb-4 border-b border-wood-700">
+			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
 				<div>
-					<h1 className="text-3xl font-bold text-wood-100">Player Dashboard</h1>
-					<p className="text-wood-300">Welcome back, {user.nickname}.</p>
+					<h1>Player Dashboard</h1>
+					<p className="text-stone-300">Welcome back, {user.nickname}.</p>
 				</div>
 
-				{/* User Menu Dropdown */}
-				<div className="relative">
-					<button
-						onClick={() => setIsMenuOpen(!isMenuOpen)}
-						className="flex items-center gap-2 px-4 py-2 rounded-lg bg-wood-800 hover:bg-wood-700 
-                       text-wood-100 transition-colors border border-wood-600"
+				<Dropdown
+					align="right"
+					trigger={
+						<span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-100 transition-colors border border-stone-600">
+							<UserIcon className="w-5 h-5" aria-hidden="true" />
+							<span className="hidden sm:inline">{user.nickname}</span>
+							<ChevronDown className="w-4 h-4" aria-hidden="true" />
+						</span>
+					}
+				>
+					{/* User info header */}
+					<div className="px-4 py-3 border-b border-stone-700">
+						<p className="text-sm font-medium text-stone-100">{user.nickname}</p>
+						<p className="text-xs text-stone-400 truncate">{user.email}</p>
+					</div>
+
+					<DropdownItem
+						icon={<Shield className="w-4 h-4" />}
+						onClick={() => setShow2FASettings(true)}
+						suffix={
+							user.totp_enabled
+								? <Badge variant="success" size="sm">Active</Badge>
+								: undefined
+						}
 					>
-						<UserIcon className="w-5 h-5" />
-						<span className="hidden sm:inline">{user.nickname}</span>
-						<ChevronDown className={`w-4 h-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
-					</button>
+						Two-Factor Auth
+					</DropdownItem>
 
-					{/* Dropdown Menu */}
-					{isMenuOpen && (
-						<>
-							{/* Backdrop to close menu */}
-							<div
-								className="fixed inset-0 z-10"
-								onClick={() => setIsMenuOpen(false)}
-							/>
+					<DropdownItem
+						icon={<Monitor className="w-4 h-4" />}
+						onClick={() => setShowSessionDetails(true)}
+					>
+						Session Details
+					</DropdownItem>
 
-							{/* Menu Items */}
-							<div className="absolute right-0 mt-2 w-64 bg-wood-800 border border-wood-600 
-                              rounded-lg shadow-xl z-20 overflow-hidden">
-								{/* User Info Section */}
-								<div className="px-4 py-3 border-b border-wood-700">
-									<p className="text-sm font-medium text-wood-100">{user.nickname}</p>
-									<p className="text-xs text-wood-400 truncate">{user.email}</p>
-								</div>
+					<DropdownSeparator />
 
-								{/* Menu Options */}
-								<div className="py-2">
-									<button
-										onClick={() => {
-											setShow2FASettings(true);
-											setIsMenuOpen(false);
-										}}
-										className="w-full px-4 py-2 text-left text-sm text-wood-200 hover:bg-wood-700 
-                               flex items-center gap-3 transition-colors"
-									>
-										<Shield className="w-4 h-4" />
-										<span>Two-Factor Authentication</span>
-										{user.totp_enabled && (
-											<span className="ml-auto text-xs text-green-400">✓ Active</span>
-										)}
-									</button>
-
-									<button
-										onClick={() => {
-											setShowSessionDetails(true);
-											setIsMenuOpen(false);
-										}}
-										className="w-full px-4 py-2 text-left text-sm text-wood-200 hover:bg-wood-700 
-                               flex items-center gap-3 transition-colors"
-									>
-										<Monitor className="w-4 h-4" />
-										<span>Session Details</span>
-									</button>
-
-									<div className="my-2 border-t border-wood-700" />
-
-									<button
-										onClick={() => {
-											setIsMenuOpen(false);
-											onLogout();
-										}}
-										className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-wood-700 
-                               flex items-center gap-3 transition-colors"
-									>
-										<LogOut className="w-4 h-4" />
-										<span>Log Out</span>
-									</button>
-								</div>
-							</div>
-						</>
-					)}
-				</div>
+					<DropdownItem
+						icon={<LogOut className="w-4 h-4" />}
+						onClick={onLogout}
+						variant="danger"
+					>
+						Log Out
+					</DropdownItem>
+				</Dropdown>
 			</header>
 
 			{/* Main Content */}
-			<section className="grid gap-6 md:grid-cols-2">
-				<Card>
-					<h2 className="text-xl font-bold mb-2 text-primary">Play Game</h2>
-					<p className="text-sm text-wood-300 mb-4">
+			<section className="grid gap-6 md:grid-cols-2" aria-label="Dashboard content">
+				<Card hoverable>
+					<h2 className="text-xl font-bold mb-2 text-gold-400">Play Game</h2>
+					<p className="text-sm text-stone-300 mb-4">
 						Jump into a match immediately.
 					</p>
-					<Button onClick={handlePlayGame} className="w-full">
+					<Button onClick={handlePlayGame} fullWidth>
 						Play a Match
 					</Button>
 				</Card>
 
 				<Card>
-					<h2 className="text-xl font-bold mb-2 text-wood-100">User Stats</h2>
+					<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
 					<div className="space-y-2 text-sm">
-						<p className="text-wood-300">
-							<span className="text-wood-400">Email:</span> {user.email}
+						<p className="text-stone-300">
+							<span className="text-stone-400">Email:</span> {user.email}
 						</p>
-						<p className="text-wood-300">
-							<span className="text-wood-400">Member since:</span>{' '}
+						<p className="text-stone-300">
+							<span className="text-stone-400">Member since:</span>{" "}
 							{new Date(user.created_at).toLocaleDateString()}
 						</p>
-						<p className="text-wood-300">
-							<span className="text-wood-400">2FA:</span>{' '}
+						<p className="text-stone-300">
+							<span className="text-stone-400">2FA:</span>{" "}
 							{user.totp_enabled ? (
-								<span className="text-green-400">✅ Enabled</span>
+								<Badge variant="success" dot>Enabled</Badge>
 							) : (
-								<span className="text-yellow-400">❌ Disabled</span>
+								<Badge variant="warning" dot>Disabled</Badge>
 							)}
 						</p>
 					</div>
 				</Card>
 
 				<Card>
-					<h2 className="text-xl font-bold mb-2 text-wood-100">Recent History</h2>
-					<div className="bg-wood-900 rounded p-4 text-center text-wood-400 text-sm italic">
+					<h2 className="text-xl font-bold mb-2 text-stone-50">Recent History</h2>
+					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-400 text-sm italic">
 						No recent battles recorded.
 					</div>
 				</Card>
