@@ -76,7 +76,7 @@ diesel = { version = "2", features = [
 rand = "0.10"
 # for the custom compressedCbor codec
 tokio-util = { version = "0.7.17", features = ["codec"] }
-futures = "0.3.31"
+futures = "0.3.32"
 bytes = "1.11.0"
 ciborium = "0.2.2"
 zstd = "0.13.3"
