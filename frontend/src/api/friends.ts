@@ -7,7 +7,7 @@ export async function getFriends(): Promise<PublicUser[]> {
 }
 
 export async function removeFriend(userId: number): Promise<void> {
-	await apiClient.delete(`/friends/${userId}`);
+	await apiClient.delete(`/friends/remove/${userId}`);
 }
 
 export async function sendFriendRequest(nickname: string): Promise<FriendRequestResponse> {

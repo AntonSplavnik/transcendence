@@ -63,8 +63,9 @@ export interface FriendRequestResponse {
 	id: number;
 	sender: PublicUser;
 	receiver: PublicUser;
-	status: string;
+	status: 'pending' | 'accepted';
 	created_at: string;
+	updated_at: string;
 }
 
 // ==================== API ERROR TYPES ====================

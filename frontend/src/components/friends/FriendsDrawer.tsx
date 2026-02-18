@@ -15,6 +15,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 	const [incoming, setIncoming] = useState<FriendRequestResponse[]>([]);
 	const [outgoing, setOutgoing] = useState<FriendRequestResponse[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [actionInProgress, setActionInProgress] = useState<number | null>(null);
 	const [error, setError] = useState('');
 
 	const fetchAll = useCallback(async () => {
@@ -51,43 +52,59 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 	}, [isOpen, onToggle]);
 
 	const handleRemove = async (userId: number) => {
+		if (actionInProgress !== null) return;
 		setError('');
+		setActionInProgress(userId);
 		try {
 			await friendsApi.removeFriend(userId);
 			setFriends((prev) => prev.filter((f) => f.id !== userId));
 		} catch (err) {
 			setError(getErrorMessage(err, 'Failed to remove friend'));
+		} finally {
+			setActionInProgress(null);
 		}
 	};
 
 	const handleAccept = async (requestId: number) => {
+		if (actionInProgress !== null) return;
 		setError('');
+		setActionInProgress(requestId);
 		try {
-			await friendsApi.acceptFriendRequest(requestId);
+			const accepted = await friendsApi.acceptFriendRequest(requestId);
 			setIncoming((prev) => prev.filter((r) => r.id !== requestId));
-			fetchAll();
+			setFriends((prev) => [...prev, accepted.sender]);
 		} catch (err) {
 			setError(getErrorMessage(err, 'Failed to accept request'));
+		} finally {
+			setActionInProgress(null);
 		}
 	};
 
 	const handleReject = async (requestId: number) => {
+		if (actionInProgress !== null) return;
 		setError('');
+		setActionInProgress(requestId);
 		try {
 			await friendsApi.rejectFriendRequest(requestId);
 			setIncoming((prev) => prev.filter((r) => r.id !== requestId));
 		} catch (err) {
 			setError(getErrorMessage(err, 'Failed to reject request'));
+		} finally {
+			setActionInProgress(null);
 		}
 	};
 
 	const handleCancel = async (requestId: number) => {
+		if (actionInProgress !== null) return;
 		setError('');
+		setActionInProgress(requestId);
 		try {
 			await friendsApi.cancelFriendRequest(requestId);
 			setOutgoing((prev) => prev.filter((r) => r.id !== requestId));
 		} catch (err) {
 			setError(getErrorMessage(err, 'Failed to cancel request'));
+		} finally {
+			setActionInProgress(null);
 		}
 	};
 
@@ -160,14 +177,16 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 												<span className="text-sm text-wood-100 truncate flex-1">{req.sender.nickname}</span>
 												<button
 													onClick={() => handleAccept(req.id)}
-													className="text-wood-500 hover:text-green-400 transition-colors p-1"
+													disabled={actionInProgress !== null}
+													className="text-wood-500 hover:text-green-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Accept"
 												>
 													<Check className="w-4 h-4" />
 												</button>
 												<button
 													onClick={() => handleReject(req.id)}
-													className="text-wood-500 hover:text-red-400 transition-colors p-1"
+													disabled={actionInProgress !== null}
+													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Reject"
 												>
 													<X className="w-4 h-4" />
@@ -195,7 +214,8 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 												<span className="text-sm text-wood-100 truncate flex-1">{friend.nickname}</span>
 												<button
 													onClick={() => handleRemove(friend.id)}
-													className="text-wood-500 hover:text-red-400 transition-colors p-1"
+													disabled={actionInProgress !== null}
+													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Remove friend"
 												>
 													<UserMinus className="w-4 h-4" />
@@ -209,7 +229,8 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 												<span className="text-xs text-wood-500">Pending</span>
 												<button
 													onClick={() => handleCancel(req.id)}
-													className="text-wood-500 hover:text-red-400 transition-colors p-1"
+													disabled={actionInProgress !== null}
+													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Cancel request"
 												>
 													<X className="w-4 h-4" />

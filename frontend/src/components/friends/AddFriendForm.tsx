@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
-import { nicknameExists } from '../../api/users';
+import apiClient from '../../api/client';
 import { sendFriendRequest } from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
+
+const DEBOUNCE_MS = 500;
+
+type ValidationState = '' | 'valid' | 'not_found' | 'invalid' | 'error';
 
 interface AddFriendFormProps {
 	onRequestSent: () => void;
@@ -10,11 +14,12 @@ interface AddFriendFormProps {
 
 export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 	const [nickname, setNickname] = useState('');
-	const [validation, setValidation] = useState('');
+	const [validation, setValidation] = useState<ValidationState>('');
 	const [isChecking, setIsChecking] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 	const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const abortRef = useRef<AbortController | null>(null);
 
 	useEffect(() => {
 		if (nickname.trim().length > 0) {
@@ -22,26 +27,40 @@ export default function AddFriendForm({ onRequestSent }: AddFriendFormProps) {
 			setIsChecking(true);
 			setValidation('');
 			timeoutRef.current = setTimeout(async () => {
-				const result = await nicknameExists(nickname);
-				// Inverted logic: "taken" means user exists = valid target
-				if (result.includes('already taken')) {
-					setValidation('valid');
-				} else if (result.includes('invalid')) {
-					setValidation('invalid');
-				} else if (result.includes('\u2705')) {
-					// Checkmark means nickname is available = user doesn't exist
-					setValidation('not_found');
-				} else {
-					setValidation('error');
+				abortRef.current?.abort();
+				const controller = new AbortController();
+				abortRef.current = controller;
+				try {
+					const response = await apiClient.post<{ exists: boolean; valid: boolean }>(
+						'users/nickname-exists',
+						nickname,
+						{ headers: { 'Content-Type': 'application/json' }, signal: controller.signal },
+					);
+					const { exists, valid } = response.data;
+					if (!valid) {
+						setValidation('invalid');
+					} else if (exists) {
+						setValidation('valid');
+					} else {
+						setValidation('not_found');
+					}
+				} catch {
+					if (!controller.signal.aborted) {
+						setValidation('error');
+					}
+				} finally {
+					if (!controller.signal.aborted) {
+						setIsChecking(false);
+					}
 				}
-				setIsChecking(false);
-			}, 500);
+			}, DEBOUNCE_MS);
 		} else {
 			setValidation('');
 			setIsChecking(false);
 		}
 		return () => {
 			if (timeoutRef.current) clearTimeout(timeoutRef.current);
+			abortRef.current?.abort();
 		};
 	}, [nickname]);
 
