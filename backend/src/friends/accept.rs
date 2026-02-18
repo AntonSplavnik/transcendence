@@ -1,4 +1,4 @@
-//! POST /api/friends/accept/<request_id> - Accept a friend request
+//! POST /api/friends/accept/{request_id} - Accept a friend request
 
 use crate::models::{FriendRequest, User};
 use crate::notifications::NotificationPayload;
@@ -11,7 +11,7 @@ use super::types::{
 };
 
 /// Accept a friend request
-#[endpoint]
+#[endpoint(parameters(("request_id" = i32, description = "Friend request ID")))]
 pub async fn accept_friend_request(
     depot: &mut Depot,
     req: &mut Request,
