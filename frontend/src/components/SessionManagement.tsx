@@ -147,6 +147,7 @@ export default function SessionManagement({
 				unlockMfa || undefined,
 			);
 			passwordRef.current = unlockPw;
+			setModalMfa(unlockMfa);
 			setAllSessions(sessions);
 			setUnlocked(true);
 			setUnlockPw("");
@@ -214,7 +215,6 @@ export default function SessionManagement({
 
 	const closeModal = () => {
 		setPendingAction(null);
-		setModalMfa("");
 		setModalError("");
 	};
 
