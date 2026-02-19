@@ -23,10 +23,30 @@ export interface GameStateSnapshot {
   characters: CharacterSnapshot[];
 }
 
+// Game events for audio/effects
+export interface GameEvent {
+  event_type: number;
+  player_id: number;
+  position: Vector3D;
+  param1: number;
+  param2: number;
+}
+
+export const GameEventType = {
+  Jump: 0,
+  Land: 1,
+  Hit: 2,
+  Death: 3,
+  Footstep: 4,
+  Attack: 5,
+  Dodge: 6,
+} as const;
+
 // From backend/src/game/messages.rs
 // Using discriminated union with 'type' field (matches Rust #[serde(tag = "type")])
 export type GameServerMessage =
   | ({ type: 'Snapshot' } & GameStateSnapshot)
+  | { type: 'GameEvents'; events: GameEvent[] }
   | { type: 'PlayerJoined'; player_id: number; name: string }
   | { type: 'PlayerLeft'; player_id: number }
   | { type: 'Error'; message: string };

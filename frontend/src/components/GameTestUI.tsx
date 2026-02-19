@@ -6,7 +6,7 @@ import Card from './ui/Card';
 import SimpleGameClient from './GameBoard/SimpleGameClient';
 
 export default function GameTestUI() {
-  const { state, error, snapshot, connect, joinGame, sendInput, disconnect } = useGameConnection();
+  const { state, error, snapshot, connect, joinGame, sendInput, disconnect, onGameEvents } = useGameConnection();
   const { user } = useAuth();
   const [playerName, setPlayerName] = useState('TestPlayer');
 
@@ -18,6 +18,7 @@ export default function GameTestUI() {
         snapshot={snapshot}
         onSendInput={sendInput}
         localPlayerId={user?.id}
+        onGameEvents={onGameEvents}
       />
     );
   }

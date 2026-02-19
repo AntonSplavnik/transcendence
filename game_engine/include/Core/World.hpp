@@ -12,6 +12,7 @@
 #include "Systems/PhysicsSystem.hpp"
 #include "Systems/CollisionSystem.hpp"
 #include "Systems/CombatSystem.hpp"
+#include "GameEvents.hpp"
 #include <entt/entt.hpp>
 #include <unordered_map>
 #include <vector>
@@ -92,6 +93,10 @@ public:
     // Combat handling (forwards to combat system)
     void registerHit(PlayerID attackerId, PlayerID victimId, float damage);
 
+    // Event queue access
+    GameEventQueue& getEventQueue() { return m_eventQueue; }
+    const GameEventQueue& getEventQueue() const { return m_eventQueue; }
+
 private:
     // EnTT registry (core data structure)
     entt::registry m_registry;
@@ -112,6 +117,9 @@ private:
     PhysicsSystem* m_physicsSystem;
     CollisionSystem* m_collisionSystem;
     CombatSystem* m_combatSystem;
+
+    // Game event queue for audio/effects
+    GameEventQueue m_eventQueue;
 
     // Internal helpers
     void registerPlayerIDMapping(entt::entity entity, PlayerID playerId);
@@ -148,6 +156,10 @@ inline void World::initialize() {
     physicsSystem->setRegistry(&m_registry);
     collisionSystem->setRegistry(&m_registry);
     combatSystem->setRegistry(&m_registry);
+
+    // Pass event queue to systems that emit events
+    characterControllerSystem->setEventQueue(&m_eventQueue);
+    physicsSystem->setEventQueue(&m_eventQueue);
 
     // Store raw pointers for convenience
     m_characterControllerSystem = characterControllerSystem.get();

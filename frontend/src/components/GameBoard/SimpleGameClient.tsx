@@ -5,7 +5,12 @@ import {
     StandardMaterial, Color3, SceneLoader, AnimationGroup, AbstractMesh, TransformNode
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
-import type { GameStateSnapshot, Vector3D } from '../../game/types';
+import type { GameStateSnapshot, GameEvent, Vector3D } from '../../game/types';
+import { AudioEngine } from '../../audio/AudioEngine';
+import { SoundBank } from '../../audio/SoundBank';
+import { SoundPool } from '../../audio/SoundPool';
+import { AudioEventSystem } from '../../audio/AudioEventSystem';
+import { SOUND_DEFINITIONS } from '../../audio/soundDefinitions';
 
 // ============ COPIED FROM simple_client.ts ============
 
@@ -371,16 +376,23 @@ class GameClient {
 
 // ============ MINIMAL REACT WRAPPER ============
 
+type GameEventsCallback = (callback: (events: GameEvent[]) => void) => void;
+
 interface Props {
     snapshot: GameStateSnapshot | null;
     onSendInput: (movement: Vector3D, lookDirection: Vector3D, attacking: boolean, jumping: boolean, sprinting: boolean) => void;
     localPlayerId: number | undefined;
+    onGameEvents?: GameEventsCallback;
 }
 
-export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId }: Props) {
+export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId, onGameEvents }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameClientRef = useRef<GameClient | null>(null);
     const engineRef = useRef<Engine | null>(null);
+    const audioEventSystemRef = useRef<AudioEventSystem | null>(null);
+    const audioUnlockedRef = useRef(false);
+    const localPlayerPositionRef = useRef<Vector3D>({ x: 50, y: 0, z: 50 });
+    const localPlayerGroundedRef = useRef(true);
 
     // Initialize once
     useEffect(() => {
@@ -436,6 +448,35 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
         gameClientRef.current = gameClient;
         gameClient.initLocalPlayer();
 
+        // Audio system initialization
+        const audioEngine = new AudioEngine();
+        const soundBank = new SoundBank(audioEngine);
+        const soundPool = new SoundPool(32);
+        const audioEventSystem = new AudioEventSystem(audioEngine, soundBank, soundPool);
+        audioEventSystem.setLocalPlayerId(localPlayerId);
+        audioEventSystemRef.current = audioEventSystem;
+
+        audioEngine.initialize().then(() => {
+            for (const def of SOUND_DEFINITIONS) {
+                soundBank.register(def);
+            }
+            return soundBank.loadAll();
+        }).then(() => {
+            console.log('Audio system initialized');
+        }).catch(err => {
+            console.warn('Audio initialization failed:', err);
+        });
+
+        // Unlock audio on first user interaction
+        const unlockAudio = () => {
+            if (!audioUnlockedRef.current) {
+                audioEngine.resume();
+                audioUnlockedRef.current = true;
+            }
+        };
+        canvas.addEventListener('click', unlockAudio);
+        canvas.addEventListener('keydown', unlockAudio);
+
         // Input
         const input: InputState = {
             movementDirection: { x: 0, y: 0, z: 0 },
@@ -446,8 +487,18 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
         const keysPressed = new Set<string>();
 
         scene.onKeyboardObservable.add((kbInfo) => {
-            if (kbInfo.type === 1) keysPressed.add(kbInfo.event.key.toLowerCase());
-            else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
+            const key = kbInfo.event.key.toLowerCase();
+            if (kbInfo.type === 1) {
+                // Key down - detect Space press for local jump audio prediction (only if grounded)
+                if (key === ' ' && !keysPressed.has(' ') && localPlayerGroundedRef.current && audioEventSystemRef.current) {
+                    audioEventSystemRef.current.playLocalEvent('player_jump', localPlayerPositionRef.current);
+                }
+                keysPressed.add(key);
+            }
+            else if (kbInfo.type === 2) keysPressed.delete(key);
+
+            // Unlock audio on any key press
+            unlockAudio();
         });
 
         scene.onBeforeRenderObservable.add(() => {
@@ -492,15 +543,38 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
             engine.stopRenderLoop();
             scene.dispose();
             engine.dispose();
+            audioEngine.dispose();
+            canvas.removeEventListener('click', unlockAudio);
+            canvas.removeEventListener('keydown', unlockAudio);
         };
     }, [localPlayerId]);
+
+    // Register game events callback for audio
+    useEffect(() => {
+        if (onGameEvents) {
+            onGameEvents((events: GameEvent[]) => {
+                if (audioEventSystemRef.current) {
+                    audioEventSystemRef.current.processServerEvents(events, localPlayerPositionRef.current);
+                }
+            });
+        }
+    }, [onGameEvents]);
 
     // Process snapshots
     useEffect(() => {
         if (snapshot && gameClientRef.current) {
             gameClientRef.current.processSnapshot(snapshot);
+
+            // Track local player position and grounded state for audio
+            if (localPlayerId) {
+                const localChar = snapshot.characters.find(c => c.player_id === localPlayerId);
+                if (localChar) {
+                    localPlayerPositionRef.current = localChar.position;
+                    localPlayerGroundedRef.current = localChar.velocity.y === 0;
+                }
+            }
         }
-    }, [snapshot]);
+    }, [snapshot, localPlayerId]);
 
     return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }

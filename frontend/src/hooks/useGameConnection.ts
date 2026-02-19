@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { GameClient, GameStream } from '../game/gameClient';
 import { initZstd } from '../stream/CompressedCborCodec';
 import apiClient from '../api/client';
-import type { GameStateSnapshot, Vector3D } from '../game/types';
+import type { GameStateSnapshot, GameEvent, Vector3D } from '../game/types';
 
 type ConnectionState = 'idle' | 'initializing' | 'connecting' | 'connected' | 'joining' | 'in-game' | 'error';
+type GameEventsCallback = (events: GameEvent[]) => void;
 
 export function useGameConnection() {
   const [state, setState] = useState<ConnectionState>('idle');
@@ -12,6 +13,7 @@ export function useGameConnection() {
   const [snapshot, setSnapshot] = useState<GameStateSnapshot | null>(null);
   const clientRef = useRef<GameClient | null>(null);
   const streamRef = useRef<GameStream | null>(null);
+  const gameEventsCallbackRef = useRef<GameEventsCallback | null>(null);
 
   // Initialize Zstd on mount
   useEffect(() => {
@@ -59,6 +61,10 @@ export function useGameConnection() {
         console.log('📨 Received message:', msg.type);
         if (msg.type === 'Snapshot') {
           setSnapshot(msg);
+        } else if (msg.type === 'GameEvents') {
+          if (gameEventsCallbackRef.current) {
+            gameEventsCallbackRef.current(msg.events);
+          }
         } else if (msg.type === 'PlayerJoined') {
           console.log('Player joined:', msg.player_id, msg.name);
         } else if (msg.type === 'PlayerLeft') {
@@ -130,6 +136,10 @@ export function useGameConnection() {
     setState('idle');
   };
 
+  const onGameEvents = (callback: GameEventsCallback) => {
+    gameEventsCallbackRef.current = callback;
+  };
+
   return {
     state,
     error,
@@ -139,5 +149,6 @@ export function useGameConnection() {
     sendInput,
     leaveGame,
     disconnect,
+    onGameEvents,
   };
 }

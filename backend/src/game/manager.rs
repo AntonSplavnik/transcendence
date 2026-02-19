@@ -137,11 +137,18 @@ impl GameManager {
 
                 // Broadcast snapshots at 60 Hz
                 _ = snapshot_interval.tick() => {
-                    let snapshot = {
-                        let game = self.game.read().await;
-                        game.get_snapshot()
+                    let (snapshot, events) = {
+                        let mut game = self.game.write().await;
+                        let events = game.drain_events();
+                        let snapshot = game.get_snapshot();
+                        (snapshot, events)
                     };
 
+                    let events_msg = if !events.is_empty() {
+                        Some(GameServerMessage::GameEvents { events })
+                    } else {
+                        None
+                    };
                     let server_msg = GameServerMessage::Snapshot(snapshot);
 
                     // Broadcast to all players with active streams
@@ -149,6 +156,15 @@ impl GameManager {
                     let mut disconnected = Vec::new();
 
                     for (player_id, sender) in streams.iter_mut() {
+                        // Send game events before snapshot (if any)
+                        if let Some(ref events_msg) = events_msg {
+                            if let Err(e) = sender.send(events_msg.clone()).await {
+                                error!("Failed to send events to player {}: {}", player_id, e);
+                                disconnected.push(*player_id);
+                                continue;
+                            }
+                        }
+
                         if let Err(e) = sender.send(server_msg.clone()).await {
                             error!("Failed to send snapshot to player {}: {}", player_id, e);
                             disconnected.push(*player_id);

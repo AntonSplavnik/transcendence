@@ -8,6 +8,22 @@ use salvo::oapi::ToSchema;
 pub type GameHandle = *mut c_void;
 
 // =============================================================================
+// C-compatible structures for game events
+// =============================================================================
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct CGameEvent {
+    pub event_type: u8,
+    pub player_id: u32,
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub pos_z: f32,
+    pub param1: f32,
+    pub param2: f32,
+}
+
+// =============================================================================
 // C-compatible structures
 // =============================================================================
 
@@ -130,6 +146,10 @@ extern "C" {
 
     // Combat (backwards compatible)
     pub fn game_register_hit(game: GameHandle, attacker_id: u32, victim_id: u32, damage: f32);
+
+    // Game events (for audio/effects)
+    pub fn game_get_event_count(game: GameHandle) -> usize;
+    pub fn game_drain_events(game: GameHandle, out: *mut CGameEvent, max: usize) -> usize;
 }
 
 // =============================================================================
@@ -158,6 +178,15 @@ pub struct CharacterSnapshot {
     pub state: u8,
     pub health: f32,
     pub max_health: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GameEvent {
+    pub event_type: u8,
+    pub player_id: u32,
+    pub position: Vector3D,
+    pub param1: f32,
+    pub param2: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -381,6 +410,36 @@ impl Game {
 
     pub fn register_hit(&mut self, attacker_id: u32, victim_id: u32, damage: f32) {
         unsafe { game_register_hit(self.handle, attacker_id, victim_id, damage) }
+    }
+
+    pub fn drain_events(&mut self) -> Vec<GameEvent> {
+        let count = unsafe { game_get_event_count(self.handle) };
+        if count == 0 {
+            return Vec::new();
+        }
+
+        let mut c_events = vec![
+            CGameEvent {
+                event_type: 0,
+                player_id: 0,
+                pos_x: 0.0, pos_y: 0.0, pos_z: 0.0,
+                param1: 0.0, param2: 0.0,
+            };
+            count.min(64)
+        ];
+
+        let drained = unsafe {
+            game_drain_events(self.handle, c_events.as_mut_ptr(), c_events.len())
+        };
+
+        c_events.truncate(drained);
+        c_events.into_iter().map(|c| GameEvent {
+            event_type: c.event_type,
+            player_id: c.player_id,
+            position: Vector3D { x: c.pos_x, y: c.pos_y, z: c.pos_z },
+            param1: c.param1,
+            param2: c.param2,
+        }).collect()
     }
 }
 

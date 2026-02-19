@@ -291,4 +291,38 @@ void game_register_hit(Game* game, uint32_t attacker_id, uint32_t victim_id, flo
     game->registerHit(attacker_id, victim_id, damage);
 }
 
+// =============================================================================
+// Game Events (for audio/effects)
+// =============================================================================
+
+struct CGameEvent {
+    uint8_t event_type;
+    uint32_t player_id;
+    float pos_x, pos_y, pos_z;
+    float param1, param2;
+};
+
+size_t game_get_event_count(Game* game) {
+    return game->getEventQueue().count();
+}
+
+size_t game_drain_events(Game* game, CGameEvent* out_events, size_t max_events) {
+    auto& queue = game->getEventQueue();
+    size_t count = std::min(queue.count(), max_events);
+    const auto* events = queue.data();
+
+    for (size_t i = 0; i < count; ++i) {
+        out_events[i].event_type = static_cast<uint8_t>(events[i].type);
+        out_events[i].player_id = events[i].playerID;
+        out_events[i].pos_x = events[i].posX;
+        out_events[i].pos_y = events[i].posY;
+        out_events[i].pos_z = events[i].posZ;
+        out_events[i].param1 = events[i].param1;
+        out_events[i].param2 = events[i].param2;
+    }
+
+    queue.clear();
+    return count;
+}
+
 } // extern "C"

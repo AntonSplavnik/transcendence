@@ -1,6 +1,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
+#include "GameEvents.hpp"
 
 namespace ArenaGame {
 
@@ -60,9 +61,16 @@ public:
         m_registry = registry;
     }
 
+    // Set event queue (called during world initialization)
+    void setEventQueue(GameEventQueue* queue) {
+        m_eventQueue = queue;
+    }
+
 protected:
     // Protected access to registry for derived systems
     entt::registry* m_registry = nullptr;
+    // Protected access to event queue for derived systems
+    GameEventQueue* m_eventQueue = nullptr;
 };
 
 } // namespace ArenaGame

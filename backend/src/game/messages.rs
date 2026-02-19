@@ -1,12 +1,17 @@
 use serde::{Deserialize, Serialize};
-use super::ffi::{GameStateSnapshot, Vector3D};
+use super::ffi::{GameEvent, GameStateSnapshot, Vector3D};
 
 /// Messages sent FROM server TO client over the game stream
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GameServerMessage {
-    /// Full game state snapshot (sent at 20 Hz)
+    /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
+
+    /// Game events for audio/effects (sent alongside snapshots)
+    GameEvents {
+        events: Vec<GameEvent>,
+    },
 
     /// Player successfully joined the game
     PlayerJoined {

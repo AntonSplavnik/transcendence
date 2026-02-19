@@ -4,7 +4,9 @@
 #include "Components/Transform.hpp"
 #include "Components/PhysicsBody.hpp"
 #include "Components/CharacterController.hpp"
+#include "Components/PlayerInfo.hpp"
 #include "GameTypes.hpp"
+#include "GameEvents.hpp"
 #include <entt/entt.hpp>
 
 namespace ArenaGame {
@@ -31,6 +33,7 @@ public:
 
 private:
     void processCharacterMovement(
+        uint32_t playerID,
         Components::CharacterController& controller,
         Components::PhysicsBody& physics,
         Components::Transform& transform,
@@ -43,23 +46,26 @@ private:
 // =============================================================================
 
 inline void CharacterControllerSystem::earlyUpdate(float deltaTime) {
-    // View: iterate entities with CharacterController, PhysicsBody, and Transform
+    // View: iterate entities with CharacterController, PhysicsBody, Transform, and PlayerInfo
     auto view = m_registry->view<
         Components::CharacterController,
         Components::PhysicsBody,
-        Components::Transform
+        Components::Transform,
+        Components::PlayerInfo
     >();
 
     for (auto entity : view) {
         auto& controller = view.get<Components::CharacterController>(entity);
         auto& physics = view.get<Components::PhysicsBody>(entity);
         auto& transform = view.get<Components::Transform>(entity);
+        auto& playerInfo = view.get<Components::PlayerInfo>(entity);
 
-        processCharacterMovement(controller, physics, transform, deltaTime);
+        processCharacterMovement(playerInfo.playerID, controller, physics, transform, deltaTime);
     }
 }
 
 inline void CharacterControllerSystem::processCharacterMovement(
+    uint32_t playerID,
     Components::CharacterController& controller,
     Components::PhysicsBody& physics,
     Components::Transform& transform,
@@ -106,7 +112,19 @@ inline void CharacterControllerSystem::processCharacterMovement(
     // Handle jumping
     if (controller.input.isJumping && controller.canJump && physics.isGrounded) {
         physics.velocity.y = controller.jumpVelocity;
-        // Keep state as Moving (no Jumping state in enum)
+
+        // Emit Jump event for audio
+        if (m_eventQueue) {
+            GameEvent event;
+            event.type = GameEventType::Jump;
+            event.playerID = playerID;
+            event.posX = transform.position.x;
+            event.posY = transform.position.y;
+            event.posZ = transform.position.z;
+            event.param1 = controller.jumpVelocity;
+            event.param2 = 0.0f;
+            m_eventQueue->push(event);
+        }
     }
 
     // Update rotation based on look direction (if enabled)
