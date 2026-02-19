@@ -1,7 +1,6 @@
-import { Monitor } from 'lucide-react';
-import Button from "../ui/Button";
-import Modal from "../ui/Modal";
-import type { Session } from '../../api/types';
+import { Monitor } from "lucide-react";
+import { Button, Modal, InfoBlock } from "../ui";
+import type { Session } from "../../api/types";
 
 interface SessionDetailsModalProps {
 	session: Session;
@@ -18,7 +17,7 @@ export default function SessionDetailsModal({ session, onClose }: SessionDetails
 		const now = new Date();
 		const diff = expiry.getTime() - now.getTime();
 
-		if (diff < 0) return 'Expired';
+		if (diff < 0) return "Expired";
 
 		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 		const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -30,60 +29,39 @@ export default function SessionDetailsModal({ session, onClose }: SessionDetails
 	};
 
 	return (
-		<Modal onClose={onClose} title="Session Details" icon={<Monitor className="w-6 h-6" />} maxWidth="lg">
-			<div className="space-y-4">
-				{/* Session ID */}
-				<div className="bg-wood-900 rounded p-4">
-					<p className="text-xs text-wood-400 mb-1">Session ID</p>
-					<p className="text-sm font-mono text-wood-200">{session.session_id}</p>
-				</div>
-
-				{/* Created */}
-				<div className="bg-wood-900 rounded p-4">
-					<p className="text-xs text-wood-400 mb-1">Created</p>
-					<p className="text-sm text-wood-200">{formatDate(session.created_at)}</p>
-				</div>
-
-				{/* Last Used */}
-				<div className="bg-wood-900 rounded p-4">
-					<p className="text-xs text-wood-400 mb-1">Last Used</p>
-					<p className="text-sm text-wood-200">{formatDate(session.last_used_at)}</p>
-				</div>
-
-				{/* JWT Expiry */}
-				<div className="bg-wood-900 rounded p-4">
-					<p className="text-xs text-wood-400 mb-1">JWT Expiry (Access Token)</p>
-					<p className="text-sm text-wood-200">{formatDate(session.access_expiry)}</p>
-					<p className="text-xs text-wood-400 mt-1">
-						Expires in: {getTimeRemaining(session.access_expiry)}
-					</p>
-				</div>
-
-				{/* Session Expiry */}
-				<div className="bg-wood-900 rounded p-4">
-					<p className="text-xs text-wood-400 mb-1">Session Expiry (Login Required)</p>
-					<p className="text-sm text-wood-200">{formatDate(session.login_expiry)}</p>
-					<p className="text-xs text-wood-400 mt-1">
-						Expires in: {getTimeRemaining(session.login_expiry)}
-					</p>
-				</div>
-
-				{/* Device Info */}
+		<Modal
+			onClose={onClose}
+			title="Session Details"
+			icon={<Monitor className="w-6 h-6" />}
+			maxWidth="lg"
+			footer={<Button onClick={onClose} fullWidth>Close</Button>}
+		>
+			<div className="space-y-3">
+				<InfoBlock label="Session ID" value={session.session_id} mono />
+				<InfoBlock label="Created" value={formatDate(session.created_at)} />
+				<InfoBlock label="Last Used" value={formatDate(session.last_used_at)} />
+				<InfoBlock
+					label="JWT Expiry (Access Token)"
+					value={formatDate(session.access_expiry)}
+					sublabel={`Expires in: ${getTimeRemaining(session.access_expiry)}`}
+				/>
+				<InfoBlock
+					label="Session Expiry (Login Required)"
+					value={formatDate(session.login_expiry)}
+					sublabel={`Expires in: ${getTimeRemaining(session.login_expiry)}`}
+				/>
 				{(session.device_name || session.ip_address) && (
-					<div className="bg-wood-900 rounded p-4">
-						<p className="text-xs text-wood-400 mb-2">Device Information</p>
-						{session.device_name && (
-							<p className="text-sm text-wood-200">Device: {session.device_name}</p>
-						)}
-						{session.ip_address && (
-							<p className="text-sm text-wood-200">IP: {session.ip_address}</p>
-						)}
-					</div>
+					<InfoBlock
+						label="Device Information"
+						value={
+							<>
+								{session.device_name && <span>Device: {session.device_name}</span>}
+								{session.device_name && session.ip_address && <br />}
+								{session.ip_address && <span>IP: {session.ip_address}</span>}
+							</>
+						}
+					/>
 				)}
-
-				<Button onClick={onClose} className="w-full">
-					Close
-				</Button>
 			</div>
 		</Modal>
 	);
