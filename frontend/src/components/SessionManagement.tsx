@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
 	ArrowLeft,
@@ -8,6 +8,7 @@ import {
 	Lock,
 	Trash2,
 	ShieldAlert,
+	RefreshCw,
 } from "lucide-react";
 import {
 	Button,
@@ -51,9 +52,98 @@ function getTimeRemaining(expiryString: string): string {
 	return `${minutes}m`;
 }
 
+// ==================== SESSION ROW ====================
+
+interface SessionRowProps {
+	session: Session;
+	isCurrent: boolean;
+	isSelected: boolean;
+	onToggle: () => void;
+}
+
+function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProps) {
+	return (
+		<div
+			className={`
+				rounded-lg border p-4 transition-colors
+				${isCurrent
+					? "border-info/40 bg-info-bg/30"
+					: isSelected
+						? "border-gold-400/40 bg-stone-800/60"
+						: "border-stone-700/50 bg-stone-900"
+				}
+				${!isCurrent ? "cursor-pointer hover:border-stone-600" : ""}
+			`}
+			onClick={!isCurrent ? onToggle : undefined}
+			role={!isCurrent ? "button" : undefined}
+			aria-label={!isCurrent ? `Toggle session ${session.session_id}` : undefined}
+		>
+			<div className="flex items-start gap-3">
+				<input
+					type="checkbox"
+					checked={isSelected}
+					onChange={onToggle}
+					onClick={(e) => e.stopPropagation()}
+					disabled={isCurrent}
+					className="mt-1 rounded border-stone-600 bg-stone-800 text-gold-400 focus:ring-gold-400/50 disabled:opacity-30"
+					aria-label={`Select session ${session.session_id}`}
+				/>
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center gap-2 mb-2">
+						<span className="text-sm font-mono text-stone-200">
+							Session #{session.session_id}
+						</span>
+						{isCurrent && (
+							<Badge variant="info" size="sm">
+								Current
+							</Badge>
+						)}
+					</div>
+					<div className="grid gap-2 text-xs text-stone-400 sm:grid-cols-2">
+						<span>
+							Created:{" "}
+							<span className="text-stone-300">
+								{formatDate(session.created_at)}
+							</span>
+						</span>
+						<span>
+							Last used:{" "}
+							<span className="text-stone-300">
+								{formatDate(session.last_used_at)}
+							</span>
+						</span>
+						<span>
+							Expires:{" "}
+							<span className="text-stone-300">
+								{getTimeRemaining(session.login_expiry)}
+							</span>
+						</span>
+						{session.ip_address && (
+							<span>
+								IP:{" "}
+								<span className="text-stone-300">
+									{session.ip_address}
+								</span>
+							</span>
+						)}
+						{session.device_name && (
+							<span>
+								Device:{" "}
+								<span className="text-stone-300">
+									{session.device_name}
+								</span>
+							</span>
+						)}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 // ==================== ACTION MODAL CONFIG ====================
 
-type PendingAction = "logout-selected" | "logout-others" | "delete-selected";
+type PendingAction = "logout-selected" | "logout-others" | "delete-selected" | "refresh";
 
 const ACTION_CONFIG: Record<PendingAction, {
 	title: string;
@@ -82,6 +172,13 @@ const ACTION_CONFIG: Record<PendingAction, {
 		confirmLabel: "Delete",
 		confirmVariant: "danger",
 		loadingText: "Deleting...",
+	},
+	"refresh": {
+		title: "Refresh Sessions",
+		icon: <RefreshCw className="w-6 h-6" />,
+		confirmLabel: "Refresh",
+		confirmVariant: "primary",
+		loadingText: "Refreshing...",
 	},
 };
 
@@ -121,8 +218,27 @@ export default function SessionManagement({
 	const [modalLoading, setModalLoading] = useState(false);
 	const [modalError, setModalError] = useState("");
 
+	// Clear credentials and re-lock when tab becomes hidden (security)
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				passwordRef.current = "";
+				setModalMfa("");
+				if (unlocked) {
+					setUnlocked(false);
+					setAllSessions([]);
+					setSelectedIds(new Set());
+					setSessionsError("");
+					setSessionsSuccess("");
+				}
+			}
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, [unlocked]);
+
 	// Fetch all sessions using stored password (silent — no spinner)
-	const fetchAllSessions = useCallback(async (mfaCode?: string) => {
+	const fetchAllSessions = useCallback(async (mfaCode?: string, silent?: boolean) => {
 		try {
 			const sessions = await getSessions(
 				passwordRef.current,
@@ -131,7 +247,9 @@ export default function SessionManagement({
 			setAllSessions(sessions);
 			setSelectedIds(new Set());
 		} catch (err) {
-			setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
+			if (!silent) {
+				setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
+			}
 		}
 	}, []);
 
@@ -196,6 +314,8 @@ export default function SessionManagement({
 				setUnlocked(false);
 				setAllSessions([]);
 				passwordRef.current = "";
+				setSessionsError("");
+				setSessionsSuccess("");
 			}
 		} catch (err) {
 			setCpError(getErrorMessage(err, "Failed to change password"));
@@ -213,9 +333,18 @@ export default function SessionManagement({
 		});
 	};
 
+	const handleRefresh = () => {
+		if (user?.totp_enabled) {
+			setPendingAction("refresh");
+		} else {
+			fetchAllSessions();
+		}
+	};
+
 	const closeModal = () => {
 		setPendingAction(null);
 		setModalError("");
+		setModalLoading(false);
 	};
 
 	const handleConfirmAction = async () => {
@@ -245,11 +374,16 @@ export default function SessionManagement({
 					);
 					setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
 					break;
+				case "refresh":
+					await fetchAllSessions(mfa);
+					setSessionsSuccess("Sessions refreshed.");
+					break;
 			}
-			// Close modal first, then refresh list
 			closeModal();
-			setModalLoading(false);
-			await fetchAllSessions(mfa);
+			// Refresh list after action (silent — don't clobber success message)
+			if (pendingAction !== "refresh") {
+				await fetchAllSessions(mfa, true);
+			}
 		} catch (err) {
 			setModalError(getErrorMessage(err, "Action failed"));
 			setModalLoading(false);
@@ -276,6 +410,8 @@ export default function SessionManagement({
 				return "Log out all sessions except your current one? All other devices will need to log in again.";
 			case "delete-selected":
 				return `Permanently delete ${selectedIds.size} session record(s)? This action cannot be undone.`;
+			case "refresh":
+				return "Confirm your MFA code to refresh sessions.";
 			default:
 				return "";
 		}
@@ -393,6 +529,7 @@ export default function SessionManagement({
 							type="password"
 							value={cpCurrentPw}
 							onChange={(e) => setCpCurrentPw(e.target.value)}
+							onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
 							autoComplete="current-password"
 							fullWidth
 						/>
@@ -402,6 +539,7 @@ export default function SessionManagement({
 								type="password"
 								value={cpNewPw}
 								onChange={(e) => setCpNewPw(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
 								autoComplete="new-password"
 								fullWidth
 							/>
@@ -410,6 +548,7 @@ export default function SessionManagement({
 								type="password"
 								value={cpConfirmPw}
 								onChange={(e) => setCpConfirmPw(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
 								autoComplete="new-password"
 								error={
 									cpConfirmPw && cpNewPw !== cpConfirmPw
@@ -426,6 +565,7 @@ export default function SessionManagement({
 								variant="code"
 								value={cpMfaCode}
 								onChange={(e) => setCpMfaCode(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
 								placeholder="000000"
 								maxLength={6}
 								inputMode="numeric"
@@ -455,12 +595,23 @@ export default function SessionManagement({
 
 				{/* ==================== SECTION 3: ALL SESSIONS ==================== */}
 				<Card>
-					<div className="flex items-center gap-2 mb-4">
-						<ShieldAlert
-							className="w-5 h-5 text-gold-400"
-							aria-hidden="true"
-						/>
-						<h2 className="text-lg font-bold text-stone-50">All Sessions</h2>
+					<div className="flex items-center justify-between mb-4">
+						<div className="flex items-center gap-2">
+							<ShieldAlert
+								className="w-5 h-5 text-gold-400"
+								aria-hidden="true"
+							/>
+							<h2 className="text-lg font-bold text-stone-50">All Sessions</h2>
+						</div>
+						{unlocked && (
+							<button
+								onClick={handleRefresh}
+								className="p-2 rounded-lg hover:bg-stone-800 transition-colors text-stone-400 hover:text-stone-100"
+								aria-label="Refresh sessions"
+							>
+								<RefreshCw className="w-4 h-4" />
+							</button>
+						)}
 					</div>
 
 					{!unlocked ? (
@@ -528,88 +679,15 @@ export default function SessionManagement({
 								<>
 									{/* Session cards */}
 									<div className="space-y-3">
-										{allSessions.map((sess) => {
-											const isCurrent =
-												sess.session_id === currentSessionId;
-											const isSelected = selectedIds.has(sess.session_id);
-											return (
-												<div
-													key={sess.session_id}
-													className={`
-														rounded-lg border p-4 transition-colors
-														${isCurrent
-															? "border-info/40 bg-info-bg/30"
-															: isSelected
-																? "border-gold-400/40 bg-stone-800/60"
-																: "border-stone-700/50 bg-stone-900"
-														}
-													`}
-												>
-													<div className="flex items-start gap-3">
-														<input
-															type="checkbox"
-															checked={isSelected}
-															onChange={() =>
-																handleToggleSelect(sess.session_id)
-															}
-															disabled={isCurrent}
-															className="mt-1 rounded border-stone-600 bg-stone-800 text-gold-400 focus:ring-gold-400/50 disabled:opacity-30"
-															aria-label={`Select session ${sess.session_id}`}
-														/>
-														<div className="flex-1 min-w-0">
-															<div className="flex items-center gap-2 mb-2">
-																<span className="text-sm font-mono text-stone-200">
-																	Session #{sess.session_id}
-																</span>
-																{isCurrent && (
-																	<Badge variant="info" size="sm">
-																		Current
-																	</Badge>
-																)}
-															</div>
-															<div className="grid gap-2 text-xs text-stone-400 sm:grid-cols-2">
-																<span>
-																	Created:{" "}
-																	<span className="text-stone-300">
-																		{formatDate(sess.created_at)}
-																	</span>
-																</span>
-																<span>
-																	Last used:{" "}
-																	<span className="text-stone-300">
-																		{formatDate(sess.last_used_at)}
-																	</span>
-																</span>
-																<span>
-																	Expires:{" "}
-																	<span className="text-stone-300">
-																		{getTimeRemaining(
-																			sess.login_expiry,
-																		)}
-																	</span>
-																</span>
-																{sess.ip_address && (
-																	<span>
-																		IP:{" "}
-																		<span className="text-stone-300">
-																			{sess.ip_address}
-																		</span>
-																	</span>
-																)}
-																{sess.device_name && (
-																	<span>
-																		Device:{" "}
-																		<span className="text-stone-300">
-																			{sess.device_name}
-																		</span>
-																	</span>
-																)}
-															</div>
-														</div>
-													</div>
-												</div>
-											);
-										})}
+										{allSessions.map((sess) => (
+											<SessionRow
+												key={sess.session_id}
+												session={sess}
+												isCurrent={sess.session_id === currentSessionId}
+												isSelected={selectedIds.has(sess.session_id)}
+												onToggle={() => handleToggleSelect(sess.session_id)}
+											/>
+										))}
 									</div>
 
 									{/* Action bar */}
@@ -627,6 +705,7 @@ export default function SessionManagement({
 											variant="secondary"
 											size="sm"
 											onClick={() => setPendingAction("logout-others")}
+											disabled={allSessions.filter(s => s.session_id !== currentSessionId).length === 0}
 											icon={<LogOut className="w-4 h-4" />}
 										>
 											Log Out All Others
