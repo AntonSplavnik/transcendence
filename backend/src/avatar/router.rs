@@ -18,28 +18,43 @@ use salvo::oapi::extract::PathParam;
 use std::borrow::Cow;
 use std::sync::LazyLock;
 
+/// Hash bytes into a 18-char ETag: `"<16 hex chars>"`
+fn hexstr_hash(bytes: &[u8]) -> Box<str> {
+    let mut hash = [0u8; 8];
+    blake3::Hasher::new()
+        .update(bytes)
+        .finalize_xof()
+        .fill(&mut hash);
+    format!("\"{}\"", hex::encode(hash)).into_boxed_str()
+}
+
 /// Static ETag for the default large avatar (never changes)
-static DEFAULT_AVATAR_ETAG_LARGE: LazyLock<String> = LazyLock::new(|| {
-    let hash = blake3::hash(DEFAULT_AVATAR_LARGE);
-    let hex = hash.to_hex();
-    let short = &hex.as_str()[..16];
-    format!("\"{short}\"")
-});
-
+static DEFAULT_AVATAR_ETAG_LARGE: LazyLock<Box<str>> =
+    LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_LARGE));
 /// Static ETag for the default small avatar (never changes)
-static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<String> = LazyLock::new(|| {
-    let hash = blake3::hash(DEFAULT_AVATAR_SMALL);
-    let hex = hash.to_hex();
-    let short = &hex.as_str()[..16];
-    format!("\"{short}\"")
-});
+static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<Box<str>> =
+    LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_SMALL));
 
-/// Generate an ETag from an `updated_at` timestamp
-fn make_etag(updated_at: &DateTime<Utc>) -> String {
-    let hash = blake3::hash(updated_at.to_string().as_bytes());
-    let hex = hash.to_hex();
-    let short = &hex.as_str()[..16];
-    format!("\"{short}\"")
+/// Derive an ETag for an Avatar
+///
+/// 27-character fixed-length string containing quotes and:
+/// - 8 hex chars for user_id
+/// - 16 hex chars for updated_at timestamp in microseconds
+/// - 1 hex char for is_large flag (0 or 1)
+fn make_etag(user_id: i32, updated_at: DateTime<Utc>, is_large: bool) -> impl AsRef<str> {
+    use crate::models::blob::Str;
+    use crate::models::blob::WritableFixedBlob;
+    use std::io::Write;
+    let mut out = WritableFixedBlob::<27, Str>::new();
+    write!(
+        &mut out,
+        "\"{:08X}{:016X}{:01X}\"",
+        user_id,
+        updated_at.timestamp_micros(),
+        is_large as u8
+    )
+    .unwrap();
+    out.finish()
 }
 
 /// Check whether the `If-None-Match` header matches `etag`.
@@ -190,8 +205,8 @@ async fn get_avatar_large(
 
     match avatar {
         Some(avatar) => {
-            let etag = make_etag(&avatar.updated_at);
-            write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
+            let etag = make_etag(user_id, avatar.updated_at, true);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), etag.as_ref());
         }
         None => {
             write_avatar_response(
@@ -220,8 +235,8 @@ async fn get_avatar_small(
 
     // Try cache first
     if let Some(cached) = cache::get(user_id) {
-        let etag = make_etag(&cached.updated_at);
-        write_avatar_response(req, res, Cow::Borrowed(cached.data.as_ref()), &etag);
+        let etag = make_etag(user_id, cached.updated_at, false);
+        write_avatar_response(req, res, Cow::Borrowed(cached.data.as_ref()), etag.as_ref());
         return Ok(());
     }
 
@@ -238,9 +253,9 @@ async fn get_avatar_small(
 
     match avatar {
         Some(avatar) => {
-            let etag = make_etag(&avatar.updated_at);
+            let etag = make_etag(user_id, avatar.updated_at, false);
             cache::insert(user_id, avatar.data.clone(), avatar.updated_at);
-            write_avatar_response(req, res, Cow::Owned(avatar.data), &etag);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), etag.as_ref());
         }
         None => {
             write_avatar_response(

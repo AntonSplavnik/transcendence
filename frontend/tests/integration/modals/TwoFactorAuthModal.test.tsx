@@ -94,7 +94,7 @@ describe('TwoFactorAuthModal', () => {
 
 			await waitFor(() => {
 				expect(screen.getByText(/Scan this QR code/)).toBeInTheDocument();
-				expect(screen.getByAltText('2FA QR Code')).toBeInTheDocument();
+				expect(screen.getByAltText('QR code for two-factor authentication setup')).toBeInTheDocument();
 			});
 		});
 
@@ -350,7 +350,7 @@ describe('TwoFactorAuthModal', () => {
 			await user.click(screen.getByText('Disable 2FA'));
 			await user.click(screen.getByText('Back'));
 
-			expect(screen.getByText('Current Status:')).toBeInTheDocument();
+			expect(screen.getByText('Current Status')).toBeInTheDocument();
 		});
 	});
 
@@ -364,7 +364,7 @@ describe('TwoFactorAuthModal', () => {
 
 			await user.click(screen.getByText('Back'));
 
-			expect(screen.getByText('Current Status:')).toBeInTheDocument();
+			expect(screen.getByText('Current Status')).toBeInTheDocument();
 		});
 	});
 });

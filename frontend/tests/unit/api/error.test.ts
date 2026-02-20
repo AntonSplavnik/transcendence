@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { InternalAxiosRequestConfig } from 'axios';
 import {
 	isAxiosError,
 	getErrorMessage,
@@ -12,6 +11,7 @@ import {
 	createMockNetworkError,
 	createMockStoredError,
 } from '../../fixtures/errors';
+import type { InternalAxiosRequestConfig } from 'axios';
 
 describe('error utilities', () => {
 	beforeEach(() => {

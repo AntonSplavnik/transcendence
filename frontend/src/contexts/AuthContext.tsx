@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import * as authApi from '../api/auth';
 import * as userApi from '../api/user';
+import { useJwtRefresh } from '../hooks/useJwtRefresh';
 import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
@@ -34,6 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setSession(data.session);
 		setAuthChecked(true);
 	};
+
+	const handleSessionUpdate = useCallback((newSession: Session) => {
+		setSession(newSession);
+	}, []);
+
+	useJwtRefresh({
+		session,
+		onSessionUpdate: handleSessionUpdate,
+		onAuthLost: clearAuth,
+	});
 
 	// initial auth check on mount
 	useEffect(() => {

@@ -26,6 +26,5 @@ export default defineConfig({
 			},
 		},
 		globals: true,
-		unstubGlobals: true,
 	},
 });
