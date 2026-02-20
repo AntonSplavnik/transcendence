@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
@@ -78,7 +78,7 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: Ed
 		<Modal
 			onClose={onClose}
 			title="Edit Profile"
-			icon={<Camera className="w-6 h-6" />}
+			icon={<Pencil className="w-6 h-6" />}
 		>
 			<div className="flex flex-col items-center gap-1 mb-4">
 				{previewUrl ? (
