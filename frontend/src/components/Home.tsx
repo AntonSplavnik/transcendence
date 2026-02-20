@@ -1,10 +1,12 @@
 import { useAuth } from "../contexts/AuthContext";
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from "lucide-react";
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from "lucide-react";
 import { Button, Card, Badge, LoadingSpinner } from "./ui";
 import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
 import TwoFactorModal from "./modals/TwoFactorAuthModal";
 import SessionDetailsModal from "./modals/SessionDetailModal";
 import ReauthModal from "./modals/ReauthModal";
+import AvatarDisplay from "./ui/AvatarDisplay";
+import AvatarUploadModal from "./modals/AvatarUploadModal";
 import { useState } from "react";
 
 const REAUTH_THRESHOLD_MINUTES = 30;
@@ -60,9 +62,12 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
-				<div>
-					<h1>Player Dashboard</h1>
-					<p className="text-stone-300">Welcome back, {user.nickname}.</p>
+				<div className="flex items-center gap-4">
+					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-14 h-14"/>
+					<div>
+						<h1>Player Dashboard</h1>
+						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
+					</div>
 				</div>
 
 				<Dropdown
@@ -80,6 +85,13 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 						<p className="text-sm font-medium text-stone-100">{user.nickname}</p>
 						<p className="text-xs text-stone-400 truncate">{user.email}</p>
 					</div>
+
+					<DropdownItem
+						icon={<Pen className="w-4 h-4" />}
+						onClick={() => setShowEditProfile(true)}
+					>
+						Edit Profile
+					</DropdownItem>
 
 					<DropdownItem
 						icon={<Shield className="w-4 h-4" />}
@@ -125,6 +137,8 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 				</Card>
 
 				<Card>
+					<div className="flex justify-between items-center">
+					<div>
 					<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
 					<div className="space-y-2 text-sm">
 						<p className="text-stone-300">
@@ -142,6 +156,9 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 								<Badge variant="warning" dot>Disabled</Badge>
 							)}
 						</p>
+					</div>
+					</div>
+					<AvatarDisplay userId={user.id} size="large" src={avatarLargeUrl} className="w-28 h-28 rounded-lg"/>
 					</div>
 				</Card>
 
