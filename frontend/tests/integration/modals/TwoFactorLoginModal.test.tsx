@@ -132,7 +132,7 @@ describe('TwoFactorLoginModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		await waitFor(() => {
-			expect(screen.getByText('Authentication code is required')).toBeInTheDocument();
+			expect(screen.getByText('Authentication code is required.')).toBeInTheDocument();
 		});
 	});
 

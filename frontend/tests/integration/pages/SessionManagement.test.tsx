@@ -119,7 +119,7 @@ describe('SessionManagement', () => {
 			expect(screen.getByText('Please fill in all required fields.')).toBeInTheDocument();
 		});
 
-		it('validates short password', async () => {
+		it('validates short current password', async () => {
 			await renderPage();
 			const user = userEvent.setup();
 
@@ -129,7 +129,9 @@ describe('SessionManagement', () => {
 
 			await user.click(screen.getByRole('button', { name: /change password/i }));
 
-			expect(screen.getByText(/at least 8 characters/)).toBeInTheDocument();
+			// Field-level errors on short passwords (may appear on multiple fields from blur)
+			const errors = screen.getAllByText('Must be between 8 and 128 characters long.');
+			expect(errors.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it('validates same password', async () => {
