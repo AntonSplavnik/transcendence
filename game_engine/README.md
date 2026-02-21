@@ -128,7 +128,7 @@ Recommended approach:
 ### Horizontal Movement (XZ Plane)
 
 - Input is normalized direction vector on XZ plane
-- Movement speed defined in `CharacterStats::movementSpeed`
+- Movement speed defined in `CharacterController::movementSpeed` (initialized from `GameConfig::CHARACTER_MOVE_SPEED`)
 - Friction applied when no input (smooth stop)
 - Clamped to max speed
 
