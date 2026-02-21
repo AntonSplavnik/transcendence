@@ -5,7 +5,7 @@ use super::ffi::{GameStateSnapshot, Vector3D};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GameServerMessage {
-    /// Full game state snapshot (sent at 20 Hz)
+    /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
 
     /// Player successfully joined the game

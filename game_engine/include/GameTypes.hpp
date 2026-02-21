@@ -125,43 +125,6 @@ struct Cylinder {
 };
 
 // =============================================================================
-// Character Stats
-// =============================================================================
-
-struct CharacterStats {
-    float maxHealth;
-    float currentHealth;
-    float movementSpeed;      // Units per second
-    float attackDamage;
-    float attackSpeed;        // Attacks per second
-    float attackRange;
-    float defense;            // Damage reduction (0-1 scale)
-
-    CharacterStats()
-        : maxHealth(100.0f)
-        , currentHealth(100.0f)
-        , movementSpeed(200.0f)
-        , attackDamage(15.0f)
-        , attackSpeed(1.0f)
-        , attackRange(50.0f)
-        , defense(0.0f)
-    {}
-
-    bool isAlive() const {
-        return currentHealth > 0.0f;
-    }
-
-    void takeDamage(float damage) {
-        float actualDamage = damage * (1.0f - defense);
-        currentHealth = std::max(0.0f, currentHealth - actualDamage);
-    }
-
-    void heal(float amount) {
-        currentHealth = std::min(maxHealth, currentHealth + amount);
-    }
-};
-
-// =============================================================================
 // Player Input State
 // =============================================================================
 
