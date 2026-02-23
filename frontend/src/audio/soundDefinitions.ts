@@ -9,9 +9,10 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     bus: 'sfx',
     spatial: true,
     maxDistance: 50,
-    refDistance: 5,
+    minDistance: 5,
     cooldown: 100,
     priority: 5,
+    maxInstances: 4,
   },
   {
     id: 'player_land',
@@ -21,8 +22,9 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     bus: 'sfx',
     spatial: true,
     maxDistance: 50,
-    refDistance: 5,
+    minDistance: 5,
     cooldown: 50,
     priority: 6,
+    maxInstances: 4,
   },
 ];

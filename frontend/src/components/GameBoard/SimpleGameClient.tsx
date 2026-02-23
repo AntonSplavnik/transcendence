@@ -6,11 +6,9 @@ import {
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import type { GameStateSnapshot, GameEvent, Vector3D } from '../../game/types';
-import { AudioEngine } from '../../audio/AudioEngine';
+import { GameAudioEngine } from '../../audio/AudioEngine';
 import { SoundBank } from '../../audio/SoundBank';
-import { SoundPool } from '../../audio/SoundPool';
 import { AudioEventSystem } from '../../audio/AudioEventSystem';
-import { SOUND_DEFINITIONS } from '../../audio/soundDefinitions';
 
 // ============ COPIED FROM simple_client.ts ============
 
@@ -390,7 +388,6 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
     const gameClientRef = useRef<GameClient | null>(null);
     const engineRef = useRef<Engine | null>(null);
     const audioEventSystemRef = useRef<AudioEventSystem | null>(null);
-    const audioUnlockedRef = useRef(false);
     const localPlayerPositionRef = useRef<Vector3D>({ x: 50, y: 0, z: 50 });
     const localPlayerGroundedRef = useRef(true);
 
@@ -449,33 +446,19 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         gameClient.initLocalPlayer();
 
         // Audio system initialization
-        const audioEngine = new AudioEngine();
-        const soundBank = new SoundBank(audioEngine);
-        const soundPool = new SoundPool(32);
-        const audioEventSystem = new AudioEventSystem(audioEngine, soundBank, soundPool);
+        const gameAudio = new GameAudioEngine();
+        const soundBank = new SoundBank();
+        const audioEventSystem = new AudioEventSystem(gameAudio, soundBank);
         audioEventSystem.setLocalPlayerId(localPlayerId);
         audioEventSystemRef.current = audioEventSystem;
 
-        audioEngine.initialize().then(() => {
-            for (const def of SOUND_DEFINITIONS) {
-                soundBank.register(def);
-            }
-            return soundBank.loadAll();
-        }).then(() => {
+        gameAudio.initialize().then(async () => {
+            gameAudio.attachListenerToCamera(camera);
+            await soundBank.loadAll(gameAudio);
             console.log('Audio system initialized');
         }).catch(err => {
             console.warn('Audio initialization failed:', err);
         });
-
-        // Unlock audio on first user interaction
-        const unlockAudio = () => {
-            if (!audioUnlockedRef.current) {
-                audioEngine.resume();
-                audioUnlockedRef.current = true;
-            }
-        };
-        canvas.addEventListener('click', unlockAudio);
-        canvas.addEventListener('keydown', unlockAudio);
 
         // Input
         const input: InputState = {
@@ -496,9 +479,6 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
                 keysPressed.add(key);
             }
             else if (kbInfo.type === 2) keysPressed.delete(key);
-
-            // Unlock audio on any key press
-            unlockAudio();
         });
 
         scene.onBeforeRenderObservable.add(() => {
@@ -543,9 +523,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
             engine.stopRenderLoop();
             scene.dispose();
             engine.dispose();
-            audioEngine.dispose();
-            canvas.removeEventListener('click', unlockAudio);
-            canvas.removeEventListener('keydown', unlockAudio);
+            gameAudio.dispose();
         };
     }, [localPlayerId]);
 
@@ -554,7 +532,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         if (onGameEvents) {
             onGameEvents((events: GameEvent[]) => {
                 if (audioEventSystemRef.current) {
-                    audioEventSystemRef.current.processServerEvents(events, localPlayerPositionRef.current);
+                    audioEventSystemRef.current.processServerEvents(events);
                 }
             });
         }
@@ -569,8 +547,16 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
             if (localPlayerId) {
                 const localChar = snapshot.characters.find(c => c.player_id === localPlayerId);
                 if (localChar) {
+                    const wasGrounded = localPlayerGroundedRef.current;
+                    const isGrounded = localChar.velocity.y === 0;
+
+                    // Detect landing transition: was airborne, now grounded
+                    if (!wasGrounded && isGrounded && audioEventSystemRef.current) {
+                        audioEventSystemRef.current.playLocalEvent('player_land', localChar.position);
+                    }
+
                     localPlayerPositionRef.current = localChar.position;
-                    localPlayerGroundedRef.current = localChar.velocity.y === 0;
+                    localPlayerGroundedRef.current = isGrounded;
                 }
             }
         }

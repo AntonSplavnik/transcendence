@@ -1,6 +1,6 @@
-import type { AudioEngine } from './AudioEngine';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector';
+import type { GameAudioEngine } from './AudioEngine';
 import type { SoundBank } from './SoundBank';
-import type { SoundPool } from './SoundPool';
 import type { GameEvent, Vector3D } from '../game/types';
 import { GameEventType } from '../game/types';
 
@@ -9,16 +9,14 @@ function randomRange(min: number, max: number): number {
 }
 
 export class AudioEventSystem {
-  private engine: AudioEngine;
+  private engine: GameAudioEngine;
   private soundBank: SoundBank;
-  private soundPool: SoundPool;
   private lastPlayTimes = new Map<string, number>();
   private localPlayerId: number | null = null;
 
-  constructor(engine: AudioEngine, soundBank: SoundBank, soundPool: SoundPool) {
+  constructor(engine: GameAudioEngine, soundBank: SoundBank) {
     this.engine = engine;
     this.soundBank = soundBank;
-    this.soundPool = soundPool;
   }
 
   setLocalPlayerId(id: number): void {
@@ -26,31 +24,28 @@ export class AudioEventSystem {
   }
 
   /** Process server events - skip local player events (already played via prediction) */
-  processServerEvents(events: GameEvent[], listenerPosition: Vector3D): void {
+  processServerEvents(events: GameEvent[]): void {
     if (!this.engine.isInitialized()) return;
 
     for (const event of events) {
-      // Skip local player events - already played immediately via playLocalEvent
       if (event.player_id === this.localPlayerId) continue;
 
       const mapping = this.mapEventToSound(event);
       if (!mapping) continue;
 
-      this.playSoundInternal(mapping.soundId, event.position, listenerPosition, mapping.volume, mapping.pitch);
+      this.playSoundInternal(mapping.soundId, event.position, mapping.volume, mapping.pitch);
     }
   }
 
   /** Play sound immediately for local player (zero latency prediction) */
   playLocalEvent(soundId: string, position: Vector3D): void {
     if (!this.engine.isInitialized()) return;
-    // Local player: no spatial attenuation (it's you), play at full volume
-    this.playSoundInternal(soundId, position, position, undefined, undefined);
+    this.playSoundInternal(soundId, position, undefined, undefined);
   }
 
   private playSoundInternal(
     soundId: string,
     position: Vector3D,
-    listenerPosition: Vector3D,
     overrideVolume?: number,
     overridePitch?: number
   ): void {
@@ -63,22 +58,22 @@ export class AudioEventSystem {
     if (now - lastPlay < def.cooldown) return;
     this.lastPlayTimes.set(soundId, now);
 
-    const buffer = this.soundBank.getRandomBuffer(soundId);
-    if (!buffer) return;
+    const sound = this.soundBank.getRandomSound(soundId);
+    if (!sound) return;
 
     const volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);
     const pitch = overridePitch ?? randomRange(def.pitch.min, def.pitch.max);
-    const bus = this.engine.getBus(def.bus);
 
-    this.soundPool.play({
-      buffer,
-      bus,
-      volume,
-      pitch,
-      spatial: def.spatial ? { position, listenerPos: listenerPosition } : undefined,
-      priority: def.priority,
-      context: this.engine.getContext(),
-    });
+    // Set volume and playback rate
+    sound.volume = volume;
+    sound.playbackRate = pitch;
+
+    // Set spatial position if spatial is enabled
+    if (def.spatial) {
+      sound.spatial.position = new Vector3(position.x, position.y, position.z);
+    }
+
+    sound.play();
   }
 
   /** Map game event type to sound definition + parameters */
@@ -92,7 +87,6 @@ export class AudioEventSystem {
         };
 
       case GameEventType.Land: {
-        // Louder landing for higher impact velocity
         const impactVelocity = Math.abs(event.param1);
         const volume = Math.max(0.3, Math.min(1.0, impactVelocity / 20.0));
         return {

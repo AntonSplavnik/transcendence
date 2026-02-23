@@ -62,29 +62,40 @@ This separation allows changing, improving, or replacing any sound without touch
 
 ## 3. Our Architecture
 
-Our game has three layers: the C++ engine (simulation), the Rust backend (networking), and the TypeScript/BabylonJS frontend (rendering). Audio flows through all three:
+Our game has three layers: the C++ engine (simulation), the Rust backend (networking), and the TypeScript/Babylon.js frontend (rendering + audio). Audio flows through all three:
 
 ```
 C++ Game Engine              Rust Backend                Browser Client
 +---------------------+     +--------------------+     +----------------------------+
 |                     |     |                    |     |                            |
-|  ECS Simulation     |     |  WebTransport      |     |  AudioEngine               |
-|                     |     |  Server            |     |    |                      |
-|  Systems detect     | --> |  Drains events     | --> |    +-- MixerBus (Master)   |
-|  actions:           | FFI |  via FFI           | WS  |    |    +-- SFX Bus        |
-|                     |     |                    |     |    |    +-- Music Bus      |
-|  "This player       |     |  Broadcasts to     |     |    |    +-- Ambient Bus    |
-|   jumped"           |     |  all connected     |     |    |                      |
-|  "This player       |     |  clients           |     |    +-- SoundBank          |
-|   landed with       |     |                    |     |    |    (pre-loaded assets)|
-|   force X"          |     |  -> GameEvents msg |     |    |                      |
-|                     |     |                    |     |    +-- SoundPool           |
-|  -> GameEventQueue  |     |                    |     |    |    (32 sounds max)    |
-|     (64 max buffer) |     |                    |     |    |                      |
-+---------------------+     +--------------------+     |    +-- AudioEventSystem   |
-                                                        |         (orchestrator)    |
+|  ECS Simulation     |     |  WebTransport      |     |  GameAudioEngine           |
+|                     |     |  Server            |     |  (Babylon.js AudioEngineV2)|
+|  Systems detect     | --> |  Drains events     | --> |    |                      |
+|  actions:           | FFI |  via FFI           | WS  |    +-- AudioBus (Master)  |
+|                     |     |                    |     |    |    +-- SFX Bus        |
+|  "This player       |     |  Broadcasts to     |     |    |    +-- Music Bus      |
+|   jumped"           |     |  all connected     |     |    |    +-- Ambient Bus    |
+|  "This player       |     |  clients           |     |    |    +-- UI Bus         |
+|   landed with       |     |                    |     |    |                      |
+|   force X"          |     |  -> GameEvents msg |     |    +-- SoundBank          |
+|                     |     |                    |     |    |    (StaticSound pool) |
+|  -> GameEventQueue  |     |                    |     |    |                      |
+|     (64 max buffer) |     |                    |     |    +-- AudioEventSystem   |
++---------------------+     +--------------------+     |         (orchestrator)    |
                                                         +----------------------------+
 ```
+
+### Why Babylon.js AudioEngineV2?
+
+The project already uses Babylon.js for 3D rendering (meshes, cameras, glTF animations). Rather than maintaining a custom Web Audio API layer, we use Babylon.js 8's `AudioEngineV2` which provides:
+
+- **AudioBus routing** with volume control — replaces our custom `MixerBus`
+- **StaticSound with `maxInstances`** — replaces our custom `SoundPool` (concurrency managed natively)
+- **Built-in spatial audio** with `attach()` to scene nodes — the listener follows the camera automatically
+- **Automatic audio context unlock** on user interaction — no manual `resume()` needed
+- **`createSoundAsync()`** accepts URLs, `AudioBuffer`, or `StaticSoundBuffer` — works for both loaded assets and procedural fallbacks
+
+This eliminates ~200 lines of custom plumbing (`MixerBus`, `SoundPool`, `SoundInstance`) while gaining features like volume ramping, sound cloning, and mesh attachment.
 
 ### Data Flow
 
@@ -174,8 +185,8 @@ Client B (remote player):
     |     - soundId = "player_land"
     |     - volume = clamp(15.0 / 20.0, 0.3, 1.0) = 0.75 (medium landing)
     |     - pitch = random(0.9, 1.1)
-    |  8. SoundBank.getRandomBuffer("player_land") -> land_02.wav (random variation)
-    |  9. SoundPool.play() with PannerNode at position (25, 0, 50) -> 3D spatial sound
+    |  8. SoundBank.getRandomSound("player_land") -> StaticSound (random variation)
+    |  9. StaticSound.play() with spatial position (25, 0, 50) -> 3D spatial sound
     |
     v
 Player B hears a "thud" more or less loud depending on distance
@@ -228,76 +239,69 @@ The crucial point: when the server sends the local player's jump event, the clie
 
 ### Component Overview
 
-The audio engine is composed of 5 independent modules that collaborate:
+The audio engine is composed of 3 modules built on top of Babylon.js AudioEngineV2:
 
 ```
-AudioEngine (singleton)
+GameAudioEngine (wrapper around AudioEngineV2)
     |
-    +-- MixerBus (mixing hierarchy)
-    |     Master Bus
-    |       +-- SFX Bus (gameplay sounds)
-    |       +-- Music Bus (background music)
-    |       +-- Ambient Bus (ambience, wind, crowd)
-    |       +-- UI Bus (clicks, notifications)
+    +-- AudioBus hierarchy (Babylon.js native)
+    |     MainAudioBus (Master)
+    |       +-- AudioBus "sfx" (gameplay sounds, vol 80%)
+    |       +-- AudioBus "music" (background music, vol 50%)
+    |       +-- AudioBus "ambient" (ambience, wind, crowd, vol 60%)
+    |       +-- AudioBus "ui" (clicks, notifications, vol 70%)
     |
     +-- SoundBank (asset manager)
-    |     Loads and stores audio files
+    |     Loads sounds via createSoundAsync()
+    |     Each sound is a StaticSound with maxInstances
     |     Manages variations (jump_01, jump_02, jump_03)
-    |     Generates procedural sounds as fallback
-    |
-    +-- SoundPool (instance manager)
-    |     Limited to 32 simultaneous sounds
-    |     Creates and recycles AudioBufferSourceNodes
-    |     Cleans up finished instances
+    |     Generates procedural fallbacks from AudioBuffers
     |
     +-- AudioEventSystem (orchestrator)
           Receives Game Events
           Maps event -> sound (type, volume, pitch)
+          Sets spatial position on StaticSound before play()
           Manages anti-spam cooldowns
           Filters local player events
 ```
 
-### MixerBus: Professional Mixing
+### AudioBus: Professional Mixing via Babylon.js
 
-Just like in a recording studio or in Wwise, sounds don't go directly to the speakers. They pass through a **mixing bus hierarchy**:
+Just like in a recording studio or in Wwise, sounds don't go directly to the speakers. They pass through a **mixing bus hierarchy** — now managed natively by Babylon.js `AudioBus` and `MainAudioBus`:
 
 ```
 [Jump Sound] ---> [SFX Bus: vol 80%] ---+
-[Land Sound] ---> [SFX Bus: vol 80%] ---+---> [Master Bus: vol 100%] ---> Speakers
+[Land Sound] ---> [SFX Bus: vol 80%] ---+---> [Master Bus] ---> Speakers
 [Music]      ---> [Music Bus: vol 50%] -+
 [Rain]       ---> [Ambient Bus: vol 60%]+
 [Click]      ---> [UI Bus: vol 70%] ----+
 ```
 
 Benefits:
-- Lower the music volume without affecting SFX: `musicBus.setVolume(0.3)`
-- Mute all gameplay sounds at once: `sfxBus.mute()`
+- Lower the music volume without affecting SFX: `engine.getBus('music').volume = 0.3`
+- Each sound is routed to its bus via the `outBus` option at creation time
 - The player can adjust each category independently in the settings
+- Babylon.js provides volume ramping for smooth transitions
 
-### SoundBank: Variations and Randomization
+### SoundBank: StaticSound Variations
 
 Each sound is defined by a **SoundDefinition** that specifies:
 
-- **Variations**: multiple files for the same sound (jump_01, jump_02, jump_03). On each playback, a file is chosen randomly. This avoids the "broken record" effect of repeated sounds
+- **Variations**: multiple URLs for the same sound (jump_01, jump_02, jump_03). Each variation is loaded as a separate `StaticSound`. On each playback, one is chosen randomly. This avoids the "broken record" effect of repeated sounds
 - **Volume range**: volume varies slightly on each playback (e.g., 0.7 to 0.85)
-- **Pitch range**: pitch also varies (e.g., 0.95 to 1.05 = +/- 5%). This makes each jump subtly different
+- **Pitch range**: playback rate also varies (e.g., 0.95 to 1.05 = +/- 5%). This makes each jump subtly different
+- **maxInstances**: Babylon.js natively limits concurrent playbacks per sound (default: 4). No custom pool needed
 - **Cooldown**: minimum time between two playbacks of the same sound (anti-spam)
 - **Priority**: when too many sounds are playing simultaneously, lower priority ones are skipped
 
-### SoundPool: Resource Management
-
-The browser has a limited number of simultaneous audio sources. The SoundPool:
-- Maintains a maximum of 32 active sounds
-- Automatically cleans up finished instances
-- Rejects new sounds if the limit is reached (rather than crashing)
-
 ### Procedural Fallback
 
-If `.wav` files are not available, the SoundBank generates synthesized sounds via the Web Audio API:
+If `.wav` files are not available, the SoundBank generates synthesized sounds by creating `AudioBuffer` objects programmatically and passing them to `createSoundAsync()`:
+
 - **Jump**: short rising chirp (frequency 200 -> 600 Hz over 120ms)
 - **Land**: muffled impact (low frequency 80 Hz + white noise, fast decay)
 
-This allows testing and development without needing finalized audio assets.
+This allows testing and development without needing finalized audio assets. The procedural sounds are wrapped in the same `StaticSound` interface, so the AudioEventSystem treats them identically.
 
 ---
 
@@ -305,23 +309,32 @@ This allows testing and development without needing finalized audio assets.
 
 ### The Principle
 
-The Web Audio API natively provides the **PannerNode**, which simulates the 3D positioning of a sound source. Our system uses it for gameplay sounds:
+Babylon.js AudioEngineV2 provides built-in **spatial audio** on every `StaticSound` and `AudioBus`. Our system uses it for gameplay sounds:
 
 - A player jumping to your left -> louder in the left ear
 - A player landing 50 meters away -> attenuated sound
 - A player right next to you -> full volume sound
 
+### Listener Attachment
+
+The audio listener is **attached to the camera** via `engine.listener.attach(camera)`. This means:
+- The listener position and orientation update automatically as the camera moves
+- No manual position updates needed each frame
+- The listener follows the player's perspective naturally
+
 ### Spatialization Parameters
 
 Each SoundDefinition defines:
-- **refDistance** (5m): distance below which the sound is at full volume
+- **minDistance** (5m): distance below which the sound is at full volume
 - **maxDistance** (50m): distance beyond which the sound is inaudible
-- **Rolloff model**: `inverse` (natural 1/distance attenuation)
+- **Distance model**: `inverse` (natural 1/distance attenuation)
 - **Panning model**: `HRTF` (Head-Related Transfer Function, binaural simulation)
+
+Before playing a sound, the AudioEventSystem sets `sound.spatial.position` to the event's world position. Babylon.js handles the rest (attenuation, panning, HRTF).
 
 ### Exception: The Local Player
 
-Local player sounds are NOT spatialized (no PannerNode). You hear your own jumps and landings at full volume, without attenuation. This is standard behavior in all games.
+Local player sounds are played without modifying the spatial position relative to the listener. Since the listener is attached to the camera which follows the local player, these sounds are heard at full volume. This is standard behavior in all games.
 
 ---
 
@@ -334,7 +347,14 @@ Local player sounds are NOT spatialized (no PannerNode). You hear your own jumps
 ### Complete Chain
 - C++: event emission -> queue -> FFI
 - Rust: event drain -> WebTransport broadcast
-- TypeScript: reception -> AudioEventSystem -> Web Audio API
+- TypeScript: reception -> AudioEventSystem -> Babylon.js AudioEngineV2
+
+### Audio Stack (Babylon.js AudioEngineV2)
+- `GameAudioEngine`: wrapper around `AudioEngineV2` with bus hierarchy
+- `SoundBank`: loads `StaticSound` instances via `createSoundAsync()`, with procedural fallbacks
+- `AudioEventSystem`: maps game events to sounds, sets spatial position, manages cooldowns
+- Automatic audio context unlock (handled by Babylon.js)
+- Listener attached to camera for automatic spatial updates
 
 ### Sounds
 - Functional procedural fallbacks (no .wav files needed for testing)
@@ -357,6 +377,7 @@ Local player sounds are NOT spatialized (no PannerNode). You hear your own jumps
 - [ ] Background music with dedicated bus
 - [ ] UI for adjusting volumes per bus (SFX, Music, etc.)
 - [ ] Ambient sounds (wind, crowd)
+- [ ] Attach spatial sounds to remote player meshes via `sound.spatial.attach(mesh)`
 
 ### Long Term
 - [ ] Reverb/echo system based on environment
@@ -372,12 +393,14 @@ Local player sounds are NOT spatialized (no PannerNode). You hear your own jumps
 | **Game Event** | Structured notification describing a gameplay action (jump, landing, hit) |
 | **GameEventQueue** | Fixed-size circular buffer (64) storing events for a frame |
 | **FFI** | Foreign Function Interface - bridge between C++ and Rust |
-| **MixerBus** | Node in the audio mixing hierarchy, controls volume for a category of sounds |
-| **SoundBank** | Registry of sound definitions with their pre-loaded assets |
-| **SoundPool** | Manager of active sound instances (limited to 32 simultaneous) |
-| **SoundDefinition** | Configuration for a sound: files, volume, pitch, priority, cooldown |
+| **AudioEngineV2** | Babylon.js 8 modern audio engine, decoupled from the scene, with spatial audio and bus routing |
+| **GameAudioEngine** | Our wrapper around AudioEngineV2 that manages the bus hierarchy |
+| **AudioBus / MainAudioBus** | Babylon.js native audio bus nodes for mixing hierarchy and volume control |
+| **StaticSound** | Babylon.js pre-loaded sound with `maxInstances`, spatial audio, and playback rate control |
+| **SoundBank** | Registry of sound definitions with their pre-loaded `StaticSound` instances |
+| **SoundDefinition** | Configuration for a sound: URLs, volume, pitch, priority, cooldown, maxInstances |
+| **AudioEventSystem** | Orchestrator that maps game events to sounds with spatial positioning |
 | **Hybrid Prediction** | Strategy where the local player hears their sounds immediately, remote sounds arrive via the server |
 | **HRTF** | Head-Related Transfer Function - 3D audio simulation for stereo headphones |
-| **PannerNode** | Web Audio API component that positions a sound in 3D space |
 | **Drain** | Queue emptying operation (read + clear in a single atomic operation) |
 | **Rolloff** | Volume attenuation as a function of source-listener distance |
