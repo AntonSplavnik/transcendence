@@ -44,10 +44,10 @@ export default function AvatarDisplay( {userId, size, src, className = "" } : Av
     return (
         <div className={`rounded-full overflow-hidden ${className}`}>
             {loading ? (
-                <div className="bg-wood-700 animate-pulse w-full h-full" />
+                <div className="bg-stone-700 animate-pulse w-full h-full" />
             ) : !displayUrl || error ? (
-                    <div className="bg-wood-700 w-full h-full flex items-center justify-center">
-                        <UserIcon className="w-1/2 h-1/2 text-wood-400" />
+                    <div className="bg-stone-700 w-full h-full flex items-center justify-center">
+                        <UserIcon className="w-1/2 h-1/2 text-stone-400" />
                     </div>
             ) : (
                 <img src={displayUrl} alt="avatar" className="w-full h-full object-cover" />
