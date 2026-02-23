@@ -7,6 +7,7 @@ import type {
 	TwoFactorConfirmResponse,
 	PasswordMfaPayload,
 	SessionManagementPayload,
+	ChangePasswordPayload,
 } from './types';
 
 // ==================== USER INFO ====================
@@ -43,6 +44,37 @@ export async function disable2FA(password: string, mfa_code: string): Promise<vo
 		password,
 		mfa_code,
 	});
+}
+
+// ==================== CURRENT SESSION ====================
+
+/**
+ * Get current session info (no password required)
+ */
+export async function getSession(): Promise<Session> {
+	const response = await apiClient.get<Session>('/user/session');
+	return response.data;
+}
+
+// ==================== PASSWORD ====================
+
+/**
+ * Change password for the current user.
+ * By default deauths all other sessions unless keepOtherSessionsLoggedIn is true.
+ */
+export async function changePassword(
+	password: string,
+	newPassword: string,
+	mfaCode?: string,
+	keepOtherSessionsLoggedIn: boolean = false,
+): Promise<void> {
+	const payload: ChangePasswordPayload = {
+		password,
+		new_password: newPassword,
+		mfa_code: mfaCode,
+		keep_other_sessions_logged_in: keepOtherSessionsLoggedIn,
+	};
+	await apiClient.post('/user/change-password', payload);
 }
 
 // ==================== SESSION MANAGEMENT ====================
