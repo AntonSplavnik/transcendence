@@ -31,6 +31,14 @@ pub fn nickname(nickname: &Nickname) -> Result<(), ValidationError> {
     Err(err)
 }
 
+pub fn description(desc: &str) -> Result<(), ValidationError> {
+    if desc.len() > 100 {
+        return Err(ValidationError::new("length")
+            .with_message(Cow::Borrowed("Must be at most 100 characters long.")));
+    }
+    Ok(())
+}
+
 pub fn password(password: &str) -> Result<(), ValidationError> {
     let len = password.len();
 
@@ -130,6 +138,34 @@ mod tests {
     #[test]
     fn nickname_all_digits_accepted() {
         assert!(nickname(&nick("12345678")).is_ok());
+    }
+
+    // ── description ──────────────────────────────────────────────────
+
+    #[test]
+    fn description_empty_accepted() {
+        assert!(description("").is_ok(), "empty description must be accepted");
+    }
+
+    #[test]
+    fn description_valid_accepted() {
+        assert!(description("Hello, Comment ca va ?").is_ok());
+    }
+
+    #[test]
+    fn description_exact_max_accepted() {
+        assert!(
+            description(&"a".repeat(100)).is_ok(),
+            "100-char description must be accepted"
+        );
+    }
+
+    #[test]
+    fn description_above_max_rejected() {
+        assert!(
+            description(&"a".repeat(101)).is_err(),
+            "101-char description must be rejected"
+        );
     }
 
     // ── password ─────────────────────────────────────────────────────

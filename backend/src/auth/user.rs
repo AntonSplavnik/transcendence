@@ -22,6 +22,9 @@ pub fn router(path: &str) -> Router {
                 .push(Router::with_path("start").post(two_fa_start))
                 .push(Router::with_path("confirm").post(two_fa_confirm))
                 .push(Router::with_path("disable").post(two_fa_disable)),
+            Router::with_path("description")
+                .user_rate_limit(&RateLimit::per_15_minutes(10))
+                .put(update_description),
             Router::with_path("change-password")
                 .user_rate_limit(&RateLimit::per_15_minutes(10))
                 .post(change_pw),
@@ -68,6 +71,41 @@ async fn get_me(depot: &mut Depot, db: Db) -> JsonResult<UserSessionInfo> {
         .read(move |conn| UserSessionInfo::from_session(conn, session))
         .await??;
     json_ok(info)
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub(crate) struct UpdateDescriptionInput {
+    #[validate(custom(function = "crate::validate::description"))]
+    pub description: String,
+}
+
+/// Update the description for the current User
+#[endpoint]
+async fn update_description(
+    json: JsonBody<UpdateDescriptionInput>,
+    depot: &mut Depot,
+    db: Db,
+) -> JsonResult<()> {
+    let session = depot.session();
+    let user_id_value = session.user_id;
+    let UpdateDescriptionInput {
+        description: new_desc,
+    } = {
+        let input = json.into_inner();
+        input.validate()?;
+        input
+    };
+
+    db.write(move |conn| {
+        use crate::schema::users::dsl::*;
+        diesel::update(users.find(user_id_value))
+            .set(description.eq(&new_desc))
+            .execute(conn)?;
+        Ok::<_, ApiError>(())
+    })
+    .await??;
+
+    json_ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]

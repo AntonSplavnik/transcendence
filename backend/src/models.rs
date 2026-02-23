@@ -44,6 +44,7 @@ pub struct User {
     #[serde(skip)]
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
+    pub description: String,
 }
 
 impl NewUser {
@@ -56,6 +57,7 @@ impl NewUser {
             totp_confirmed_at: None,
             password_hash,
             created_at: chrono::Utc::now(),
+            description: String::new(),
         }
     }
 }
