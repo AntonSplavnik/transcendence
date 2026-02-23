@@ -2,20 +2,20 @@
 
 ## Table of Contents
 
-1. [Why Audio System?](#1-why-audio-system)
+1. [Why an Audio System?](#1-why-an-audio-system)
 2. [Industry References](#2-industry-references)
 3. [Our Architecture](#3-our-architecture)
 4. [Game Events: The Heart of the System](#4-game-events-the-heart-of-the-system)
-5. [The Journey of a Sound: From Action to Speaker](#5-the-journey-of-a-sound-from-action-to-speaker)
-6. [The Latency Problem: Hybrid Prediction](#6-the-latency-problem-hybrid-prediction)
-7. [The Client-Side Audio Engine](#7-the-client-side-audio-engine)
-8. [3D Spatial Audio](#8-3d-spatial-audio)
-9. [What Is Implemented Today](#9-what-is-implemented-today)
-10. [Next Steps](#10-next-steps)
+5. [The Latency Problem: Hybrid Prediction](#5-the-latency-problem-hybrid-prediction)
+6. [The Client-Side Audio Engine](#6-the-client-side-audio-engine)
+7. [3D Spatial Audio](#7-3d-spatial-audio)
+8. [What Is Implemented](#8-what-is-implemented)
+9. [Next Steps](#9-next-steps)
+10. [Sources](#10-sources)
 
 ---
 
-## 1. Why a Audio System?
+## 1. Why an Audio System?
 
 Audio in a multiplayer game is not a simple `playSound("jump.wav")`. There are specific constraints:
 
@@ -32,16 +32,12 @@ Our system is designed to address all of these constraints from the start.
 
 ## 2. Industry References
 
-Our architecture is inspired by the audio middleware used by AAA studios:
+Our architecture is inspired by the audio middleware used by game industry Wwise & FMOD :
 
-### Wwise (Audiokinetic)
-Used by Overwatch, Assassin's Creed, Cyberpunk 2077. Key concepts:
+Key concepts:
 - **Events**: the game sends semantic events ("Player_Jump"), not audio files
 - **Sound Banks**: audio assets are pre-loaded and organized into banks
 - **Mixer Bus**: hierarchy of audio buses (Master > SFX > Music > Ambience) for mixing
-
-### FMOD
-Used by Fortnite, Celeste, Hades. Same fundamental principles:
 - Separation between game logic and audio playback
 - Parametric randomization (pitch, volume)
 - Priority system to manage concurrent sounds
@@ -89,17 +85,15 @@ C++ Game Engine              Rust Backend                Browser Client
 
 The project already uses Babylon.js for 3D rendering (meshes, cameras, glTF animations). Rather than maintaining a custom Web Audio API layer, we use Babylon.js 8's `AudioEngineV2` which provides:
 
-- **AudioBus routing** with volume control — replaces our custom `MixerBus`
-- **StaticSound with `maxInstances`** — replaces our custom `SoundPool` (concurrency managed natively)
+- **AudioBus routing** with volume control 
+- **StaticSound with `maxInstances`** 
 - **Built-in spatial audio** with `attach()` to scene nodes — the listener follows the camera automatically
 - **Automatic audio context unlock** on user interaction — no manual `resume()` needed
 - **`createSoundAsync()`** accepts URLs, `AudioBuffer`, or `StaticSoundBuffer` — works for both loaded assets and procedural fallbacks
 
-This eliminates ~200 lines of custom plumbing (`MixerBus`, `SoundPool`, `SoundInstance`) while gaining features like volume ramping, sound cloning, and mesh attachment.
-
 ### Data Flow
 
-1. The **C++ engine** simulates the game at 60 Hz. When an action occurs (jump, landing, hit), the corresponding ECS system creates a **GameEvent** and pushes it into a queue
+1. The **C++ engine** simulates the game. When an action occurs (jump, landing, hit), the corresponding ECS system creates a **GameEvent** and pushes it into a queue
 2. The **Rust backend** drains this queue via FFI at each network tick, and **broadcasts** the events to all connected clients
 3. The **frontend** receives these events and passes them to the **AudioEventSystem**, which decides what sound to play, at what volume, what pitch, and where in 3D space
 
@@ -154,47 +148,7 @@ Events are stored in a **fixed-size ring buffer** (64 events max per frame). Thi
 
 ---
 
-## 5. The Journey of a Sound: From Action to Speaker
-
-Let's take the concrete example of landing after a jump:
-
-```
-Frame N: Player is airborne (velocity.y = -15.0, isGrounded = false)
-    |
-    v
-Frame N+1: PhysicsSystem detects the player touching the ground
-    |
-    |  1. wasGrounded = false, isGrounded = true -> TRANSITION detected
-    |  2. GameEvent { type: Land, playerID: 42, pos: (25, 0, 50), param1: 15.0 }
-    |  3. Event pushed into the GameEventQueue
-    |
-    v
-Network tick (16.67ms): Rust backend drains the queue via FFI
-    |
-    |  4. game_drain_events() -> [{ Land, player 42, impact 15.0 }]
-    |  5. Broadcasts GameServerMessage::GameEvents to all clients
-    |
-    v
-Client A (player 42, the local player):
-    |  6. Receives the event but player_id == localPlayerId -> IGNORED
-    |     (sound was already played locally, see section 6)
-    |
-Client B (remote player):
-    |  6. Receives the event, player_id != localPlayerId -> PROCESSED
-    |  7. AudioEventSystem.mapEventToSound(Land):
-    |     - soundId = "player_land"
-    |     - volume = clamp(15.0 / 20.0, 0.3, 1.0) = 0.75 (medium landing)
-    |     - pitch = random(0.9, 1.1)
-    |  8. SoundBank.getRandomSound("player_land") -> StaticSound (random variation)
-    |  9. StaticSound.play() with spatial position (25, 0, 50) -> 3D spatial sound
-    |
-    v
-Player B hears a "thud" more or less loud depending on distance
-```
-
----
-
-## 6. The Latency Problem: Hybrid Prediction
+## 5. The Latency Problem: Hybrid Prediction
 
 ### The Problem
 
@@ -235,7 +189,7 @@ The crucial point: when the server sends the local player's jump event, the clie
 
 ---
 
-## 7. The Client-Side Audio Engine
+## 6. The Client-Side Audio Engine
 
 ### Component Overview
 
@@ -305,7 +259,7 @@ This allows testing and development without needing finalized audio assets. The 
 
 ---
 
-## 8. 3D Spatial Audio
+## 7. 3D Spatial Audio
 
 ### The Principle
 
@@ -338,7 +292,7 @@ Local player sounds are played without modifying the spatial position relative t
 
 ---
 
-## 9. What Is Implemented
+## 8. What Is Implemented
 
 ### Functional Test Events
 - **Jump**: detected in CharacterControllerSystem when the player leaves the ground
@@ -365,7 +319,7 @@ Local player sounds are played without modifying the spatial position relative t
 
 ---
 
-## 10. Next Steps
+## 9. Next Steps
 
 ### Short Term
 - [ ] Add real audio assets (.wav) for jump and land
@@ -404,3 +358,8 @@ Local player sounds are played without modifying the spatial position relative t
 | **HRTF** | Head-Related Transfer Function - 3D audio simulation for stereo headphones |
 | **Drain** | Queue emptying operation (read + clear in a single atomic operation) |
 | **Rolloff** | Volume attenuation as a function of source-listener distance |
+
+## 10. Sources
+
+FMOD - https://www.fmod.com/
+Wwise - https://www.audiokinetic.com/fr/wwise/
