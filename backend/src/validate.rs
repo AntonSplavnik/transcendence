@@ -32,9 +32,9 @@ pub fn nickname(nickname: &Nickname) -> Result<(), ValidationError> {
 }
 
 pub fn description(desc: &str) -> Result<(), ValidationError> {
-    if desc.len() > 100 {
+    if desc.len() > 50 {
         return Err(ValidationError::new("length")
-            .with_message(Cow::Borrowed("Must be at most 100 characters long.")));
+            .with_message(Cow::Borrowed("Must be at most 50 characters long.")));
     }
     Ok(())
 }
@@ -155,16 +155,16 @@ mod tests {
     #[test]
     fn description_exact_max_accepted() {
         assert!(
-            description(&"a".repeat(100)).is_ok(),
-            "100-char description must be accepted"
+            description(&"a".repeat(50)).is_ok(),
+            "50-char description must be accepted"
         );
     }
 
     #[test]
     fn description_above_max_rejected() {
         assert!(
-            description(&"a".repeat(101)).is_err(),
-            "101-char description must be rejected"
+            description(&"a".repeat(51)).is_err(),
+            "51-char description must be rejected"
         );
     }
 
