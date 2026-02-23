@@ -3,7 +3,6 @@ import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from "luc
 import { Button, Card, Badge, LoadingSpinner } from "./ui";
 import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
 import TwoFactorModal from "./modals/TwoFactorAuthModal";
-import SessionDetailsModal from "./modals/SessionDetailModal";
 import ReauthModal from "./modals/ReauthModal";
 import AvatarDisplay from "./ui/AvatarDisplay";
 import AvatarUploadModal from "./modals/AvatarUploadModal";
@@ -14,11 +13,11 @@ const REAUTH_THRESHOLD_MINUTES = 30;
 interface HomeProps {
 	onGame: () => void;
 	onLogout: () => void;
+	onSessions: () => void;
 }
 
-export default function Home({ onGame, onLogout }: HomeProps) {
+export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const { user, session } = useAuth();
-	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
@@ -107,9 +106,9 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 
 					<DropdownItem
 						icon={<Monitor className="w-4 h-4" />}
-						onClick={() => setShowSessionDetails(true)}
+						onClick={onSessions}
 					>
-						Session Details
+						Manage Sessions
 					</DropdownItem>
 
 					<DropdownSeparator />
@@ -176,13 +175,6 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 					user={user}
 					onClose={() => setShow2FASettings(false)}
 					onSuccess={handle2FASuccess}
-				/>
-			)}
-
-			{showSessionDetails && (
-				<SessionDetailsModal
-					session={session}
-					onClose={() => setShowSessionDetails(false)}
 				/>
 			)}
 

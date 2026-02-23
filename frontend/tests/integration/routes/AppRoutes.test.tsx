@@ -168,6 +168,30 @@ describe('AppRoutes', () => {
 		});
 	});
 
+	describe('sessions route', () => {
+		it('renders SessionManagement at /sessions when authenticated', async () => {
+			server.use(
+				http.get('/api/user/me', () => {
+					return HttpResponse.json(createMockAuthResponse());
+				})
+			);
+			renderRoutes('/sessions');
+
+			await waitFor(() => {
+				expect(screen.getByText('Session Management')).toBeInTheDocument();
+			});
+		});
+
+		it('redirects to /auth when unauthenticated', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/sessions');
+
+			await waitFor(() => {
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+			});
+		});
+	});
+
 	describe('navigation', () => {
 		it('redirects unknown routes to /landing', async () => {
 			mockUnauthenticatedUser();

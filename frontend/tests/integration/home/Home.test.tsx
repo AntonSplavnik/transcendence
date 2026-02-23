@@ -22,6 +22,7 @@ vi.mock('../../../src/api/avatar', () => ({
 describe('Home', () => {
 	const mockOnGame = vi.fn();
 	const mockOnLogout = vi.fn();
+	const mockOnSessions = vi.fn();
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -36,7 +37,7 @@ describe('Home', () => {
 			})
 		);
 
-		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 	};
 
 	describe('user info display', () => {
@@ -93,7 +94,7 @@ describe('Home', () => {
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
 
 			expect(screen.getByText('Two-Factor Auth')).toBeInTheDocument();
-			expect(screen.getByText('Session Details')).toBeInTheDocument();
+			expect(screen.getByText('Manage Sessions')).toBeInTheDocument();
 			expect(screen.getByText('Log Out')).toBeInTheDocument();
 		});
 
@@ -186,8 +187,8 @@ describe('Home', () => {
 		});
 	});
 
-	describe('session details modal', () => {
-		it('opens session details modal from menu', async () => {
+	describe('manage sessions', () => {
+		it('calls onSessions from menu', async () => {
 			const user = userEvent.setup();
 			renderHome();
 
@@ -197,11 +198,9 @@ describe('Home', () => {
 
 			// Open menu
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
-			await user.click(screen.getByText('Session Details'));
+			await user.click(screen.getByText('Manage Sessions'));
 
-			await waitFor(() => {
-				expect(screen.getByText('Session ID')).toBeInTheDocument();
-			});
+			expect(mockOnSessions).toHaveBeenCalled();
 		});
 	});
 
@@ -232,7 +231,7 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -255,7 +254,7 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
