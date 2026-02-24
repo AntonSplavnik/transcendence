@@ -243,8 +243,7 @@ export default function SessionManagement({
 		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
 	}, [unlocked]);
 
-	// Fetch all sessions using stored password (silent — no spinner)
-	const fetchAllSessions = useCallback(async (mfaCode?: string, silent?: boolean) => {
+	const fetchAllSessions = useCallback(async (mfaCode?: string) => {
 		try {
 			const sessions = await getSessions(
 				passwordRef.current,
@@ -253,9 +252,7 @@ export default function SessionManagement({
 			setAllSessions(sessions);
 			setSelectedIds(new Set());
 		} catch (err) {
-			if (!silent) {
-				setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
-			}
+			setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
 		}
 	}, []);
 
@@ -411,13 +408,11 @@ export default function SessionManagement({
 					break;
 				case "refresh":
 					await fetchAllSessions(mfa);
-					setSessionsSuccess("Sessions refreshed.");
 					break;
 			}
 			closeModal();
-			// Refresh list after action (silent — don't clobber success message)
 			if (pendingAction !== "refresh") {
-				await fetchAllSessions(mfa, true);
+				await fetchAllSessions(mfa);
 			}
 		} catch (err) {
 			setModalError(getErrorMessage(err, "Action failed"));
