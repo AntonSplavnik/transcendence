@@ -76,8 +76,6 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 				${!isCurrent ? "cursor-pointer hover:border-stone-600" : ""}
 			`}
 			onClick={!isCurrent ? onToggle : undefined}
-			role={!isCurrent ? "button" : undefined}
-			aria-label={!isCurrent ? `Toggle session ${session.session_id}` : undefined}
 		>
 			<div className="flex items-start gap-3">
 				<input
