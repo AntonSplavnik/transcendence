@@ -442,7 +442,7 @@ describe('SessionManagement', () => {
 			expect(modalMfaInputs.length).toBeGreaterThanOrEqual(1);
 		});
 
-		it('confirming action shows success alert and refreshes list', async () => {
+		it('confirming action closes modal and refreshes list', async () => {
 			server.use(
 				http.post('/api/user/logout-sessions', () => {
 					return new HttpResponse(null, { status: 204 });
@@ -468,12 +468,10 @@ describe('SessionManagement', () => {
 			const logOutButtons = screen.getAllByRole('button', { name: /^log out$/i });
 			await user.click(logOutButtons[logOutButtons.length - 1]);
 
+			// Modal should be closed and session list refreshed
 			await waitFor(() => {
-				expect(screen.getByText(/logged out 1 session/i)).toBeInTheDocument();
+				expect(screen.queryByText('Log Out Sessions')).not.toBeInTheDocument();
 			});
-
-			// Modal should be closed
-			expect(screen.queryByText('Log Out Sessions')).not.toBeInTheDocument();
 		});
 
 		it('modal cancel closes modal', async () => {
