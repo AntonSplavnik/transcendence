@@ -390,11 +390,9 @@ export default function SessionManagement({
 						Array.from(selectedIds),
 						mfa,
 					);
-					setSessionsSuccess(`Logged out ${selectedIds.size} session(s).`);
 					break;
 				case "logout-others":
 					await logoutOtherSessions(passwordRef.current, mfa);
-					setSessionsSuccess("All other sessions logged out.");
 					break;
 				case "delete-selected":
 					await deleteSessions(
@@ -402,7 +400,6 @@ export default function SessionManagement({
 						Array.from(selectedIds),
 						mfa,
 					);
-					setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
 					break;
 				case "refresh":
 					await fetchAllSessions(mfa);
