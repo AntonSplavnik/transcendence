@@ -122,23 +122,26 @@ describe('validateMfaCode', () => {
 		expect(validateMfaCode('123456789')).toBe('TOTP code must be 6 to 8 digits.');
 	});
 
-	it('accepts valid base64url recovery code', () => {
-		expect(validateMfaCode('abcABC_-012')).toBeNull();
+	it('accepts valid 22-char base64url recovery code', () => {
 		expect(validateMfaCode('AbCdEfGhIjKlMnOpQrStUv')).toBeNull();
+		expect(validateMfaCode('abcABC_-0123456789abcd')).toBeNull();
+	});
+
+	it('rejects recovery code with wrong length', () => {
+		expect(validateMfaCode('abcABC_-012')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('a'.repeat(21))).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('a'.repeat(23))).toBe('Invalid code format.');
+		expect(validateMfaCode('a'.repeat(44))).toBe('Invalid code format.');
 	});
 
 	it('rejects recovery code with invalid chars', () => {
-		expect(validateMfaCode('abc!@#')).toBe('Invalid recovery code format.');
-		expect(validateMfaCode('abc def')).toBe('Invalid recovery code format.');
-		expect(validateMfaCode('abc.def')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('abc!@#abcABC_-01234567')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('AbC EfGhIjKlMnOpQrStUv')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('abc.defABCDEF012345678')).toBe('Invalid recovery code format.');
 	});
 
 	it('rejects input over 44 chars', () => {
 		expect(validateMfaCode('a'.repeat(45))).toBe('Invalid code format.');
-	});
-
-	it('accepts input at exactly 44 chars', () => {
-		expect(validateMfaCode('a'.repeat(44))).toBeNull();
 	});
 });
 

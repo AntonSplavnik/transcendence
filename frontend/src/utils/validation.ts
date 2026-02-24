@@ -57,7 +57,7 @@ export function validateMfaCode(value: string): string | null {
 		return "Authentication code is required.";
 	}
 	// Hard cap length to reject obviously invalid input early
-	if (value.length > 44) {
+	if (value.length > 22) {
 		return "Invalid code format.";
 	}
 	// Check if all digits → TOTP code (6-8 digits)
@@ -74,7 +74,10 @@ export function validateMfaCode(value: string): string | null {
 			return "TOTP code must be 6 to 8 digits.";
 		}
 	} else {
-		// Recovery code — must be base64url chars only [A-Za-z0-9_-]
+		// Recovery code — base64url of 16 bytes = exactly 22 chars [A-Za-z0-9_-]
+		if (value.length !== 22) {
+			return "Invalid recovery code format.";
+		}
 		for (let i = 0; i < value.length; i++) {
 			const c = value.charCodeAt(i);
 			const valid =
