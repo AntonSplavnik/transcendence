@@ -260,8 +260,8 @@ export default function SessionManagement({
 
 	const handleUnlock = async () => {
 		if (!unlockPw) return;
-		if (user?.totp_enabled && unlockMfa) {
-			const mfaErr = validateMfaCode(unlockMfa);
+		if (user?.totp_enabled) {
+			const mfaErr = validateMfaCode(unlockMfa || "");
 			if (mfaErr) {
 				setUnlockMfaError(mfaErr);
 				return;
@@ -310,7 +310,7 @@ export default function SessionManagement({
 			setCpError("New passwords do not match.");
 			return;
 		}
-		if (user?.totp_enabled && cpMfaCode) {
+		if (user?.totp_enabled) {
 			const mfaErr = validateMfaCode(cpMfaCode);
 			if (mfaErr) {
 				setCpMfaError(mfaErr);
@@ -374,7 +374,7 @@ export default function SessionManagement({
 
 	const handleConfirmAction = async () => {
 		if (!pendingAction) return;
-		if (user?.totp_enabled && modalMfa) {
+		if (user?.totp_enabled) {
 			const mfaErr = validateMfaCode(modalMfa);
 			if (mfaErr) {
 				setModalMfaError(mfaErr);
