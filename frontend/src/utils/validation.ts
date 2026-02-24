@@ -1,6 +1,7 @@
 /**
- * Client-side validation mirroring backend rules (backend/src/validate.rs).
- * Each function returns an error message string or null if valid.
+ * Lightweight client-side pre-validation aligned with backend rules.
+ * See backend/src/validate.rs, backend/src/auth/router.rs, and
+ * backend/src/auth/two_factor.rs for the authoritative validation logic.
  */
 
 export function validateNickname(value: string): string | null {

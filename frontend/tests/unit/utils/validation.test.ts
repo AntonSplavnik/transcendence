@@ -140,7 +140,7 @@ describe('validateMfaCode', () => {
 		expect(validateMfaCode('abc.defABCDEF012345678')).toBe('Invalid recovery code format.');
 	});
 
-	it('rejects input over 44 chars', () => {
+	it('rejects input longer than 22 chars', () => {
 		expect(validateMfaCode('a'.repeat(45))).toBe('Invalid code format.');
 	});
 });
