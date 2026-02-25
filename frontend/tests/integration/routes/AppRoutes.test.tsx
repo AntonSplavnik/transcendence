@@ -24,6 +24,12 @@ vi.mock('../../../src/components/ui/AvatarDisplay', () => ({
 vi.mock('../../../src/components/ui/AvatarUpload', () => ({
 	default: () => <div data-testid="avatar-upload" />,
 }));
+// Mock fetchAvatar so Home's useEffect doesn't trigger real XHR requests
+vi.mock('../../../src/api/avatar', () => ({
+	fetchAvatar: vi.fn().mockResolvedValue('blob:mock-avatar-url'),
+	uploadAvatar: vi.fn().mockResolvedValue(undefined),
+	deleteAvatar: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock LandingPage
 vi.mock('../../../src/components/LandingPage', () => ({
