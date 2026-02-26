@@ -4,6 +4,7 @@ import { Button, Card, Input, Alert } from "./ui";
 import { useAuth } from "../contexts/AuthContext";
 import * as usersApi from "../api/users";
 import { getErrorMessage, getErrorBrief } from "../api/error";
+import { validateNickname, validateEmail } from "../utils/validation";
 import TwoFactorLoginModal from "./modals/TwoFactorLoginModal";
 
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
@@ -13,6 +14,9 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const [email, setEmail] = useState("");
 	const [username, setUsername] = useState("");
 	const [error, setError] = useState("");
+	const [nicknameError, setNicknameError] = useState("");
+	const [emailError, setEmailError] = useState("");
+	const [passwordError, setPasswordError] = useState("");
 	const [nicknameValidation, setNicknameValidation] = useState("");
 	const [isCheckingNickname, setIsCheckingNickname] = useState(false);
 	const [showMfaModal, setShowMfaModal] = useState(false);
@@ -23,6 +27,15 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 	useEffect(() => {
 		if (!isLogin && username.trim().length > 0) {
+			// Local format validation first
+			const localErr = validateNickname(username);
+			if (localErr) {
+				setNicknameError(localErr);
+				setNicknameValidation("");
+				setIsCheckingNickname(false);
+				return;
+			}
+			setNicknameError("");
 			if (nicknameTimeoutRef.current) {
 				clearTimeout(nicknameTimeoutRef.current);
 			}
@@ -33,6 +46,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 				setIsCheckingNickname(false);
 			}, 500);
 		} else {
+			setNicknameError("");
 			setNicknameValidation("");
 			setIsCheckingNickname(false);
 		}
@@ -45,14 +59,33 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setError("");
+		setEmailError("");
+		setPasswordError("");
+
 		const password = passwordRef.current?.value || "";
-		if (!isLogin && !nicknameValidation.includes("✅")) {
-			setError("Please choose a valid, available nickname");
+
+		if (!isLogin) {
+			if (nicknameError || !nicknameValidation.includes("✅")) {
+				setError("Please choose a valid, available nickname.");
+				return;
+			}
+		}
+
+		const emailErr = validateEmail(email);
+		if (emailErr) {
+			setEmailError(emailErr);
 			return;
 		}
 
+		if (!isLogin) {
+			if (password.length < 8 || password.length > 128) {
+				setPasswordError("Must be between 8 and 128 characters long.");
+				return;
+			}
+		}
+
 		setIsLoading(true);
-		setError("");
 		try {
 			if (isLogin) {
 				await login(email, password);
@@ -80,6 +113,13 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 	const getValidationNode = () => {
 		if (!username.trim().length) return null;
+		if (nicknameError) {
+			return (
+				<span className="text-xs font-medium text-danger-light">
+					{nicknameError}
+				</span>
+			);
+		}
 		const style = isCheckingNickname
 			? "text-stone-400"
 			: nicknameValidation.includes("❌")
@@ -144,7 +184,14 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						autoComplete="email"
 						type="email"
 						value={email}
-						onChange={(e) => setEmail(e.target.value)}
+						onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+						onBlur={() => {
+							if (email) {
+								const err = validateEmail(email);
+								if (err) setEmailError(err);
+							}
+						}}
+						error={emailError}
 						placeholder="you@kingdom.com"
 						required
 					/>
@@ -157,6 +204,15 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						name="password"
 						placeholder="••••••••"
 						autoComplete={isLogin ? "current-password" : "new-password"}
+						onChange={() => setPasswordError("")}
+						onBlur={() => {
+							if (!isLogin) {
+								const pw = passwordRef.current?.value || "";
+								if (pw && (pw.length < 8 || pw.length > 128))
+									setPasswordError("Must be between 8 and 128 characters long.");
+							}
+						}}
+						error={passwordError}
 						required
 					/>
 

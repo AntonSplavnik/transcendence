@@ -84,7 +84,7 @@ describe('ReauthModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		await waitFor(() => {
-			expect(screen.getByText('Password is required')).toBeInTheDocument();
+			expect(screen.getByText('Password is required.')).toBeInTheDocument();
 		});
 	});
 
@@ -100,7 +100,7 @@ describe('ReauthModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		await waitFor(() => {
-			expect(screen.getByText('2FA code is required')).toBeInTheDocument();
+			expect(screen.getByText('Authentication code is required.')).toBeInTheDocument();
 		});
 	});
 

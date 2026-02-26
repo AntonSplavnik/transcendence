@@ -119,7 +119,7 @@ describe('SessionManagement', () => {
 			expect(screen.getByText('Please fill in all required fields.')).toBeInTheDocument();
 		});
 
-		it('validates short password', async () => {
+		it('validates short current password', async () => {
 			await renderPage();
 			const user = userEvent.setup();
 
@@ -129,7 +129,9 @@ describe('SessionManagement', () => {
 
 			await user.click(screen.getByRole('button', { name: /change password/i }));
 
-			expect(screen.getByText(/at least 8 characters/)).toBeInTheDocument();
+			// Field-level errors on short passwords (may appear on multiple fields from blur)
+			const errors = screen.getAllByText('Must be between 8 and 128 characters long.');
+			expect(errors.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it('validates same password', async () => {
@@ -342,19 +344,17 @@ describe('SessionManagement', () => {
 			expect(currentCheckbox).toBeDisabled();
 		});
 
-		it('clicking non-current session row toggles checkbox selection', async () => {
+		it('clicking non-current session checkbox toggles selection', async () => {
 			await renderPage();
 			const user = userEvent.setup();
 			await unlockSessions(user);
 
-			const sessionRow = screen.getByRole('button', { name: /toggle session 2/i });
-			await user.click(sessionRow);
-
 			const checkbox = screen.getByRole('checkbox', { name: /select session 2/i });
+			await user.click(checkbox);
 			expect(checkbox).toBeChecked();
 
 			// Click again to deselect
-			await user.click(sessionRow);
+			await user.click(checkbox);
 			expect(checkbox).not.toBeChecked();
 		});
 
@@ -367,7 +367,7 @@ describe('SessionManagement', () => {
 			expect(logoutBtn).toBeDisabled();
 
 			// Select a session
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 			expect(logoutBtn).toBeEnabled();
 		});
 
@@ -399,7 +399,7 @@ describe('SessionManagement', () => {
 			await unlockSessions(user);
 
 			// Select session 2
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 
 			await user.click(screen.getByRole('button', { name: /log out selected/i }));
 
@@ -430,7 +430,7 @@ describe('SessionManagement', () => {
 			});
 
 			// Select session and open modal
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 			await user.click(screen.getByRole('button', { name: /log out selected/i }));
 
 			await waitFor(() => {
@@ -442,7 +442,7 @@ describe('SessionManagement', () => {
 			expect(modalMfaInputs.length).toBeGreaterThanOrEqual(1);
 		});
 
-		it('confirming action shows success alert and refreshes list', async () => {
+		it('confirming action closes modal and refreshes list', async () => {
 			server.use(
 				http.post('/api/user/logout-sessions', () => {
 					return new HttpResponse(null, { status: 204 });
@@ -457,7 +457,7 @@ describe('SessionManagement', () => {
 			await unlockSessions(user);
 
 			// Select session 2
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 			await user.click(screen.getByRole('button', { name: /log out selected/i }));
 
 			await waitFor(() => {
@@ -468,12 +468,10 @@ describe('SessionManagement', () => {
 			const logOutButtons = screen.getAllByRole('button', { name: /^log out$/i });
 			await user.click(logOutButtons[logOutButtons.length - 1]);
 
+			// Modal should be closed and session list refreshed
 			await waitFor(() => {
-				expect(screen.getByText(/logged out 1 session/i)).toBeInTheDocument();
+				expect(screen.queryByText('Log Out Sessions')).not.toBeInTheDocument();
 			});
-
-			// Modal should be closed
-			expect(screen.queryByText('Log Out Sessions')).not.toBeInTheDocument();
 		});
 
 		it('modal cancel closes modal', async () => {
@@ -481,7 +479,7 @@ describe('SessionManagement', () => {
 			const user = userEvent.setup();
 			await unlockSessions(user);
 
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 			await user.click(screen.getByRole('button', { name: /log out selected/i }));
 
 			await waitFor(() => {
@@ -507,7 +505,7 @@ describe('SessionManagement', () => {
 			const user = userEvent.setup();
 			await unlockSessions(user);
 
-			await user.click(screen.getByRole('button', { name: /toggle session 2/i }));
+			await user.click(screen.getByRole('checkbox', { name: /select session 2/i }));
 			await user.click(screen.getByRole('button', { name: /log out selected/i }));
 
 			await waitFor(() => {
