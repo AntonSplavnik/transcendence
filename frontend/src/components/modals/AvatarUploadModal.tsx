@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { updateDescription } from '../../api/user';
+import { validateAvatarFile, validateDescription } from '../../utils/validation';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
 import AvatarDisplay from '../ui/AvatarDisplay';
@@ -19,6 +20,7 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 	const [avatarLoading, setAvatarLoading] = useState(false);
 	const [bioLoading, setBioLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [bioError, setBioError] = useState<string | null>(null);
 	const [bio, setBio] = useState(description);
 	const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,6 +28,14 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 	async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		if (!file) return;
+
+		const fileErr = validateAvatarFile(file);
+		if (fileErr) {
+			setError(fileErr);
+			if (fileInputRef.current) fileInputRef.current.value = '';
+			return;
+		}
+
 		setAvatarLoading(true);
 		setError(null);
 		try {
@@ -62,6 +72,12 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 	}
 
 	async function handleSave() {
+		const validationErr = validateDescription(bio);
+		if (validationErr) {
+			setBioError(validationErr);
+			return;
+		}
+
 		const bioChanged = bio !== description;
 		if (bioChanged) {
 			setBioLoading(true);
@@ -120,13 +136,18 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 					<textarea
 						id="bio"
 						value={bio}
-						onChange={(e) => setBio(e.target.value)}
-						maxLength={50}
+						onChange={(e) => { setBio(e.target.value); setBioError(null); }}
 						rows={2}
-						className="w-full bg-stone-800 border border-stone-600 rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400 resize-none"
+						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${bioError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
 						placeholder="Pineapple on pizza ?"
 					/>
-					<p className="text-xs text-stone-500 text-right">{bio.length}/50</p>
+					<div className="flex justify-between items-center">
+						{bioError
+							? <p className="text-xs text-red-400">{bioError}</p>
+							: <span />
+						}
+						<p className="text-xs text-stone-500">{[...bio].length}/50</p>
+					</div>
 				</div>
 
 				{error && (

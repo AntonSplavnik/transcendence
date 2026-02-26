@@ -94,6 +94,31 @@ export function validateMfaCode(value: string): string | null {
 	return null;
 }
 
+/** Max accepted input file size before even attempting to decode/convert. */
+const MAX_AVATAR_INPUT_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export function validateAvatarFile(file: File): string | null {
+	if (!file.type.startsWith("image/")) {
+		return "File must be an image.";
+	}
+	if (file.size > MAX_AVATAR_INPUT_BYTES) {
+		return "File must be smaller than 10 MB.";
+	}
+	return null;
+}
+
+export function validateDescription(value: string): string | null {
+	// Count Unicode code points, not UTF-16 code units — matches backend chars().count()
+	let count = 0;
+	for (const _ of value) {
+		count++;
+		if (count > 50) {
+			return "Must be at most 50 characters long.";
+		}
+	}
+	return null;
+}
+
 export function validateTotpOnly(value: string): string | null {
 	if (!value) {
 		return "Verification code is required.";
