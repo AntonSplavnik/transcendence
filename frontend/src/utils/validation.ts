@@ -109,12 +109,8 @@ export function validateAvatarFile(file: File): string | null {
 
 export function validateDescription(value: string): string | null {
 	// Count Unicode code points, not UTF-16 code units — matches backend chars().count()
-	let count = 0;
-	for (const _ of value) {
-		count++;
-		if (count > 50) {
-			return "Must be at most 50 characters long.";
-		}
+	if ([...value].length > 50) {
+		return "Must be at most 50 characters long.";
 	}
 	return null;
 }
