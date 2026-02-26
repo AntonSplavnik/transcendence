@@ -6,9 +6,9 @@
 @layer base {
   /* ── Font custom properties (change one line to swap all headings/body) ── */
   :root {
-    --font-display: 'Fredoka', 'Nunito Sans', system-ui, sans-serif;
-    --font-body: 'Nunito Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+    --font-display: 'Fredoka Variable', 'Nunito Sans Variable', system-ui, sans-serif;
+    --font-body: 'Nunito Sans Variable', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
     height: 100%;
     margin: 0;
   }
