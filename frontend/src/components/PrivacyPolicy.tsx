@@ -50,7 +50,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 					</p>
 					<ul className="list-none text-stone-300 space-y-1 mt-3 ml-2">
 						<li>
-							Email: <span className="text-gold-400">[schluesselfehlt@gmail.com]</span>
+							Email: <span className="text-gold-400">schluesselfehlt@gmail.com</span>
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">

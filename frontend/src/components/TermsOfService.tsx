@@ -24,7 +24,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 				{/* 1. Introduction */}
 				<Card>
 					<p className="text-stone-300 text-sm mb-2">
-						Last updated: 25.02.2024
+						Last updated: 25.02.2026
 					</p>
 					<p className="text-stone-300">
 						Welcome to Hit 'em good! This is a multiplayer online game built as a
@@ -49,7 +49,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					<p className="text-stone-300">
 						You must be at least{" "}
 						<strong className="text-stone-100">13 years old</strong> to use
-						Hit 'em good. If you are between 13 and 16, you need permission from
+						Hit 'em good. If you are under 16 years of age, you need permission from
 						a parent or legal guardian before creating an account, as required by
 						GDPR Article 8.
 					</p>
@@ -192,7 +192,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					</h3>
 					<p className="text-stone-300">
 						You can request deletion of your account at any time by contacting us
-						at <span className="text-gold-400">[schluesselfehlt@gmail.com]</span>. When your
+						at <span className="text-gold-400">schluesselfehlt@gmail.com</span>. When your
 						account is deleted, all personal data associated with it is permanently
 						removed from our systems, including sessions, game history, avatars,
 						and statistics. See our Privacy Policy for full details on data
@@ -226,7 +226,14 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 						All game content &mdash; including code, game mechanics, and
 						design &mdash; is the intellectual property of the Hit 'em good
 						development team at 42 Berlin.
-						Ingame models were graciously provided by <b><a href="https://kaylousberg.itch.io/">kaylousberg</a></b>.
+						In-Game models were graciously provided by {" "}
+						<a
+							href="https://kaylousberg.itch.io/"
+							className="text-gold-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+						>
+							kaylousberg
+						</a>
+						.
 						You may not copy, modify, distribute, or create derivative works
 						from any part of the service without our explicit permission.
 					</p>
@@ -326,7 +333,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					</h2>
 					<p className="text-stone-300">
 						Questions about these terms? Reach out to us at:{" "}
-						<span className="text-gold-400">[schluesselfehlt@gmail.com]</span>
+						<span className="text-gold-400">schluesselfehlt@gmail.com</span>
 					</p>
 				</Card>
 			</div>
