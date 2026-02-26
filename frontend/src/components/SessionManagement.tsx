@@ -28,6 +28,7 @@ import {
 	deleteSessions,
 } from "../api/user";
 import { getErrorMessage } from "../api/error";
+import { validateMfaCode } from "../utils/validation";
 import type { Session } from "../api/types";
 
 interface SessionManagementProps {
@@ -75,8 +76,6 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 				${!isCurrent ? "cursor-pointer hover:border-stone-600" : ""}
 			`}
 			onClick={!isCurrent ? onToggle : undefined}
-			role={!isCurrent ? "button" : undefined}
-			aria-label={!isCurrent ? `Toggle session ${session.session_id}` : undefined}
 		>
 			<div className="flex items-start gap-3">
 				<input
@@ -200,6 +199,9 @@ export default function SessionManagement({
 	const [cpLoading, setCpLoading] = useState(false);
 	const [cpError, setCpError] = useState("");
 	const [cpSuccess, setCpSuccess] = useState("");
+	const [cpCurrentPwError, setCpCurrentPwError] = useState("");
+	const [cpNewPwError, setCpNewPwError] = useState("");
+	const [cpMfaError, setCpMfaError] = useState("");
 
 	// All sessions (password-gated)
 	const passwordRef = useRef("");
@@ -208,6 +210,7 @@ export default function SessionManagement({
 	const [unlocked, setUnlocked] = useState(false);
 	const [allSessions, setAllSessions] = useState<Session[]>([]);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+	const [unlockMfaError, setUnlockMfaError] = useState("");
 	const [unlockLoading, setUnlockLoading] = useState(false);
 	const [sessionsError, setSessionsError] = useState("");
 	const [sessionsSuccess, setSessionsSuccess] = useState("");
@@ -215,6 +218,7 @@ export default function SessionManagement({
 	// Confirmation modal
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 	const [modalMfa, setModalMfa] = useState("");
+	const [modalMfaError, setModalMfaError] = useState("");
 	const [modalLoading, setModalLoading] = useState(false);
 	const [modalError, setModalError] = useState("");
 
@@ -237,8 +241,7 @@ export default function SessionManagement({
 		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
 	}, [unlocked]);
 
-	// Fetch all sessions using stored password (silent — no spinner)
-	const fetchAllSessions = useCallback(async (mfaCode?: string, silent?: boolean) => {
+	const fetchAllSessions = useCallback(async (mfaCode?: string) => {
 		try {
 			const sessions = await getSessions(
 				passwordRef.current,
@@ -247,9 +250,7 @@ export default function SessionManagement({
 			setAllSessions(sessions);
 			setSelectedIds(new Set());
 		} catch (err) {
-			if (!silent) {
-				setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
-			}
+			setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
 		}
 	}, []);
 
@@ -257,6 +258,13 @@ export default function SessionManagement({
 
 	const handleUnlock = async () => {
 		if (!unlockPw) return;
+		if (user?.totp_enabled) {
+			const mfaErr = validateMfaCode(unlockMfa || "");
+			if (mfaErr) {
+				setUnlockMfaError(mfaErr);
+				return;
+			}
+		}
 		setSessionsError("");
 		setUnlockLoading(true);
 		try {
@@ -284,8 +292,12 @@ export default function SessionManagement({
 			setCpError("Please fill in all required fields.");
 			return;
 		}
-		if (cpNewPw.length < 8) {
-			setCpError("New password must be at least 8 characters.");
+		if (cpCurrentPw.length < 8 || cpCurrentPw.length > 128) {
+			setCpCurrentPwError("Must be between 8 and 128 characters long.");
+			return;
+		}
+		if (cpNewPw.length < 8 || cpNewPw.length > 128) {
+			setCpNewPwError("Must be between 8 and 128 characters long.");
 			return;
 		}
 		if (cpCurrentPw === cpNewPw) {
@@ -295,6 +307,13 @@ export default function SessionManagement({
 		if (cpNewPw !== cpConfirmPw) {
 			setCpError("New passwords do not match.");
 			return;
+		}
+		if (user?.totp_enabled) {
+			const mfaErr = validateMfaCode(cpMfaCode);
+			if (mfaErr) {
+				setCpMfaError(mfaErr);
+				return;
+			}
 		}
 		setCpLoading(true);
 		try {
@@ -309,6 +328,9 @@ export default function SessionManagement({
 			setCpNewPw("");
 			setCpConfirmPw("");
 			setCpMfaCode("");
+			setCpCurrentPwError("");
+			setCpNewPwError("");
+			setCpMfaError("");
 			// Password changed — stored password is stale, re-lock sessions
 			if (unlocked) {
 				setUnlocked(false);
@@ -344,11 +366,19 @@ export default function SessionManagement({
 	const closeModal = () => {
 		setPendingAction(null);
 		setModalError("");
+		setModalMfaError("");
 		setModalLoading(false);
 	};
 
 	const handleConfirmAction = async () => {
 		if (!pendingAction) return;
+		if (user?.totp_enabled) {
+			const mfaErr = validateMfaCode(modalMfa);
+			if (mfaErr) {
+				setModalMfaError(mfaErr);
+				return;
+			}
+		}
 		const mfa = modalMfa || undefined;
 		setModalError("");
 		setModalLoading(true);
@@ -360,11 +390,9 @@ export default function SessionManagement({
 						Array.from(selectedIds),
 						mfa,
 					);
-					setSessionsSuccess(`Logged out ${selectedIds.size} session(s).`);
 					break;
 				case "logout-others":
 					await logoutOtherSessions(passwordRef.current, mfa);
-					setSessionsSuccess("All other sessions logged out.");
 					break;
 				case "delete-selected":
 					await deleteSessions(
@@ -372,17 +400,14 @@ export default function SessionManagement({
 						Array.from(selectedIds),
 						mfa,
 					);
-					setSessionsSuccess(`Deleted ${selectedIds.size} session record(s).`);
 					break;
 				case "refresh":
 					await fetchAllSessions(mfa);
-					setSessionsSuccess("Sessions refreshed.");
 					break;
 			}
 			closeModal();
-			// Refresh list after action (silent — don't clobber success message)
 			if (pendingAction !== "refresh") {
-				await fetchAllSessions(mfa, true);
+				await fetchAllSessions(mfa);
 			}
 		} catch (err) {
 			setModalError(getErrorMessage(err, "Action failed"));
@@ -528,8 +553,13 @@ export default function SessionManagement({
 							label="Current Password"
 							type="password"
 							value={cpCurrentPw}
-							onChange={(e) => setCpCurrentPw(e.target.value)}
+							onChange={(e) => { setCpCurrentPw(e.target.value); setCpCurrentPwError(""); }}
+							onBlur={() => {
+								if (cpCurrentPw && (cpCurrentPw.length < 8 || cpCurrentPw.length > 128))
+									setCpCurrentPwError("Must be between 8 and 128 characters long.");
+							}}
 							onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+							error={cpCurrentPwError}
 							autoComplete="current-password"
 							fullWidth
 						/>
@@ -538,8 +568,13 @@ export default function SessionManagement({
 								label="New Password"
 								type="password"
 								value={cpNewPw}
-								onChange={(e) => setCpNewPw(e.target.value)}
+								onChange={(e) => { setCpNewPw(e.target.value); setCpNewPwError(""); }}
+								onBlur={() => {
+									if (cpNewPw && (cpNewPw.length < 8 || cpNewPw.length > 128))
+										setCpNewPwError("Must be between 8 and 128 characters long.");
+								}}
 								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+								error={cpNewPwError}
 								autoComplete="new-password"
 								fullWidth
 							/>
@@ -564,11 +599,10 @@ export default function SessionManagement({
 								type="text"
 								variant="code"
 								value={cpMfaCode}
-								onChange={(e) => setCpMfaCode(e.target.value)}
+								onChange={(e) => { setCpMfaCode(e.target.value); setCpMfaError(""); }}
 								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
-								placeholder="000000"
-								maxLength={6}
-								inputMode="numeric"
+								placeholder="000000 or recovery code"
+								error={cpMfaError}
 								autoComplete="one-time-code"
 							/>
 						)}
@@ -640,11 +674,10 @@ export default function SessionManagement({
 									type="text"
 									variant="code"
 									value={unlockMfa}
-									onChange={(e) => setUnlockMfa(e.target.value)}
+									onChange={(e) => { setUnlockMfa(e.target.value); setUnlockMfaError(""); }}
 									onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-									placeholder="000000"
-									maxLength={6}
-									inputMode="numeric"
+									placeholder="000000 or recovery code"
+									error={unlockMfaError}
 									autoComplete="one-time-code"
 								/>
 							)}
@@ -770,11 +803,10 @@ export default function SessionManagement({
 								type="text"
 								variant="code"
 								value={modalMfa}
-								onChange={(e) => setModalMfa(e.target.value)}
+								onChange={(e) => { setModalMfa(e.target.value); setModalMfaError(""); }}
 								onKeyDown={(e) => e.key === "Enter" && handleConfirmAction()}
-								placeholder="000000"
-								maxLength={6}
-								inputMode="numeric"
+								placeholder="000000 or recovery code"
+								error={modalMfaError}
 								autoComplete="one-time-code"
 							/>
 						)}

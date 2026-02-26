@@ -3,6 +3,7 @@ import { Shield } from "lucide-react";
 import { Button, Modal, Input, Alert } from "../ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage, getErrorBrief } from "../../api/error";
+import { validateMfaCode } from "../../utils/validation";
 
 interface TwoFactorLoginModalProps {
 	email: string;
@@ -20,20 +21,23 @@ export default function TwoFactorLoginModal({
 	const { login } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [codeError, setCodeError] = useState("");
 	const codeRef = useRef<HTMLInputElement>(null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		setIsLoading(true);
+		setCodeError("");
 
 		const code = codeRef.current?.value || "";
 
-		if (!code) {
-			setError("Authentication code is required");
-			setIsLoading(false);
+		const mfaErr = validateMfaCode(code);
+		if (mfaErr) {
+			setCodeError(mfaErr);
 			return;
 		}
+
+		setIsLoading(true);
 
 		try {
 			const password = getPassword();
@@ -66,6 +70,8 @@ export default function TwoFactorLoginModal({
 					autoFocus
 					autoComplete="one-time-code"
 					placeholder="000000 or recovery code"
+					error={codeError}
+					onChange={() => setCodeError("")}
 					disabled={isLoading}
 				/>
 
