@@ -23,6 +23,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const [showReauthModal, setShowReauthModal] = useState(false);
 	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | undefined>(undefined);
 	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | undefined>(undefined);
+	const [description, setDescription] = useState(user?.description ?? '');
 
 	if (!user || !session) {
 		return (
@@ -62,10 +63,11 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-14 h-14"/>
+					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-20 h-20"/>
 					<div>
 						<h1>Player Dashboard</h1>
 						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
+						{description && <p className="text-stone-400 text-sm italic">{description}</p>}
 					</div>
 				</div>
 
@@ -182,11 +184,13 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 			{showEditProfile && (
 				<AvatarUploadModal
 					user={user}
+					description={description}
 					onClose={() => setShowEditProfile(false)}
 					onAvatarChanged={(smallUrl, largeUrl) => {
 						setAvatarSmallUrl(smallUrl ?? undefined);
 						setAvatarLargeUrl(largeUrl ?? undefined);
 					}}
+					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}
 

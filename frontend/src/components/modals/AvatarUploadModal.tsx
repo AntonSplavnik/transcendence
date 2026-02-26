@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
+import { updateDescription } from '../../api/user';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
 import AvatarDisplay from '../ui/AvatarDisplay';
@@ -8,70 +9,73 @@ import { Button, Modal, Alert } from '../ui';
 
 interface EditProfileProps {
 	user: User;
+	description: string;
 	onClose: () => void;
 	onAvatarChanged: (smallUrl: string | null, largeUrl: string | null) => void;
+	onDescriptionChanged: (description: string) => void;
 }
 
-export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: EditProfileProps) {
-	const [selectedFile, setSelectedFile] = useState<File | null>(null);
-	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-	const [loading, setLoading] = useState<boolean>(false);
+export default function AvatarUploadModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
+	const [avatarLoading, setAvatarLoading] = useState(false);
+	const [bioLoading, setBioLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [bio, setBio] = useState(description);
+	const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	useEffect(() => {
-		return () => {
-			if (previewUrl) {
-				URL.revokeObjectURL(previewUrl);
-			}
-		};
-	}, [previewUrl]);
-
-	function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+	async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		if (previewUrl) {
-			URL.revokeObjectURL(previewUrl);
-		}
-		setSelectedFile(file);
-		setPreviewUrl(URL.createObjectURL(file));
-		setError(null);
-	}
-
-	async function handleUpload() {
-		if (!selectedFile) return;
-		setLoading(true);
+		setAvatarLoading(true);
 		setError(null);
 		try {
-			const result = await convertToAvatarAvif(selectedFile);
+			const result = await convertToAvatarAvif(file);
 			if (!result.success) {
 				setError(result.error.message);
 				return;
 			}
 			await uploadAvatar(result.data.large, result.data.small);
-			onAvatarChanged(
-				URL.createObjectURL(result.data.small),
-				URL.createObjectURL(result.data.large),
-			);
-			onClose();
+			const smallUrl = URL.createObjectURL(result.data.small);
+			const largeUrl = URL.createObjectURL(result.data.large);
+			setPreviewUrl(largeUrl);
+			onAvatarChanged(smallUrl, largeUrl);
 		} catch {
 			setError("Failed to upload avatar");
 		} finally {
-			setLoading(false);
+			setAvatarLoading(false);
+			if (fileInputRef.current) fileInputRef.current.value = '';
 		}
 	}
 
 	async function handleDelete() {
-		setLoading(true);
+		setAvatarLoading(true);
 		setError(null);
 		try {
 			await deleteAvatar();
+			setPreviewUrl(undefined);
 			onAvatarChanged(null, null);
-			onClose();
 		} catch {
 			setError("Failed to delete avatar");
 		} finally {
-			setLoading(false);
+			setAvatarLoading(false);
 		}
+	}
+
+	async function handleSave() {
+		const bioChanged = bio !== description;
+		if (bioChanged) {
+			setBioLoading(true);
+			setError(null);
+			try {
+				await updateDescription(bio);
+				onDescriptionChanged(bio);
+			} catch {
+				setError("Failed to update bio");
+				setBioLoading(false);
+				return;
+			}
+		}
+		onClose();
 	}
 
 	return (
@@ -80,28 +84,50 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: Ed
 			title="Edit Profile"
 			icon={<Pencil className="w-6 h-6" />}
 		>
+			{/* Clickable Avatar */}
 			<div className="flex flex-col items-center gap-1 mb-4">
-				{previewUrl ? (
-					<img src={previewUrl} alt="preview" className="w-32 h-32 rounded-full object-cover" />
-				) : (
-					<AvatarDisplay userId={user.id} size="large" className="w-32 h-32 rounded-full" />
-				)}
+				<button
+					type="button"
+					onClick={() => fileInputRef.current?.click()}
+					disabled={avatarLoading}
+					className="relative group rounded-full disabled:opacity-50"
+				>
+					<AvatarDisplay userId={user.id} size="large" src={previewUrl} className="w-32 h-32 rounded-full" />
+					<div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+						<span className="text-white text-sm font-medium">Edit</span>
+					</div>
+				</button>
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept="image/*"
+					onChange={handleFileSelect}
+					className="hidden"
+				/>
 				<button
 					onClick={handleDelete}
-					disabled={loading}
+					disabled={avatarLoading}
 					className="text-danger hover:text-danger-light text-xs italic disabled:opacity-50 transition-colors"
 				>
 					x delete
 				</button>
 			</div>
 
-			<div className="space-y-4">
-				<input
-					type="file"
-					accept="image/*"
-					onChange={handleFileSelect}
-					className="w-full text-sm text-stone-300"
-				/>
+			{/* Bio Section */}
+			<div className="space-y-3">
+				<div>
+					<label htmlFor="bio" className="block text-sm text-stone-300 mb-1">Description</label>
+					<textarea
+						id="bio"
+						value={bio}
+						onChange={(e) => setBio(e.target.value)}
+						maxLength={50}
+						rows={2}
+						className="w-full bg-stone-800 border border-stone-600 rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400 resize-none"
+						placeholder="Pineapple on pizza ?"
+					/>
+					<p className="text-xs text-stone-500 text-right">{bio.length}/50</p>
+				</div>
 
 				{error && (
 					<Alert variant="error" dismissable onDismiss={() => setError(null)}>
@@ -109,20 +135,15 @@ export default function AvatarUploadModal({ user, onClose, onAvatarChanged }: Ed
 					</Alert>
 				)}
 
-				<div className="flex gap-3">
-					<Button
-						onClick={handleUpload}
-						disabled={!selectedFile || loading}
-						loading={loading}
-						loadingText="Uploading..."
-						className="flex-1"
-					>
-						Upload
-					</Button>
-					<Button onClick={onClose} variant="secondary">
-						Cancel
-					</Button>
-				</div>
+				<Button
+					onClick={handleSave}
+					disabled={bioLoading}
+					loading={bioLoading}
+					loadingText="Saving..."
+					fullWidth
+				>
+					Save
+				</Button>
 			</div>
 		</Modal>
 	);
