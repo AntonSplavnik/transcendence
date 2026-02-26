@@ -18,10 +18,10 @@ interface EditProfileProps {
 
 export default function AvatarUploadModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
 	const [avatarLoading, setAvatarLoading] = useState(false);
-	const [bioLoading, setBioLoading] = useState(false);
+	const [descriptionLoading, setDescriptionLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [bioError, setBioError] = useState<string | null>(null);
-	const [bio, setBio] = useState(description);
+	const [descriptionError, setDescriptionError] = useState<string | null>(null);
+	const [descriptionValue, setDescriptionValue] = useState(description);
 	const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,22 +72,22 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 	}
 
 	async function handleSave() {
-		const validationErr = validateDescription(bio);
+		const validationErr = validateDescription(descriptionValue);
 		if (validationErr) {
-			setBioError(validationErr);
+			setDescriptionError(validationErr);
 			return;
 		}
 
-		const bioChanged = bio !== description;
-		if (bioChanged) {
-			setBioLoading(true);
+		const descriptionChanged = descriptionValue !== description;
+		if (descriptionChanged) {
+			setDescriptionLoading(true);
 			setError(null);
 			try {
-				await updateDescription(bio);
-				onDescriptionChanged(bio);
+				await updateDescription(descriptionValue);
+				onDescriptionChanged(descriptionValue);
 			} catch {
-				setError("Failed to update bio");
-				setBioLoading(false);
+				setError("Failed to update description");
+				setDescriptionLoading(false);
 				return;
 			}
 		}
@@ -129,24 +129,24 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 				</button>
 			</div>
 
-			{/* Bio Section */}
+			{/* Description Section */}
 			<div className="space-y-3">
 				<div>
-					<label htmlFor="bio" className="block text-sm text-stone-300 mb-1">Description</label>
+					<label htmlFor="description" className="block text-sm text-stone-300 mb-1">Description</label>
 					<textarea
-						id="bio"
-						value={bio}
-						onChange={(e) => { setBio(e.target.value); setBioError(null); }}
+						id="description"
+						value={descriptionValue}
+						onChange={(e) => { setDescriptionValue(e.target.value); setDescriptionError(null); }}
 						rows={2}
-						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${bioError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
+						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${descriptionError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
 						placeholder="Pineapple on pizza ?"
 					/>
 					<div className="flex justify-between items-center">
-						{bioError
-							? <p className="text-xs text-red-400">{bioError}</p>
+						{descriptionError
+							? <p className="text-xs text-red-400">{descriptionError}</p>
 							: <span />
 						}
-						<p className="text-xs text-stone-500">{[...bio].length}/50</p>
+						<p className="text-xs text-stone-500">{[...descriptionValue].length}/50</p>
 					</div>
 				</div>
 
@@ -158,8 +158,8 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 
 				<Button
 					onClick={handleSave}
-					disabled={bioLoading}
-					loading={bioLoading}
+					disabled={descriptionLoading}
+					loading={descriptionLoading}
 					loadingText="Saving..."
 					fullWidth
 				>
