@@ -192,7 +192,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					</h3>
 					<p className="text-stone-300">
 						You can request deletion of your account at any time by contacting us
-						at <span className="text-gold-400">[contact email]</span>. When your
+						at <span className="text-gold-400">[schluesselfehlt@gmail.com]</span>. When your
 						account is deleted, all personal data associated with it is permanently
 						removed from our systems, including sessions, game history, avatars,
 						and statistics. See our Privacy Policy for full details on data
@@ -326,7 +326,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					</h2>
 					<p className="text-stone-300">
 						Questions about these terms? Reach out to us at:{" "}
-						<span className="text-gold-400">[contact email]</span>
+						<span className="text-gold-400">[schluesselfehlt@gmail.com]</span>
 					</p>
 				</Card>
 			</div>
