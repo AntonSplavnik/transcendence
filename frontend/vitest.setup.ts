@@ -1,18 +1,3 @@
-// Polyfill ProgressEvent for Node environments where jsdom doesn't expose it globally (e.g. Node 20)
-if (typeof globalThis.ProgressEvent === 'undefined') {
-	globalThis.ProgressEvent = class ProgressEvent extends Event {
-		lengthComputable: boolean;
-		loaded: number;
-		total: number;
-		constructor(type: string, params: ProgressEventInit = {}) {
-			super(type, params);
-			this.lengthComputable = params.lengthComputable ?? false;
-			this.loaded = params.loaded ?? 0;
-			this.total = params.total ?? 0;
-		}
-	} as unknown as typeof ProgressEvent;
-}
-
 import '@testing-library/jest-dom';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';

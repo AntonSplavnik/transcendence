@@ -115,7 +115,7 @@ describe('AppRoutes', () => {
 	});
 
 	describe('authChecked gate', () => {
-		it('shows nothing while auth is being checked', () => {
+		it('shows nothing while auth is being checked', async () => {
 			// Set up a delayed response
 			server.use(
 				http.get('/api/user/me', async () => {
@@ -130,6 +130,11 @@ describe('AppRoutes', () => {
 			expect(screen.queryByText('Player Dashboard')).not.toBeInTheDocument();
 			// Also should not show auth page redirect yet
 			expect(screen.queryByText('Welcome Back')).not.toBeInTheDocument();
+
+			// Drain the delayed response before test exits
+			await waitFor(() => {
+				expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
+			}, { timeout: 2000 });
 		});
 	});
 

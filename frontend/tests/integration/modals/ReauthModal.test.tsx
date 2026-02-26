@@ -238,6 +238,8 @@ describe('ReauthModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		expect(screen.getByText('Verifying...')).toBeInTheDocument();
+
+		await waitFor(() => expect(mockOnSuccess).toHaveBeenCalled());
 	});
 
 	it('disables inputs during loading', async () => {
@@ -259,6 +261,8 @@ describe('ReauthModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		expect(screen.getByLabelText('Password')).toBeDisabled();
+
+		await waitFor(() => expect(mockOnSuccess).toHaveBeenCalled());
 	});
 
 	it('auto-focuses password input', async () => {
