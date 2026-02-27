@@ -156,7 +156,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 						</li>
 						<li>
 							<strong className="text-stone-100">Cookies</strong> &mdash; we use
-							two essential cookies for authentication (see Section 8 for details).
+							three essential cookies for authentication (see Section 8 for details).
 							Since these are strictly necessary for the service to work, no cookie
 							consent banner is required under the ePrivacy Directive.
 						</li>
@@ -292,7 +292,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 					</h2>
 					<p className="text-stone-300">
 						We use only <strong className="text-stone-100">strictly necessary
-							cookies</strong> that are essential for the service to work. We use two:
+							cookies</strong> that are essential for the service to work. We use three:
 					</p>
 					<ul className="list-disc list-inside text-stone-300 space-y-2 ml-2 mt-3">
 						<li>
@@ -306,6 +306,10 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 							secure, HttpOnly cookie used to authenticate your API requests.
 							It expires after 15 minutes and is automatically refreshed in the
 							background while you use the service.
+						</li>
+						<li>
+							<strong className="text-stone-100">Device identifier</strong> &mdash; a
+							non secret cookie that helps us "reuse" sessions across devices. It is used to link your sessions together.
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">
