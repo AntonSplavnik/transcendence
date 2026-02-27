@@ -69,7 +69,7 @@ describe('TwoFactorAuthModal', () => {
 			await user.click(screen.getByText('Enable 2FA'));
 			await user.click(screen.getByText('Continue'));
 
-			expect(screen.getByText('Password is required')).toBeInTheDocument();
+			expect(screen.getByText('Password is required.')).toBeInTheDocument();
 		});
 
 		it('generates QR code on successful password entry', async () => {
@@ -94,7 +94,7 @@ describe('TwoFactorAuthModal', () => {
 
 			await waitFor(() => {
 				expect(screen.getByText(/Scan this QR code/)).toBeInTheDocument();
-				expect(screen.getByAltText('2FA QR Code')).toBeInTheDocument();
+				expect(screen.getByAltText('QR code for two-factor authentication setup')).toBeInTheDocument();
 			});
 		});
 
@@ -294,7 +294,8 @@ describe('TwoFactorAuthModal', () => {
 			await user.click(screen.getByText('Disable 2FA'));
 			await user.click(screen.getByRole('button', { name: 'Disable 2FA' }));
 
-			expect(screen.getByText('Password and 2FA code are required to disable 2FA')).toBeInTheDocument();
+			// Empty password shows field-level error
+			expect(screen.getByText('Password is required.')).toBeInTheDocument();
 		});
 
 		it('calls onSuccess after successful disable', async () => {
@@ -350,7 +351,7 @@ describe('TwoFactorAuthModal', () => {
 			await user.click(screen.getByText('Disable 2FA'));
 			await user.click(screen.getByText('Back'));
 
-			expect(screen.getByText('Current Status:')).toBeInTheDocument();
+			expect(screen.getByText('Current Status')).toBeInTheDocument();
 		});
 	});
 
@@ -364,7 +365,7 @@ describe('TwoFactorAuthModal', () => {
 
 			await user.click(screen.getByText('Back'));
 
-			expect(screen.getByText('Current Status:')).toBeInTheDocument();
+			expect(screen.getByText('Current Status')).toBeInTheDocument();
 		});
 	});
 });

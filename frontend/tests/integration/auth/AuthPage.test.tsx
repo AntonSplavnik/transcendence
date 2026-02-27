@@ -129,7 +129,7 @@ describe('AuthPage', () => {
 			await user.type(screen.getByPlaceholderText('••••••••'), 'password');
 			await user.click(screen.getByText('Sign In'));
 
-			expect(screen.getByText('Signing In....')).toBeInTheDocument();
+			expect(screen.getByText('Signing In...')).toBeInTheDocument();
 		});
 
 		it('opens MFA modal when TwoFactorRequired', async () => {
@@ -199,21 +199,16 @@ describe('AuthPage', () => {
 		});
 
 		it('shows error when nickname format invalid', async () => {
-			server.use(
-				http.post('/api/users/nickname-exists', () => {
-					return HttpResponse.json({ exists: false, valid: false });
-				})
-			);
-
 			const user = userEvent.setup();
 			renderAuthPage();
 
 			await user.click(screen.getByText('Create an account'));
 			await user.type(screen.getByPlaceholderText('Sir_Woodalot'), 'invalid!');
 
+			// Local validation catches invalid chars before API call
 			await waitFor(() => {
-				expect(screen.getByText('❌ nickname format invalid')).toBeInTheDocument();
-			}, { timeout: 1000 });
+				expect(screen.getByText('Can only contain alphanumeric characters, underscores, or hyphens.')).toBeInTheDocument();
+			});
 		});
 
 		it('prevents submission without valid nickname', async () => {
@@ -242,7 +237,7 @@ describe('AuthPage', () => {
 
 			// Should show error, not call onAuthSuccess
 			await waitFor(() => {
-				expect(screen.getByText('Please choose a valid, available nickname')).toBeInTheDocument();
+				expect(screen.getByText('Please choose a valid, available nickname.')).toBeInTheDocument();
 			});
 			expect(mockOnAuthSuccess).not.toHaveBeenCalled();
 		});

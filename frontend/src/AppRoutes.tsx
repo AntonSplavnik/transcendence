@@ -6,6 +6,7 @@ import type { StoredError } from './api/error';
 import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
 import Home from './components/Home';
+import SessionManagement from './components/SessionManagement';
 import GameBoard from './components/GameBoard';
 import Layout from './components/ui/Layout';
 import ErrorBanner from './components/ui/ErrorBanner';
@@ -72,6 +73,16 @@ export default function AppRoutes() {
 					<ProtectedRoute>
 						<Home
 							onGame={() => navigate('/game')}
+							onLogout={handleLogout}
+							onSessions={() => navigate('/sessions')}
+						/>
+					</ProtectedRoute>
+				}
+				/>
+				<Route path="/sessions" element={
+					<ProtectedRoute>
+						<SessionManagement
+							onBack={() => navigate('/home')}
 							onLogout={handleLogout}
 						/>
 					</ProtectedRoute>

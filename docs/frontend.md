@@ -156,6 +156,61 @@ index.html is pure HTML/CSS entry — browsers load that.
 main.tsx is where React/JS runtime starts and attaches to the DOM.
 App.tsx is your app UI/logic composer, written as a React component.
 
+## Design System (`src/components/ui/`)
+
+All reusable UI components live in `src/components/ui/` and are exported from `ui/index.ts`. Import via:
+
+```tsx
+import { Button, Card, Input, Alert, Badge, Modal } from "./ui";
+// or from modals:
+import { Button, Input, Alert } from "../ui";
+```
+
+### Component Reference
+
+| Component | When to use | Key props |
+|-----------|-------------|-----------|
+| **Button** | Any clickable action | `variant` (primary/secondary/danger/ghost), `size` (sm/md/lg), `loading` + `loadingText`, `icon`, `fullWidth` |
+| **Card** | Container for grouped content | `variant` (default/elevated/inset), `accent` (gold/danger/success/info), `hoverable`, `padding` |
+| **Modal** | Dialog overlay | `title`, `icon`, `footer` (button row), `closable`, `maxWidth` |
+| **Input** | Text input fields | `label`, `icon`, `error`, `hint`, `validation` (inline status), `variant` (default/code) |
+| **Alert** | Inline feedback messages | `variant` (error/warning/info/success), `dismissable`, `onDismiss` |
+| **Badge** | Status indicators | `variant` (success/warning/danger/info/neutral), `dot`, `size` |
+| **Dropdown** | Menu triggered by a button | `trigger`, `align` (left/right). Children: `DropdownItem`, `DropdownSeparator` |
+| **InfoBlock** | Label + value display | `label`, `value`, `sublabel`, `mono` |
+| **ErrorBanner** | Fixed-position auto-dismiss banner | `error` (StoredError), `onDismiss`, `duration`, `variant` |
+| **LoadingSpinner** | Loading indicator | `size` (sm/md/lg), `color` (gold/white/stone) |
+| **Layout** | Page wrapper | `variant` (default/centered/game) |
+
+### When to use what
+
+- **Inline error after a form action** → `<Alert variant="error">`
+- **Global error after navigation/redirect** → `<ErrorBanner>` (used once in AppRoutes)
+- **Status text (e.g. "2FA: Enabled")** → `<Badge variant="success" dot>`
+- **Key-value info (e.g. session details)** → `<InfoBlock label="..." value="..." />`
+- **Form input with label and icon** → `<Input label="Email" icon={<Mail />} />`
+- **OTP / recovery code input** → `<Input variant="code" />`
+- **Button with loading state** → `<Button loading loadingText="Saving...">`
+- **Menu dropdown** → `<Dropdown trigger={...}><DropdownItem /></Dropdown>`
+
+### Color Palette
+
+Colors are derived from KayKit dungeon/forest textures. Defined in `tailwind.config.js`.
+
+- **Neutrals**: `stone-50` (cream) through `stone-950` (near-black)
+- **Primary**: `gold-50` through `gold-900` (default: `gold-400`)
+- **Semantic**: `danger`, `success`, `warning`, `info` (each has DEFAULT, light, dark, bg)
+- **Accents**: `accent-purple`, `accent-magenta`, `accent-cyan`, `accent-teal`, `accent-coral`
+
+### Typography
+
+- **Headings**: `font-display` (Fredoka) — use `<h1>`, `<h2>`, `<h3>` or `className="font-display"`
+- **Body**: `font-body` (Nunito Sans) — default for all text
+- **Code**: `font-mono` (JetBrains Mono) — for session IDs, recovery codes, etc.
+- **Swap fonts**: Edit `--font-display`, `--font-body`, `--font-mono` in `src/index.css`
+
+---
+
 ## Libraries
 
 ### overview

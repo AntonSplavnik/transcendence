@@ -5,9 +5,24 @@ import { server } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
 import { createMockAuthResponse } from '../../fixtures/users';
 
+// Mock Avatar components to avoid XHR/ProgressEvent issues in jsdom
+vi.mock('../../../src/components/ui/AvatarDisplay', () => ({
+	default: () => <div data-testid="avatar-display" />,
+}));
+vi.mock('../../../src/components/ui/AvatarUpload', () => ({
+	default: () => <div data-testid="avatar-upload" />,
+}));
+// Mock fetchAvatar so Home's useEffect doesn't trigger real XHR requests
+vi.mock('../../../src/api/avatar', () => ({
+	fetchAvatar: vi.fn().mockResolvedValue('blob:mock-avatar-url'),
+	uploadAvatar: vi.fn().mockResolvedValue(undefined),
+	deleteAvatar: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('Home', () => {
 	const mockOnGame = vi.fn();
 	const mockOnLogout = vi.fn();
+	const mockOnSessions = vi.fn();
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -22,7 +37,7 @@ describe('Home', () => {
 			})
 		);
 
-		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 	};
 
 	describe('user info display', () => {
@@ -46,7 +61,9 @@ describe('Home', () => {
 			renderHome({ totp_enabled: true });
 
 			await waitFor(() => {
-				expect(screen.getByText('✅ Enabled')).toBeInTheDocument();
+				const badge = screen.getByText('Enabled');
+				expect(badge).toBeInTheDocument();
+				expect(badge.closest('[role="status"]')).toBeInTheDocument();
 			});
 		});
 
@@ -54,7 +71,9 @@ describe('Home', () => {
 			renderHome({ totp_enabled: false });
 
 			await waitFor(() => {
-				expect(screen.getByText('❌ Disabled')).toBeInTheDocument();
+				const badge = screen.getByText('Disabled');
+				expect(badge).toBeInTheDocument();
+				expect(badge.closest('[role="status"]')).toBeInTheDocument();
 			});
 		});
 	});
@@ -69,13 +88,13 @@ describe('Home', () => {
 			});
 
 			// Menu should be closed initially
-			expect(screen.queryByText('Two-Factor Authentication')).not.toBeInTheDocument();
+			expect(screen.queryByText('Two-Factor Auth')).not.toBeInTheDocument();
 
 			// Open menu
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
 
-			expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
-			expect(screen.getByText('Session Details')).toBeInTheDocument();
+			expect(screen.getByText('Two-Factor Auth')).toBeInTheDocument();
+			expect(screen.getByText('Manage Sessions')).toBeInTheDocument();
 			expect(screen.getByText('Log Out')).toBeInTheDocument();
 		});
 
@@ -89,15 +108,12 @@ describe('Home', () => {
 
 			// Open menu
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
-			expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
+			expect(screen.getByText('Two-Factor Auth')).toBeInTheDocument();
 
-			// Click outside (on the backdrop)
-			const backdrop = document.querySelector('.fixed.inset-0.z-10');
-			if (backdrop) {
-				await user.click(backdrop);
-			}
+			// Click outside — Dropdown uses document mousedown listener
+			await user.click(document.body);
 
-			expect(screen.queryByText('Two-Factor Authentication')).not.toBeInTheDocument();
+			expect(screen.queryByText('Two-Factor Auth')).not.toBeInTheDocument();
 		});
 	});
 
@@ -150,10 +166,10 @@ describe('Home', () => {
 
 			// Open menu
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
-			await user.click(screen.getByText('Two-Factor Authentication'));
+			await user.click(screen.getByText('Two-Factor Auth'));
 
 			await waitFor(() => {
-				expect(screen.getByText('Current Status:')).toBeInTheDocument();
+				expect(screen.getByText('Current Status')).toBeInTheDocument();
 			});
 		});
 
@@ -167,12 +183,12 @@ describe('Home', () => {
 
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
 
-			expect(screen.getByText('✓ Active')).toBeInTheDocument();
+			expect(screen.getByText('Active')).toBeInTheDocument();
 		});
 	});
 
-	describe('session details modal', () => {
-		it('opens session details modal from menu', async () => {
+	describe('manage sessions', () => {
+		it('calls onSessions from menu', async () => {
 			const user = userEvent.setup();
 			renderHome();
 
@@ -182,11 +198,9 @@ describe('Home', () => {
 
 			// Open menu
 			await user.click(screen.getByRole('button', { name: /TestUser/i }));
-			await user.click(screen.getByText('Session Details'));
+			await user.click(screen.getByText('Manage Sessions'));
 
-			await waitFor(() => {
-				expect(screen.getByText('Session ID')).toBeInTheDocument();
-			});
+			expect(mockOnSessions).toHaveBeenCalled();
 		});
 	});
 
@@ -217,7 +231,7 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -240,7 +254,7 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} />);
+			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
