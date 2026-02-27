@@ -17,6 +17,20 @@ vi.mock('../../../src/components/GameBoard', () => ({
 	),
 }));
 
+// Mock Avatar components to avoid XHR/ProgressEvent issues in jsdom
+vi.mock('../../../src/components/ui/AvatarDisplay', () => ({
+	default: () => <div data-testid="avatar-display" />,
+}));
+vi.mock('../../../src/components/ui/AvatarUpload', () => ({
+	default: () => <div data-testid="avatar-upload" />,
+}));
+// Mock fetchAvatar so Home's useEffect doesn't trigger real XHR requests
+vi.mock('../../../src/api/avatar', () => ({
+	fetchAvatar: vi.fn().mockResolvedValue('blob:mock-avatar-url'),
+	uploadAvatar: vi.fn().mockResolvedValue(undefined),
+	deleteAvatar: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock LandingPage
 vi.mock('../../../src/components/LandingPage', () => ({
 	default: ({ onLogin }: { onLogin: () => void }) => (
@@ -151,6 +165,30 @@ describe('AppRoutes', () => {
 			});
 
 			expect(screen.queryByText('Old error message')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('sessions route', () => {
+		it('renders SessionManagement at /sessions when authenticated', async () => {
+			server.use(
+				http.get('/api/user/me', () => {
+					return HttpResponse.json(createMockAuthResponse());
+				})
+			);
+			renderRoutes('/sessions');
+
+			await waitFor(() => {
+				expect(screen.getByText('Session Management')).toBeInTheDocument();
+			});
+		});
+
+		it('redirects to /auth when unauthenticated', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/sessions');
+
+			await waitFor(() => {
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+			});
 		});
 	});
 

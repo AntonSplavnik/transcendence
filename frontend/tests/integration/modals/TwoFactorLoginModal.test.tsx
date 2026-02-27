@@ -93,7 +93,7 @@ describe('TwoFactorLoginModal', () => {
 		renderModal();
 
 		const input = screen.getByLabelText('Authentication Code');
-		await user.type(input, 'invalid');
+		await user.type(input, '000000');
 		await user.click(screen.getByText('Continue'));
 
 		await waitFor(() => {
@@ -132,7 +132,7 @@ describe('TwoFactorLoginModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		await waitFor(() => {
-			expect(screen.getByText('Authentication code is required')).toBeInTheDocument();
+			expect(screen.getByText('Authentication code is required.')).toBeInTheDocument();
 		});
 	});
 
