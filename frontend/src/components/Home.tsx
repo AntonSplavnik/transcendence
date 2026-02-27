@@ -5,7 +5,7 @@ import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
 import TwoFactorModal from "./modals/TwoFactorAuthModal";
 import ReauthModal from "./modals/ReauthModal";
 import AvatarDisplay from "./ui/AvatarDisplay";
-import AvatarUploadModal from "./modals/AvatarUploadModal";
+import EditUserModal from "./modals/EditUserModal";
 import { useState } from "react";
 
 const REAUTH_THRESHOLD_MINUTES = 30;
@@ -182,7 +182,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 			{/* Edit profile Modal */}
 			{showEditProfile && (
-				<AvatarUploadModal
+				<EditUserModal
 					user={user}
 					description={description}
 					onClose={() => setShowEditProfile(false)}

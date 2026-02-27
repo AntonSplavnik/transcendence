@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { updateDescription } from '../../api/user';
@@ -16,7 +16,7 @@ interface EditProfileProps {
 	onDescriptionChanged: (description: string) => void;
 }
 
-export default function AvatarUploadModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
+export default function EditUserModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
 	const [avatarLoading, setAvatarLoading] = useState(false);
 	const [descriptionLoading, setDescriptionLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -24,6 +24,10 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 	const [descriptionValue, setDescriptionValue] = useState(description);
 	const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+	}, [previewUrl]);
 
 	async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
@@ -87,8 +91,9 @@ export default function AvatarUploadModal({ user, description, onClose, onAvatar
 				onDescriptionChanged(descriptionValue);
 			} catch {
 				setError("Failed to update description");
-				setDescriptionLoading(false);
 				return;
+			} finally {
+				setDescriptionLoading(false);
 			}
 		}
 		onClose();
