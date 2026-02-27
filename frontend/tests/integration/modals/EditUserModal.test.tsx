@@ -133,9 +133,9 @@ describe('EditUserModal', () => {
 		await user.type(screen.getByLabelText('Description'), 'New');
 		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
-			expect(screen.getByText('Failed to save changes')).toBeInTheDocument();
+			expect(screen.getByText('Server error')).toBeInTheDocument();
+			expect(mockOnClose).not.toHaveBeenCalled();
 		});
-		expect(mockOnClose).not.toHaveBeenCalled();
 	});
 
 	it('shows loading state during description update', async () => {
@@ -174,6 +174,41 @@ describe('EditUserModal', () => {
 		fireEvent.change(input);
 		await waitFor(() => {
 			expect(screen.getByText('File must be smaller than 10 MB.')).toBeInTheDocument();
+		});
+	});
+
+	// --- Avatar delete ---
+
+	it('calls onAvatarChanged(null, null) on successful delete after Save', async () => {
+		server.use(
+			http.delete('/api/avatar', () => new HttpResponse(null, { status: 204 })),
+		);
+		const user = userEvent.setup();
+		renderModal();
+		await user.click(screen.getByText('x delete'));
+		await user.click(screen.getByText('Save'));
+		await waitFor(() => {
+			expect(mockOnAvatarChanged).toHaveBeenCalledWith(null, null);
+			expect(mockOnClose).toHaveBeenCalled();
+		});
+	});
+
+	it('shows error and does not close when avatar delete fails', async () => {
+		server.use(
+			http.delete('/api/avatar', () =>
+				HttpResponse.json(
+					{ error: createMockApiError({ code: 500, brief: 'InternalError', detail: 'Server error' }) },
+					{ status: 500 },
+				),
+			),
+		);
+		const user = userEvent.setup();
+		renderModal();
+		await user.click(screen.getByText('x delete'));
+		await user.click(screen.getByText('Save'));
+		await waitFor(() => {
+			expect(screen.getByText('Server error')).toBeInTheDocument();
+			expect(mockOnClose).not.toHaveBeenCalled();
 		});
 	});
 

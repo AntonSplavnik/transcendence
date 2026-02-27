@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react';
 import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { updateDescription } from '../../api/user';
 import { validateAvatarFile, validateDescription } from '../../utils/validation';
+import { getErrorMessage } from '../../api/error';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
 import type { AvatarVariants } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
@@ -82,14 +83,17 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 		setLoading(true);
 		setError(null);
 		try {
+			// Collect callbacks so parent state is only updated after all operations succeed.
+			let avatarCallback: (() => void) | null = null;
+
 			if (pendingAvatar) {
 				await uploadAvatar(pendingAvatar.large, pendingAvatar.small);
 				const smallUrl = URL.createObjectURL(pendingAvatar.small);
 				const largeUrl = URL.createObjectURL(pendingAvatar.large);
-				onAvatarChanged(smallUrl, largeUrl);
+				avatarCallback = () => onAvatarChanged(smallUrl, largeUrl);
 			} else if (pendingDelete) {
 				await deleteAvatar();
-				onAvatarChanged(null, null);
+				avatarCallback = () => onAvatarChanged(null, null);
 			}
 
 			if (descriptionChanged) {
@@ -97,9 +101,10 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 				onDescriptionChanged(descriptionValue);
 			}
 
+			avatarCallback?.();
 			onClose();
-		} catch {
-			setError("Failed to save changes");
+		} catch (err) {
+			setError(getErrorMessage(err, "Failed to save changes"));
 		} finally {
 			setLoading(false);
 		}
@@ -133,6 +138,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 					className="hidden"
 				/>
 				<button
+					type="button"
 					onClick={handleDelete}
 					disabled={loading}
 					className="text-danger hover:text-danger-light text-xs italic disabled:opacity-50 transition-colors"
@@ -170,7 +176,6 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 
 				<Button
 					onClick={handleSave}
-					disabled={loading}
 					loading={loading}
 					loadingText="Saving..."
 					fullWidth
