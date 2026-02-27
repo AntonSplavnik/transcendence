@@ -110,6 +110,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 			onClose={onClose}
 			title="Edit Profile"
 			icon={<Pencil className="w-6 h-6" />}
+			closable={!loading}
 		>
 			{/* Clickable Avatar */}
 			<div className="flex flex-col items-center gap-1 mb-4">

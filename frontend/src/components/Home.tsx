@@ -7,6 +7,7 @@ import ReauthModal from "./modals/ReauthModal";
 import AvatarDisplay from "./ui/AvatarDisplay";
 import EditUserModal from "./modals/EditUserModal";
 import { useState } from "react";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 const REAUTH_THRESHOLD_MINUTES = 30;
 
@@ -21,8 +22,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | undefined>(undefined);
-	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | undefined>(undefined);
+	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
 
 	if (!user || !session) {
@@ -186,10 +186,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 					user={user}
 					description={description}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={(smallUrl, largeUrl) => {
-						setAvatarSmallUrl(smallUrl ?? undefined);
-						setAvatarLargeUrl(largeUrl ?? undefined);
-					}}
+					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}

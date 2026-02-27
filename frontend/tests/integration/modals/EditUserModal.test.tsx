@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, userEvent, fireEvent } from '../../helpers/render';
 import EditUserModal from '../../../src/components/modals/EditUserModal';
 import { server } from '../../helpers/msw-handlers';
@@ -10,9 +10,6 @@ vi.mock('../../../src/utils/avatarConverter', () => ({
 	convertToAvatarAvif: vi.fn(),
 }));
 
-URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-URL.revokeObjectURL = vi.fn();
-
 describe('EditUserModal', () => {
 	const mockOnClose = vi.fn();
 	const mockOnAvatarChanged = vi.fn();
@@ -21,6 +18,8 @@ describe('EditUserModal', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+		vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
 		server.use(
 			http.get('/api/avatar/:userId/:size', () => {
 				return new HttpResponse(new Blob([''], { type: 'image/avif' }), {
@@ -28,6 +27,10 @@ describe('EditUserModal', () => {
 				});
 			}),
 		);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
 	});
 
 	const renderModal = (description = '') => render(
