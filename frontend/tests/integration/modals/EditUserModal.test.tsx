@@ -130,7 +130,7 @@ describe('EditUserModal', () => {
 		await user.type(screen.getByLabelText('Description'), 'New');
 		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
-			expect(screen.getByText('Failed to update description')).toBeInTheDocument();
+			expect(screen.getByText('Failed to save changes')).toBeInTheDocument();
 		});
 		expect(mockOnClose).not.toHaveBeenCalled();
 	});
@@ -152,15 +152,17 @@ describe('EditUserModal', () => {
 
 	// --- Avatar delete ---
 
-	it('calls onAvatarChanged(null, null) on successful delete', async () => {
+	it('calls onAvatarChanged(null, null) on successful delete after Save', async () => {
 		server.use(
 			http.delete('/api/avatar', () => new HttpResponse(null, { status: 204 })),
 		);
 		const user = userEvent.setup();
 		renderModal();
 		await user.click(screen.getByText('x delete'));
+		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
 			expect(mockOnAvatarChanged).toHaveBeenCalledWith(null, null);
+			expect(mockOnClose).toHaveBeenCalled();
 		});
 	});
 
@@ -176,9 +178,11 @@ describe('EditUserModal', () => {
 		const user = userEvent.setup();
 		renderModal();
 		await user.click(screen.getByText('x delete'));
+		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
-			expect(screen.getByText('Failed to delete avatar')).toBeInTheDocument();
+			expect(screen.getByText('Failed to save changes')).toBeInTheDocument();
 		});
+		expect(mockOnClose).not.toHaveBeenCalled();
 	});
 
 	// --- Avatar file validation ---
@@ -207,7 +211,7 @@ describe('EditUserModal', () => {
 
 	// --- Avatar upload ---
 
-	it('calls onAvatarChanged with blob URLs on successful upload', async () => {
+	it('calls onAvatarChanged with blob URLs on successful upload after Save', async () => {
 		const { convertToAvatarAvif } = await import('../../../src/utils/avatarConverter');
 		vi.mocked(convertToAvatarAvif).mockResolvedValueOnce({
 			success: true,
@@ -219,13 +223,17 @@ describe('EditUserModal', () => {
 		server.use(
 			http.post('/api/avatar', () => new HttpResponse(null, { status: 200 })),
 		);
+		const user = userEvent.setup();
 		renderModal();
 		const file = new File(['img'], 'photo.png', { type: 'image/png' });
 		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 		Object.defineProperty(input, 'files', { value: [file], configurable: true });
 		fireEvent.change(input);
+		await waitFor(() => expect(screen.getByText('Save')).not.toBeDisabled());
+		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
 			expect(mockOnAvatarChanged).toHaveBeenCalledWith('blob:mock-url', 'blob:mock-url');
+			expect(mockOnClose).toHaveBeenCalled();
 		});
 	});
 

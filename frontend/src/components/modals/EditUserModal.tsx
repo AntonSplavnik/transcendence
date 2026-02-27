@@ -4,6 +4,7 @@ import { uploadAvatar, deleteAvatar } from '../../api/avatar';
 import { updateDescription } from '../../api/user';
 import { validateAvatarFile, validateDescription } from '../../utils/validation';
 import { convertToAvatarAvif } from '../../utils/avatarConverter';
+import type { AvatarVariants } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
 import AvatarDisplay from '../ui/AvatarDisplay';
 import { Button, Modal, Alert } from '../ui';
@@ -17,12 +18,14 @@ interface EditProfileProps {
 }
 
 export default function EditUserModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
-	const [avatarLoading, setAvatarLoading] = useState(false);
-	const [descriptionLoading, setDescriptionLoading] = useState(false);
+	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [descriptionError, setDescriptionError] = useState<string | null>(null);
 	const [descriptionValue, setDescriptionValue] = useState(description);
-	const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
+	// undefined = fetch from server, null = show default icon (pending delete), string = preview URL
+	const [previewUrl, setPreviewUrl] = useState<string | null | undefined>(undefined);
+	const [pendingAvatar, setPendingAvatar] = useState<AvatarVariants | null>(null);
+	const [pendingDelete, setPendingDelete] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
@@ -40,39 +43,25 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 			return;
 		}
 
-		setAvatarLoading(true);
 		setError(null);
-		try {
-			const result = await convertToAvatarAvif(file);
-			if (!result.success) {
-				setError(result.error.message);
-				return;
-			}
-			await uploadAvatar(result.data.large, result.data.small);
-			const smallUrl = URL.createObjectURL(result.data.small);
-			const largeUrl = URL.createObjectURL(result.data.large);
-			setPreviewUrl(largeUrl);
-			onAvatarChanged(smallUrl, largeUrl);
-		} catch {
-			setError("Failed to upload avatar");
-		} finally {
-			setAvatarLoading(false);
+		const result = await convertToAvatarAvif(file);
+		if (!result.success) {
+			setError(result.error.message);
 			if (fileInputRef.current) fileInputRef.current.value = '';
+			return;
 		}
+
+		setPendingDelete(false);
+		setPendingAvatar(result.data);
+		setPreviewUrl(URL.createObjectURL(result.data.large));
+		if (fileInputRef.current) fileInputRef.current.value = '';
 	}
 
-	async function handleDelete() {
-		setAvatarLoading(true);
+	function handleDelete() {
+		setPendingAvatar(null);
+		setPendingDelete(true);
+		setPreviewUrl(null);
 		setError(null);
-		try {
-			await deleteAvatar();
-			setPreviewUrl(undefined);
-			onAvatarChanged(null, null);
-		} catch {
-			setError("Failed to delete avatar");
-		} finally {
-			setAvatarLoading(false);
-		}
 	}
 
 	async function handleSave() {
@@ -83,20 +72,37 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 		}
 
 		const descriptionChanged = descriptionValue !== description;
-		if (descriptionChanged) {
-			setDescriptionLoading(true);
-			setError(null);
-			try {
+		const hasAvatarChange = pendingAvatar !== null || pendingDelete;
+
+		if (!descriptionChanged && !hasAvatarChange) {
+			onClose();
+			return;
+		}
+
+		setLoading(true);
+		setError(null);
+		try {
+			if (pendingAvatar) {
+				await uploadAvatar(pendingAvatar.large, pendingAvatar.small);
+				const smallUrl = URL.createObjectURL(pendingAvatar.small);
+				const largeUrl = URL.createObjectURL(pendingAvatar.large);
+				onAvatarChanged(smallUrl, largeUrl);
+			} else if (pendingDelete) {
+				await deleteAvatar();
+				onAvatarChanged(null, null);
+			}
+
+			if (descriptionChanged) {
 				await updateDescription(descriptionValue);
 				onDescriptionChanged(descriptionValue);
-			} catch {
-				setError("Failed to update description");
-				return;
-			} finally {
-				setDescriptionLoading(false);
 			}
+
+			onClose();
+		} catch {
+			setError("Failed to save changes");
+		} finally {
+			setLoading(false);
 		}
-		onClose();
 	}
 
 	return (
@@ -110,7 +116,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 				<button
 					type="button"
 					onClick={() => fileInputRef.current?.click()}
-					disabled={avatarLoading}
+					disabled={loading}
 					className="relative group rounded-full disabled:opacity-50"
 				>
 					<AvatarDisplay userId={user.id} size="large" src={previewUrl} className="w-32 h-32 rounded-full" />
@@ -127,7 +133,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 				/>
 				<button
 					onClick={handleDelete}
-					disabled={avatarLoading}
+					disabled={loading}
 					className="text-danger hover:text-danger-light text-xs italic disabled:opacity-50 transition-colors"
 				>
 					x delete
@@ -163,8 +169,8 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 
 				<Button
 					onClick={handleSave}
-					disabled={descriptionLoading}
-					loading={descriptionLoading}
+					disabled={loading}
+					loading={loading}
 					loadingText="Saving..."
 					fullWidth
 				>
