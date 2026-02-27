@@ -109,12 +109,12 @@ export default function AppRoutes() {
 				<Route path="*" element={<Navigate to="/landing" replace />} />
 			</Routes>
 			{!hideFooter && (
-				<footer role="contentinfo" className="py-1 text-center text-xs text-stone-500">
-					<Link to="/privacy" className="hover:text-gold-400 transition-colors">
+				<footer role="contentinfo" className="relative z-10 py-1 text-center text-xs text-stone-500">
+					<Link to="/privacy" aria-label="Privacy Policy" className="hover:text-gold-400 transition-colors">
 						Privacy Policy
 					</Link>
 					<span className="mx-2">&middot;</span>
-					<Link to="/terms" className="hover:text-gold-400 transition-colors">
+					<Link to="/terms" aria-label="Terms of Service" className="hover:text-gold-400 transition-colors">
 						Terms of Service
 					</Link>
 				</footer>

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../../../src/contexts/AuthContext';
 import AppRoutes from '../../../src/AppRoutes';
@@ -205,6 +206,70 @@ describe('AppRoutes', () => {
 			await waitFor(() => {
 				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe('footer links', () => {
+		it('renders Privacy Policy and Terms of Service links', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/landing');
+
+			await waitFor(() => {
+				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+			});
+
+			const privacyLink = screen.getByRole('link', { name: 'Privacy Policy' });
+			const termsLink = screen.getByRole('link', { name: 'Terms of Service' });
+
+			expect(privacyLink).toHaveAttribute('href', '/privacy');
+			expect(termsLink).toHaveAttribute('href', '/terms');
+		});
+
+		it('navigates to Privacy Policy page when link is clicked', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/landing');
+
+			await waitFor(() => {
+				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+			});
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('link', { name: 'Privacy Policy' }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Last updated: \d{2}\.\d{2}\.\d{4}/)).toBeInTheDocument();
+			});
+		});
+
+		it('navigates to Terms of Service page when link is clicked', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/landing');
+
+			await waitFor(() => {
+				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+			});
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('link', { name: 'Terms of Service' }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Who Can Use This Service/)).toBeInTheDocument();
+			});
+		});
+
+		it('does not render footer on /game route', async () => {
+			server.use(
+				http.get('/api/user/me', () => {
+					return HttpResponse.json(createMockAuthResponse());
+				})
+			);
+			renderRoutes('/game');
+
+			await waitFor(() => {
+				expect(screen.getByTestId('game-board')).toBeInTheDocument();
+			});
+
+			expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
 		});
 	});
 });
