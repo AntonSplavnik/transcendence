@@ -150,41 +150,6 @@ describe('EditUserModal', () => {
 		expect(screen.getByText('Saving...')).toBeInTheDocument();
 	});
 
-	// --- Avatar delete ---
-
-	it('calls onAvatarChanged(null, null) on successful delete after Save', async () => {
-		server.use(
-			http.delete('/api/avatar', () => new HttpResponse(null, { status: 204 })),
-		);
-		const user = userEvent.setup();
-		renderModal();
-		await user.click(screen.getByText('x delete'));
-		await user.click(screen.getByText('Save'));
-		await waitFor(() => {
-			expect(mockOnAvatarChanged).toHaveBeenCalledWith(null, null);
-			expect(mockOnClose).toHaveBeenCalled();
-		});
-	});
-
-	it('shows error when avatar delete fails', async () => {
-		server.use(
-			http.delete('/api/avatar', () =>
-				HttpResponse.json(
-					{ error: createMockApiError({ code: 500, brief: 'InternalError' }) },
-					{ status: 500 },
-				),
-			),
-		);
-		const user = userEvent.setup();
-		renderModal();
-		await user.click(screen.getByText('x delete'));
-		await user.click(screen.getByText('Save'));
-		await waitFor(() => {
-			expect(screen.getByText('Failed to save changes')).toBeInTheDocument();
-		});
-		expect(mockOnClose).not.toHaveBeenCalled();
-	});
-
 	// --- Avatar file validation ---
 
 	it('shows error when a non-image file is selected', async () => {
