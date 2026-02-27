@@ -27,6 +27,7 @@ RUN touch src/main.rs && cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y libsqlite3-0 openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=backend /usr/lib/*/libdav1d* /usr/lib/
+RUN ldconfig
 WORKDIR /app
 COPY --from=backend /build/target/release/transcendence-backend /app/transcendence-backend
 COPY --from=frontend /build/dist/ /www/
@@ -35,4 +36,4 @@ COPY docker.config.toml /app/config.toml
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 EXPOSE 8080 8443
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

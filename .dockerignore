@@ -3,3 +3,5 @@
 **/.git
 backend/data
 backend/certs
+.env
+.env.*
