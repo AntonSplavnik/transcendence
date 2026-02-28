@@ -171,7 +171,7 @@ pub fn load_pending_requests(
     Ok(result)
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
 pub struct SendFriendRequestInput {
     pub user_id: Option<i32>,
     #[validate(custom(function = "crate::validate::nickname"))]
@@ -190,7 +190,7 @@ impl SendFriendRequestInput {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct FriendRequestResponse {
     pub id: i32,
     pub sender: PublicUser,

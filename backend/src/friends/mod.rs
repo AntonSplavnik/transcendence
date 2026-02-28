@@ -12,6 +12,9 @@ mod remove;
 mod send;
 pub(crate) mod types;
 
+#[cfg(test)]
+mod tests;
+
 use crate::prelude::*;
 
 pub fn router(path: &str) -> Router {
