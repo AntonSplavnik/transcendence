@@ -4,7 +4,7 @@ use crate::models::{FriendRequest, User};
 use crate::prelude::*;
 use crate::routers::users::PublicUser;
 
-use super::types::{MAX_LIST_RESULTS, RequestStatus};
+use super::types::RequestStatus;
 
 /// Get list of friends
 #[endpoint]
@@ -22,7 +22,6 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
             let friendships: Vec<FriendRequest> = fr::friend_requests
                 .filter(fr::status.eq(RequestStatus::ACCEPTED))
                 .filter(fr::sender_id.eq(user_id).or(fr::receiver_id.eq(user_id)))
-                .limit(MAX_LIST_RESULTS)
                 .load(conn)?;
 
             // Extract friend IDs (the other person in each friendship)

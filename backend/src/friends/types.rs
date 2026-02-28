@@ -22,11 +22,14 @@ impl RequestStatus {
     pub const ACCEPTED: &'static str = "accepted";
 }
 
-/// Maximum number of results returned by list endpoints.
+/// Maximum number of results returned by pending-request list endpoints.
 pub const MAX_LIST_RESULTS: i64 = 100;
 
 /// Maximum number of pending friend requests a user can have.
 pub const MAX_PENDING_REQUESTS: i64 = 50;
+
+/// Maximum number of accepted friends a user can have.
+pub const MAX_FRIENDS: i64 = 100;
 
 /// Helper to parse path parameters safely.
 pub fn parse_param<T: std::str::FromStr>(req: &Request, name: &str) -> Result<T, FriendError> {

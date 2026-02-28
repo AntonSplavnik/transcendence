@@ -27,6 +27,8 @@ pub enum FriendError {
     NotFriends,
     #[error("too many pending friend requests")]
     TooManyPending,
+    #[error("friend list is full")]
+    FriendListFull,
     #[error("invalid parameter: {0}")]
     InvalidParam(String),
 }
@@ -155,6 +157,7 @@ impl Scribe for ApiError {
                     | FriendError::DuplicateRequest
                     | FriendError::AlreadyFriends
                     | FriendError::TooManyPending
+                    | FriendError::FriendListFull
                     | FriendError::InvalidParam(_) => StatusError::bad_request().brief(variant),
                     FriendError::RequestNotFound | FriendError::NotFriends => {
                         StatusError::not_found().brief(variant)

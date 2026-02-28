@@ -3,6 +3,42 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Bypass HTTP to insert `count` accepted friendships directly into the DB.
+/// Creates `count` registered users (HTTP) to satisfy FK constraints.
+async fn fill_friend_list(server: &mock::Server, user_id: i32, count: usize) {
+    use crate::db::Database as _;
+
+    let mut other_ids = Vec::with_capacity(count);
+    for _ in 0..count {
+        other_ids.push(server.user().register().await.user_id());
+    }
+
+    server
+        .db
+        .transaction_write(move |conn| {
+            use crate::schema::friend_requests::dsl as fr;
+            use diesel::prelude::*;
+
+            let now = chrono::Utc::now();
+            for other_id in other_ids {
+                diesel::insert_into(fr::friend_requests)
+                    .values((
+                        fr::sender_id.eq(other_id),
+                        fr::receiver_id.eq(user_id),
+                        fr::status.eq("accepted"),
+                        fr::created_at.eq(now),
+                        fr::updated_at.eq(now),
+                    ))
+                    .execute(conn)?;
+            }
+            Ok(())
+        })
+        .await
+        .expect("fill_friend_list should not fail");
+}
+
 // ── Ergonomic helpers on mock::User ──────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
@@ -116,6 +152,45 @@ async fn accept_request_already_accepted_conflict() {
         res.status_code,
         Some(StatusCode::CONFLICT),
         "accepting an already-accepted request must return 409"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_receiver_list_full_rejected() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+
+    // Fill alice's friend list to MAX_FRIENDS via direct DB inserts.
+    fill_friend_list(&server, alice.user_id(), 100).await;
+
+    let mut last = server.user().register().await;
+    let req = last.send_friend_request_to(alice.user_id()).await;
+    let res = alice.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "receiver with a full friend list (100) must get 400"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_sender_list_full_rejected() {
+    // Alice has 100 friends and sends a new request to Bob.
+    // Bob tries to accept — must fail because Alice's list is full.
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let mut bob = server.user().register().await;
+
+    fill_friend_list(&server, alice.user_id(), 100).await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    let res = bob.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "sender with a full friend list (100) must get 400 when receiver tries to accept"
     );
 }
 

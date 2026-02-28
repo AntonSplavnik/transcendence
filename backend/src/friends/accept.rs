@@ -7,7 +7,8 @@ use crate::prelude::*;
 use crate::error::FriendError;
 
 use super::types::{
-    FriendRequestResponse, RequestStatus, find_pending_request, parse_param, send_notification,
+    FriendRequestResponse, MAX_FRIENDS, RequestStatus, find_pending_request, parse_param,
+    send_notification,
 };
 
 /// Accept a friend request
@@ -26,6 +27,31 @@ pub async fn accept_friend_request(
     let (updated_request, sender, receiver) = db
         .write(move |conn| {
             let request = find_pending_request(conn, request_id, user_id, false)?;
+
+            // Reject if either party has already reached the friend limit
+            let sender_count: i64 = fr::friend_requests
+                .filter(fr::status.eq(RequestStatus::ACCEPTED))
+                .filter(
+                    fr::sender_id
+                        .eq(request.sender_id)
+                        .or(fr::receiver_id.eq(request.sender_id)),
+                )
+                .count()
+                .get_result(conn)?;
+
+            let receiver_count: i64 = fr::friend_requests
+                .filter(fr::status.eq(RequestStatus::ACCEPTED))
+                .filter(
+                    fr::sender_id
+                        .eq(request.receiver_id)
+                        .or(fr::receiver_id.eq(request.receiver_id)),
+                )
+                .count()
+                .get_result(conn)?;
+
+            if sender_count >= MAX_FRIENDS || receiver_count >= MAX_FRIENDS {
+                return Err(FriendError::FriendListFull.into());
+            }
 
             // Atomically update: re-check pending status in WHERE to prevent races
             let now = chrono::Utc::now();
