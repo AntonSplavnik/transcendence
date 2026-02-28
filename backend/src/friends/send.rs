@@ -14,7 +14,8 @@ use super::types::{
 
 /// Send a friend request to another user
 ///
-/// Provide either `user_id` or `nickname` to identify the target user.
+/// Provide `user_id` or `nickname` to identify the target user.
+/// If both are given, `user_id` takes precedence.
 #[endpoint]
 pub async fn send_friend_request(
     depot: &mut Depot,

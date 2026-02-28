@@ -180,10 +180,11 @@ pub struct SendFriendRequestInput {
 
 impl SendFriendRequestInput {
     /// Validate that at least one identifier is provided.
+    /// If both are given, `user_id` takes precedence.
     pub fn validate_target(&self) -> Result<(), FriendError> {
         if self.user_id.is_none() && self.nickname.as_ref().is_none_or(|n| n.is_empty()) {
             return Err(FriendError::InvalidParam(
-                "provide either user_id or nickname".into(),
+                "provide user_id or nickname".into(),
             ));
         }
         Ok(())
