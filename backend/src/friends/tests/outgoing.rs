@@ -33,14 +33,18 @@ async fn outgoing_requests_empty_initially() {
 
     let outgoing = alice.outgoing_requests().await;
 
-    assert!(outgoing.is_empty(), "new user must have no outgoing requests");
+    assert!(
+        outgoing.is_empty(),
+        "new user must have no outgoing requests"
+    );
 }
 
 #[tokio::test]
 async fn outgoing_requests_unauthenticated_unauthorized() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    user.assert_requires_auth(|c| c.get("/api/friends/requests/outgoing")).await;
+    user.assert_requires_auth(|c| c.get("/api/friends/requests/outgoing"))
+        .await;
 }
 
 #[tokio::test]

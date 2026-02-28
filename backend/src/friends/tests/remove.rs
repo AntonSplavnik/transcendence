@@ -49,7 +49,8 @@ async fn remove_friend_succeeds() {
 async fn remove_friend_unauthenticated_unauthorized() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    user.assert_requires_auth(|c| c.delete("/api/friends/remove/1")).await;
+    user.assert_requires_auth(|c| c.delete("/api/friends/remove/1"))
+        .await;
 }
 
 #[tokio::test]
@@ -121,7 +122,10 @@ async fn remove_friend_allows_new_request_afterwards() {
     alice.remove_friend(bob.user_id()).await;
 
     let new_req = alice.send_friend_request_to(bob.user_id()).await;
-    assert!(new_req.id > 0, "new friend request must be created after removal");
+    assert!(
+        new_req.id > 0,
+        "new friend request must be created after removal"
+    );
     assert_eq!(new_req.status, "pending");
 }
 

@@ -39,7 +39,8 @@ async fn cancel_request_succeeds() {
 async fn cancel_request_unauthenticated_unauthorized() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    user.assert_requires_auth(|c| c.delete("/api/friends/request/1")).await;
+    user.assert_requires_auth(|c| c.delete("/api/friends/request/1"))
+        .await;
 }
 
 #[tokio::test]
@@ -153,8 +154,5 @@ async fn cancel_allows_resending_afterwards() {
     // Should succeed — unique constraint no longer blocks it.
     let new_req = alice.send_friend_request_to(bob.user_id()).await;
     assert!(new_req.id > 0, "re-sent request must have a valid id");
-    assert_ne!(
-        new_req.id, req.id,
-        "re-sent request must have a new id"
-    );
+    assert_ne!(new_req.id, req.id, "re-sent request must have a new id");
 }

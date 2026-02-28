@@ -68,7 +68,9 @@ async fn send_request_by_nickname_succeeds() {
     let mut alice = server.user().register().await;
     let bob = server.user().register().await;
 
-    let res = alice.send_friend_request_to_nick(bob.nickname.clone()).await;
+    let res = alice
+        .send_friend_request_to_nick(bob.nickname.clone())
+        .await;
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
@@ -79,7 +81,8 @@ async fn send_request_by_nickname_succeeds() {
 async fn send_request_unauthenticated_unauthorized() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    user.assert_requires_auth(|c| c.post("/api/friends/request")).await;
+    user.assert_requires_auth(|c| c.post("/api/friends/request"))
+        .await;
 }
 
 #[tokio::test]
@@ -232,14 +235,8 @@ async fn send_request_response_has_correct_ids() {
     assert!(res.id > 0, "request id must be positive");
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
-    assert_eq!(
-        res.sender.nickname.to_string(),
-        alice.nickname.to_string()
-    );
-    assert_eq!(
-        res.receiver.nickname.to_string(),
-        bob.nickname.to_string()
-    );
+    assert_eq!(res.sender.nickname.to_string(), alice.nickname.to_string());
+    assert_eq!(res.receiver.nickname.to_string(), bob.nickname.to_string());
 }
 
 #[tokio::test]

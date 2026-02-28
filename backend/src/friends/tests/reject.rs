@@ -39,7 +39,8 @@ async fn reject_request_succeeds() {
 async fn reject_request_unauthenticated_unauthorized() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    user.assert_requires_auth(|c| c.post("/api/friends/reject/1")).await;
+    user.assert_requires_auth(|c| c.post("/api/friends/reject/1"))
+        .await;
 }
 
 #[tokio::test]
