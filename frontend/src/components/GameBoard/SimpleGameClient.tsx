@@ -4,11 +4,24 @@ import {
     Scene, Engine, Vector3, MeshBuilder, UniversalCamera, HemisphericLight,
     StandardMaterial, Color3, SceneLoader, AnimationGroup, AbstractMesh, TransformNode
 } from '@babylonjs/core';
+import * as BabylonModule from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
-import type { GameStateSnapshot, GameEvent, Vector3D } from '../../game/types';
 import { GameAudioEngine } from '../../audio/AudioEngine';
 import { SoundBank } from '../../audio/SoundBank';
 import { AudioEventSystem } from '../../audio/AudioEventSystem';
+import '@babylonjs/materials'; // Required for SkyMaterial and other materials
+import * as CANNON from 'cannon-es'; // Required for physics
+
+// Make BABYLON available globally for Inspector (must be extensible object)
+(window as any).BABYLON = Object.assign({}, BabylonModule);
+(window as any).CANNON = CANNON;
+import type { GameStateSnapshot, GameEvent, Vector3D } from '../../game/types';
+import { measureModel } from '../../utils/measureModel';
+
+// Import game assets
+import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
+import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
+import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 
 // ============ COPIED FROM simple_client.ts ============
 
@@ -39,8 +52,8 @@ enum CharacterState {
 
 const AnimationNames = {
     idle: 'Idle_A',
-    walk: 'Walking_A',
-    run: 'Running_A',
+    walk: 'Walking_B',
+    run: 'Running_B',
     jumpStart: 'Jump_Start',
     jumpIdle: 'Jump_Idle',
     jumpLand: 'Jump_Land',
@@ -49,6 +62,13 @@ const AnimationNames = {
     death: 'Death_A',
     spawn: 'Spawn_Air'
 };
+
+enum JumpState {
+    GROUNDED = 'grounded',      // On ground, normal animations
+    JUMP_START = 'jump_start',  // Playing jump start animation
+    AIRBORNE = 'airborne',      // In air, playing jump idle loop
+    LANDING = 'landing'         // Playing landing animation
+}
 
 class AnimatedCharacter {
     public rootNode: TransformNode;
@@ -64,8 +84,8 @@ class AnimatedCharacter {
         this.rootNode = new TransformNode("character_root", scene);
     }
 
-    async loadModel(path: string, filename: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", path, filename, this.scene);
+    async loadModel(assetUrl: string): Promise<void> {
+        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
         result.meshes.forEach(mesh => {
             if (!mesh.parent) mesh.parent = this.rootNode;
             this.meshes.push(mesh);
@@ -80,8 +100,8 @@ class AnimatedCharacter {
         }
     }
 
-    async loadAnimations(path: string, filename: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", path, filename, this.scene);
+    async loadAnimations(assetUrl: string): Promise<void> {
+        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
         // Use THIS character's skeleton, not scene.skeletons[0]!
         if (!this.skeleton) return;
 
@@ -138,9 +158,11 @@ class GameClient {
     private velocity: Vector3 = new Vector3(0, 0, 0);
     private camera: UniversalCamera;
     private currentAnimState: string = 'idle';
-    private isGrounded: boolean = true;
+    private jumpState: JumpState = JumpState.GROUNDED;
     private wasGrounded: boolean = true;
-    private isJumping: boolean = false;
+    // Track jump state for remote players
+    private remoteJumpStates: Map<number, JumpState> = new Map();
+    private remoteWasGrounded: Map<number, boolean> = new Map();
 
     constructor(scene: Scene, localPlayerID: number, camera: UniversalCamera) {
         this.scene = scene;
@@ -150,9 +172,9 @@ class GameClient {
 
     async initLocalPlayer(): Promise<void> {
         this.localCharacter = new AnimatedCharacter(this.scene);
-        await this.localCharacter.loadModel('/assets/Rig_Medium/', 'Rig_Medium_General.glb');
-        await this.localCharacter.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_MovementBasic.glb');
-        await this.localCharacter.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_CombatMelee.glb');
+        await this.localCharacter.loadModel(generalModel);
+        await this.localCharacter.loadAnimations(movementBasicAnims);
+        await this.localCharacter.loadAnimations(combatMeleeAnims);
 
         // Scale character up 3x to make it more visible
         this.localCharacter.rootNode.scaling.setAll(3);
@@ -174,23 +196,11 @@ class GameClient {
         }
     }
 
+    // Legacy method - kept for applyInput (currently disabled)
     private updateAnimation(input: InputState): void {
         if (!this.localCharacter) return;
         const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
         const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
-
-        if (this.isGrounded && !this.wasGrounded) {
-            this.playAnimation('idle');
-            this.isJumping = false;
-        }
-
-        if (!this.isGrounded) {
-            if (!this.isJumping) {
-                this.playAnimation('jumpStart', false);
-                this.isJumping = true;
-            }
-            return;
-        }
 
         if (input.isAttacking) {
             this.playAnimation('attack', false);
@@ -208,9 +218,9 @@ class GameClient {
         }
     }
 
+    // Legacy method - currently disabled (prediction disabled)
     applyInput(input: InputState, deltaTime: number) {
         const moveSpeed = 5.0;
-        this.wasGrounded = this.isGrounded;
 
         if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
             const cameraForward = this.camera.getTarget().subtract(this.camera.position);
@@ -232,16 +242,13 @@ class GameClient {
 
         if (input.isJumping && this.position.y <= 1.1) {
             this.velocity.y = 8.0;
-            this.isGrounded = false;
         }
 
         if (this.position.y > 1.0) {
             this.velocity.y -= 20.0 * deltaTime;
-            this.isGrounded = false;
         } else {
             this.position.y = 1.0;
             this.velocity.y = 0;
-            this.isGrounded = true;
         }
 
         this.position.addInPlace(this.velocity.scale(deltaTime));
@@ -283,7 +290,7 @@ class GameClient {
                     const pos = new Vector3(char.position.x, char.position.y, char.position.z);
                     remoteChar.setPosition(pos);
                     remoteChar.setRotation(char.yaw);
-                    this.updateRemoteAnimation(remoteChar, char.state, char.velocity);
+                    this.updateRemoteAnimation(char.player_id, remoteChar, char);
                 }
             }
         }
@@ -298,6 +305,8 @@ class GameClient {
         for (const playerID of disconnectedPlayers) {
             this.characters.delete(playerID);
             this.loadingCharacters.delete(playerID);
+            this.remoteJumpStates.delete(playerID);
+            this.remoteWasGrounded.delete(playerID);
         }
     }
 
@@ -305,9 +314,9 @@ class GameClient {
         this.loadingCharacters.add(playerID);
         const remoteChar = new AnimatedCharacter(this.scene);
         try {
-            await remoteChar.loadModel('/assets/Rig_Medium/', 'Rig_Medium_General.glb');
-            await remoteChar.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_MovementBasic.glb');
-            await remoteChar.loadAnimations('/assets/Rig_Medium/', 'Rig_Medium_CombatMelee.glb');
+            await remoteChar.loadModel(generalModel);
+            await remoteChar.loadAnimations(movementBasicAnims);
+            await remoteChar.loadAnimations(combatMeleeAnims);
 
             // Scale character up 3x to make it more visible
             remoteChar.rootNode.scaling.setAll(3);
@@ -320,6 +329,9 @@ class GameClient {
             remoteChar.setPosition(new Vector3(charData.position.x, charData.position.y, charData.position.z));
             remoteChar.setRotation(charData.yaw);
             this.characters.set(playerID, remoteChar);
+            // Initialize jump state for remote player
+            this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
+            this.remoteWasGrounded.set(playerID, true);
             remoteChar.playAnimation(AnimationNames.idle, true);
         } catch (error) {
             console.error(`Failed to load remote character ${playerID}:`, error);
@@ -328,46 +340,155 @@ class GameClient {
         }
     }
 
-    private updateRemoteAnimation(character: AnimatedCharacter, state: number, velocity: Vector3D): void {
-        switch (state) {
-            case CharacterState.Idle:
-                character.playAnimation(AnimationNames.idle, true);
-                break;
-            case CharacterState.Moving:
-                // Calculate horizontal speed from velocity
-                const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-                // Use run animation if speed > 10 (sprinting), walk otherwise
-                character.playAnimation(speed > 10 ? AnimationNames.run : AnimationNames.walk, true);
-                break;
-            case CharacterState.Attacking:
-                console.log('Playing attack for remote:', AnimationNames.attack, 'Available:', Array.from(character.animations.keys()));
-                character.playAnimation(AnimationNames.attack, true);
-                break;
-            case CharacterState.Stunned:
-                character.playAnimation(AnimationNames.hit, false);
-                break;
-            case CharacterState.Dead:
-                character.playAnimation(AnimationNames.death, false);
-                break;
-        }
-    }
+    private updateRemoteAnimation(playerID: number, character: AnimatedCharacter, charData: CharacterSnapshot): void {
+        const position = new Vector3(charData.position.x, charData.position.y, charData.position.z);
+        const velocity = charData.velocity;
+        const state = charData.state;
 
-    // Simple animation update based on input only (no velocity needed)
-    updateLocalAnimation(input: InputState): void {
-        if (!this.localCharacter) return;
+        // Get or initialize jump state for this player
+        let jumpState = this.remoteJumpStates.get(playerID) || JumpState.GROUNDED;
+        const wasGrounded = this.remoteWasGrounded.get(playerID) ?? true;
 
-        const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+        // Check if character is grounded based on Y position
+        const isGrounded = position.y <= 1.1;
+        const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
 
-        if (input.isAttacking) {
-            this.playAnimation('attack', true);  // Loop continuously while attacking
+        // ===== JUMP STATE MACHINE (same logic as local player) =====
+
+        // TRANSITION: GROUNDED → AIRBORNE (became airborne)
+        if (jumpState === JumpState.GROUNDED && !isGrounded) {
+            // We can't distinguish between jump and fall for remote players, so just go to airborne
+            jumpState = JumpState.AIRBORNE;
+            character.playAnimation(AnimationNames.jumpIdle, true);
+            this.remoteWasGrounded.set(playerID, false);
+            this.remoteJumpStates.set(playerID, jumpState);
             return;
         }
 
-        if (isMoving) {
-            // Use run animation when sprinting, walk otherwise
-            this.playAnimation(input.isSprinting ? 'run' : 'walk');
-        } else {
-            this.playAnimation('idle');
+        // STATE: AIRBORNE (ensure jump idle is playing)
+        if (jumpState === JumpState.AIRBORNE && !isGrounded) {
+            character.playAnimation(AnimationNames.jumpIdle, true);
+            return;
+        }
+
+        // TRANSITION: AIRBORNE → LANDING (touched ground)
+        if (jumpState === JumpState.AIRBORNE && isGrounded) {
+            jumpState = JumpState.LANDING;
+            character.playAnimation(AnimationNames.jumpLand, false);
+            this.remoteWasGrounded.set(playerID, true);
+            this.remoteJumpStates.set(playerID, jumpState);
+            return;
+        }
+
+        // TRANSITION: LANDING → GROUNDED (landing animation finished)
+        if (jumpState === JumpState.LANDING) {
+            const landAnim = character.animations.get(AnimationNames.jumpLand);
+            if (landAnim && !landAnim.isPlaying) {
+                jumpState = JumpState.GROUNDED;
+                this.remoteJumpStates.set(playerID, jumpState);
+                // Fall through to ground animations
+            } else {
+                return; // Still playing landing animation
+            }
+        }
+
+        // ===== GROUNDED ANIMATIONS =====
+        if (jumpState === JumpState.GROUNDED) {
+            switch (state) {
+                case CharacterState.Attacking:
+                    character.playAnimation(AnimationNames.attack, true);
+                    break;
+                case CharacterState.Stunned:
+                    character.playAnimation(AnimationNames.hit, false);
+                    break;
+                case CharacterState.Dead:
+                    character.playAnimation(AnimationNames.death, false);
+                    break;
+                case CharacterState.Moving:
+                    // Use run animation if speed > 10 (sprinting), walk otherwise
+                    character.playAnimation(speed > 10 ? AnimationNames.run : AnimationNames.walk, true);
+                    break;
+                case CharacterState.Idle:
+                default:
+                    character.playAnimation(AnimationNames.idle, true);
+                    break;
+            }
+        }
+    }
+
+    // Jump animation state machine
+    updateLocalAnimation(input: InputState): void {
+        if (!this.localCharacter) return;
+
+        // Check ground state based on Y position (server authoritative)
+        const isGrounded = this.position.y <= 1.1;
+        const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+
+        // ===== STATE MACHINE =====
+
+        // TRANSITION: GROUNDED → JUMP_START (initiated jump)
+        if (this.jumpState === JumpState.GROUNDED && !isGrounded && input.isJumping) {
+            this.jumpState = JumpState.JUMP_START;
+            this.playAnimation('jumpStart', false);
+            this.wasGrounded = false;
+            return;
+        }
+
+        // TRANSITION: GROUNDED → AIRBORNE (fell off edge)
+        if (this.jumpState === JumpState.GROUNDED && !isGrounded && !input.isJumping) {
+            this.jumpState = JumpState.AIRBORNE;
+            this.playAnimation('jumpIdle', true);
+            this.wasGrounded = false;
+            return;
+        }
+
+        // TRANSITION: JUMP_START → AIRBORNE (start animation finished)
+        if (this.jumpState === JumpState.JUMP_START) {
+            const jumpStartAnim = this.localCharacter.animations.get(AnimationNames.jumpStart);
+            if (jumpStartAnim && !jumpStartAnim.isPlaying) {
+                this.jumpState = JumpState.AIRBORNE;
+                this.playAnimation('jumpIdle', true);
+            }
+            return; // Stay in jump sequence
+        }
+
+        // STATE: AIRBORNE (ensure jump idle is playing)
+        if (this.jumpState === JumpState.AIRBORNE && !isGrounded) {
+            this.playAnimation('jumpIdle', true);
+            return;
+        }
+
+        // TRANSITION: AIRBORNE → LANDING (touched ground)
+        if (this.jumpState === JumpState.AIRBORNE && isGrounded) {
+            this.jumpState = JumpState.LANDING;
+            this.playAnimation('jumpLand', false);
+            this.wasGrounded = true;
+            return;
+        }
+
+        // TRANSITION: LANDING → GROUNDED (landing animation finished)
+        if (this.jumpState === JumpState.LANDING) {
+            const landAnim = this.localCharacter.animations.get(AnimationNames.jumpLand);
+            if (landAnim && !landAnim.isPlaying) {
+                this.jumpState = JumpState.GROUNDED;
+                // Fall through to ground animations
+            } else {
+                return; // Still playing landing animation
+            }
+        }
+
+        // ===== GROUNDED ANIMATIONS =====
+        if (this.jumpState === JumpState.GROUNDED) {
+            if (input.isAttacking) {
+                this.playAnimation('attack', true);
+                return;
+            }
+
+            if (isMoving) {
+                this.playAnimation(input.isSprinting ? 'run' : 'walk');
+            } else {
+                this.playAnimation('idle');
+            }
         }
     }
 }
@@ -400,6 +521,18 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         const scene = new Scene(engine);
         engineRef.current = engine;
 
+        // Measure character model to understand original scale
+        measureModel(generalModel).then(dims => {
+            console.log('📏 === CHARACTER MODEL MEASUREMENTS ===');
+            console.log(`   Height: ${dims.height.toFixed(3)} units (original scale)`);
+            console.log(`   Width:  ${dims.width.toFixed(3)} units`);
+            console.log(`   Depth:  ${dims.depth.toFixed(3)} units`);
+            console.log(`   `);
+            console.log(`   For 1.75m tall human (standard):`);
+            console.log(`   Scale factor needed: ${(1.75 / dims.height).toFixed(2)}x`);
+            console.log('📏 ====================================');
+        });
+
         // Setup camera - FIXED: Look at arena center (50, 0, 50)
         // Adjusted closer for better view of scaled-up characters
         const camera = new UniversalCamera('camera', new Vector3(80, 60, 20), scene);
@@ -407,38 +540,63 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         camera.minZ = 0.1;
         camera.maxZ = 500;
 
-        // Lighting
-        const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene);
-        light.intensity = 1.5;
+        // Load arena scene from Babylon.js Editor
+        // The scene file references binary mesh data in the "example" folder
+        SceneLoader.Append("/scenes/", "arena.babylon", scene, (loadedScene) => {
+            console.log("Arena scene loaded!");
+            console.log("Loaded meshes:", loadedScene.meshes.length);
 
-        // Ground - FIXED: Match server coordinate system (0-100, not -50 to +50)
-        const ground = MeshBuilder.CreateGround('ground', { width: 100, height: 100 }, scene);
-        ground.position = new Vector3(50, 0, 50); // Center at (50, 0, 50)
-        const groundMat = new StandardMaterial('groundMat', scene);
-        groundMat.diffuseColor = Color3.FromHexString('#4CAF50');
-        groundMat.specularColor = Color3.Black();
-        ground.material = groundMat;
+            // The editor scene is huge (spread over ~2000 units), but our game arena is 100x100
+            // We need to scale it down and position it correctly
+            const SCALE_FACTOR = 0.05; // Scale down to 5% of original size
+            const ROTATION_Y = Math.PI / 1.5; // Rotate 90 degrees (adjust as needed: Math.PI = 180°, Math.PI/2 = 90°, etc.)
 
-        // Walls - FIXED: Match server coordinate system (0-100)
-        const wallHeight = 5;
-        const wallMat = new StandardMaterial('wallMat', scene);
-        wallMat.diffuseColor = Color3.FromHexString('#8B4513');
+            // Create a root transform node for the entire scene
+            const sceneRoot = new TransformNode("sceneRoot", scene);
+            sceneRoot.position = new Vector3(50, 0, 50); // Center at game coordinates
+            sceneRoot.scaling.setAll(SCALE_FACTOR);
+            sceneRoot.rotation.y = ROTATION_Y; // Rotate the scene
 
-        const northWall = MeshBuilder.CreateBox('northWall', { width: 100, height: wallHeight, depth: 1 }, scene);
-        northWall.position = new Vector3(50, wallHeight / 2, 100);
-        northWall.material = wallMat;
+            // Parent all root meshes to the scene root
+            loadedScene.meshes.forEach(mesh => {
+                if (mesh.name !== '__root__' && !mesh.parent) {
+                    mesh.parent = sceneRoot;
+                }
+            });
 
-        const southWall = MeshBuilder.CreateBox('southWall', { width: 100, height: wallHeight, depth: 1 }, scene);
-        southWall.position = new Vector3(50, wallHeight / 2, 0);
-        southWall.material = wallMat;
+            console.log(`Scene scaled to ${SCALE_FACTOR * 100}% and centered at (50, 0, 50)`);
 
-        const eastWall = MeshBuilder.CreateBox('eastWall', { width: 1, height: wallHeight, depth: 100 }, scene);
-        eastWall.position = new Vector3(100, wallHeight / 2, 50);
-        eastWall.material = wallMat;
+            // Keep using game camera (not camera from the editor)
+            loadedScene.activeCamera = camera;
+        }, undefined, (scene, message, exception) => {
+            console.error("Failed to load arena scene:", message, exception);
+        });
 
-        const westWall = MeshBuilder.CreateBox('westWall', { width: 1, height: wallHeight, depth: 100 }, scene);
-        westWall.position = new Vector3(0, wallHeight / 2, 50);
-        westWall.material = wallMat;
+        // Enable Inspector with Ctrl+Shift+I (loaded from CDN)
+        let inspectorLoaded = false;
+        window.addEventListener('keydown', async (event) => {
+            if (event.ctrlKey && event.shiftKey && event.key === 'I') {
+                event.preventDefault();
+
+                if (scene.debugLayer.isVisible()) {
+                    scene.debugLayer.hide();
+                } else {
+                    // Load inspector from CDN on first use
+                    if (!inspectorLoaded) {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js';
+                        document.head.appendChild(script);
+                        await new Promise((resolve) => { script.onload = resolve; });
+                        inspectorLoaded = true;
+                    }
+                    await scene.debugLayer.show({
+                        embedMode: false,
+                        overlay: true,
+                        globalRoot: document.body
+                    });
+                }
+            }
+        });
 
         // Game client
         const gameClient = new GameClient(scene, localPlayerId, camera);

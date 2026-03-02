@@ -226,7 +226,7 @@ impl Game {
         unsafe { game_is_running(self.handle) }
     }
 
-    // Player management (backwards compatible)
+    // Player management
     pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
         let c_name = CString::new(name).unwrap();
         unsafe { game_add_player(self.handle, player_id, c_name.as_ptr()) }
@@ -240,7 +240,6 @@ impl Game {
         unsafe { game_get_player_count(self.handle) }
     }
 
-    // Entity management (NEW - ECS features)
     pub fn create_projectile(&mut self, entity_id: u32, position: Vector3D, velocity: Vector3D) -> bool {
         unsafe {
             game_create_projectile(
@@ -275,7 +274,6 @@ impl Game {
         unsafe { game_entity_is_alive(self.handle, entity_id) }
     }
 
-    // Component access (NEW)
     pub fn get_entity_health(&self, entity_id: u32) -> Option<(f32, f32)> {
         let mut current = 0.0f32;
         let mut max = 0.0f32;
@@ -333,7 +331,7 @@ impl Game {
         }
     }
 
-    // Input handling (backwards compatible)
+    // Input handling
     pub fn set_input(
         &mut self,
         player_id: u32,

@@ -14,11 +14,12 @@
 	},
 	"dependencies": {
 		"@babylonjs/core": "^8.40.1",
-		"@babylonjs/inspector": "^8.40.1",
 		"@babylonjs/loaders": "^8.40.1",
+		"@babylonjs/materials": "^8.52.0",
 		"@bokuweb/zstd-wasm": "^0.0.27",
 		"autoprefixer": "^10.4.22",
 		"axios": "^1.13.2",
+		"cannon-es": "^0.20.0",
 		"cbor-x": "^1.6.0",
 		"lucide-react": "^0.556.0",
 		"postcss": "^8.5.6",
