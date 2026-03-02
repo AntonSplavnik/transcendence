@@ -212,10 +212,10 @@ describe('AppRoutes', () => {
 	describe('footer links', () => {
 		it('renders Privacy Policy and Terms of Service links', async () => {
 			mockUnauthenticatedUser();
-			renderRoutes('/landing');
+			renderRoutes('/auth');
 
 			await waitFor(() => {
-				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
 			});
 
 			const privacyLink = screen.getByRole('link', { name: 'Privacy Policy' });
@@ -227,10 +227,10 @@ describe('AppRoutes', () => {
 
 		it('navigates to Privacy Policy page when link is clicked', async () => {
 			mockUnauthenticatedUser();
-			renderRoutes('/landing');
+			renderRoutes('/auth');
 
 			await waitFor(() => {
-				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
 			});
 
 			const user = userEvent.setup();
@@ -243,10 +243,10 @@ describe('AppRoutes', () => {
 
 		it('navigates to Terms of Service page when link is clicked', async () => {
 			mockUnauthenticatedUser();
-			renderRoutes('/landing');
+			renderRoutes('/auth');
 
 			await waitFor(() => {
-				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
 			});
 
 			const user = userEvent.setup();
