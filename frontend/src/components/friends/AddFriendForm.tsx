@@ -49,6 +49,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 						value={nickname}
 						onChange={(e) => { setNickname(e.target.value); setMessage(null); }}
 						placeholder="Add by nickname..."
+						aria-label="Friend's nickname"
 						className="w-full bg-wood-900 border border-wood-700 rounded px-3 py-1.5 text-sm text-wood-100 focus:outline-none focus:border-primary"
 					/>
 				</div>
@@ -56,6 +57,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 					type="submit"
 					disabled={!canSend}
 					className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-text rounded text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					aria-label="Send friend request"
 				>
 					<UserPlus className="w-4 h-4" />
 				</button>

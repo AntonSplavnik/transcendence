@@ -115,6 +115,8 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 				onClick={onToggle}
 				className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary hover:bg-primary-hover text-primary-text shadow-lg flex items-center justify-center transition-colors"
 				title="Friends"
+				aria-label={isOpen ? 'Close friends panel' : 'Open friends panel'}
+				aria-expanded={isOpen}
 			>
 				<Users className="w-5 h-5" />
 			</button>
@@ -140,6 +142,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 					<button
 						onClick={onToggle}
 						className="text-wood-400 hover:text-wood-200 transition-colors"
+						aria-label="Close friends panel"
 					>
 						<X className="w-5 h-5" />
 					</button>
@@ -175,6 +178,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 													disabled={actionInProgress !== null}
 													className="text-wood-500 hover:text-green-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Accept"
+													aria-label={`Accept friend request from ${req.sender.nickname}`}
 												>
 													<Check className="w-4 h-4" />
 												</button>
@@ -183,6 +187,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 													disabled={actionInProgress !== null}
 													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Reject"
+													aria-label={`Reject friend request from ${req.sender.nickname}`}
 												>
 													<X className="w-4 h-4" />
 												</button>
@@ -212,6 +217,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 													disabled={actionInProgress !== null}
 													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Remove friend"
+													aria-label={`Remove ${friend.nickname} from friends`}
 												>
 													<UserMinus className="w-4 h-4" />
 												</button>
@@ -227,6 +233,7 @@ export default function FriendsDrawer({ isOpen, onToggle }: FriendsDrawerProps) 
 													disabled={actionInProgress !== null}
 													className="text-wood-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Cancel request"
+													aria-label={`Cancel friend request to ${req.receiver.nickname}`}
 												>
 													<X className="w-4 h-4" />
 												</button>
