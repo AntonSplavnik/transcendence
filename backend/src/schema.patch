@@ -1,5 +1,5 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index f6250cb..6aee352 100644
+index 115aa40..9094fb5 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
 @@ -1,68 +1,68 @@
@@ -76,9 +76,9 @@ index f6250cb..6aee352 100644
          password_hash -> Text,
 -        created_at -> Timestamp,
 +        created_at -> TimestamptzSqlite,
+         description -> Text,
      }
  }
  
  diesel::joinable!(avatars_large -> users (user_id));
  diesel::joinable!(avatars_small -> users (user_id));
- diesel::joinable!(notifications -> users (user_id));
