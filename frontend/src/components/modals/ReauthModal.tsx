@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 import { Button, Modal, Input, Alert } from "../ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../api/error";
+import { validateMfaCode } from "../../utils/validation";
 
 interface ReauthModalProps {
 	onSuccess: () => void;
@@ -13,28 +14,43 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 	const { reauth, user } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [passwordError, setPasswordError] = useState("");
+	const [mfaError, setMfaError] = useState("");
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const mfaRef = useRef<HTMLInputElement>(null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		setIsLoading(true);
+		setPasswordError("");
+		setMfaError("");
 
 		const password = passwordRef.current?.value || "";
 		const mfaCode = mfaRef.current?.value || undefined;
 
 		if (!password) {
-			setError("Password is required");
-			setIsLoading(false);
+			setPasswordError("Password is required.");
+			return;
+		}
+		if (password.length < 8 || password.length > 128) {
+			setPasswordError("Must be between 8 and 128 characters long.");
 			return;
 		}
 
-		if (user?.totp_enabled && !mfaCode) {
-			setError("2FA code is required");
-			setIsLoading(false);
-			return;
+		if (user?.totp_enabled) {
+			if (!mfaCode) {
+				setMfaError("Authentication code is required.");
+				return;
+			}
+			const mfaErr = validateMfaCode(mfaCode);
+			if (mfaErr) {
+				setMfaError(mfaErr);
+				return;
+			}
 		}
+
+		setIsLoading(true);
+
 
 		try {
 			await reauth(password, mfaCode);
@@ -62,6 +78,8 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 					autoFocus
 					autoComplete="current-password"
 					placeholder="Enter your password"
+					error={passwordError}
+					onChange={() => setPasswordError("")}
 					disabled={isLoading}
 				/>
 
@@ -70,9 +88,12 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 						ref={mfaRef}
 						label="2FA Code"
 						type="text"
+						variant="code"
 						id="reauth-mfa"
 						autoComplete="one-time-code"
-						placeholder="000000"
+						placeholder="000000 or recovery code"
+						error={mfaError}
+						onChange={() => setMfaError("")}
 						disabled={isLoading}
 					/>
 				)}

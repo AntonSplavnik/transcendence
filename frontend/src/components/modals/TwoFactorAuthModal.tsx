@@ -3,6 +3,7 @@ import { Shield, Copy, Check } from "lucide-react";
 import { Button, Modal, Input, Alert, InfoBlock, Badge } from "../ui";
 import * as userApi from "../../api/user";
 import { getErrorMessage } from "../../api/error";
+import { validateTotpOnly, validateMfaCode } from "../../utils/validation";
 import { useAuth } from "../../contexts/AuthContext";
 import type { User } from "../../api/types";
 
@@ -21,6 +22,9 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 	const [copiedCodes, setCopiedCodes] = useState(false);
 
+	const [passwordError, setPasswordError] = useState("");
+	const [codeError, setCodeError] = useState("");
+
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const mfaCodeRef = useRef<HTMLInputElement>(null);
 	const verifyCodeRef = useRef<HTMLInputElement>(null);
@@ -35,9 +39,14 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 
 	const handleStart2FA = async () => {
 		const password = passwordRef.current?.value || "";
+		setPasswordError("");
 
 		if (!password) {
-			setError("Password is required");
+			setPasswordError("Password is required.");
+			return;
+		}
+		if (password.length < 8 || password.length > 128) {
+			setPasswordError("Must be between 8 and 128 characters long.");
 			return;
 		}
 
@@ -58,9 +67,20 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	const handleConfirm2FA = async () => {
 		const password = passwordRef.current?.value || "";
 		const code = verifyCodeRef.current?.value || "";
+		setPasswordError("");
+		setCodeError("");
 
-		if (!password || !code) {
-			setError("Password and verification code are required");
+		if (!password) {
+			setPasswordError("Password is required.");
+			return;
+		}
+		if (password.length < 8 || password.length > 128) {
+			setPasswordError("Must be between 8 and 128 characters long.");
+			return;
+		}
+		const totpErr = validateTotpOnly(code);
+		if (totpErr) {
+			setCodeError(totpErr);
 			return;
 		}
 
@@ -82,9 +102,20 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 	const handleDisable2FA = async () => {
 		const password = passwordRef.current?.value || "";
 		const mfaCode = mfaCodeRef.current?.value || "";
+		setPasswordError("");
+		setCodeError("");
 
-		if (!password || !mfaCode) {
-			setError("Password and 2FA code are required to disable 2FA");
+		if (!password) {
+			setPasswordError("Password is required.");
+			return;
+		}
+		if (password.length < 8 || password.length > 128) {
+			setPasswordError("Must be between 8 and 128 characters long.");
+			return;
+		}
+		const mfaErr = validateMfaCode(mfaCode);
+		if (mfaErr) {
+			setCodeError(mfaErr);
 			return;
 		}
 
@@ -178,6 +209,8 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 						autoFocus
 						autoComplete="current-password"
 						placeholder="Enter your password"
+						error={passwordError}
+						onChange={() => setPasswordError("")}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && !isLoading) handleStart2FA();
 						}}
@@ -236,6 +269,8 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 						maxLength={6}
 						autoComplete="one-time-code"
 						placeholder="000000"
+						error={codeError}
+						onChange={() => setCodeError("")}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && !isLoading) handleConfirm2FA();
 						}}
@@ -269,6 +304,8 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 						autoFocus
 						autoComplete="current-password"
 						placeholder="Enter your password"
+						error={passwordError}
+						onChange={() => setPasswordError("")}
 					/>
 
 					<Input
@@ -278,6 +315,8 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 						id="disable-mfa"
 						autoComplete="one-time-code"
 						placeholder="000000 or recovery code"
+						error={codeError}
+						onChange={() => setCodeError("")}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && !isLoading) handleDisable2FA();
 						}}

@@ -50,6 +50,13 @@ export interface SessionManagementPayload extends PasswordMfaPayload {
 	session_ids: number[];
 }
 
+export interface ChangePasswordPayload {
+	password: string;
+	new_password: string;
+	mfa_code?: string;
+	keep_other_sessions_logged_in: boolean;
+}
+
 // ==================== FRIENDS ====================
 
 export interface PublicUser {
