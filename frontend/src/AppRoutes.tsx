@@ -34,6 +34,7 @@ export default function AppRoutes() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const hideFooter = location.pathname === '/game';
+	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
 		const storedError = retrieveStoredError();
@@ -60,7 +61,7 @@ export default function AppRoutes() {
 		return <Layout>{null}</Layout>;
 	}
 	return (
-		<Layout>
+		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>
 				<Route path="/landing" element={
@@ -109,7 +110,8 @@ export default function AppRoutes() {
 				<Route path="*" element={<Navigate to="/landing" replace />} />
 			</Routes>
 			{!hideFooter && (
-				<footer role="contentinfo" className="relative z-10 py-1 text-center text-xs text-stone-500">
+				<footer role="contentinfo"
+					className="relative z-10 py-1 text-center text-xs text-stone-500">
 					<Link to="/privacy" aria-label="Privacy Policy" className="hover:text-gold-400 transition-colors">
 						Privacy Policy
 					</Link>
