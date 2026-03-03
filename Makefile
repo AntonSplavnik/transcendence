@@ -9,9 +9,12 @@ FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
 BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f 2>/dev/null) \
               backend/Cargo.toml backend/Cargo.lock
 
-.PHONY: all dev run-opt run setup check-cert reset-db create-db install-prek prek-update prek clean
+.PHONY: all dev run-opt run setup check-cert chrome-dev reset-db create-db install-prek prek-update prek clean
 
-all: run
+all: frontend/dist/index.html setup create-db
+	@echo "🚀 Running development build with Chrome dev browser..."
+	@$(MAKE) chrome-dev &
+	@cd backend && cargo run
 
 # 'run' depends on the frontend build output and the DB
 run: frontend/dist/index.html setup create-db
@@ -80,6 +83,30 @@ check-cert:
 		fi; \
 	fi
 
+chrome-dev:
+	@echo "🌐 Launching Chrome dev instance (WebTransport enabled)..."; \
+	CHROME_BIN=""; \
+	for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
+		if command -v $$bin >/dev/null 2>&1; then \
+			CHROME_BIN=$$bin; break; \
+		fi; \
+	done; \
+	if [ -z "$$CHROME_BIN" ]; then \
+		echo "⚠️  No Chrome/Chromium binary found in PATH."; \
+		exit 1; \
+	fi; \
+	$$CHROME_BIN \
+		--user-data-dir="/tmp/chrome-dev-wt" \
+		--webtransport-developer-mode \
+		--no-first-run \
+		--no-default-browser-check \
+		--disable-default-apps \
+		--disable-popup-blocking \
+		--disable-translate \
+		--disable-sync \
+		--password-store=basic \
+		"https://localhost:8443" >/dev/null 2>&1 &
+
 create-db:
 	@if [ ! -f $(DB_FILE) ]; then \
 		$(MAKE) reset-db; \
@@ -107,5 +134,6 @@ clean:
 	@echo "🗑️  Cleaning build artifacts..."
 	@rm -rf frontend/dist
 	@rm -rf frontend/node_modules
+	@rm -rf /tmp/chrome-dev-wt
 	@cd backend && cargo clean
 	@echo "✨ Workspace cleaned."
