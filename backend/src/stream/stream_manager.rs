@@ -366,6 +366,11 @@ impl StreamManager {
             .unwrap_or(false)
     }
 
+    pub fn shutdown(&self) {
+        self.pending_connections.clear();
+        self.connections.clear();
+    }
+
     /// This reauthenticates the stream associated to this session (if any)
     pub fn refresh_auth(self: &Arc<Self>, session: &Session) {
         self.connections
