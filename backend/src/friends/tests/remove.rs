@@ -1,3 +1,4 @@
+use crate::models::FriendRequestStatus;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 
@@ -126,7 +127,7 @@ async fn remove_friend_allows_new_request_afterwards() {
         new_req.id > 0,
         "new friend request must be created after removal"
     );
-    assert_eq!(new_req.status, "pending");
+    assert_eq!(new_req.status, FriendRequestStatus::PENDING);
 }
 
 #[tokio::test]

@@ -5,20 +5,27 @@ use crate::models::FriendRequest;
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
-use super::types::{RequestStatus, parse_param, send_notification};
+use crate::models::FriendRequestStatus;
+use salvo::oapi::extract::PathParam;
+
+use super::types::send_notification;
 
 /// Remove a friend
-#[endpoint(parameters(("user_id" = i32, description = "ID of the friend to remove")))]
-pub async fn remove_friend(depot: &mut Depot, req: &mut Request, db: Db) -> JsonResult<()> {
+#[endpoint]
+pub async fn remove_friend(
+    depot: &mut Depot,
+    user_id: PathParam<i32>,
+    db: Db,
+) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 
+    let friend_id = user_id.into_inner();
     let user_id = depot.session().user_id;
-    let friend_id: i32 = parse_param(req, "user_id")?;
 
     db.write(move |conn| {
         // Find accepted friendship in either direction
         let friendship: FriendRequest = fr::friend_requests
-            .filter(fr::status.eq(RequestStatus::ACCEPTED))
+            .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
             .filter(
                 fr::sender_id
                     .eq(user_id)

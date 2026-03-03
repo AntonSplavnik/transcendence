@@ -1,4 +1,5 @@
 use crate::friends::types::FriendRequestResponse;
+use crate::models::FriendRequestStatus;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
@@ -27,7 +28,7 @@ async fn fill_friend_list(server: &mock::Server, user_id: i32, count: usize) {
                     .values((
                         fr::sender_id.eq(other_id),
                         fr::receiver_id.eq(user_id),
-                        fr::status.eq("accepted"),
+                        fr::status.eq(FriendRequestStatus::ACCEPTED),
                         fr::created_at.eq(now),
                         fr::updated_at.eq(now),
                     ))
@@ -73,7 +74,7 @@ async fn accept_request_succeeds() {
     let req = alice.send_friend_request_to(bob.user_id()).await;
     let res = bob.accept_friend_request(req.id).await;
 
-    assert_eq!(res.status, "accepted");
+    assert_eq!(res.status, FriendRequestStatus::ACCEPTED);
     assert_eq!(res.id, req.id);
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());

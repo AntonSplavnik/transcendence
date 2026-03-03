@@ -31,6 +31,14 @@ pub fn nickname(nickname: &Nickname) -> Result<(), ValidationError> {
     Err(err)
 }
 
+pub fn description(desc: &str) -> Result<(), ValidationError> {
+    if desc.chars().count() > 50 {
+        return Err(ValidationError::new("length")
+            .with_message(Cow::Borrowed("Must be at most 50 characters long.")));
+    }
+    Ok(())
+}
+
 pub fn password(password: &str) -> Result<(), ValidationError> {
     let len = password.len();
 
@@ -130,6 +138,53 @@ mod tests {
     #[test]
     fn nickname_all_digits_accepted() {
         assert!(nickname(&nick("12345678")).is_ok());
+    }
+
+    // ── description ──────────────────────────────────────────────────
+
+    #[test]
+    fn description_empty_accepted() {
+        assert!(
+            description("").is_ok(),
+            "empty description must be accepted"
+        );
+    }
+
+    #[test]
+    fn description_valid_accepted() {
+        assert!(description("Hello, Comment ca va ?").is_ok());
+    }
+
+    #[test]
+    fn description_exact_max_accepted() {
+        assert!(
+            description(&"a".repeat(50)).is_ok(),
+            "50-char description must be accepted"
+        );
+    }
+
+    #[test]
+    fn description_above_max_rejected() {
+        assert!(
+            description(&"a".repeat(51)).is_err(),
+            "51-char description must be rejected"
+        );
+    }
+
+    #[test]
+    fn description_multibyte_counts_chars_not_bytes() {
+        // 50 emojis = 50 chars but 200 bytes — must be accepted
+        let fifty_emojis = "🎮".repeat(50);
+        assert!(
+            description(&fifty_emojis).is_ok(),
+            "50 emoji chars must be accepted even though byte length > 50"
+        );
+        // 51 emojis = 51 chars — must be rejected
+        let fifty_one_emojis = "🎮".repeat(51);
+        assert!(
+            description(&fifty_one_emojis).is_err(),
+            "51 emoji chars must be rejected"
+        );
     }
 
     // ── password ─────────────────────────────────────────────────────

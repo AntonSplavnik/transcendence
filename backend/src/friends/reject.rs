@@ -4,15 +4,22 @@ use crate::error::FriendError;
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
-use super::types::{RequestStatus, find_pending_request, parse_param, send_notification};
+use crate::models::FriendRequestStatus;
+use salvo::oapi::extract::PathParam;
+
+use super::types::{find_pending_request, send_notification};
 
 /// Reject a friend request
-#[endpoint(parameters(("request_id" = i32, description = "Friend request ID")))]
-pub async fn reject_friend_request(depot: &mut Depot, req: &mut Request, db: Db) -> JsonResult<()> {
+#[endpoint]
+pub async fn reject_friend_request(
+    depot: &mut Depot,
+    request_id: PathParam<i32>,
+    db: Db,
+) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 
     let user_id = depot.session().user_id;
-    let request_id: i32 = parse_param(req, "request_id")?;
+    let request_id = request_id.into_inner();
 
     let sender_id = db
         .write(move |conn| {
@@ -23,7 +30,7 @@ pub async fn reject_friend_request(depot: &mut Depot, req: &mut Request, db: Db)
             let deleted_count = diesel::delete(
                 fr::friend_requests
                     .filter(fr::id.eq(request.id))
-                    .filter(fr::status.eq(RequestStatus::PENDING)),
+                    .filter(fr::status.eq(FriendRequestStatus::PENDING)),
             )
             .execute(conn)?;
 

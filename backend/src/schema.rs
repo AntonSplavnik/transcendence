@@ -21,7 +21,7 @@ diesel::table! {
         id -> Integer,
         sender_id -> Integer,
         receiver_id -> Integer,
-        status -> Text,
+        status -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
     }
@@ -71,6 +71,7 @@ diesel::table! {
         totp_confirmed_at -> Nullable<TimestamptzSqlite>,
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
+        description -> Text,
     }
 }
 

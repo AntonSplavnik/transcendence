@@ -6,7 +6,6 @@ macro_rules! diesel_i32_enum {
             $($variant:ident),+ $(,)?
         }
     ) => {
-        $(#[$meta])*
         #[derive(
             Debug,
             Clone,
@@ -20,6 +19,7 @@ macro_rules! diesel_i32_enum {
             salvo::oapi::ToSchema,
             strum::FromRepr,
         )]
+        $(#[$meta])*
         #[diesel(sql_type = diesel::sql_types::Integer)]
         #[repr(i32)]
         $vis enum $name {

@@ -1,4 +1,5 @@
 use crate::friends::types::FriendRequestResponse;
+use crate::models::FriendRequestStatus;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
@@ -60,7 +61,7 @@ async fn incoming_requests_shows_pending_request() {
     assert_eq!(incoming[0].id, req.id);
     assert_eq!(incoming[0].sender.id, alice.user_id());
     assert_eq!(incoming[0].receiver.id, bob.user_id());
-    assert_eq!(incoming[0].status, "pending");
+    assert_eq!(incoming[0].status, FriendRequestStatus::PENDING);
 }
 
 #[tokio::test]

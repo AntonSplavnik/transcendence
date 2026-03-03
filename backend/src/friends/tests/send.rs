@@ -1,5 +1,5 @@
 use crate::friends::types::{FriendRequestResponse, SendFriendRequestInput};
-use crate::models::nickname::Nickname;
+use crate::models::{FriendRequestStatus, nickname::Nickname};
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
@@ -59,7 +59,7 @@ async fn send_request_by_id_succeeds() {
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
-    assert_eq!(res.status, "pending");
+    assert_eq!(res.status, FriendRequestStatus::PENDING);
 }
 
 #[tokio::test]
@@ -74,7 +74,7 @@ async fn send_request_by_nickname_succeeds() {
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
-    assert_eq!(res.status, "pending");
+    assert_eq!(res.status, FriendRequestStatus::PENDING);
 }
 
 #[tokio::test]
