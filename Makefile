@@ -9,7 +9,7 @@ FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
 BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f 2>/dev/null) \
               backend/Cargo.toml backend/Cargo.lock
 
-.PHONY: all dev run-opt run setup reset-db create-db install-prek prek-update prek clean
+.PHONY: all dev run-opt run setup check-cert reset-db create-db install-prek prek-update prek clean
 
 all: run
 
@@ -45,6 +45,39 @@ setup:
 	@if [ ! -f $(ENV_FILE) ]; then \
 		cp $(ENV_EXAMPLE) $(ENV_FILE); \
 		echo "✅ Created $(ENV_FILE) from example."; \
+	fi
+	@if [ ! -f backend/certs/cert.pem ]; then \
+		mkdir -p backend/certs; \
+		mkcert -install > /dev/null 2>&1; \
+		mkcert -key-file backend/certs/key.pem -cert-file backend/certs/cert.pem \
+			ip6-localhost ip6-loopback localhost 127.0.0.1 0.0.0.0 "::1" "::" > /dev/null 2>&1; \
+		echo "✅ Generated mkcert TLS certificate in backend/certs/."; \
+	fi
+
+check-cert:
+	@if [ ! -f backend/certs/cert.pem ]; then \
+		echo "⚠️  WARNING: No certificate found at backend/certs/cert.pem. Run 'make setup'."; \
+		exit 0; \
+	fi; \
+	IS_MKCERT=$$(openssl x509 -in backend/certs/cert.pem -noout -issuer 2>/dev/null | grep -ci "mkcert"); \
+	if [ "$$IS_MKCERT" -eq 0 ]; then \
+		echo "⚠️  WARNING: backend/certs/cert.pem is not a mkcert certificate."; \
+		echo "   Browsers will not trust it. Run: rm backend/certs/cert.pem && make setup"; \
+	else \
+		TRUSTED=0; \
+		case "$$(uname)" in \
+			Linux) \
+				certutil -d sql:$$HOME/.pki/nssdb -L 2>/dev/null | grep -qi "mkcert" && TRUSTED=1 ;; \
+			Darwin) \
+				security find-certificate -a -c "mkcert" /Library/Keychains/System.keychain 2>/dev/null \
+					| grep -q "mkcert" && TRUSTED=1 ;; \
+		esac; \
+		if [ "$$TRUSTED" -eq 0 ]; then \
+			echo "⚠️  WARNING: mkcert CA is not installed in the system trust store."; \
+			echo "   Browsers will not trust the certificate. Run: mkcert -install"; \
+		else \
+			echo "✅ Certificate is a valid mkcert certificate and the CA is trusted."; \
+		fi; \
 	fi
 
 create-db:
