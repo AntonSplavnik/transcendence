@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { retrieveStoredError } from './api/error';
 import type { StoredError } from './api/error';
+import { AudioProvider } from './audio/AudioProvider';
 import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
 import Home from './components/Home';
@@ -55,6 +56,7 @@ export default function AppRoutes() {
 		return <Layout>{null}</Layout>;
 	}
 	return (
+		<AudioProvider>
 		<Layout>
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>
@@ -87,5 +89,6 @@ export default function AppRoutes() {
 				<Route path="*" element={<Navigate to="/landing" replace />} />
 			</Routes>
 		</Layout>
+		</AudioProvider>
 	);
 }

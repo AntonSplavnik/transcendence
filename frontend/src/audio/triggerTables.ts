@@ -9,6 +9,7 @@ export interface InputState {
   isAttacking: boolean;
   isJumping: boolean;
   isSprinting: boolean;
+  isGrounded: boolean;
   // Extend here: isDodging, isBlocking, isAbility1…
 }
 
@@ -25,6 +26,26 @@ export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
   { soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
   // { soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising' },
   // { soundId: 'player_dodge',        field: 'isDodging',   edge: 'rising' },
+];
+
+// ─── Pipeline 1b: Local continuous triggers ──────────────────────────────────
+
+export interface LocalContinuousTrigger {
+  soundId: string;
+  /** Returns true while the sound should keep firing */
+  predicate: (input: InputState) => boolean;
+  /** Minimum interval (ms) between two consecutive plays */
+  intervalMs: number;
+}
+
+export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
+  {
+    soundId: 'player_footstep',
+    predicate: (input) =>
+      input.isGrounded &&
+      (input.movementDirection.x !== 0 || input.movementDirection.z !== 0),
+    intervalMs: 350,
+  },
 ];
 
 // ─── Pipeline 2: Remote snapshot triggers ────────────────────────────────────

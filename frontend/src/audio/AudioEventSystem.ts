@@ -4,6 +4,7 @@ import type { SoundBank } from './SoundBank';
 import type { GameEvent, Vector3D, CharacterSnapshot } from '../game/types';
 import {
   LOCAL_INPUT_TRIGGERS,
+  LOCAL_CONTINUOUS_TRIGGERS,
   REMOTE_SNAPSHOT_TRIGGERS,
   SERVER_EVENT_TRIGGERS,
 } from './triggerTables';
@@ -24,6 +25,8 @@ export class AudioEventSystem {
   private prevInputState: Record<string, boolean> = {};
   // Pipeline 2: per-player adaptive footstep timers
   private footstepTimers = new Map<number, number>();
+  // Pipeline 1b: continuous trigger timers (local player)
+  private continuousTimers = new Map<string, number>();
 
   constructor(engine: GameAudioEngine, soundBank: SoundBank) {
     this.engine = engine;
@@ -50,6 +53,18 @@ export class AudioEventSystem {
         this.playSoundAt(trigger.soundId, position, trigger.volume);
       }
       this.prevInputState[trigger.field] = current;
+    }
+
+    // Pipeline 1b: continuous triggers (e.g. footsteps while walking)
+    for (const trigger of LOCAL_CONTINUOUS_TRIGGERS) {
+      if (!trigger.predicate(input)) continue;
+
+      const now = performance.now();
+      const last = this.continuousTimers.get(trigger.soundId) ?? 0;
+      if (now - last < trigger.intervalMs) continue;
+
+      this.continuousTimers.set(trigger.soundId, now);
+      this.playSoundAt(trigger.soundId, position);
     }
   }
 

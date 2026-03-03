@@ -19,7 +19,7 @@ export class GameAudioEngine {
 
     const sfxBus = await this.engine.createBusAsync('sfx', { outBus: this.masterBus, volume: 0.8 });
     const musicBus = await this.engine.createBusAsync('music', { outBus: this.masterBus, volume: 0.5 });
-    const ambientBus = await this.engine.createBusAsync('ambient', { outBus: this.masterBus, volume: 0.6 });
+    const ambientBus = await this.engine.createBusAsync('ambient', { outBus: this.masterBus, volume: 0.7 });
     const uiBus = await this.engine.createBusAsync('ui', { outBus: this.masterBus, volume: 0.7 });
 
     this.buses.set('sfx', sfxBus);

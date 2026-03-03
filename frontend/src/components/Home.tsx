@@ -4,6 +4,7 @@ import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown } from 'lucide-r
 import Button from "./ui/Button";
 import Card from "./ui/Card";
 import type { User, Session } from '../api/types';
+import { useUIAudio } from '../audio/AudioProvider';
 
 interface HomeProps {
 	onGame: () => void;
@@ -12,6 +13,7 @@ interface HomeProps {
 
 export default function Home({ onGame, onLogout }: HomeProps) {
 	const { user, session } = useAuth();
+	const { playSound } = useUIAudio();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [showSessionDetails, setShowSessionDetails] = useState(false);
 	const [show2FASettings, setShow2FASettings] = useState(false);
@@ -25,7 +27,8 @@ export default function Home({ onGame, onLogout }: HomeProps) {
 		);
 	}
 
-	const handlePlayGame = () => {
+	const handlePlayGame = async () => {
+		playSound("ui_click");
 		onGame();
 	};
 

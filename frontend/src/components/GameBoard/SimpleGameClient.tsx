@@ -40,6 +40,7 @@ interface InputState {
     isAttacking: boolean;
     isJumping: boolean;
     isSprinting: boolean;
+    isGrounded: boolean;
 }
 
 enum CharacterState {
@@ -491,6 +492,10 @@ class GameClient {
             }
         }
     }
+
+    getIsGrounded(): boolean {
+        return this.position.y <= 1.1;
+    }
 }
 
 // ============ MINIMAL REACT WRAPPER ============
@@ -613,6 +618,11 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         gameAudio.initialize().then(async () => {
             gameAudio.attachListenerToCamera(camera);
             await soundBank.loadAll(gameAudio);
+            const ambientSound = soundBank.getRandomSound('amb_forest');                                                                                   
+            if (ambientSound) {                                                                                                                            
+                ambientSound.loop = true;                                                                                                                
+                ambientSound.play();
+            }
             console.log('Audio system initialized');
         }).catch(err => {
             console.warn('Audio initialization failed:', err);
@@ -624,6 +634,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
             isAttacking: false,
             isJumping: false,
             isSprinting: false,
+            isGrounded: true,
         };
         const keysPressed = new Set<string>();
 
@@ -643,6 +654,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
             input.isJumping = keysPressed.has(' ');
             input.isAttacking = keysPressed.has('e');
             input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
+            input.isGrounded = gameClient.getIsGrounded();
 
             // Update animations based on input
             gameClient.updateLocalAnimation(input);
