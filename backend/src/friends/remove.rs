@@ -12,11 +12,7 @@ use super::types::send_notification;
 
 /// Remove a friend
 #[endpoint]
-pub async fn remove_friend(
-    depot: &mut Depot,
-    user_id: PathParam<i32>,
-    db: Db,
-) -> JsonResult<()> {
+pub async fn remove_friend(depot: &mut Depot, user_id: PathParam<i32>, db: Db) -> JsonResult<()> {
     use crate::schema::friend_requests::dsl as fr;
 
     let friend_id = user_id.into_inner();
