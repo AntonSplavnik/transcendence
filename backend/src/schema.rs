@@ -71,6 +71,7 @@ diesel::table! {
         totp_confirmed_at -> Nullable<TimestamptzSqlite>,
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
+        description -> Text,
     }
 }
 
