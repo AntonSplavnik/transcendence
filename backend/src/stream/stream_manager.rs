@@ -58,10 +58,9 @@
 //!
 //! ## Liveness detection (current state)
 //!
-//! The handler currently does **not** maintain a dedicated heartbeat stream.
-//! Connection closure is therefore observed indirectly (e.g. when an `open_bi`
-//! request fails). If no stream requests happen, the handler may not immediately
-//! notice that a client disappeared.
+//! The handler polls `accept_bi()` on the WebTransport session inside the main
+//! `select!` loop.  This drives the underlying h3 `Connection`, which discovers
+//! QUIC errors surfaced by quinn and breaks the loop on connection closure.
 //!
 //! # Errors
 //!
@@ -741,10 +740,6 @@ where
         .send(&r#type)
         .await
         .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
-    sender
-        .flush()
-        .await
-        .with_context(|| format!("failed to flush stream type: {:?}", r#type))?;
     let sender = sender.map_encoder(|_| CompressedCborEncoder::new());
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
@@ -765,10 +760,6 @@ where
         .send(&r#type)
         .await
         .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
-    sender
-        .flush()
-        .await
-        .with_context(|| format!("failed to flush stream type: {:?}", r#type))?;
     Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
 }
 
@@ -781,10 +772,10 @@ where
 /// # Protocol
 ///
 /// 1. Client initiates WebTransport connection via HTTP/3 CONNECT
-/// 2. Server opens a heartbeat stream for connection liveness detection
-/// 3. Server registers the connection in [`StreamManager`]
+/// 2. Server sends a control stream with a [`PendingConnectionKey`]
+/// 3. Client authenticates via REST, server registers the connection in [`StreamManager`]
 /// 4. Server-side components can request streams via [`StreamManager::request_stream`]
-/// 5. Connection ends when client disconnects or heartbeat fails
+/// 5. Connection closure is detected by polling `accept_bi()` which drives the h3 layer
 ///
 /// # Single Connection Policy
 ///
@@ -794,7 +785,7 @@ where
 pub async fn connect_stream(
     req: &mut Request,
     depot: &mut Depot,
-) -> std::result::Result<(), salvo::Error> {
+) -> std::result::Result<StatusCode, salvo::Error> {
     let wt_session = req.web_transport_mut().await.unwrap();
     let session_id = wt_session.session_id();
 
@@ -817,33 +808,45 @@ pub async fn connect_stream(
     drop(control_rx);
     drop(control_tx);
 
-    let user_session = tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx)
-        .await
-        .context("pending connection timeout while waiting for bind/auth")?
-        .context("pending connection was dropped while waiting for bind/auth")?;
+    let user_session = match tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx).await {
+        Ok(user_session) => user_session.context("waiting for pending connection bind")?,
+        Err(_) => return Ok(StatusCode::REQUEST_TIMEOUT),
+    };
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
     let connection_id = streams.register(&user_session, cmd_tx, connection_id);
 
     let db = depot.db().clone();
-    if let Err(err) = super::on_connect(user_session.user_id, &db, &*streams, depot).await {
-        tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
-        streams.unregister(user_session.user_id, Some(connection_id), None);
-        // Terminate the handler immediately on on_connect failure
-        return Ok(());
-    } else {
-        tracing::info!(
-            user_session.user_id,
-            user_session.id,
-            connection_id,
-            "User successfully connected via WebTransport"
-        );
-    }
 
-    // TODO check whether connection closure leads to handler panic
-    // if not, how do we detect whether the connection is closed? (-> reimpl heartbeat stream idea)
+    // Run on_connect concurrently with the command loop.  on_connect requests
+    // streams (uni / bidi) via the StreamManager, which sends commands through
+    // cmd_tx.  Those commands can only be fulfilled by the cmd_rx loop below.
+    // Running both in the same select! avoids the deadlock that would occur if
+    // on_connect were awaited *before* entering the loop.
+    let on_connect_fut = super::on_connect(user_session.user_id, &db, &*streams, depot);
+    tokio::pin!(on_connect_fut);
+    let mut on_connect_done = false;
+
     loop {
         tokio::select! {
+            result = &mut on_connect_fut, if !on_connect_done => {
+                on_connect_done = true;
+                match result {
+                    Ok(()) => {
+                        tracing::info!(
+                            user_session.user_id,
+                            user_session.id,
+                            connection_id,
+                            "User successfully connected via WebTransport"
+                        );
+                    }
+                    Err(err) => {
+                        tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
+                        streams.unregister(user_session.user_id, Some(connection_id), None);
+                        return Ok(StatusCode::INTERNAL_SERVER_ERROR);
+                    }
+                }
+            }
             // Handle stream requests
             cmd = cmd_rx.recv() => {
                 match cmd {
@@ -882,6 +885,44 @@ pub async fn connect_stream(
                     }
                 }
             }
+            // Drive the h3 connection to detect closure.
+            //
+            // accept_bi() polls the underlying h3 server::Connection, which in
+            // turn calls poll_control → poll_connection_error.  That is the
+            // *only* code path that discovers QUIC errors surfaced by quinn and
+            // stores them in SharedState.  open_bi/open_uni bypass h3 entirely
+            // (they use the raw opener), so without this arm the connection
+            // handler would never learn about a peer disconnect.
+            accepted = wt_session.accept_bi() => {
+                match accepted {
+                    Ok(Some(_)) => {
+                        // Client-initiated bidi stream – unexpected in our
+                        // protocol; just ignore and keep looping.
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            "Ignoring unexpected client-initiated bidi stream"
+                        );
+                    }
+                    Ok(None) => {
+                        tracing::info!(
+                            user_session.user_id,
+                            connection_id,
+                            "WebTransport connection closed gracefully"
+                        );
+                        break;
+                    }
+                    Err(err) => {
+                        tracing::info!(
+                            user_session.user_id,
+                            connection_id,
+                            error = %err,
+                            "WebTransport connection closed by peer"
+                        );
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -891,7 +932,7 @@ pub async fn connect_stream(
         connection_id,
         "WebTransport session ended"
     );
-    Ok(())
+    Ok(StatusCode::OK)
 }
 
 #[endpoint]
