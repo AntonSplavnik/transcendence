@@ -27,4 +27,17 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     priority: 6,
     maxInstances: 4,
   },
+  {
+    id: 'player_footstep',
+    variations: ['/sounds/sfx/footstep_01.wav', '/sounds/sfx/footstep_02.wav'],
+    volume: { min: 0.2, max: 0.4 },
+    pitch: { min: 0.9, max: 1.1 },
+    bus: 'sfx',
+    spatial: true,
+    maxDistance: 30,
+    minDistance: 3,
+    cooldown: 50,
+    priority: 2,
+    maxInstances: 8,
+  },
 ];

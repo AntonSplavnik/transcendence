@@ -510,7 +510,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
     const engineRef = useRef<Engine | null>(null);
     const audioEventSystemRef = useRef<AudioEventSystem | null>(null);
     const localPlayerPositionRef = useRef<Vector3D>({ x: 50, y: 0, z: 50 });
-    const localPlayerGroundedRef = useRef(true);
+    const prevSnapshotRef = useRef<GameStateSnapshot | null>(null);
 
     // Initialize once
     useEffect(() => {
@@ -629,13 +629,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
 
         scene.onKeyboardObservable.add((kbInfo) => {
             const key = kbInfo.event.key.toLowerCase();
-            if (kbInfo.type === 1) {
-                // Key down - detect Space press for local jump audio prediction (only if grounded)
-                if (key === ' ' && !keysPressed.has(' ') && localPlayerGroundedRef.current && audioEventSystemRef.current) {
-                    audioEventSystemRef.current.playLocalEvent('player_jump', localPlayerPositionRef.current);
-                }
-                keysPressed.add(key);
-            }
+            if (kbInfo.type === 1) keysPressed.add(key);
             else if (kbInfo.type === 2) keysPressed.delete(key);
         });
 
@@ -652,6 +646,10 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
 
             // Update animations based on input
             gameClient.updateLocalAnimation(input);
+            // Pipeline 1: local player audio (0ms, same trigger as updateLocalAnimation)
+            if (audioEventSystemRef.current) {
+                audioEventSystemRef.current.onLocalInput(input, localPlayerPositionRef.current);
+            }
         });
 
         // Render loop
@@ -685,12 +683,12 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         };
     }, [localPlayerId]);
 
-    // Register game events callback for audio
+    // Register game events callback for audio (Pipeline 3: server critical events)
     useEffect(() => {
         if (onGameEvents) {
             onGameEvents((events: GameEvent[]) => {
                 if (audioEventSystemRef.current) {
-                    audioEventSystemRef.current.processServerEvents(events);
+                    audioEventSystemRef.current.onServerEvents(events);
                 }
             });
         }
@@ -701,22 +699,23 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId,
         if (snapshot && gameClientRef.current) {
             gameClientRef.current.processSnapshot(snapshot);
 
-            // Track local player position and grounded state for audio
+            // Update local player position for Pipeline 1 audio
             if (localPlayerId) {
                 const localChar = snapshot.characters.find(c => c.player_id === localPlayerId);
                 if (localChar) {
-                    const wasGrounded = localPlayerGroundedRef.current;
-                    const isGrounded = localChar.velocity.y === 0;
-
-                    // Detect landing transition: was airborne, now grounded
-                    if (!wasGrounded && isGrounded && audioEventSystemRef.current) {
-                        audioEventSystemRef.current.playLocalEvent('player_land', localChar.position);
-                    }
-
                     localPlayerPositionRef.current = localChar.position;
-                    localPlayerGroundedRef.current = isGrounded;
                 }
             }
+
+            // Pipeline 2: remote player audio via snapshot delta
+            if (prevSnapshotRef.current && audioEventSystemRef.current) {
+                for (const cur of snapshot.characters) {
+                    if (cur.player_id === localPlayerId) continue; // local handled by onLocalInput
+                    const prev = prevSnapshotRef.current.characters.find(c => c.player_id === cur.player_id);
+                    if (prev) audioEventSystemRef.current.onRemoteSnapshot(prev, cur);
+                }
+            }
+            prevSnapshotRef.current = snapshot;
         }
     }, [snapshot, localPlayerId]);
 

@@ -1,8 +1,15 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import type { GameAudioEngine } from './AudioEngine';
 import type { SoundBank } from './SoundBank';
-import type { GameEvent, Vector3D } from '../game/types';
-import { GameEventType } from '../game/types';
+import type { GameEvent, Vector3D, CharacterSnapshot } from '../game/types';
+import {
+  LOCAL_INPUT_TRIGGERS,
+  REMOTE_SNAPSHOT_TRIGGERS,
+  SERVER_EVENT_TRIGGERS,
+} from './triggerTables';
+import type { InputState } from './triggerTables';
+
+export type { InputState };
 
 function randomRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -13,91 +20,99 @@ export class AudioEventSystem {
   private soundBank: SoundBank;
   private lastPlayTimes = new Map<string, number>();
   private localPlayerId: number | null = null;
+  // Pipeline 1: edge-detection state — auto-initialised from LOCAL_INPUT_TRIGGERS
+  private prevInputState: Record<string, boolean> = {};
+  // Pipeline 2: per-player adaptive footstep timers
+  private footstepTimers = new Map<number, number>();
 
   constructor(engine: GameAudioEngine, soundBank: SoundBank) {
     this.engine = engine;
     this.soundBank = soundBank;
+    for (const trigger of LOCAL_INPUT_TRIGGERS) {
+      this.prevInputState[trigger.field] = false;
+    }
   }
 
   setLocalPlayerId(id: number): void {
     this.localPlayerId = id;
   }
 
-  /** Process server events - skip local player events (already played via prediction) */
-  processServerEvents(events: GameEvent[]): void {
+  /** Pipeline 1: local player input (0 ms, same trigger as updateLocalAnimation) */
+  onLocalInput(input: InputState, position: Vector3D): void {
     if (!this.engine.isInitialized()) return;
 
-    for (const event of events) {
-      if (event.player_id === this.localPlayerId) continue;
+    for (const trigger of LOCAL_INPUT_TRIGGERS) {
+      const current = input[trigger.field] as boolean;
+      const previous = this.prevInputState[trigger.field];
+      const fired = trigger.edge === 'rising' ? current && !previous : !current && previous;
 
-      const mapping = this.mapEventToSound(event);
-      if (!mapping) continue;
-
-      this.playSoundInternal(mapping.soundId, event.position, mapping.volume, mapping.pitch);
+      if (fired) {
+        this.playSoundAt(trigger.soundId, position, trigger.volume);
+      }
+      this.prevInputState[trigger.field] = current;
     }
   }
 
-  /** Play sound immediately for local player (zero latency prediction) */
-  playLocalEvent(soundId: string, position: Vector3D): void {
+  /** Pipeline 2: remote players via snapshot delta (same trigger as updateRemoteAnimation) */
+  onRemoteSnapshot(prev: CharacterSnapshot, cur: CharacterSnapshot): void {
     if (!this.engine.isInitialized()) return;
-    this.playSoundInternal(soundId, position, undefined, undefined);
+
+    for (const trigger of REMOTE_SNAPSHOT_TRIGGERS) {
+      if (!trigger.predicate(prev, cur)) continue;
+
+      if (trigger.throttled) {
+        const speedXZ = Math.sqrt(cur.velocity.x ** 2 + cur.velocity.z ** 2);
+        const interval = Math.max(200, 500 - speedXZ * 15);
+        const now = performance.now();
+        const lastFootstep = this.footstepTimers.get(cur.player_id) ?? 0;
+        if (now - lastFootstep < interval) continue;
+        this.footstepTimers.set(cur.player_id, now);
+      }
+
+      const volume = trigger.volumeMapper?.(prev, cur);
+      this.playSoundAt(trigger.soundId, cur.position, volume);
+    }
   }
 
-  private playSoundInternal(
+  /** Pipeline 3: server critical events */
+  onServerEvents(events: GameEvent[]): void {
+    if (!this.engine.isInitialized()) return;
+
+    for (const event of events) {
+      for (const trigger of SERVER_EVENT_TRIGGERS) {
+        if (event.event_type !== trigger.eventType) continue;
+        if (trigger.skipLocal && event.player_id === this.localPlayerId) continue;
+
+        const volume = trigger.volumeMapper?.(event);
+        this.playSoundAt(trigger.soundId, event.position, volume);
+      }
+    }
+  }
+
+  private playSoundAt(
     soundId: string,
     position: Vector3D,
     overrideVolume?: number,
-    overridePitch?: number
+    overridePitch?: number,
   ): void {
     const def = this.soundBank.getDefinition(soundId);
     if (!def) return;
 
-    // Cooldown check
     const now = performance.now();
-    const lastPlay = this.lastPlayTimes.get(soundId) || 0;
+    const lastPlay = this.lastPlayTimes.get(soundId) ?? 0;
     if (now - lastPlay < def.cooldown) return;
     this.lastPlayTimes.set(soundId, now);
 
     const sound = this.soundBank.getRandomSound(soundId);
     if (!sound) return;
 
-    const volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);
-    const pitch = overridePitch ?? randomRange(def.pitch.min, def.pitch.max);
+    sound.volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);
+    sound.playbackRate = overridePitch ?? randomRange(def.pitch.min, def.pitch.max);
 
-    // Set volume and playback rate
-    sound.volume = volume;
-    sound.playbackRate = pitch;
-
-    // Set spatial position if spatial is enabled
     if (def.spatial) {
       sound.spatial.position = new Vector3(position.x, position.y, position.z);
     }
 
     sound.play();
-  }
-
-  /** Map game event type to sound definition + parameters */
-  private mapEventToSound(event: GameEvent): { soundId: string; volume: number; pitch: number } | null {
-    switch (event.event_type) {
-      case GameEventType.Jump:
-        return {
-          soundId: 'player_jump',
-          volume: randomRange(0.7, 0.85),
-          pitch: randomRange(0.95, 1.05),
-        };
-
-      case GameEventType.Land: {
-        const impactVelocity = Math.abs(event.param1);
-        const volume = Math.max(0.3, Math.min(1.0, impactVelocity / 20.0));
-        return {
-          soundId: 'player_land',
-          volume,
-          pitch: randomRange(0.9, 1.1),
-        };
-      }
-
-      default:
-        return null;
-    }
   }
 }

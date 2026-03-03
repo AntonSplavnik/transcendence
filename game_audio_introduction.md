@@ -6,12 +6,13 @@
 2. [Industry References](#2-industry-references)
 3. [Our Architecture](#3-our-architecture)
 4. [Game Events: The Heart of the System](#4-game-events-the-heart-of-the-system)
-5. [The Latency Problem: Hybrid Prediction](#5-the-latency-problem-hybrid-prediction)
+5. [The 3-Pipeline Architecture](#5-the-3-pipeline-architecture)
 6. [The Client-Side Audio Engine](#6-the-client-side-audio-engine)
 7. [3D Spatial Audio](#7-3d-spatial-audio)
-8. [What Is Implemented](#8-what-is-implemented)
-9. [Next Steps](#9-next-steps)
-10. [Sources](#10-sources)
+8. [Extending the Audio System](#8-extending-the-audio-system)
+9. [What Is Implemented](#9-what-is-implemented)
+10. [Next Steps](#10-next-steps)
+11. [Sources](#11-sources)
 
 ---
 
@@ -85,8 +86,8 @@ C++ Game Engine              Rust Backend                Browser Client
 
 The project already uses Babylon.js for 3D rendering (meshes, cameras, glTF animations). Rather than maintaining a custom Web Audio API layer, we use Babylon.js 8's `AudioEngineV2` which provides:
 
-- **AudioBus routing** with volume control 
-- **StaticSound with `maxInstances`** 
+- **AudioBus routing** with volume control
+- **StaticSound with `maxInstances`**
 - **Built-in spatial audio** with `attach()` to scene nodes — the listener follows the camera automatically
 - **Automatic audio context unlock** on user interaction — no manual `resume()` needed
 - **`createSoundAsync()`** accepts URLs, `AudioBuffer`, or `StaticSoundBuffer` — works for both loaded assets and procedural fallbacks
@@ -96,6 +97,26 @@ The project already uses Babylon.js for 3D rendering (meshes, cameras, glTF anim
 1. The **C++ engine** simulates the game. When an action occurs (jump, landing, hit), the corresponding ECS system creates a **GameEvent** and pushes it into a queue
 2. The **Rust backend** drains this queue via FFI at each network tick, and **broadcasts** the events to all connected clients
 3. The **frontend** receives these events and passes them to the **AudioEventSystem**, which decides what sound to play, at what volume, what pitch, and where in 3D space
+
+### Data-Driven File Structure
+
+The audio module follows a strict **4-file split** — adding a sound never requires touching logic code:
+
+| File | Role | Modification |
+|------|------|--------------|
+| `AudioEngine.ts` | Babylon.js wrapper (buses, listener) | Never |
+| `SoundBank.ts` | Loads and stores `StaticSound` instances | Never |
+| `soundDefinitions.ts` | Sound metadata (paths, volume, pitch, bus, cooldown…) | **Append-only** |
+| `triggerTables.ts` | Declarative tables: *when* to play *which* sound | **Append-only** |
+| `AudioEventSystem.ts` | Pipeline loops over the trigger tables | Never (logic only) |
+| `useAudio.ts` | React hook for non-game audio (menu, UI, lobby) | Never |
+
+```
+soundDefinitions.ts  → "what definition" (variations, volume, spatial…)
+triggerTables.ts     → "when to play"   (one table per pipeline)
+AudioEventSystem.ts  → "how to play"    (loops over the tables, playback)
+useAudio.ts          → "public API"     (music, UI, out-of-game)
+```
 
 ---
 
@@ -128,15 +149,15 @@ Events solve all of this: the engine describes **what happened**, each client in
 
 ### Current and Future Event Types
 
-| Type | Trigger | Parameter | Status |
-|------|---------|-----------|--------|
-| `Jump` | Player leaves the ground | Jump velocity | Implemented |
-| `Land` | Player touches the ground | Impact velocity | Implemented |
-| `Hit` | Player takes damage | Damage amount | Planned |
-| `Death` | Player dies | - | Planned |
-| `Footstep` | Player walks/runs | Movement speed | Planned |
-| `Attack` | Player attacks | Attack type | Planned |
-| `Dodge` | Player dodges | - | Planned |
+| Type | Trigger | Parameter | Pipeline | Status |
+|------|---------|-----------|----------|--------|
+| `Jump` | Player leaves the ground | Jump velocity | Input (local) / Snapshot delta (remote) | Implemented |
+| `Land` | Player touches the ground | Impact velocity | Server events (local) / Snapshot delta (remote) | Implemented |
+| `Footstep` | Player walks/runs | Movement speed | Snapshot delta (remote) | Implemented |
+| `Hit` | Player takes damage | Damage amount | Server events (all) | Planned |
+| `Death` | Player dies | - | Server events (all) | Planned |
+| `Attack` | Player attacks | Attack type | Input (local) / Server events (remote) | Planned |
+| `Dodge` | Player dodges | - | Server events (all) | Planned |
 
 ### The GameEventQueue
 
@@ -148,44 +169,65 @@ Events are stored in a **fixed-size ring buffer** (64 events max per frame). Thi
 
 ---
 
-## 5. The Latency Problem: Hybrid Prediction
+## 5. The 3-Pipeline Architecture
 
-### The Problem
+Audio follows the same split as animations: local state is driven by input, remote state is driven by snapshots, and critical gameplay outcomes come from server events.
 
-In a multiplayer game, there is a network delay between the action and its confirmation by the server (~50-100ms). If we wait for the server event to play the local player's sound, they will perceive an unpleasant gap between pressing Space and hearing the jump sound.
-
-### The Solution: Just Like AAA Games
-
-Professional games (Overwatch, Valorant, Rocket League) all use the same strategy: **hybrid prediction**.
-
-| Source | Audio Trigger | Latency | Why |
-|--------|--------------|---------|-----|
-| **Local player** | Client-side, on key press | **0 ms** | Instant feedback, essential for game feel |
-| **Remote players** | Server events via network | ~50-100 ms | Synchronized with visuals; the delay is imperceptible for other players' actions |
-
-### How It Works in Practice
-
-**For the local player (prediction):**
 ```
-Space key pressed
-    -> Client plays "player_jump" IMMEDIATELY (0ms delay)
-    -> Client sends input to server
-    -> Server confirms the jump, broadcasts the event
-    -> Client receives the event but FILTERS it (player_id == localPlayerId)
-    -> No double sound
+Input clavier (chaque frame)
+  └→ updateLocalAnimation(input)                    [visuel local]
+  └→ audioEventSystem.onLocalInput(input, pos)      [audio local, 0ms]
+
+processSnapshot (20Hz)
+  └→ updateRemoteAnimation(char)                    [visuel distant]
+  └→ audioEventSystem.onRemoteSnapshot(prev, cur)   [audio distant, ~50ms]
+
+GameEvents message (serveur)
+  └→ audioEventSystem.onServerEvents(events)        [sons critiques tous joueurs]
 ```
 
-**For remote players (server-authoritative):**
+### The 3 Pipelines
+
+| Pipeline | Trigger | Latency | Players | Sounds |
+|----------|---------|---------|---------|--------|
+| **Input** | Keypress (each frame) | 0ms | Local only | Jump, Attack swing |
+| **Snapshot delta** | N-1 vs N comparison (20Hz) | ~50ms | Remote only | Land, Jump, Footstep |
+| **Server events** | `GameEvents` message | ~50ms | All | Hit, Death, Dodge |
+
+### Pipeline 1 — `onLocalInput`
+
+Driven by `LOCAL_INPUT_TRIGGERS` in `triggerTables.ts`. Each entry declares a boolean `field` of `InputState` and an `edge` (`rising` or `falling`). The pipeline loops over the table and fires sounds on the declared edge — no per-sound `if` blocks in the code:
+
 ```
-Server broadcasts Jump event for player 42
-    -> Player 7's client receives the event
-    -> player_id 42 != localPlayerId 7 -> process it
-    -> Sound played with 3D spatialization at player 42's position
+Space key held down (isJumping = true)
+    Frame 1: prev[isJumping]=false → rising edge → plays "player_jump" IMMEDIATELY (0ms)
+    Frame 2: prev[isJumping]=true  → no rising edge → no duplicate
+    ...
+Server broadcasts Jump event for local player
+    → skipLocal=true in SERVER_EVENT_TRIGGERS → filtered out in Pipeline 3
 ```
+
+The `prevInputState` map is **auto-initialised at construction** from the entries in `LOCAL_INPUT_TRIGGERS` — there are no manual `prevInputWasX` booleans to maintain.
+
+### Pipeline 2 — `onRemoteSnapshot`
+
+Driven by `REMOTE_SNAPSHOT_TRIGGERS`. Each entry has a `predicate(prev, cur)` that returns true when the sound should fire, an optional `volumeMapper` for dynamic volume, and an optional `throttled` flag for footstep-style rate limiting:
+
+- **Land**: `prev.velocity.y < -2 AND cur.velocity.y >= -0.5` → volume proportional to impact
+- **Jump**: `prev.velocity.y <= 0.5 AND cur.velocity.y > 5` → standard volume
+- **Footstep**: `speedXZ > 2.0` + `throttled: true` → per-player adaptive interval (faster movement = more frequent)
+
+### Pipeline 3 — `onServerEvents`
+
+Driven by `SERVER_EVENT_TRIGGERS`. Each entry maps an `eventType` to a `soundId`, with optional `skipLocal` (to avoid double-play with Pipeline 1) and `volumeMapper`:
+
+- Jump: `skipLocal: true` — already played at 0ms via Pipeline 1
+- Land: `volumeMapper` uses `event.param1` (impact velocity from the server)
+- Hit, Death, Dodge: entries commented in the table, ready to uncomment
 
 ### Duplicate Suppression
 
-The crucial point: when the server sends the local player's jump event, the client **ignores it** because it was already played via prediction. Without this suppression, the player would hear the jump sound twice.
+When the server sends the local player's Jump event, Pipeline 3 **ignores it** (`skipLocal: true` in the trigger table). Without this, the player would hear the jump sound twice.
 
 ---
 
@@ -193,17 +235,15 @@ The crucial point: when the server sends the local player's jump event, the clie
 
 ### Component Overview
 
-The audio engine is composed of 3 modules built on top of Babylon.js AudioEngineV2:
-
 ```
 GameAudioEngine (wrapper around AudioEngineV2)
     |
     +-- AudioBus hierarchy (Babylon.js native)
     |     MainAudioBus (Master)
-    |       +-- AudioBus "sfx" (gameplay sounds, vol 80%)
-    |       +-- AudioBus "music" (background music, vol 50%)
+    |       +-- AudioBus "sfx"     (gameplay sounds, vol 80%)
+    |       +-- AudioBus "music"   (background music, vol 50%)
     |       +-- AudioBus "ambient" (ambience, wind, crowd, vol 60%)
-    |       +-- AudioBus "ui" (clicks, notifications, vol 70%)
+    |       +-- AudioBus "ui"      (clicks, notifications, vol 70%)
     |
     +-- SoundBank (asset manager)
     |     Loads sounds via createSoundAsync()
@@ -211,12 +251,22 @@ GameAudioEngine (wrapper around AudioEngineV2)
     |     Manages variations (jump_01, jump_02, jump_03)
     |     Generates procedural fallbacks from AudioBuffers
     |
-    +-- AudioEventSystem (orchestrator)
-          Receives Game Events
-          Maps event -> sound (type, volume, pitch)
-          Sets spatial position on StaticSound before play()
-          Manages anti-spam cooldowns
-          Filters local player events
+    +-- triggerTables (declarative data — the only place to edit)
+    |     LOCAL_INPUT_TRIGGERS   : field + edge → soundId
+    |     REMOTE_SNAPSHOT_TRIGGERS : predicate(prev, cur) → soundId
+    |     SERVER_EVENT_TRIGGERS  : eventType → soundId
+    |
+    +-- AudioEventSystem (pipeline orchestrator)
+    |     onLocalInput()     — loops over LOCAL_INPUT_TRIGGERS
+    |     onRemoteSnapshot() — loops over REMOTE_SNAPSHOT_TRIGGERS
+    |     onServerEvents()   — loops over SERVER_EVENT_TRIGGERS
+    |     playSoundAt()      — shared playback method (cooldown, spatial, variation)
+    |
+    +-- useAudio (React hook for non-game components)
+          playSound()       — one-shot UI / notification sound
+          playMusic()       — looping music (replaces previous track)
+          stopMusic()
+          setBusVolume()    — per-category volume control
 ```
 
 ### AudioBus: Professional Mixing via Babylon.js
@@ -257,6 +307,25 @@ If `.wav` files are not available, the SoundBank generates synthesized sounds by
 
 This allows testing and development without needing finalized audio assets. The procedural sounds are wrapped in the same `StaticSound` interface, so the AudioEventSystem treats them identically.
 
+### useAudio: React Hook for Non-Game Components
+
+Components outside the game loop (menus, lobby, settings) use the `useAudio` hook instead of accessing the game's `AudioEventSystem` directly:
+
+```typescript
+function MainMenu() {
+  const audio = useAudio();
+
+  useEffect(() => {
+    if (audio.isReady) audio.playMusic('menu_theme');
+    return () => audio.stopMusic();
+  }, [audio.isReady]);
+
+  return <button onClick={() => audio.playSound('ui_click')}>Play</button>;
+}
+```
+
+The hook creates its own `GameAudioEngine` + `SoundBank` instance. If the game and menus ever need to share a single engine (e.g., to avoid reloading assets), the hook can be lifted into a React context (`AudioProvider`) — the call sites would not change.
+
 ---
 
 ## 7. 3D Spatial Audio
@@ -284,7 +353,7 @@ Each SoundDefinition defines:
 - **Distance model**: `inverse` (natural 1/distance attenuation)
 - **Panning model**: `HRTF` (Head-Related Transfer Function, binaural simulation)
 
-Before playing a sound, the AudioEventSystem sets `sound.spatial.position` to the event's world position. Babylon.js handles the rest (attenuation, panning, HRTF).
+Before playing a sound, `playSoundAt()` sets `sound.spatial.position` to the event's world position. Babylon.js handles the rest (attenuation, panning, HRTF).
 
 ### Exception: The Local Player
 
@@ -292,51 +361,130 @@ Local player sounds are played without modifying the spatial position relative t
 
 ---
 
-## 8. What Is Implemented
+## 8. Extending the Audio System
 
-### Functional Test Events
-- **Jump**: detected in CharacterControllerSystem when the player leaves the ground
-- **Land**: detected in PhysicsSystem via the `wasGrounded=false -> isGrounded=true` transition
+Adding a sound is always the same 3-step process regardless of which pipeline it belongs to:
+
+### New server event (e.g. `player_hit`)
+
+```
+1. Add hit_01.wav, hit_02.wav to /sounds/sfx/
+
+2. Append to soundDefinitions.ts:
+   { id: 'player_hit', variations: [...], bus: 'sfx', priority: 8, ... }
+
+3. Append to SERVER_EVENT_TRIGGERS in triggerTables.ts:
+   { eventType: GameEventType.Hit, soundId: 'player_hit' }
+
+→ Done. No other file touched.
+```
+
+### New local input (e.g. `player_dodge`)
+
+```
+1. Add dodge.wav to /sounds/sfx/
+
+2. Append to soundDefinitions.ts:
+   { id: 'player_dodge', variations: [...], bus: 'sfx', priority: 6, ... }
+
+3. Append to LOCAL_INPUT_TRIGGERS in triggerTables.ts:
+   { soundId: 'player_dodge', field: 'isDodging', edge: 'rising' }
+   (also add isDodging to InputState if not already there)
+
+→ Done.
+```
+
+### Menu music
+
+```
+1. Add menu_theme.mp3 to /sounds/music/
+
+2. Append to soundDefinitions.ts:
+   { id: 'menu_theme', variations: [...], bus: 'music', spatial: false, ... }
+
+3. In the menu component:
+   const audio = useAudio();
+   audio.playMusic('menu_theme');
+
+→ Done. No modification to the game audio system.
+```
+
+### Sound priority guidelines
+
+| Category | `priority` | `bus` |
+|----------|-----------|-------|
+| Critical (hit, death) | 8–10 | sfx |
+| Important (jump, land, attack) | 5–7 | sfx |
+| Ambient gameplay (footstep) | 1–3 | sfx |
+| Music | — | music |
+| UI | 5 | ui |
+| Ambiance | — | ambient |
+
+---
+
+## 9. What Is Implemented
+
+### Architecture
+
+| File | Status | Description |
+|------|--------|-------------|
+| `AudioEngine.ts` | Done | Babylon.js wrapper, 4 buses, listener attachment |
+| `SoundBank.ts` | Done | StaticSound loader, variations, procedural fallback |
+| `soundDefinitions.ts` | Done | 3 sounds: jump, land, footstep |
+| `triggerTables.ts` | Done | 3 trigger tables (data-driven) |
+| `AudioEventSystem.ts` | Done | 3 pipeline loops, no per-sound logic |
+| `useAudio.ts` | Done | React hook for non-game audio |
+
+### 3-Pipeline Coverage
+
+| Pipeline | Method | Status |
+|----------|--------|--------|
+| Input (local, 0ms) | `onLocalInput(input, pos)` | Implemented — Jump |
+| Snapshot delta (remote, ~50ms) | `onRemoteSnapshot(prev, cur)` | Implemented — Jump, Land, Footstep |
+| Server events (all, ~50ms) | `onServerEvents(events)` | Implemented — Jump, Land |
 
 ### Complete Chain
 - C++: event emission -> queue -> FFI
 - Rust: event drain -> WebTransport broadcast
 - TypeScript: reception -> AudioEventSystem -> Babylon.js AudioEngineV2
 
-### Audio Stack (Babylon.js AudioEngineV2)
+### Audio Stack
 - `GameAudioEngine`: wrapper around `AudioEngineV2` with bus hierarchy
-- `SoundBank`: loads `StaticSound` instances via `createSoundAsync()`, with procedural fallbacks
-- `AudioEventSystem`: maps game events to sounds, sets spatial position, manages cooldowns
-- Automatic audio context unlock (handled by Babylon.js)
+- `SoundBank`: loads `StaticSound` instances, procedural fallbacks
+- `triggerTables`: declarative trigger definitions for all 3 pipelines
+- `AudioEventSystem`: loops over tables, no per-sound conditionals
+- `useAudio`: hook for menus and UI components
+- Automatic audio context unlock (Babylon.js)
 - Listener attached to camera for automatic spatial updates
 
 ### Sounds
-- Functional procedural fallbacks (no .wav files needed for testing)
-- Pitch and volume variation on each playback
-- Anti-spam cooldown
-- Local player filtering (no double sound)
-- State verification (jump sound only plays when the player is grounded)
+- `player_jump`: local at 0ms (Pipeline 1), remote via velocity delta (Pipeline 2), server event filtered for local player
+- `player_land`: server events with `param1`-based volume, velocity delta for remote players
+- `player_footstep`: remote players, speed-adaptive interval, per-player timer
+- Procedural fallbacks (no .wav files needed for testing)
+- Pitch and volume variation per playback
+- Anti-spam cooldown per sound ID
 
 ---
 
-## 9. Next Steps
+## 10. Next Steps
 
 ### Short Term
 - [ ] Add real audio assets (.wav) for jump and land
-- [ ] Implement `Hit` and `Death` events
-- [ ] Add footstep sounds (`Footstep`) tied to movement speed
+- [ ] Uncomment `Hit` and `Death` in `SERVER_EVENT_TRIGGERS` (entries already there)
+- [ ] Add Attack swing sound via `LOCAL_INPUT_TRIGGERS` (entry already commented)
 
 ### Medium Term
-- [ ] Attack sounds with variations based on weapon type
-- [ ] Background music with dedicated bus
-- [ ] UI for adjusting volumes per bus (SFX, Music, etc.)
-- [ ] Ambient sounds (wind, crowd)
+- [ ] Background music via `useAudio` in the menu/lobby components
+- [ ] UI for adjusting volumes per bus — `useAudio.setBusVolume()` already available
+- [ ] Ambient sounds (wind, crowd) appended to `soundDefinitions.ts`
 - [ ] Attach spatial sounds to remote player meshes via `sound.spatial.attach(mesh)`
 
 ### Long Term
 - [ ] Reverb/echo system based on environment
 - [ ] Adaptive music (changes based on combat intensity)
 - [ ] Audio occlusion (walls blocking sound)
+- [ ] Shared `AudioProvider` context if game and menus need the same engine instance
 
 ---
 
@@ -353,13 +501,18 @@ Local player sounds are played without modifying the spatial position relative t
 | **StaticSound** | Babylon.js pre-loaded sound with `maxInstances`, spatial audio, and playback rate control |
 | **SoundBank** | Registry of sound definitions with their pre-loaded `StaticSound` instances |
 | **SoundDefinition** | Configuration for a sound: URLs, volume, pitch, priority, cooldown, maxInstances |
-| **AudioEventSystem** | Orchestrator that maps game events to sounds with spatial positioning |
+| **triggerTables** | Declarative data tables that define when each sound fires (one per pipeline) |
+| **LocalInputTrigger** | Entry in Pipeline 1 table: a boolean InputState field + rising/falling edge |
+| **RemoteSnapshotTrigger** | Entry in Pipeline 2 table: a predicate over two CharacterSnapshots |
+| **ServerEventTrigger** | Entry in Pipeline 3 table: a GameEventType mapped to a soundId |
+| **AudioEventSystem** | Orchestrator that loops over trigger tables and dispatches playback |
+| **useAudio** | React hook exposing playSound/playMusic/setBusVolume for non-game components |
 | **Hybrid Prediction** | Strategy where the local player hears their sounds immediately, remote sounds arrive via the server |
 | **HRTF** | Head-Related Transfer Function - 3D audio simulation for stereo headphones |
 | **Drain** | Queue emptying operation (read + clear in a single atomic operation) |
 | **Rolloff** | Volume attenuation as a function of source-listener distance |
 
-## 10. Sources
+## 11. Sources
 
 FMOD - https://www.fmod.com/
 Wwise - https://www.audiokinetic.com/fr/wwise/
