@@ -3,6 +3,9 @@ DB_FILE = backend/data/diesel.sqlite
 ENV_EXAMPLE = backend/.env.example
 ENV_FILE = backend/.env
 
+# URL opened by Chrome dev instance (override: make dev CHROME_URL=…)
+CHROME_URL ?= https://localhost:8443
+
 # Source discovery (finds all relevant files to watch for changes)
 FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
                frontend/package.json frontend/vite.config.ts frontend/index.html
@@ -13,7 +16,7 @@ BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f
 
 all: frontend/dist/index.html setup create-db
 	@echo "🚀 Running development build with Chrome dev browser..."
-	@$(MAKE) chrome-dev &
+	@$(MAKE) chrome-dev CHROME_URL=$(CHROME_URL) &
 	@cd backend && cargo run
 
 # 'run' depends on the frontend build output and the DB
@@ -40,7 +43,8 @@ frontend/dist/index.html: $(FRONTEND_SRC)
 
 dev: setup create-db
 	@echo "🛠️ Starting development environment..."
-	@cd frontend && npm install && npm run dev & \
+	@$(MAKE) chrome-dev CHROME_URL=http://localhost:5173 &
+	@cd frontend && npm install && VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev & \
 		cd backend && cargo run
 
 setup:
@@ -105,7 +109,7 @@ chrome-dev:
 		--disable-translate \
 		--disable-sync \
 		--password-store=basic \
-		"https://localhost:8443" >/dev/null 2>&1 &
+		"$(CHROME_URL)" >/dev/null 2>&1 &
 
 create-db:
 	@if [ ! -f $(DB_FILE) ]; then \
