@@ -14,8 +14,8 @@
 //! Instead, the connection is authenticated in two steps:
 //!
 //! 1. The client opens a WebTransport session via [`connect_stream`]. The server
-//!    creates a [`PendingConnectionKey`] and sends it over an initial control stream
-//!    as [`StreamType::Ctrl`].
+//!    opens a [`StreamType::Ctrl`] uni stream whose header carries the
+//!    [`PendingConnectionKey`].
 //! 2. The client performs an authenticated REST call to [`bind_pending_stream`]
 //!    (behind `Router::requires_user_login()`) and posts that `PendingConnectionKey`.
 //!    The server looks up the key and forwards the authenticated [`Session`] to the
@@ -27,7 +27,9 @@
 //! ## One active connection per user
 //!
 //! Connected users are stored in a `DashMap(user_id -> ConnectionEntry)`.
-//! Registering a new connection for the same user replaces the old entry.
+//! Registering a new connection for the same user sends a
+//! [`ConnectionCommand::Displace`] to the old handler (which sends a
+//! [`CtrlMessage::Displaced`] on the Ctrl stream) before replacing the entry.
 //! Dropping the old entry drops its command sender, which causes the old handler's
 //! `cmd_rx.recv()` to return `None` and exit.
 //!
@@ -86,12 +88,14 @@ use futures::SinkExt as _;
 use salvo::http::Method;
 use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
+use super::CtrlMessage;
 use super::StreamType;
 use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use crate::models::Session;
@@ -158,7 +162,7 @@ impl<T: Serialize + Send + 'static> SharedSender<T> {
             let mut sender = sender;
             while let Some(payload) = rx.recv().await {
                 if let Err(err) = sender.send(payload).await {
-                    tracing::warn!(error = %err, "failed to send message to client, closing stream");
+                    tracing::debug!(error = %err, "failed to send message to client, closing stream");
                     break;
                 }
             }
@@ -238,6 +242,9 @@ enum ConnectionCommand {
     OpenUniStream {
         response: oneshot::Sender<Result<WtSend>>,
     },
+    /// Signal that this connection is being displaced by a newer one.
+    /// The handler should send [`CtrlMessage::Displaced`] and shut down.
+    Displace,
 }
 
 /// Entry in the connection registry, containing the channel and a unique connection ID.
@@ -388,19 +395,27 @@ impl StreamManager {
     /// Register a user's WebTransport connection command channel.
     ///
     /// Returns a unique connection ID that must be passed to `unregister` later.
-    /// If the user already has a connection, the old sender is dropped,
-    /// causing the old handler's `rx.recv()` to return `None` and exit.
+    /// If the user already has a connection, the old handler is told to send
+    /// [`CtrlMessage::Displaced`] before exiting.
     fn register(
         self: &Arc<Self>,
         session: &Session,
         tx: mpsc::Sender<ConnectionCommand>,
         connection_id: u64,
     ) -> u64 {
-        self.connections.insert(
+        // Tell the old connection it's being displaced before we replace it.
+        // try_send is used because register() is not async; the command is
+        // buffered and the old handler will process it before seeing the
+        // channel close (None).
+        if let Some(old) = self.connections.insert(
             session.user_id,
             ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
-        );
-        tracing::info!(
+        ) {
+            if let Err(e) = old.tx.try_send(ConnectionCommand::Displace) {
+                tracing::debug!(error = %e, "failed to send command");
+            }
+        }
+        tracing::debug!(
             session.user_id,
             connection_id,
             "Registered WebTransport connection"
@@ -444,7 +459,7 @@ impl StreamManager {
                 None => true,
             };
             if matches {
-                tracing::info!(
+                tracing::debug!(
                     user_id,
                     connection_id = entry.connection_id,
                     "Unregistered connection"
@@ -763,6 +778,18 @@ where
     Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
 }
 
+/// Open the server → client Ctrl uni stream.
+///
+/// Sends `StreamType::Ctrl(key)` as the header frame so the client can
+/// extract the [`PendingConnectionKey`] and authenticate via REST.
+/// Returns a typed [`Sender`] for subsequent [`CtrlMessage`]s.
+async fn open_ctrl_stream(
+    tx: WtSend,
+    key: PendingConnectionKey,
+) -> anyhow::Result<Sender<CtrlMessage>> {
+    frame_uni_stream(tx, StreamType::Ctrl(key)).await
+}
+
 /// WebTransport connection endpoint.
 ///
 /// Establishes a WebTransport/QUIC session for real-time bidirectional communication.
@@ -772,10 +799,12 @@ where
 /// # Protocol
 ///
 /// 1. Client initiates WebTransport connection via HTTP/3 CONNECT
-/// 2. Server sends a control stream with a [`PendingConnectionKey`]
+/// 2. Server opens a [`StreamType::Ctrl`] uni stream whose header carries the
+///    [`PendingConnectionKey`] for the auth handshake
 /// 3. Client authenticates via REST, server registers the connection in [`StreamManager`]
 /// 4. Server-side components can request streams via [`StreamManager::request_stream`]
-/// 5. Connection closure is detected by polling `accept_bi()` which drives the h3 layer
+/// 5. On displacement, server sends [`CtrlMessage::Displaced`] on the Ctrl stream
+/// 6. Connection closure is detected by polling `accept_bi()` which drives the h3 layer
 ///
 /// # Single Connection Policy
 ///
@@ -789,24 +818,18 @@ pub async fn connect_stream(
     let wt_session = req.web_transport_mut().await.unwrap();
     let session_id = wt_session.session_id();
 
-    // Register this connection (replaces any existing connection for this user)
     let streams = depot.stream_manager().clone();
     let (session_rx, pending_key_guard) = streams.register_pending();
     let connection_id = pending_key_guard.connection_id;
-    // Open control stream with initial message
-    let (control_tx, control_rx) = {
-        let (tx, rx) = BidiStream::split(wt_session.open_bi(session_id).await?);
-        frame_stream::<(), (), CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            tx,
-            rx,
-            StreamType::Ctrl(*pending_key_guard),
-        )
+
+    // Open the Ctrl uni stream and send the PendingConnectionKey.
+    let tx = wt_session
+        .open_uni(session_id)
         .await
-        .context("pending connection")?
-    };
-    // drop control stream, for now we have no use for it other than the initial message
-    drop(control_rx);
-    drop(control_tx);
+        .context("failed to open ctrl uni stream")?;
+    let mut ctrl = open_ctrl_stream(tx, *pending_key_guard)
+        .await
+        .context("failed to frame ctrl stream")?;
 
     let user_session = match tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx).await {
         Ok(user_session) => user_session.context("waiting for pending connection bind")?,
@@ -880,7 +903,19 @@ pub async fn connect_stream(
                         let _ = response.send(result);
                     }
                     None => {
-                        tracing::info!(user_session.user_id, connection_id, "Channel closed");
+                        tracing::debug!(user_session.user_id, connection_id, "Channel closed");
+                        break;
+                    }
+                    Some(ConnectionCommand::Displace) => {
+                        if let Err(e) = ctrl.send(CtrlMessage::Displaced).await {
+                            tracing::debug!(error = %e, "failed to send Displaced on ctrl stream");
+                        }
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            "Connection displaced by newer session"
+                        );
+                        tokio::time::sleep(Duration::from_millis(50)).await; // Give the message a moment to be processed by the client
                         break;
                     }
                 }
@@ -905,7 +940,7 @@ pub async fn connect_stream(
                         );
                     }
                     Ok(None) => {
-                        tracing::info!(
+                        tracing::debug!(
                             user_session.user_id,
                             connection_id,
                             "WebTransport connection closed gracefully"
@@ -913,7 +948,7 @@ pub async fn connect_stream(
                         break;
                     }
                     Err(err) => {
-                        tracing::info!(
+                        tracing::debug!(
                             user_session.user_id,
                             connection_id,
                             error = %err,
@@ -927,7 +962,7 @@ pub async fn connect_stream(
     }
 
     streams.unregister(user_session.user_id, Some(connection_id), None);
-    tracing::info!(
+    tracing::debug!(
         user_session.user_id,
         connection_id,
         "WebTransport session ended"
