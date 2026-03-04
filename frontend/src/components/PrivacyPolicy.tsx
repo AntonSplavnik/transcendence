@@ -309,11 +309,11 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 						</li>
 						<li>
 							<strong className="text-stone-100">Device identifier</strong> &mdash; a
-							non secret cookie that helps us "reuse" sessions across devices. It is used to link your sessions together.
+							non-secret cookie that helps us "reuse" sessions across devices. It is used to link your sessions together.
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">
-						Both cookies are set with the <strong className="text-stone-100">
+						All the cookies are set with the <strong className="text-stone-100">
 							Secure</strong> flag (HTTPS only) and <strong className="text-stone-100">
 							SameSite=Lax</strong> for CSRF protection. They are not accessible via
 						JavaScript.
