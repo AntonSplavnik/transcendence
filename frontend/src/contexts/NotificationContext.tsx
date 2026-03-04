@@ -119,6 +119,7 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
  * }
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getClickAction(_payload: NotificationPayload): (() => void) | null {
 	// Extend here per payload type.
 	return null;
