@@ -123,10 +123,11 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 					type="button"
 					onClick={() => fileInputRef.current?.click()}
 					disabled={loading}
+					aria-label="Change avatar"
 					className="relative group rounded-full disabled:opacity-50"
 				>
-					<AvatarDisplay userId={user.id} size="large" src={previewUrl} className="w-32 h-32 rounded-full" />
-					<div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+					<AvatarDisplay userId={user.id} size="large" src={previewUrl} alt={`${user.nickname}'s avatar`} className="w-32 h-32 rounded-full" />
+					<div aria-hidden="true" className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
 						<span className="text-white text-sm font-medium">Edit</span>
 					</div>
 				</button>
@@ -136,11 +137,14 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 					accept="image/*"
 					onChange={handleFileSelect}
 					className="hidden"
+					aria-hidden="true"
+					tabIndex={-1}
 				/>
 				<button
 					type="button"
 					onClick={handleDelete}
 					disabled={loading}
+					aria-label="Delete current avatar"
 					className="text-danger hover:text-danger-light text-xs italic disabled:opacity-50 transition-colors"
 				>
 					x delete
