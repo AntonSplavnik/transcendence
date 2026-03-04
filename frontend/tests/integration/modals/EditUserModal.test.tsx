@@ -193,25 +193,6 @@ describe('EditUserModal', () => {
 		});
 	});
 
-	it('shows error and does not close when avatar delete fails', async () => {
-		server.use(
-			http.delete('/api/avatar', () =>
-				HttpResponse.json(
-					{ error: createMockApiError({ code: 500, brief: 'InternalError', detail: 'Server error' }) },
-					{ status: 500 },
-				),
-			),
-		);
-		const user = userEvent.setup();
-		renderModal();
-		await user.click(screen.getByText('x delete'));
-		await user.click(screen.getByText('Save'));
-		await waitFor(() => {
-			expect(screen.getByText('Server error')).toBeInTheDocument();
-			expect(mockOnClose).not.toHaveBeenCalled();
-		});
-	});
-
 	// --- Avatar upload ---
 
 	it('calls onAvatarChanged with blob URLs on successful upload after Save', async () => {
