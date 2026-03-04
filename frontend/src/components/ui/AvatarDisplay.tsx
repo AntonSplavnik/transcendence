@@ -7,9 +7,10 @@ interface AvatarDisplayProps {
     size: 'large' | 'small';
     src?: string | null;
     className?: string;
+    alt?: string;
 }
 
-export default function AvatarDisplay( {userId, size, src, className = "" } : AvatarDisplayProps ) {
+export default function AvatarDisplay( {userId, size, src, className = "", alt = "User avatar" } : AvatarDisplayProps ) {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(src === undefined);
     const [error, setError] = useState<boolean>(false);
@@ -46,11 +47,11 @@ export default function AvatarDisplay( {userId, size, src, className = "" } : Av
             {loading ? (
                 <div className="bg-stone-700 animate-pulse w-full h-full" />
             ) : !displayUrl || error ? (
-                    <div className="bg-stone-700 w-full h-full flex items-center justify-center">
-                        <UserIcon className="w-1/2 h-1/2 text-stone-400" />
+                    <div role="img" aria-label={alt} className="bg-stone-700 w-full h-full flex items-center justify-center">
+                        <UserIcon className="w-1/2 h-1/2 text-stone-400" aria-hidden="true" />
                     </div>
             ) : (
-                <img src={displayUrl} alt="avatar" className="w-full h-full object-cover" />
+                <img src={displayUrl} alt={alt} className="w-full h-full object-cover" />
             )}
         </div>
     );
