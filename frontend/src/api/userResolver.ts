@@ -34,7 +34,7 @@ const ID_PREFIX = '#';
 export async function getNickname(userId: number): Promise<string> {
 	try {
 		const res = await apiClient.post<{ id: number; nickname: string }[]>(
-			'users/nickname',
+			'/users/nickname',
 			[userId],
 		);
 		const entry = res.data.find((u) => u.id === userId);
@@ -60,7 +60,7 @@ export async function getUserId(nickname: string): Promise<number> {
 	}
 
 	const res = await apiClient.post<{ id: number; nickname: string }[]>(
-		'users/by-nickname',
+		'/users/by-nickname',
 		[nickname],
 	);
 	const entry = res.data[0];
@@ -86,7 +86,7 @@ export async function getNicknames(
 
 	try {
 		const res = await apiClient.post<{ id: number; nickname: string }[]>(
-			'users/nickname',
+			'/users/nickname',
 			userIds,
 		);
 		for (const { id, nickname } of res.data) {
