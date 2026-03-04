@@ -38,14 +38,19 @@ export interface LocalContinuousTrigger {
   intervalMs: number;
 }
 
+const isWalking = (input: InputState) =>
+  input.isGrounded &&
+  !input.isSprinting &&
+  (input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
+
+const isRunning = (input: InputState) =>
+  input.isGrounded &&
+  input.isSprinting &&
+  (input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
+
 export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
-  {
-    soundId: 'player_footstep',
-    predicate: (input) =>
-      input.isGrounded &&
-      (input.movementDirection.x !== 0 || input.movementDirection.z !== 0),
-    intervalMs: 350,
-  },
+  { soundId: 'player_footstep', predicate: isWalking, intervalMs: 550 },
+  { soundId: 'player_footstep', predicate: isRunning, intervalMs: 320 },
 ];
 
 // ─── Pipeline 2: Remote snapshot triggers ────────────────────────────────────
