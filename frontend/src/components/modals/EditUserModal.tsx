@@ -157,7 +157,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 						onChange={(e) => { setDescriptionValue(e.target.value); setDescriptionError(null); }}
 						rows={2}
 						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${descriptionError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
-						placeholder="Pineapple on pizza ?"
+						placeholder="A few words about you…"
 					/>
 					<div className="flex justify-between items-center">
 						{descriptionError
