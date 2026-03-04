@@ -369,7 +369,7 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">
-						To exercise any of these rights, contact us, details are at the top of the page.
+						To exercise any of these rights, contact us. details are at the top of the page.
 					</p>
 				</Card>
 

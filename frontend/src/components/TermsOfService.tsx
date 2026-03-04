@@ -226,7 +226,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 						All game content &mdash; including code, game mechanics, and
 						design &mdash; is the intellectual property of the Hit 'em good
 						development team at 42 Berlin.
-						In-Game models were graciously provided by {" "}
+						In-game models were graciously provided by {" "}
 						<a
 							href="https://kaylousberg.itch.io/"
 							className="text-gold-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
