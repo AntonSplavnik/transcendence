@@ -150,8 +150,10 @@ function getCardLayout(
  *   into a visual stack.  The stack's topmost card is readable; deeper cards
  *   are decorative slivers.
  * - A "+N more" badge appears when the stack overflows.
- * - Clicking a toast dismisses it; if it has an `onClick` action, the action
- *   fires first.
+ * - Clicking a toast dismisses it.
+ * - If a toast defines an `onClick` action, that action is triggered via its
+ *   dedicated control (the chevron button), not by clicking the toast card
+ *   itself.
  */
 export default function NotificationToast() {
 	const { activeToasts, dismissToast } = useNotifications();
@@ -168,10 +170,11 @@ export default function NotificationToast() {
 		};
 	}, []);
 
-	/** Animate out, then dismiss. */
+	/** Animate out, then dismiss. Uses a ref-based guard to prevent duplicate
+	 *  timers when two rapid clicks land in the same React batch. */
 	const animateDismiss = useCallback(
 		(toast: ToastNotification) => {
-			if (exitingIds.has(toast.id)) return;
+			if (exitTimers.current.has(toast.id)) return;
 
 			setExitingIds((prev) => new Set(prev).add(toast.id));
 			const timer = setTimeout(() => {
@@ -185,7 +188,7 @@ export default function NotificationToast() {
 			}, SLIDE_OUT_MS);
 			exitTimers.current.set(toast.id, timer);
 		},
-		[dismissToast, exitingIds],
+		[dismissToast],
 	);
 
 	/** Fire the toast's click action, then dismiss. */
@@ -230,17 +233,30 @@ export default function NotificationToast() {
 							transition: 'bottom 200ms ease, transform 200ms ease',
 						}}
 						onClick={interactive ? () => animateDismiss(toast) : undefined}
-						role={interactive ? 'alert' : undefined}
+						onKeyDown={
+							interactive
+								? (e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										animateDismiss(toast);
+									}
+								}
+								: undefined
+						}
+						role={interactive ? 'button' : undefined}
+						tabIndex={interactive ? 0 : undefined}
 					>
-						<NotificationCard
-							toast={toast}
-							actionable={interactive && toast.onClick != null}
-							onAction={
-								interactive && toast.onClick
-									? (e) => handleAction(e, toast)
-									: undefined
-							}
-						/>
+						<div role="status" aria-live="polite">
+							<NotificationCard
+								toast={toast}
+								actionable={interactive && toast.onClick != null}
+								onAction={
+									interactive && toast.onClick
+										? (e) => handleAction(e, toast)
+										: undefined
+								}
+							/>
+						</div>
 					</div>
 				);
 			})}

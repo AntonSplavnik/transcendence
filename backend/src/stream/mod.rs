@@ -35,7 +35,7 @@ pub enum StreamType {
 /// The control stream stays open for the lifetime of the WebTransport
 /// connection and carries lifecycle signals.
 #[derive(Debug, Clone, serde::Serialize)]
-pub(crate) enum CtrlMessage {
+pub enum CtrlMessage {
     /// Signals that this session is being replaced by a newer connection
     /// from the same user (another tab, device, etc.).
     Displaced,

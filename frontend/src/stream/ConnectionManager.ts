@@ -11,7 +11,9 @@
  *
  * Usage:
  *   const mgr = new ConnectionManager({ codec: new CborZstdCodec() });
- *   mgr.registerUniHandler('Notifications', { onMessage(n) { … } });
+ *   mgr.registerUniHandler('Notifications', () => ({
+ *     onMessage(n) { … },
+ *   }));
  *   await mgr.connect();
  *   // … later …
  *   mgr.disconnect();
@@ -193,9 +195,12 @@ export class ConnectionManager {
 	/**
 	 * Initiate a WebTransport connection.
 	 *
-	 * Always resolves — connection failures are handled internally by
-	 * scheduling automatic reconnection.  Observe progress via
+	 * Resolves once the initial connection attempt has completed (successfully
+	 * or not).  Connection failures are handled internally by scheduling
+	 * automatic reconnection.  Observe progress via
 	 * {@link subscribe} / {@link getState}.
+	 *
+	 * @throws {Error} If the manager has been {@link destroy}ed.
 	 */
 	async connect(): Promise<void> {
 		if (this.destroyed) throw new Error('ConnectionManager is destroyed');

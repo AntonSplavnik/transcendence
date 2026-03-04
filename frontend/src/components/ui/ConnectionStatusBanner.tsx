@@ -1,4 +1,5 @@
 import { AlertTriangle, Loader2, RefreshCw, WifiOff } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { ConnectionState } from '../../stream/types';
 
 interface ConnectionStatusBannerProps {
@@ -7,7 +8,7 @@ interface ConnectionStatusBannerProps {
 
 /** Content resolved from a {@link ConnectionState} for the banner UI. */
 interface BannerContent {
-	icon: React.ReactNode;
+	icon: ReactNode;
 	text: string;
 	bgClass: string;
 }

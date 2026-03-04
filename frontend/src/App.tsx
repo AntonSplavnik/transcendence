@@ -12,7 +12,10 @@ function AppContent() {
 	const { connectionState } = useStream();
 	const [displacedDismissed, setDisplacedDismissed] = useState(false);
 
-	// Reset the dismissed flag when the connection recovers.
+	// The dismissed flag is not reset when leaving the 'displaced' state.
+	// In practice this is fine: the only way to reconnect after displacement
+	// is "Reconnect here" which triggers a full page reload, resetting all
+	// component state including this flag.
 	const showDisplacedModal =
 		connectionState.status === 'displaced' && !displacedDismissed;
 

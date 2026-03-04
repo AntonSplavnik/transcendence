@@ -14,10 +14,7 @@ BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f
 
 .PHONY: all dev run-opt run setup check-cert chrome-dev reset-db create-db install-prek prek-update prek clean
 
-all: frontend/dist/index.html setup create-db
-	@echo "🚀 Running development build with Chrome dev browser..."
-	@$(MAKE) chrome-dev CHROME_URL=$(CHROME_URL) &
-	@cd backend && cargo run
+all: run
 
 # 'run' depends on the frontend build output and the DB
 run: frontend/dist/index.html setup create-db

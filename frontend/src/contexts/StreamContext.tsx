@@ -65,8 +65,8 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
-		await initZstd();
 		try {
+			await initZstd();
 			await manager.connect();
 		} catch (err) {
 			console.error('[StreamProvider] initial connect failed:', err);

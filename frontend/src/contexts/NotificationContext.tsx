@@ -168,21 +168,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	const drainingRef = useRef(false);
 
 	const drainQueue = useCallback(async () => {
-		if (drainingRef.current) return;
-		drainingRef.current = true;
+		for (;;) {
+			if (drainingRef.current) return;
+			drainingRef.current = true;
 
-		while (queueRef.current.length > 0) {
-			const promise = queueRef.current.shift()!;
 			try {
-				const toast = await promise;
-				setNotifications((prev) => [toast.notification, ...prev]);
-				setActiveToasts((prev) => [toast, ...prev]);
-			} catch (err) {
-				console.warn('[Notifications] failed to prepare toast:', err);
+				while (queueRef.current.length > 0) {
+					const promise = queueRef.current.shift()!;
+					try {
+						const toast = await promise;
+						setNotifications((prev) => [toast.notification, ...prev]);
+						setActiveToasts((prev) => [toast, ...prev]);
+					} catch (err) {
+						console.warn('[Notifications] failed to prepare toast:', err);
+					}
+				}
+			} finally {
+				drainingRef.current = false;
 			}
-		}
 
-		drainingRef.current = false;
+			// Items may have been enqueued while awaiting a promise inside the
+			// loop.  Re-check after clearing the guard to avoid stuck items.
+			if (queueRef.current.length === 0) return;
+		}
 	}, []);
 
 	/** Enqueue a notification for async preparation + ordered display. */

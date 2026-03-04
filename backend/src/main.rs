@@ -59,7 +59,13 @@ async fn async_main() -> ExitCode {
     eprintln!("📖 Open API Pages are only enabled with debug builds.");
     #[cfg(debug_assertions)]
     {
-        let listen_addr = config.listen_addr.replace("::", "[::]");
+        let listen_addr = if config.listen_addr == "::" {
+            "[::]".to_string()
+        } else if config.listen_addr.contains(':') && !config.listen_addr.starts_with('[') {
+            format!("[{}]", config.listen_addr)
+        } else {
+            config.listen_addr.clone()
+        };
         let port = config.listen_https_port;
         eprintln!("📖 Open API Pages: https://{listen_addr}:{port}/scalar");
     }
