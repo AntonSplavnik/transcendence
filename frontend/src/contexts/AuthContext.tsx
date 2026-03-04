@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			try {
 				// Use silent mode to avoid storing errors during initial check
 				// ProtectedRoute handles redirect, no need for error messages
-				const data: AuthResponse = await userApi.getMe({ silent: true });
+				const data: AuthResponse = await userApi.getMe();
 				setAuthData(data);
 				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch {

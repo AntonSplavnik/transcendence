@@ -15,10 +15,9 @@ import type {
 /**
  * Get current user and session info
  */
-export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
+export async function getMe(): Promise<AuthResponse> {
 	const response = await apiClient.get<AuthResponse>('/user/me', {
-		_silent: options?.silent
-	} as AxiosRequestConfig & { _silent?: boolean });
+	} as AxiosRequestConfig);
 	return response.data;
 }
 
