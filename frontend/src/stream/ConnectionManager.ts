@@ -193,9 +193,9 @@ export class ConnectionManager {
 	/**
 	 * Initiate a WebTransport connection.
 	 *
-	 * Resolves once the connection is fully authenticated and the stream
-	 * acceptance loops are running.  Rejects if the initial connect fails
-	 * (reconnection is scheduled automatically on transient failures).
+	 * Always resolves — connection failures are handled internally by
+	 * scheduling automatic reconnection.  Observe progress via
+	 * {@link subscribe} / {@link getState}.
 	 */
 	async connect(): Promise<void> {
 		if (this.destroyed) throw new Error('ConnectionManager is destroyed');
@@ -498,6 +498,7 @@ export class ConnectionManager {
 						const factory = this.uniFactories.get(key);
 						if (!factory) {
 							console.warn(`[ConnectionManager] no uni handler for "${key}", ignoring stream`);
+							await reader.cancel(`No uni handler registered for "${key}"`);
 							return;
 						}
 						handler = factory(data);
@@ -557,6 +558,16 @@ export class ConnectionManager {
 						const factory = this.bidiFactories.get(key);
 						if (!factory) {
 							console.warn(`[ConnectionManager] no bidi handler for "${key}", ignoring stream`);
+							try {
+								await reader.cancel(`No bidi handler registered for "${key}"`);
+							} catch {
+								// Ignore cancellation errors.
+							}
+							try {
+								await writer.close();
+							} catch {
+								// Ignore close errors; writer may already be closed.
+							}
 							return;
 						}
 						handler = factory(data, send);

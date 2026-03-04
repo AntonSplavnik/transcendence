@@ -81,8 +81,14 @@ export function parseStreamType(raw: unknown): ParsedStreamType {
 			return { key, data: (raw as Record<string, unknown>)[key] };
 		}
 	}
+	let repr: string;
+	try {
+		repr = JSON.stringify(raw);
+	} catch {
+		repr = String(raw);
+	}
 	throw new Error(
-		`Invalid StreamType header: expected a string or single-key object, got ${JSON.stringify(raw)}`,
+		`Invalid StreamType header: expected a string or single-key object, got ${repr}`,
 	);
 }
 

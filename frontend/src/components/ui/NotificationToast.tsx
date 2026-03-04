@@ -234,7 +234,7 @@ export default function NotificationToast() {
 					>
 						<NotificationCard
 							toast={toast}
-							actionable={toast.onClick != null}
+							actionable={interactive && toast.onClick != null}
 							onAction={
 								interactive && toast.onClick
 									? (e) => handleAction(e, toast)
