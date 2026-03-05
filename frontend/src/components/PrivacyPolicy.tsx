@@ -117,8 +117,11 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 						</li>
 						<li>
 							<strong className="text-stone-100">Device identifier</strong>
-							&mdash; an ID to distinguish your sessions across
-							devices
+							&mdash; a randomly generated ID assigned to your browser the
+							first time you make a request to our server without one present.
+							It is stored in your browser as a cookie and saved in session
+							records to identify which session to resume when you log in
+							without a session cookie.
 						</li>
 					</ul>
 
@@ -268,6 +271,12 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 							if you exceed 10 active sessions (the oldest are pruned first).
 						</li>
 						<li>
+							<strong className="text-stone-100">Device identifier cookie</strong>
+							&mdash; stored in your browser with no expiry. It is
+							retained indefinitely as it serves as a persistent browser
+							identifier for session lookup at login.
+						</li>
+						<li>
 							<strong className="text-stone-100">Game statistics and match
 								history</strong> &mdash; kept for as long as your account exists
 						</li>
@@ -309,7 +318,10 @@ export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 						</li>
 						<li>
 							<strong className="text-stone-100">Device identifier</strong> &mdash; a
-							non-secret cookie that helps us "reuse" sessions across devices. It is used to link your sessions together.
+							randomly generated ID set when you first contact our server without
+							one present. It has no expiry and is stored persistently
+							in your browser. Its sole purpose is to identify which existing
+							session to resume when you log in and no session cookie is present.
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">

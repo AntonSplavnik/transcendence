@@ -89,9 +89,13 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 							information up to date
 						</li>
 						<li>
-							<strong className="text-stone-100">Report
-								problems</strong> &mdash; let us know immediately if you think
-							someone else has accessed your account
+							<strong className="text-stone-100">Manage your own
+								security</strong> &mdash; if you suspect unauthorized access, use
+							the Session Management page to review and revoke active sessions
+							and/or change your password and activate 2FA.
+							You are solely responsible for all activity under your account,
+							including activity by others. We provide no account recovery,
+							support, or guarantees in such cases.
 						</li>
 					</ul>
 					<p className="text-stone-300 mt-3">
