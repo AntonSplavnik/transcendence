@@ -85,16 +85,13 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
         .build()
 }
 
-pub fn jwt_create(
-    session: &Session,
-    jti: SessionTokenHashTruncated,
-) -> AppResult<String> {
+pub fn jwt_create(session: &Session, jti: SessionTokenHashTruncated) -> AppResult<String> {
     let claim = JwtClaims {
         sub: session.user_id,
         sid: session.id,
         jti,
         exp: session.access_expiry().timestamp() as usize,
-        iat: session.refreshed_at().timestamp() as usize,
+        iat: session.refreshed_at.timestamp() as usize,
     };
     Ok(jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
@@ -103,11 +100,7 @@ pub fn jwt_create(
     )?)
 }
 
-pub fn check_password(
-    user_id: i32,
-    password: &str,
-    conn: &mut DbConn,
-) -> AppResult<User> {
+pub fn check_password(user_id: i32, password: &str, conn: &mut DbConn) -> AppResult<User> {
     use crate::schema::users::dsl::*;
     // constant time lookup and verification to prevent timing attacks
     let user = users
@@ -117,8 +110,7 @@ pub fn check_password(
         password,
         user.as_ref().ok().map(|user| user.password_hash.as_str()),
     )?;
-    let user =
-        user.expect("User must exist after successful password verification");
+    let user = user.expect("User must exist after successful password verification");
     Ok(user)
 }
 
@@ -133,11 +125,7 @@ pub fn check_password_and_mfa_if_enabled(
     Ok(user)
 }
 
-pub fn get_user_by_credentials(
-    email: &str,
-    password: &str,
-    conn: &mut DbConn,
-) -> AppResult<User> {
+pub fn get_user_by_credentials(email: &str, password: &str, conn: &mut DbConn) -> AppResult<User> {
     use crate::schema::users::dsl as users_dsl;
     // constant time lookup and verification to prevent timing attacks
     // TODO (not planned yet) /register is not protected against timing attacks, because we dont have email-sending infrastructure
@@ -148,8 +136,7 @@ pub fn get_user_by_credentials(
         password,
         user.as_ref().ok().map(|user| user.password_hash.as_str()),
     )?;
-    let user =
-        user.expect("User must exist after successful password verification");
+    let user = user.expect("User must exist after successful password verification");
     Ok(user)
 }
 
@@ -157,9 +144,9 @@ pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
     let device = req
         .header::<&str>("User-Agent")
         .map(|ua| {
-            woothee::parser::Parser::new().parse(ua).map(|info| {
-                format!("{} on {} ({})", info.name, info.os, info.category)
-            })
+            woothee::parser::Parser::new()
+                .parse(ua)
+                .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
         })
         .flatten();
     let ip = req
@@ -183,8 +170,7 @@ pub fn verify_password(
     password: &str,
     password_hash: Option<&str>,
 ) -> Result<(), password_hash::Error> {
-    let hash =
-        PasswordHash::new(&password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
+    let hash = PasswordHash::new(&password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
     let res = ARGON2.verify_password(password.as_bytes(), &hash);
     match password_hash {
         Some(_) => res,
@@ -197,4 +183,64 @@ pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {
     ARGON2
         .hash_password(password.as_bytes(), &salt)
         .map(|ph| ph.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_password_produces_valid_hash() {
+        let hash = hash_password("test-password").unwrap();
+        // Argon2 hashes start with "$argon2"
+        assert!(
+            hash.starts_with("$argon2"),
+            "hash must be a valid Argon2 string: {hash}"
+        );
+    }
+
+    #[test]
+    fn hash_password_different_salts() {
+        let h1 = hash_password("same-password").unwrap();
+        let h2 = hash_password("same-password").unwrap();
+        assert_ne!(
+            h1, h2,
+            "two hashes of the same password must differ (random salt)"
+        );
+    }
+
+    #[test]
+    fn verify_correct_password_succeeds() {
+        let hash = hash_password("correct-password").unwrap();
+        assert!(
+            verify_password("correct-password", Some(&hash)).is_ok(),
+            "correct password must verify"
+        );
+    }
+
+    #[test]
+    fn verify_wrong_password_fails() {
+        let hash = hash_password("correct-password").unwrap();
+        let result = verify_password("wrong-password", Some(&hash));
+        assert!(result.is_err(), "wrong password must fail verification");
+    }
+
+    #[test]
+    fn verify_no_hash_constant_time_rejection() {
+        // When no hash exists (user not found), verify_password must still
+        // return Error::Password (not a different error variant).
+        let result = verify_password("any-password", None);
+        assert!(result.is_err(), "None hash must fail");
+        match result.unwrap_err() {
+            password_hash::Error::Password => {} // expected
+            err => panic!("expected Error::Password, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn hash_and_verify_roundtrip() {
+        let pw = "roundtrip-password-123!@#";
+        let hash = hash_password(pw).unwrap();
+        assert!(verify_password(pw, Some(&hash)).is_ok());
+    }
 }

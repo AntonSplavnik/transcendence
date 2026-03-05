@@ -1,0 +1,229 @@
+import { describe, it, expect } from 'vitest';
+import {
+	validateNickname,
+	validateEmail,
+	validateMfaCode,
+	validateTotpOnly,
+	validateAvatarFile,
+	validateDescription,
+} from '../../../src/utils/validation';
+
+describe('validateNickname', () => {
+	it('accepts valid nicknames', () => {
+		expect(validateNickname('abc')).toBeNull();
+		expect(validateNickname('a-b_c')).toBeNull();
+		expect(validateNickname('Player_01')).toBeNull();
+		expect(validateNickname('a'.repeat(16))).toBeNull();
+		expect(validateNickname('A-Z_0-9')).toBeNull();
+	});
+
+	it('rejects leading whitespace', () => {
+		expect(validateNickname(' abc')).toBe('Must not have leading or trailing whitespace.');
+	});
+
+	it('rejects trailing whitespace', () => {
+		expect(validateNickname('abc ')).toBe('Must not have leading or trailing whitespace.');
+	});
+
+	it('rejects too short (< 3)', () => {
+		expect(validateNickname('ab')).toBe('Must be between 3 and 16 characters long.');
+		expect(validateNickname('a')).toBe('Must be between 3 and 16 characters long.');
+		expect(validateNickname('')).toBe('Must be between 3 and 16 characters long.');
+	});
+
+	it('rejects too long (> 16)', () => {
+		expect(validateNickname('a'.repeat(17))).toBe('Must be between 3 and 16 characters long.');
+	});
+
+	it('rejects internal whitespace', () => {
+		expect(validateNickname('a b')).toBe('Must not contain whitespace.');
+		expect(validateNickname('ab\tc')).toBe('Must not contain whitespace.');
+	});
+
+	it('rejects invalid characters', () => {
+		const msg = 'Can only contain alphanumeric characters, underscores, or hyphens.';
+		expect(validateNickname('abc!')).toBe(msg);
+		expect(validateNickname('abc@d')).toBe(msg);
+		expect(validateNickname('abc.def')).toBe(msg);
+		expect(validateNickname('abc#')).toBe(msg);
+	});
+});
+
+describe('validateEmail', () => {
+	it('returns null for empty string (handled by required attr)', () => {
+		expect(validateEmail('')).toBeNull();
+	});
+
+	it('accepts valid emails', () => {
+		expect(validateEmail('a@b.co')).toBeNull();
+		expect(validateEmail('user@domain.com')).toBeNull();
+		expect(validateEmail('user+tag@domain.org')).toBeNull();
+	});
+
+	it('rejects missing @', () => {
+		expect(validateEmail('noatsign')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects multiple @', () => {
+		expect(validateEmail('a@b@c.com')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects empty local part', () => {
+		expect(validateEmail('@domain.com')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects no dot in domain', () => {
+		expect(validateEmail('a@localhost')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects domain too short', () => {
+		expect(validateEmail('a@b')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects control characters', () => {
+		expect(validateEmail('a\x00b@c.com')).toBe('Must be a valid email address.');
+	});
+
+	it('rejects email longer than 254 chars', () => {
+		const longEmail = 'a'.repeat(250) + '@b.co';
+		expect(validateEmail(longEmail)).toBe('Must be a valid email address.');
+	});
+
+	it('rejects local part longer than 64 chars', () => {
+		const longLocal = 'a'.repeat(65) + '@b.co';
+		expect(validateEmail(longLocal)).toBe('Must be a valid email address.');
+	});
+
+	it('rejects spaces', () => {
+		expect(validateEmail('a b@c.com')).toBe('Must be a valid email address.');
+	});
+});
+
+describe('validateMfaCode', () => {
+	it('rejects empty string', () => {
+		expect(validateMfaCode('')).toBe('Authentication code is required.');
+	});
+
+	it('accepts valid 6-digit TOTP', () => {
+		expect(validateMfaCode('123456')).toBeNull();
+	});
+
+	it('accepts valid 7-digit TOTP', () => {
+		expect(validateMfaCode('1234567')).toBeNull();
+	});
+
+	it('accepts valid 8-digit TOTP', () => {
+		expect(validateMfaCode('12345678')).toBeNull();
+	});
+
+	it('rejects too few digits (< 6)', () => {
+		expect(validateMfaCode('12345')).toBe('TOTP code must be 6 to 8 digits.');
+	});
+
+	it('rejects too many digits (> 8)', () => {
+		expect(validateMfaCode('123456789')).toBe('TOTP code must be 6 to 8 digits.');
+	});
+
+	it('accepts valid 22-char base64url recovery code', () => {
+		expect(validateMfaCode('AbCdEfGhIjKlMnOpQrStUv')).toBeNull();
+		expect(validateMfaCode('abcABC_-0123456789abcd')).toBeNull();
+	});
+
+	it('rejects recovery code with wrong length', () => {
+		expect(validateMfaCode('abcABC_-012')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('a'.repeat(21))).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('a'.repeat(23))).toBe('Invalid code format.');
+		expect(validateMfaCode('a'.repeat(44))).toBe('Invalid code format.');
+	});
+
+	it('rejects recovery code with invalid chars', () => {
+		expect(validateMfaCode('abc!@#abcABC_-01234567')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('AbC EfGhIjKlMnOpQrStUv')).toBe('Invalid recovery code format.');
+		expect(validateMfaCode('abc.defABCDEF012345678')).toBe('Invalid recovery code format.');
+	});
+
+	it('rejects input longer than 22 chars', () => {
+		expect(validateMfaCode('a'.repeat(45))).toBe('Invalid code format.');
+	});
+});
+
+describe('validateTotpOnly', () => {
+	it('rejects empty string', () => {
+		expect(validateTotpOnly('')).toBe('Verification code is required.');
+	});
+
+	it('accepts exactly 6 digits', () => {
+		expect(validateTotpOnly('123456')).toBeNull();
+		expect(validateTotpOnly('000000')).toBeNull();
+	});
+
+	it('rejects too short', () => {
+		expect(validateTotpOnly('12345')).toBe('Code must be 6 digits.');
+	});
+
+	it('rejects too long', () => {
+		expect(validateTotpOnly('1234567')).toBe('Code must be 6 digits.');
+	});
+
+	it('rejects non-digit characters', () => {
+		expect(validateTotpOnly('12345a')).toBe('Code must be 6 digits.');
+		expect(validateTotpOnly('abcdef')).toBe('Code must be 6 digits.');
+	});
+});
+
+describe('validateAvatarFile', () => {
+	function makeFile(name: string, type: string, size: number): File {
+		const blob = new Blob([new Uint8Array(size)], { type });
+		return new File([blob], name, { type });
+	}
+
+	it('accepts a valid image under 10MB', () => {
+		expect(validateAvatarFile(makeFile('photo.jpg', 'image/jpeg', 1024))).toBeNull();
+		expect(validateAvatarFile(makeFile('photo.png', 'image/png', 5 * 1024 * 1024))).toBeNull();
+		expect(validateAvatarFile(makeFile('photo.avif', 'image/avif', 10 * 1024 * 1024))).toBeNull();
+	});
+
+	it('rejects a non-image MIME type', () => {
+		expect(validateAvatarFile(makeFile('doc.pdf', 'application/pdf', 100))).toBe('File must be an image.');
+		expect(validateAvatarFile(makeFile('data.json', 'application/json', 100))).toBe('File must be an image.');
+		expect(validateAvatarFile(makeFile('script.js', 'text/javascript', 100))).toBe('File must be an image.');
+	});
+
+	it('rejects a file larger than 10MB', () => {
+		const tooBig = 10 * 1024 * 1024 + 1;
+		expect(validateAvatarFile(makeFile('big.jpg', 'image/jpeg', tooBig))).toBe('File must be smaller than 10 MB.');
+	});
+
+	it('checks MIME type before size', () => {
+		const tooBig = 10 * 1024 * 1024 + 1;
+		expect(validateAvatarFile(makeFile('big.pdf', 'application/pdf', tooBig))).toBe('File must be an image.');
+	});
+});
+
+describe('validateDescription', () => {
+	it('accepts empty string', () => {
+		expect(validateDescription('')).toBeNull();
+	});
+
+	it('accepts valid description', () => {
+		expect(validateDescription('Hello, Comment ca va ?')).toBeNull();
+	});
+
+	it('accepts exactly 50 ASCII characters', () => {
+		expect(validateDescription('a'.repeat(50))).toBeNull();
+	});
+
+	it('rejects 51 ASCII characters', () => {
+		expect(validateDescription('a'.repeat(51))).toBe('Must be at most 50 characters long.');
+	});
+
+	it('counts Unicode code points, not bytes — accepts 50 emojis', () => {
+		const fiftyEmojis = '😀'.repeat(50);
+		expect(validateDescription(fiftyEmojis)).toBeNull();
+	});
+
+	it('counts Unicode code points, not bytes — rejects 51 emojis', () => {
+		const fiftyOneEmojis = '😀'.repeat(51);
+		expect(validateDescription(fiftyOneEmojis)).toBe('Must be at most 50 characters long.');
+	});
+});

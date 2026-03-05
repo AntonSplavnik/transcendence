@@ -1,16 +1,5 @@
 import type { AxiosError } from 'axios';
-
-/**
- * Standard error response from backend
- */
-export interface ApiErrorResponse {
-	error?: {
-		code?: number;
-		name?: string;
-		brief?: string;
-		detail?: string | null;
-	};
-}
+import type { ApiErrorResponse } from './types';
 
 /**
  * Stored error info for displaying after redirect
@@ -29,34 +18,8 @@ export function isAxiosError(error: unknown): error is AxiosError<ApiErrorRespon
 		typeof error === 'object' &&
 		error !== null &&
 		'isAxiosError' in error &&
-		(error as any).isAxiosError === true
+		(error as { isAxiosError: boolean }).isAxiosError === true
 	);
-}
-
-/**
- * Errors that require logout
- */
-export function shouldLogout(errorType: string): boolean {
-	return [
-		'MissingSessionCookie',
-		'InvalidSessionToken',
-		'SessionNotFound',
-		'SessionMismatch',
-		/* TODO: make reauth popup for this */
-		'NeedReauth',
-		'DidLogout',
-	].includes(errorType);
-}
-
-/**
- * Determine where to navigate based on error
- */
-export function getNavigationTarget(errorType: string): 'auth' | 'landing' | null {
-	// Session is completely dead → go to auth (login page)
-	if (shouldLogout(errorType)) {
-		return 'auth';
-	}
-	return null;
 }
 
 /**

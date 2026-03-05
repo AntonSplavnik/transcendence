@@ -18,7 +18,7 @@ jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
-salvo = { version = "0.85", features = [
+salvo = { version = "0.89", features = [
 	"anyhow",
 	"acme",
 	"force-https",
@@ -30,9 +30,10 @@ salvo = { version = "0.85", features = [
 	"rustls",
 	"test",
 	"timeout",
+	"affix-state",
 ] }
 # serialization and deserialization library
-serde = "1"
+serde = { version = "1", features = ["derive", "rc"] }
 # easier error types
 thiserror = "2"
 chrono = { version = "0.4", features = ["serde"] }
@@ -43,7 +44,7 @@ tracing = "0.1"
 # enforce checks/rules on struct fields
 validator = { version = "0.20", features = ["derive"] }
 # id generation
-ulid = "1"
+ulid = { version = "1", features = ["serde"] }
 # password hashing
 argon2 = { version = "0.5", features = ["std"] }
 cookie = "0.18"
@@ -72,10 +73,10 @@ diesel = { version = "2", features = [
 	"r2d2",
 ] }
 # rand gen
-rand = "0.9"
+rand = "0.10"
 # for the custom compressedCbor codec
 tokio-util = { version = "0.7.17", features = ["codec"] }
-futures = "0.3.31"
+futures = "0.3.32"
 bytes = "1.11.0"
 ciborium = "0.2.2"
 zstd = "0.13.3"
@@ -89,7 +90,7 @@ ahash = "0.8.12"
 # in-memory caching
 quick_cache = "0.6.18"
 # efficient rate-limiting
-pingora-limits = "0.6.0"
+pingora-limits = "0.7"
 # dependency for h3-quinn (just need an error type from it)
 h3 = "0.0.8"
 # manual json conversions
@@ -105,3 +106,58 @@ totp-rs = { version = "5.7.0", default-features = false, features = [
 # aead cipher
 chacha20poly1305 = { version = "0.10", features = ["std"] }
 hex = "0.4"
+# image decoding/validation (avif-native provides the needed decoder)
+image = { version = "0.25", default-features = false, features = [
+	"avif",
+	"avif-native",
+] }
+diesel-derive-newtype = "2.1.2"
+parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
+schnellru = "0.2.4"
+circular-buffer = "1.2.0"
+enum_dispatch = "0.3.13"
+const-random = "0.1.18"
+smallvec = { version = "1.15.1", features = [
+	"serde",
+	"union",
+	"const_generics",
+] }
+mini-moka = "0.10.3"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+# ---------------------------------------------------------------------------
+# Always compile CPU-intensive dependencies with optimizations, even in
+# debug / test builds.  This makes argon2 hashing ~20–40× faster and avoids
+# blocking the tokio runtime during tests.
+# ---------------------------------------------------------------------------
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake3]
+opt-level = 3
+[profile.dev.package.chacha20poly1305]
+opt-level = 3
+[profile.dev.package.zstd]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 2
+[profile.dev.package.zstd-safe]
+opt-level = 3
+[profile.dev.package.zstd-sys]
+opt-level = 3
+
+[profile.test.package.argon2]
+opt-level = 3
+[profile.test.package.blake3]
+opt-level = 3
+[profile.test.package.chacha20poly1305]
+opt-level = 3
+[profile.test.package.zstd]
+opt-level = 3
+[profile.test.package.image]
+opt-level = 2
+[profile.test.package.zstd-safe]
+opt-level = 3
+[profile.test.package.zstd-sys]
+opt-level = 3
