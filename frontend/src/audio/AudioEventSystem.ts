@@ -64,7 +64,7 @@ export class AudioEventSystem {
       if (now - last < trigger.intervalMs) continue;
 
       this.continuousTimers.set(trigger.soundId, now);
-      this.playSoundAt(trigger.soundId, position);
+      this.playSoundAt(trigger.soundId, position, trigger.volume);
     }
   }
 

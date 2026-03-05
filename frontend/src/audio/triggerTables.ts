@@ -36,6 +36,8 @@ export interface LocalContinuousTrigger {
   predicate: (input: InputState) => boolean;
   /** Minimum interval (ms) between two consecutive plays */
   intervalMs: number;
+  /** Override volume (uses SoundDefinition range if omitted) */
+  volume?: number;
 }
 
 const isWalking = (input: InputState) =>
@@ -50,7 +52,7 @@ const isRunning = (input: InputState) =>
 
 export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
   { soundId: 'player_footstep', predicate: isWalking, intervalMs: 550 },
-  { soundId: 'player_footstep', predicate: isRunning, intervalMs: 320 },
+  { soundId: 'player_footstep', predicate: isRunning,  intervalMs: 320, volume: 0.4 },
 ];
 
 // ─── Pipeline 2: Remote snapshot triggers ────────────────────────────────────

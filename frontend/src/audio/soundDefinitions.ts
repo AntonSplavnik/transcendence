@@ -3,8 +3,8 @@ import type { SoundDefinition } from './SoundBank';
 export const SOUND_DEFINITIONS: SoundDefinition[] = [
   {
     id: 'player_jump',
-    variations: ['/sounds/sfx/jump_01.wav', '/sounds/sfx/jump_02.wav', '/sounds/sfx/jump_03.wav'],
-    volume: { min: 0.7, max: 0.85 },
+    variations: ['/sounds/sfx/jump_01.wav', '/sounds/sfx/jump_02.wav', '/sounds/sfx/jump_03.wav', '/sounds/sfx/jump_04.wav'],
+    volume: { min: 2.5, max: 2.8 },
     pitch: { min: 0.95, max: 1.05 },
     bus: 'sfx',
     spatial: true,
@@ -17,7 +17,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   {
     id: 'player_land',
     variations: ['/sounds/sfx/land_01.wav'],
-    volume: { min: 0.1, max: 0.5 },
+    volume: { min: 0.08, max: 0.1 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'sfx',
     spatial: true,
@@ -56,7 +56,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     {
     id: 'amb_forest',
     variations: ['/sounds/sfx/amb_forest.mp3'],
-    volume: { min: 0.6, max: 0.8 },
+    volume: { min: 0.8, max: 1.2 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'ambient',
     spatial: false,
