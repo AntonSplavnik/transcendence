@@ -1,5 +1,4 @@
 import apiClient from './client';
-import type { AxiosRequestConfig } from 'axios';
 import type {
 	AuthResponse,
 	Session,
@@ -16,8 +15,7 @@ import type {
  * Get current user and session info
  */
 export async function getMe(): Promise<AuthResponse> {
-	const response = await apiClient.get<AuthResponse>('/user/me', {
-	} as AxiosRequestConfig);
+	const response = await apiClient.get<AuthResponse>('/user/me');
 	return response.data;
 }
 

@@ -3,6 +3,11 @@ import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axio
 import { refreshJWT } from './auth';
 import { storeError, getErrorBrief } from './error';
 
+let authFailureCallback: (() => void) | null = null;
+export function setAuthFailureCallback(cb: (() => void) | null) {
+	authFailureCallback = cb;
+}
+
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
 	_silent?: boolean;
@@ -55,7 +60,7 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			} catch (refreshError) {
 				storeError(refreshError, 'JWT refresh error');
 				console.error('JWT refresh failed:', refreshError);
-				window.location.reload();
+				authFailureCallback?.();
 				return Promise.reject(refreshError);
 			}
 		}

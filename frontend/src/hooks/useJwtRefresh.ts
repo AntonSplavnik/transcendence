@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { refreshJWT } from '../api/auth';
-import { getErrorBrief } from '../api/error';
+import { getErrorBrief, isAxiosError } from '../api/error';
 import type { Session } from '../api/types';
 
 const REFRESH_BUFFER_MS = 60_000; // refresh 1 min before expiry
@@ -58,8 +58,9 @@ export function useJwtRefresh({ session, onSessionUpdate, onAuthLost }: UseJwtRe
 				// No self-reschedule needed for the success path.
 			} catch (error) {
 				const brief = getErrorBrief(error);
+				const is401 = isAxiosError(error) && error.response?.status === 401;
 
-				if (TERMINAL_AUTH_ERRORS.includes(brief || '')) {
+				if (is401 || TERMINAL_AUTH_ERRORS.includes(brief || '')) {
 					onAuthLostRef.current();
 					return;
 				}
