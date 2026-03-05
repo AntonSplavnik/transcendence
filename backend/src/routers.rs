@@ -27,6 +27,7 @@ pub fn rest_api(database: Db) -> Router {
             crate::avatar::router("avatar"),
             crate::stream::router("stream"),
             crate::gamification::router::router("stats"),
+            crate::games::router::router("games"),
         ]);
 
     Router::new()

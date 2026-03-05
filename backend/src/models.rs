@@ -105,6 +105,43 @@ impl NewTwoFaRecoveryCode {
 }
 
 // ============================================================================
+// Games
+// ============================================================================
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, Debug, Clone)]
+#[diesel(table_name = crate::schema::games)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct Game {
+    pub id: i32,
+    pub player1_id: i32,
+    pub player2_id: i32,
+    pub winner_id: i32,
+    pub score_p1: i32,
+    pub score_p2: i32,
+    pub played_at: DateTime<Utc>,
+}
+
+impl NewGame {
+    pub fn new(
+        player1_id: i32,
+        player2_id: i32,
+        winner_id: i32,
+        score_p1: i32,
+        score_p2: i32,
+    ) -> Self {
+        NewGame {
+            player1_id,
+            player2_id,
+            winner_id,
+            score_p1,
+            score_p2,
+            played_at: chrono::Utc::now(),
+        }
+    }
+}
+
+// ============================================================================
 // User Stats (XP/Level System)
 // ============================================================================
 

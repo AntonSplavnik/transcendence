@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 115aa40..9094fb5 100644
+index 574cb30..7cf08f9 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,68 +1,68 @@
+@@ -1,94 +1,94 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -20,6 +20,19 @@ index 115aa40..9094fb5 100644
          data -> Binary,
 -        updated_at -> Timestamp,
 +        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     games (id) {
+         id -> Integer,
+         player1_id -> Integer,
+         player2_id -> Integer,
+         winner_id -> Integer,
+         score_p1 -> Integer,
+         score_p2 -> Integer,
+-        played_at -> Timestamp,
++        played_at -> TimestamptzSqlite,
      }
  }
  
@@ -65,6 +78,22 @@ index 115aa40..9094fb5 100644
  }
  
  diesel::table! {
+     user_stats (user_id) {
+         user_id -> Integer,
+         xp -> Integer,
+         level -> Integer,
+         games_played -> Integer,
+         games_won -> Integer,
+         current_win_streak -> Integer,
+         best_win_streak -> Integer,
+-        created_at -> Timestamp,
+-        updated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
      users (id) {
          id -> Integer,
          email -> Text,
@@ -80,21 +109,5 @@ index 115aa40..9094fb5 100644
      }
  }
  
- diesel::table! {
-     user_stats (user_id) {
-         user_id -> Integer,
-         xp -> Integer,
-         level -> Integer,
-         games_played -> Integer,
-         games_won -> Integer,
-         current_win_streak -> Integer,
-         best_win_streak -> Integer,
--        created_at -> Timestamp,
-+        created_at -> TimestamptzSqlite,
--        updated_at -> Timestamp,
-+        updated_at -> TimestamptzSqlite,
-     }
- }
-
  diesel::joinable!(avatars_large -> users (user_id));
  diesel::joinable!(avatars_small -> users (user_id));

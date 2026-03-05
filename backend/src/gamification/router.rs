@@ -15,12 +15,6 @@ pub fn router(path: &str) -> Router {
                 .get(get_my_stats),
         )
         .push(
-            Router::with_path("record-game")
-                .requires_user_login()
-                .user_rate_limit(&RateLimit::per_5_minutes(60))
-                .post(record_game),
-        )
-        .push(
             Router::with_path("<user_id>")
                 .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
@@ -61,49 +55,6 @@ impl From<UserStats> for StatsResponse {
             best_win_streak: stats.best_win_streak,
         }
     }
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-struct RecordGameInput {
-    won: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RecordGameResponse {
-    pub xp_gained: i32,
-    pub leveled_up: bool,
-    pub stats: StatsResponse,
-}
-
-/// Record a game result: updates stats, awards XP, recalculates level
-#[endpoint]
-async fn record_game(depot: &mut Depot, db: Db, json: JsonBody<RecordGameInput>) -> JsonResult<RecordGameResponse> {
-    let user_id = depot.user_id();
-    let input = json.into_inner();
-
-    let (xp_gained, leveled_up, stats) = db.transaction_write(move |conn| {
-        use crate::schema::user_stats::dsl;
-
-        let mut stats = dsl::user_stats
-            .filter(dsl::user_id.eq(user_id))
-            .first::<UserStats>(conn)
-            .optional()?
-            .unwrap_or_else(|| UserStats::new(user_id));
-
-        let (xp_gained, leveled_up) = stats.record_game(input.won);
-
-        diesel::replace_into(dsl::user_stats)
-            .values(&stats)
-            .execute(conn)?;
-
-        Ok((xp_gained, leveled_up, stats))
-    }).await?;
-
-    json_ok(RecordGameResponse {
-        xp_gained,
-        leveled_up,
-        stats: StatsResponse::from(stats),
-    })
 }
 
 /// Get current user's stats

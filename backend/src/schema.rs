@@ -17,6 +17,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    games (id) {
+        id -> Integer,
+        player1_id -> Integer,
+        player2_id -> Integer,
+        winner_id -> Integer,
+        score_p1 -> Integer,
+        score_p2 -> Integer,
+        played_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     notifications (id) {
         id -> Integer,
         user_id -> Integer,
@@ -88,8 +100,10 @@ diesel::joinable!(user_stats -> users (user_id));
 diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
+    games,
     notifications,
     sessions,
     two_fa_recovery_codes,
+    user_stats,
     users,
 );

@@ -14,6 +14,7 @@ mod config;
 pub mod db;
 mod error;
 mod gamification;
+mod games;
 mod models;
 mod notifications;
 mod prelude;
