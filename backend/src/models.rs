@@ -120,13 +120,13 @@ pub struct UserStats {
     pub games_won: i32,
     pub current_win_streak: i32,
     pub best_win_streak: i32,
-    created_at: NaiveDateTime,
-    updated_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 impl UserStats {
     pub fn new(user_id: i32) -> Self {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         Self {
             user_id,
             xp: 0,
@@ -141,11 +141,11 @@ impl UserStats {
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
+        self.created_at
     }
 
     pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at.and_utc()
+        self.updated_at
     }
 
     pub fn games_lost(&self) -> i32 {
@@ -185,7 +185,7 @@ impl UserStats {
 
         // Recalculate level from total XP
         self.level = xp::level_from_xp(self.xp);
-        self.updated_at = chrono::Utc::now().naive_utc();
+        self.updated_at = chrono::Utc::now();
 
         let leveled_up = self.level > previous_level;
         (xp_gained, leveled_up)

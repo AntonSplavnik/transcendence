@@ -80,5 +80,21 @@ index 115aa40..9094fb5 100644
      }
  }
  
+ diesel::table! {
+     user_stats (user_id) {
+         user_id -> Integer,
+         xp -> Integer,
+         level -> Integer,
+         games_played -> Integer,
+         games_won -> Integer,
+         current_win_streak -> Integer,
+         best_win_streak -> Integer,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
+-        updated_at -> Timestamp,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+
  diesel::joinable!(avatars_large -> users (user_id));
  diesel::joinable!(avatars_small -> users (user_id));

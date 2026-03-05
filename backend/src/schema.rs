@@ -59,8 +59,8 @@ diesel::table! {
         games_won -> Integer,
         current_win_streak -> Integer,
         best_win_streak -> Integer,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
     }
 }
 

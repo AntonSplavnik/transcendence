@@ -77,26 +77,27 @@ pub struct RecordGameResponse {
 
 /// Record a game result: updates stats, awards XP, recalculates level
 #[endpoint]
-async fn record_game(depot: &mut Depot, json: JsonBody<RecordGameInput>) -> JsonResult<RecordGameResponse> {
-    use crate::schema::user_stats::dsl;
+async fn record_game(depot: &mut Depot, db: Db, json: JsonBody<RecordGameInput>) -> JsonResult<RecordGameResponse> {
     let user_id = depot.user_id();
     let input = json.into_inner();
-    let conn = &mut db::get()?;
 
-    // Get or create stats
-    let mut stats = dsl::user_stats
-        .filter(dsl::user_id.eq(user_id))
-        .first::<UserStats>(conn)
-        .optional()?
-        .unwrap_or_else(|| UserStats::new(user_id));
+    let (xp_gained, leveled_up, stats) = db.transaction_write(move |conn| {
+        use crate::schema::user_stats::dsl;
 
-    // Apply game result
-    let (xp_gained, leveled_up) = stats.record_game(input.won);
+        let mut stats = dsl::user_stats
+            .filter(dsl::user_id.eq(user_id))
+            .first::<UserStats>(conn)
+            .optional()?
+            .unwrap_or_else(|| UserStats::new(user_id));
 
-    // Upsert stats
-    diesel::replace_into(dsl::user_stats)
-        .values(&stats)
-        .execute(conn)?;
+        let (xp_gained, leveled_up) = stats.record_game(input.won);
+
+        diesel::replace_into(dsl::user_stats)
+            .values(&stats)
+            .execute(conn)?;
+
+        Ok((xp_gained, leveled_up, stats))
+    }).await?;
 
     json_ok(RecordGameResponse {
         xp_gained,
@@ -107,48 +108,48 @@ async fn record_game(depot: &mut Depot, json: JsonBody<RecordGameInput>) -> Json
 
 /// Get current user's stats
 #[endpoint]
-async fn get_my_stats(depot: &mut Depot) -> JsonResult<StatsResponse> {
+async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
     let user_id = depot.user_id();
-    get_or_create_stats(user_id)
+    get_or_create_stats(user_id, db).await
 }
 
 /// Get a user's stats by ID
 #[endpoint]
-async fn get_user_stats(req: &mut Request) -> JsonResult<StatsResponse> {
+async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> {
     let user_id: i32 = req.param("user_id").unwrap_or(0);
     if user_id == 0 {
         return Err(diesel::result::Error::NotFound.into());
     }
-    get_or_create_stats(user_id)
+    get_or_create_stats(user_id, db).await
 }
 
-fn get_or_create_stats(user_id: i32) -> JsonResult<StatsResponse> {
-    use crate::schema::user_stats::dsl;
-    let conn = &mut db::get()?;
+async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
+    let stats = db.transaction_write(move |conn| {
+        use crate::schema::user_stats::dsl;
 
-    // Try to get existing stats
-    let stats = dsl::user_stats
-        .filter(dsl::user_id.eq(user_id))
-        .first::<UserStats>(conn)
-        .optional()?;
+        let stats = dsl::user_stats
+            .filter(dsl::user_id.eq(user_id))
+            .first::<UserStats>(conn)
+            .optional()?;
 
-    let stats = match stats {
-        Some(s) => s,
-        None => {
-            // Verify user exists (will return NotFound error if not)
-            use crate::schema::users;
-            users::table
-                .filter(users::id.eq(user_id))
-                .first::<crate::models::User>(conn)?;
+        match stats {
+            Some(s) => Ok(s),
+            None => {
+                // Verify user exists (will return NotFound error if not)
+                use crate::schema::users;
+                users::table
+                    .filter(users::id.eq(user_id))
+                    .first::<crate::models::User>(conn)?;
 
-            // Create default stats for user
-            let new_stats = UserStats::new(user_id);
-            diesel::insert_into(dsl::user_stats)
-                .values(&new_stats)
-                .execute(conn)?;
-            new_stats
+                // Create default stats for user
+                let new_stats = UserStats::new(user_id);
+                diesel::insert_into(dsl::user_stats)
+                    .values(&new_stats)
+                    .execute(conn)?;
+                Ok(new_stats)
+            }
         }
-    };
+    }).await?;
 
     json_ok(StatsResponse::from(stats))
 }
