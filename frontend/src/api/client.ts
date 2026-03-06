@@ -50,16 +50,22 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
 
-		// Try automatic JWT refresh for expired (but present) JWT
-		const canRefresh = ['InvalidJwt'].includes(brief || '');
+		// Try automatic JWT refresh when JWT is expired or missing (but session cookie may still be valid)
+		// MissingJwtCookie: browser dropped the expired JWT cookie (normal 15-min expiry)
+		// InvalidJwt: JWT cookie is present but rejected (e.g. corrupted or clock skew)
+		const canRefresh = ['InvalidJwt', 'MissingJwtCookie'].includes(brief || '');
 		if (canRefresh && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
 				await refreshJWT();
 				return apiClient(originalRequest);
 			} catch (refreshError) {
-				storeError(refreshError, 'JWT refresh error');
-				console.error('JWT refresh failed:', refreshError);
+				// Only store error for InvalidJwt — MissingJwtCookie failing just means the
+				// user wasn't logged in at all, which is not an error worth reporting.
+				if (brief === 'InvalidJwt') {
+					storeError(refreshError, 'JWT refresh error');
+					console.error('JWT refresh failed:', refreshError);
+				}
 				authFailureCallback?.();
 				return Promise.reject(refreshError);
 			}
@@ -68,7 +74,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		// Errors expected when user is not logged in (no cookies present)
 		// Don't store - ProtectedRoute handles redirect silently
 		const silentAuthErrors = [
-			'MissingJwtCookie',
 			'MissingSessionCookie',
 			'SessionNotFound',
 		];
