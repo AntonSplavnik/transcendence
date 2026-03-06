@@ -102,7 +102,7 @@ describe('API client interceptors', () => {
 	});
 
 	it('does not store error for silent auth errors', async () => {
-		const silentBriefs = ['MissingJwtCookie', 'MissingSessionCookie', 'SessionNotFound'];
+		const silentBriefs = ['MissingSessionCookie', 'SessionNotFound'];
 
 		for (const brief of silentBriefs) {
 			localStorage.clear();
