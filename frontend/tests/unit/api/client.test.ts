@@ -28,7 +28,7 @@ describe('API client interceptors', () => {
 		expect(response.data).toEqual({ data: 'success' });
 	});
 
-	it('attempts JWT refresh on InvalidJwt error', async () => {
+	it.each(['InvalidJwt', 'MissingJwtCookie'])('attempts JWT refresh on %s', async (brief) => {
 		let refreshCalled = false;
 		let retryCalled = false;
 
@@ -37,7 +37,7 @@ describe('API client interceptors', () => {
 				if (!retryCalled) {
 					retryCalled = true;
 					return HttpResponse.json(
-						{ error: createMockApiError({ code: 401, brief: 'InvalidJwt' }) },
+						{ error: createMockApiError({ code: 401, brief }) },
 						{ status: 401 }
 					);
 				}
@@ -57,6 +57,52 @@ describe('API client interceptors', () => {
 
 		expect(refreshCalled).toBe(true);
 		expect(response.data).toEqual({ data: 'success' });
+	});
+
+	function setupFailedRefreshMocks(brief: string) {
+		server.use(
+			http.get('/api/test', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief }) },
+					{ status: 401 }
+				);
+			}),
+			http.post('/api/auth/session-management/refresh-jwt', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief: 'MissingSessionCookie' }) },
+					{ status: 401 }
+				);
+			})
+		);
+	}
+
+	it('stores error in localStorage when InvalidJwt refresh fails', async () => {
+		setupFailedRefreshMocks('InvalidJwt');
+
+		const { default: apiClient } = await import('../../../src/api/client');
+		await expect(apiClient.get('/test')).rejects.toThrow();
+
+		expect(localStorage.getItem('auth_error')).not.toBeNull();
+	});
+
+	it('does not store error in localStorage when MissingJwtCookie refresh fails', async () => {
+		setupFailedRefreshMocks('MissingJwtCookie');
+
+		const { default: apiClient } = await import('../../../src/api/client');
+		await expect(apiClient.get('/test')).rejects.toThrow();
+
+		expect(localStorage.getItem('auth_error')).toBeNull();
+	});
+
+	it('calls authFailureCallback when JWT refresh fails', async () => {
+		const onAuthFailure = vi.fn();
+		setupFailedRefreshMocks('MissingJwtCookie');
+
+		const { default: apiClient, setAuthFailureCallback } = await import('../../../src/api/client');
+		setAuthFailureCallback(onAuthFailure);
+
+		await expect(apiClient.get('/test')).rejects.toThrow();
+		expect(onAuthFailure).toHaveBeenCalledTimes(1);
 	});
 
 	it('does not store errors for silent requests', async () => {
