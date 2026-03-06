@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { AuthProvider } from '../../../src/contexts/AuthContext';
-import AppRoutes from '../../../src/AppRoutes';
-import { server, mockUnauthenticatedUser } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
-import { createMockAuthResponse } from '../../fixtures/users';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import AppRoutes from '../../../src/AppRoutes';
+import { AuthProvider } from '../../../src/contexts/AuthContext';
 import { createMockStoredError } from '../../fixtures/errors';
+import { createMockAuthResponse } from '../../fixtures/users';
+import { mockUnauthenticatedUser, server } from '../../helpers/msw-handlers';
 
 // Mock the GameBoard component to avoid Babylon.js issues
 vi.mock('../../../src/components/GameBoard', () => ({
@@ -39,6 +39,26 @@ vi.mock('../../../src/components/LandingPage', () => ({
 			<button onClick={onLogin}>Login</button>
 		</div>
 	),
+}));
+
+// Mock StreamContext — AppRoutes calls useStream() for connection state
+vi.mock('../../../src/contexts/StreamContext', () => ({
+	useStream: vi.fn(() => ({
+		connectionManager: {
+			registerUniHandler: vi.fn(),
+			unregisterHandler: vi.fn(),
+		},
+		connectionState: { status: 'connected' },
+	})),
+}));
+
+// Mock NotificationContext — NotificationToast calls useNotifications()
+vi.mock('../../../src/contexts/NotificationContext', () => ({
+	useNotifications: vi.fn(() => ({
+		notifications: [],
+		activeToasts: [],
+		dismissToast: vi.fn(),
+	})),
 }));
 
 describe('AppRoutes', () => {
