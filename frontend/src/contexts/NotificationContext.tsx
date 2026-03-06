@@ -119,7 +119,6 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
  * }
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getClickAction(_payload: NotificationPayload): (() => void) | null {
 	// Extend here per payload type.
 	return null;
@@ -168,7 +167,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	const drainingRef = useRef(false);
 
 	const drainQueue = useCallback(async () => {
-		for (;;) {
+		for (; ;) {
 			if (drainingRef.current) return;
 			drainingRef.current = true;
 
@@ -264,7 +263,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useNotifications(): NotificationContextType {
 	const ctx = useContext(NotificationContext);
 	if (!ctx) {

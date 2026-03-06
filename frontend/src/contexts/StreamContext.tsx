@@ -88,8 +88,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 		return () => {
 			manager.disconnect();
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [manager]);
 
 	return (
 		<StreamContext.Provider
@@ -102,7 +101,6 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useStream(): StreamContextType {
 	const ctx = useContext(StreamContext);
 	if (!ctx) {
