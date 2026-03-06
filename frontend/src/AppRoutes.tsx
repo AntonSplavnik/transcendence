@@ -28,7 +28,7 @@ const CONNECTION_STATUS_BANNER_DELAY_MS = 700;
 
 type DelayedBannerConnectionState = Extract<
 	ConnectionState,
-	{ status: 'connecting' | 'authenticating' }
+	{ status: 'connecting' | 'authenticating' | 'disconnected' }
 >;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,7 +50,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function shouldDelayConnectionStatusBanner(
 	state: ConnectionState,
 ): state is DelayedBannerConnectionState {
-	return state.status === 'connecting' || state.status === 'authenticating';
+	return state.status === 'connecting' || state.status === 'authenticating' || state.status === 'disconnected';
 }
 
 function DelayedConnectionStatusBanner({
@@ -117,6 +117,7 @@ function RealtimeStatusOverlays() {
 
 export default function AppRoutes() {
 	const { logout, authChecked } = useAuth();
+	const { connectionManager } = useStream();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const hideFooter = location.pathname === '/game';
@@ -135,6 +136,10 @@ export default function AppRoutes() {
 	};
 
 	const handleLogout = async () => {
+		// Stop the realtime connection first. During logout the backend closes the
+		// WebTransport session before the HTTP response is returned, which would
+		// otherwise look like an unexpected disconnect and trigger a reconnect.
+		connectionManager.disconnect();
 		await logout();
 		navigate('/landing');
 	};
