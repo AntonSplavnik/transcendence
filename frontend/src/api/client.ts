@@ -60,10 +60,12 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 				await refreshJWT();
 				return apiClient(originalRequest);
 			} catch (refreshError) {
-				// Only store error for InvalidJwt — MissingJwtCookie failing just means the
-				// user wasn't logged in at all, which is not an error worth reporting.
-				if (brief === 'InvalidJwt') {
-					storeError(refreshError, 'JWT refresh error');
+				// 401 refresh failures are already classified by the interceptor processing the
+				// refresh response (SessionNotFound → silent, NeedReauth → stored, etc.).
+				// Network errors are already stored as network_error.
+				// Only store for non-401 server errors (429, 500) that the interceptor doesn't handle.
+				if (axios.isAxiosError(refreshError) && refreshError.response && refreshError.response.status !== 401) {
+					storeError(refreshError, 'session_expired');
 					console.error('JWT refresh failed:', refreshError);
 				}
 				authFailureCallback?.();
@@ -71,15 +73,10 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			}
 		}
 
-		// Errors expected when user is not logged in (no cookies present)
+		// Session is absent or expired — not an error, just not logged in
 		// Don't store - ProtectedRoute handles redirect silently
-		const silentAuthErrors = [
-			'MissingSessionCookie',
-			'SessionNotFound',
-		];
-		if (silentAuthErrors.includes(brief || '')) {
+		if (brief === 'MissingSessionCookie' || brief === 'SessionNotFound')
 			return Promise.reject(error);
-		}
 
 		// User needs to log in again (session is invalid/corrupted)
 		const deadSessionErrors = [

@@ -59,25 +59,25 @@ describe('API client interceptors', () => {
 		expect(response.data).toEqual({ data: 'success' });
 	});
 
-	function setupFailedRefreshMocks(brief: string) {
+	function setupFailedRefreshMocks(originalBrief: string, refreshStatus = 401, refreshBrief = 'MissingSessionCookie') {
 		server.use(
 			http.get('/api/test', () => {
 				return HttpResponse.json(
-					{ error: createMockApiError({ code: 401, brief }) },
+					{ error: createMockApiError({ code: 401, brief: originalBrief }) },
 					{ status: 401 }
 				);
 			}),
 			http.post('/api/auth/session-management/refresh-jwt', () => {
 				return HttpResponse.json(
-					{ error: createMockApiError({ code: 401, brief: 'MissingSessionCookie' }) },
-					{ status: 401 }
+					{ error: createMockApiError({ code: refreshStatus, brief: refreshBrief }) },
+					{ status: refreshStatus }
 				);
 			})
 		);
 	}
 
-	it('stores error in localStorage when InvalidJwt refresh fails', async () => {
-		setupFailedRefreshMocks('InvalidJwt');
+	it('stores error when refresh fails with non-401 server error (e.g. 429)', async () => {
+		setupFailedRefreshMocks('MissingJwtCookie', 429, 'RateLimited');
 
 		const { default: apiClient } = await import('../../../src/api/client');
 		await expect(apiClient.get('/test')).rejects.toThrow();
@@ -85,7 +85,7 @@ describe('API client interceptors', () => {
 		expect(localStorage.getItem('auth_error')).not.toBeNull();
 	});
 
-	it('does not store error in localStorage when MissingJwtCookie refresh fails', async () => {
+	it('does not store error when refresh fails with 401 (session gone)', async () => {
 		setupFailedRefreshMocks('MissingJwtCookie');
 
 		const { default: apiClient } = await import('../../../src/api/client');

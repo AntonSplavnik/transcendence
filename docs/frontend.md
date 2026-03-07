@@ -275,12 +275,23 @@ The Axios interceptor (reactive refresh) catches 401 responses and retries the r
 
 The Axios response interceptor is a safety net for normal API calls:
 
-1. A request returns 401 with `InvalidJwt`.
+1. A request returns 401 with `InvalidJwt` or `MissingJwtCookie` (browser drops expired JWT cookies entirely).
 2. The interceptor calls `refreshJWT()` to get a new token.
 3. It retries the original request automatically.
-4. If the refresh itself fails, the page reloads to reset state.
+4. If the refresh fails, `authFailureCallback` (wired to `clearAuth()` in `AuthContext`) resets auth state. ProtectedRoute then redirects to `/auth`.
 
-Only `InvalidJwt` triggers a retry. Other 401 variants (missing cookies, dead session, need-reauth) are handled differently or passed through.
+**Error storage in the refresh catch block** follows a simple rule: the refresh response itself goes through this same interceptor, so 401 failures are already classified (silent for `MissingSessionCookie`/`SessionNotFound`, stored for `NeedReauth`/`InvalidSessionToken`). The catch block only stores errors for non-401 server failures (e.g. 429 rate limit, 500) that the interceptor doesn't handle.
+
+**Other 401 classification** (when JWT refresh is not applicable):
+
+| Brief | Action |
+| --- | --- |
+| `MissingSessionCookie`, `SessionNotFound` | Silent — user is not logged in, ProtectedRoute redirects |
+| `InvalidSessionToken`, `SessionMismatch` | Store `dead_session` — session is corrupted |
+| `NeedReauth` | Store `needReauth` — rolling inactivity exceeded |
+| `InvalidCredentials`, `TwoFactorRequired`, `TwoFactorInvalid` | Pass through — component handles |
+| `DidLogout` | Pass through |
+| Unknown | Store `unauthorized` |
 
 ### Proactive refresh (`hooks/useJwtRefresh.ts`)
 
@@ -288,7 +299,7 @@ A timer-based hook that fires **1 minute before** `access_expiry`:
 
 - **Dynamic scheduling** — `computeDelay()` calculates the timeout from `session.access_expiry`, capped at 14 minutes and floored at 5 seconds.
 - **Visibility handler** — when a backgrounded tab becomes visible again, the hook checks whether the JWT is about to expire. If remaining time is less than the 1-minute buffer, it refreshes immediately (browsers throttle `setTimeout` in background tabs).
-- **Error handling** — terminal auth errors (`NeedReauth`, `InvalidSessionToken`, `SessionNotFound`, `MissingSessionCookie`) call `onAuthLost()` and stop the timer. Network or unknown errors retry with exponential backoff (5 s, 10 s, 20 s, … up to 60 s).
+- **Error handling** — any 401 from the refresh endpoint is terminal (session is gone) and calls `onAuthLost()`. Named terminal briefs (`NeedReauth`, `InvalidSessionToken`, `SessionNotFound`, `MissingSessionCookie`) are also matched explicitly. Network or unknown errors retry with exponential backoff (5 s, 10 s, 20 s, … up to 60 s).
 - **Rescheduling** — on success, the hook calls `onSessionUpdate()` which updates `session` state in `AuthContext`. Because the effect depends on `session`, it re-runs and schedules the next refresh automatically.
 
 ### Integration
@@ -373,17 +384,6 @@ The error system **only displays messages** - it does NOT control navigation.
 - Works for page refresh with expired session
 - Declarative - routes define their own requirements
 - Standard React pattern
-
-### Silent Mode for Initial Auth Check
-
-The initial auth check uses `getMe({ silent: true })` to avoid showing error messages when the app first loads and finds no valid session. This prevents confusing "session expired" messages on fresh visits.
-
-```tsx
-// AuthContext.tsx - initial check is silent
-const data = await authApi.getMe({ silent: true });
-```
-
-Regular API calls (without `silent`) will store errors for display if they fail.
 
 ## Add api calls
 
