@@ -137,3 +137,11 @@ Currently only `ServerHello` is sent on WebTransport connect. The `notifications
 ### 7. Sound system
 
 drongier's sound system branch is in progress. Merge before evaluation for a more complete game feel.
+
+
+### 8. Final update of the README.md
+
+check all info for accuracy. Add a section on how to run the project with Docker once the Docker files are in place.
+Add all new Modals and check each feature for factual accuracy of how it is represented in the README. Remove any outdated info about the game branch or other features that have changed since the README was last updated.
+Also schema might have updated.
+In general, go over each single section and factcheck it against the repo. We want this to be accurate. No false informtaion or outdated information on the Readme.

@@ -26,6 +26,7 @@ _This project has been created as part of the 42 curriculum by kwurster, asplavn
 ## Description
 
 ft_transcendence is a full-stack, real-time multiplayer web game built entirely in the browser. Players register, pick a character, and fight opponents in a 3D arena rendered with Babylon.js. All gameplay events are streamed over WebTransport (HTTP/3), giving the server authoritative control with minimal latency.
+Our final game is called Hit 'em good.
 
 **Key features:**
 
@@ -33,12 +34,10 @@ ft_transcendence is a full-stack, real-time multiplayer web game built entirely 
 - Optional TOTP two-factor authentication with recovery codes
 - Full session management: view all active sessions, revoke them remotely, and change passwords — all MFA-protected
 - Profile system with custom avatars (AVIF format, client-side conversion)
-- Real-time communication layer over WebTransport (HTTP/3) for game events and notifications
+- Real-time communication layer over WebTransport (HTTP/3) for game events and notifications and chat
 - 3D fighting game with Babylon.js rendering (in active development on feature branch)
 - Privacy Policy and Terms of Service pages
 - Complete HTTPS everywhere via Salvo + Rustls
-
-The game itself — character selection, the fighting arena, and the entity system — is in active development on a feature branch and will be merged before evaluation.
 
 ---
 
@@ -52,12 +51,16 @@ The game itself — character selection, the fighting arena, and the entity syst
 | drongier | [@drongier](https://github.com/drongier) | Full-stack Developer, DevOps |
 
 **kwurster** designed and built the entire Rust backend: auth system, 2FA, Diesel ORM with SQLite migrations, rate limiting, the WebTransport `stream_manager`, notification infrastructure, and the full test suite. He also wrote the CI/CD pipeline for the backend and the frontend WebTransport codec (`CompressedCborCodec.ts`).
+His responsibilities as the Tech Lead included setting the overall technical direction, defining the architecture of the backend, and ensuring security best practices were followed throughout, such as using proper CI/CD pipelines, secure password hashing, and robust session management.
 
-**asplavnic** defined the game vision and mechanics as product owner. He built the Privacy Policy and Terms of Service pages and is developing the complete game on a feature branch: server-side validation, the Babylon.js scene, the entity system, and the full fighting game logic.
+**asplavnic** defined the game vision and mechanics as product owner. He developed the complete game: server-side validation, the Babylon.js scene, the entity system, and the full fighting game logic.
+As a Product Owner, he was responsible for defining the user experience for this game-project, and ensuring the final product met the initial vision.
 
-**lmeubrin** architected the frontend: React Router setup, `AuthContext`, route guards, JWT refresh (both proactive timer-based and reactive Axios interceptor), 2FA frontend modals, the session management page, and the landing page (`LandingPage.tsx` + `LandingScene.tsx`). She also built the design system (11 UI components) and the frontend CI/CD pipeline.
+**lmeubrin** architected the frontend: React Router setup, `AuthContext`, route guards, JWT refresh (both proactive timer-based and reactive Axios interceptor), 2FA frontend modals, the session management page, and the landing page (`LandingPage.tsx` + `LandingScene.tsx`). She also built the design system (11 UI components) and the frontend CI/CD pipeline. She built the Privacy Policy and Terms of Service pages.
+Her Project Manager role involved coordinating the team, setting impulses for meetings and strategy, and ensuring that the team stayed on track.
 
-**drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He is also working on the sound system (in progress, not yet merged).
+**drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He also worked on the sound system.
+As a developer with a full-stack role, he worked closely with all parts of the project.
 
 ---
 
@@ -65,11 +68,10 @@ The game itself — character selection, the fighting arena, and the entity syst
 
 The team used GitHub for all collaboration:
 
-- **Issues and pull requests** for task tracking and code review — every feature went through a PR with at least one review before merge.
-- **Discord** as the primary communication channel for daily coordination.
-- **Notion** for shared notes, game design documents, and sprint planning.
+- **Issues and pull requests** for task tracking and code review — every feature went through a PR with at least one review before merge and issues were used extensively.
+- **Slack** as the primary communication channel for daily coordination and sharing documents.
 
-Work was distributed by area of ownership: kwurster held the backend, lmeubrin held the frontend architecture and design, asplavnic drove game direction and is building the game branch, and drongier covered avatar/profile and deployment infrastructure.
+Work was distributed by area of ownership: kwurster held the backend, lmeubrin held the frontend architecture and design, asplavnic drove game direction and is building the game branch, and drongier covered avatar/profile and helped out where needed and did the deployment infrastructure.
 
 ---
 
@@ -101,20 +103,12 @@ cp backend/.env.example backend/.env
 
 ### TLS certificates
 
-The backend requires a TLS certificate to serve HTTPS and WebTransport. For local development, generate a self-signed certificate with `mkcert`:
-
-```sh
-# Install mkcert CA into your system trust store (once)
-mkcert -install
-
-# Generate cert + key for localhost
-mkcert -key-file backend/key.pem -cert-file backend/cert.pem localhost 127.0.0.1
-```
-
-Place `cert.pem` and `key.pem` in `backend/`. The backend looks for them there on startup.
+TODO: update this section with instructions for generating a local TLS certificate using `mkcert` or `openssl`.
 
 ### Running
 
+TODO: Section is outdated dues to Makefile changes. Update with new commands from Makefile.
+Also include Docker instructions once implemented.
 **Development** (backend + frontend separately, with hot reload):
 
 ```sh
@@ -312,7 +306,7 @@ SQLite was chosen because:
 | Avatar upload | drongier | Client converts any image to AVIF at two sizes (450x450 and 200x200) before upload. Backend validates format, dimensions, size limits. No alpha or animation allowed. |
 | Avatar display | drongier | Small avatars LRU-cached in memory (1000 entries). HTTP ETag caching. Default AVIF avatar embedded in binary. |
 | Profile editing | drongier | `EditUserModal` for changing nickname and description. |
-| User description | kwurster (backend), drongier (frontend) | Free-text bio field on user profile. |
+| User description | drongier (frontend) | Free-text bio field on user profile. |
 
 ### Real-time & Game
 
@@ -321,9 +315,9 @@ SQLite was chosen because:
 | WebTransport connection | kwurster | HTTP/3 persistent connection. `stream_manager` in backend manages per-session bidirectional streams. |
 | CBOR codec | kwurster | `CompressedCborCodec.ts` on the frontend encodes/decodes binary messages with zstd compression. |
 | Notifications | kwurster | Server push of `Notification` enum values over WebTransport. Initial `ServerHello` on connect. |
-| Babylon.js scene | asplavnic | 3D rendering with scene setup, lighting, camera controls (game branch, not yet merged). |
-| Entity system | asplavnic | Component-based entity model for characters and game objects (game branch). |
-| Fighting game logic | asplavnic | 1v1 character-based combat with server-side validation (game branch). |
+| Babylon.js scene | asplavnic | 3D rendering with scene setup, lighting, camera controls. |
+| Entity system | asplavnic | Component-based entity model for characters and game objects. |
+| Fighting game logic | asplavnic |  character-based combat with server-side validation. |
 
 ### UI/UX
 
@@ -335,7 +329,7 @@ SQLite was chosen because:
 | Error banner | lmeubrin | Fixed-position auto-dismiss banner for cross-page error messages (stored in `localStorage` between redirects). |
 | Privacy Policy | asplavnic | Accessible from footer; covers data collection, cookies, and user rights. |
 | Terms of Service | asplavnic | Accessible from footer; covers acceptable use and account rules. |
-| Sound system | drongier | In progress; not yet merged. |
+| Sound system | drongier | Sounds for ingame elements such as footsteps. |
 
 ---
 
@@ -366,7 +360,7 @@ _Web Major (2 pts) — by lmeubrin (frontend) and kwurster (backend)_
 
 The subject allows replacing the default vanilla JS frontend and the default backend with framework-based alternatives. We use **React** (with Vite, TypeScript, and Tailwind CSS) on the frontend and **Salvo** (a Rust async web framework) on the backend.
 
-**Why React:** Component model maps naturally onto a game UI with distinct panels (auth, profile, game canvas, session management). React's virtual DOM and context API make state management across auth flows and JWT refresh tractable.
+**Why React:** Component model maps naturally onto a game UI with distinct panels (auth, profile, game canvas, session management). React's virtual DOM and context API make state management across auth flows and JWT refresh tractable. Also it is valuable nowadays to learn a modern frontend framework and React is the most widely used with a huge ecosystem.
 
 **Why Salvo:** Salvo is one of the few Rust web frameworks with first-class WebTransport support. Its "hoop" middleware model is composable and makes route-level authentication, rate limiting, and request enrichment declarative.
 
@@ -380,7 +374,7 @@ _Web Major (2 pts) — by kwurster (backend) and asplavnic (game frontend)_
 
 WebTransport (HTTP/3) replaces conventional WebSocket for all real-time game and notification traffic. Unlike WebSockets, WebTransport supports multiple independent bidirectional streams within one connection, does not have head-of-line blocking, and runs over QUIC.
 
-**Why WebTransport over WebSocket:** Game events for different entities can be sent on independent streams; a dropped packet for one stream does not stall others. QUIC's connection migration also handles mobile network handoffs more gracefully.
+**Why WebTransport over WebSocket:** Game events for different entities can be sent on independent streams; a dropped packet for one stream does not stall others. QUIC's connection migration also handles mobile network handoffs more gracefully. It is faster and more efficient than WebSockets, especially for the real-time demands of a fighting game.
 
 **Implementation:** The Rust backend exposes `/api/wt` as a WebTransport endpoint (gated by `requires_user_login()`). The `stream_manager` module manages per-user stream lifecycle. The frontend `CompressedCborCodec.ts` encodes messages as CBOR with zstd compression before sending. On connect, the server sends a `ServerHello` notification to confirm the session is live.
 
@@ -398,21 +392,23 @@ The game arena is rendered in 3D using **Babylon.js**, a full-featured browser g
 
 ---
 
-### Module 4 — Complete web-based game (1v1 fighter)
+### Module 4 — Complete web-based game (fighter)
+
+TODO: update this section with the final game design and mechanics once the game branch is merged.
 
 _Gaming Major (2 pts) — by asplavnic (game) and kwurster (WebTransport backend)_
 
-The core deliverable is a fully playable 1v1 character-based fighting game running in the browser. Players pick a character, enter a match, and fight in real time. The server holds authoritative game state.
+The core deliverable is a fully playable 1v1 or more character-based fighting game running in the browser. Players pick a character, enter a match, and fight in real time. The server holds authoritative game state.
 
 **Why a fighting game:** A fighting game is a natural fit for WebTransport's low-latency bidirectional streams. Client sends inputs; server validates, updates state, and broadcasts to all players in the match. This cleanly demonstrates the real-time module.
 
-**Implementation:** Character selection, match lobby, combat logic, hit detection, and win conditions are all implemented on the game branch. Server-side validation ensures clients cannot cheat by sending fraudulent state. (Game branch — pending merge.)
+**Implementation:** Character selection, match lobby, combat logic, hit detection, and win conditions in the game folder. Server-side validation ensures clients cannot cheat by sending fraudulent state.
 
 ---
 
 ### Module 5 — Remote players
 
-_Gaming Major (2 pts) — by kwurster and asplavnic_
+_Gaming Major (2 pts) — by asplavnic and kwurster 
 
 Both players connect from separate browsers and play over the network in real time, with the server acting as the authoritative relay and game state manager.
 
@@ -421,6 +417,8 @@ Both players connect from separate browsers and play over the network in real ti
 ---
 
 ### Module 6 — User interaction (chat, friends, profiles)
+
+Todo: update
 
 _Web Major (2 pts) — planned_
 
@@ -452,6 +450,15 @@ Users can optionally enable TOTP-based 2FA. Once enabled, every login and sessio
 
 ### Module 9 — File upload and management (avatar system)
 
+Todo: check if it succeeds this task truly and fully:
+Minor: File upload and management system.
+◦ Support multiple file types (images, documents, etc.).
+◦ Client-side and server-side validation (type, size, format).
+◦ Secure file storage with proper access control.
+◦ File preview functionality where applicable.
+◦ Progress indicators for uploads.
+◦ Ability to delete uploaded files.
+
 _Web Minor (1 pt) — by drongier (full-stack)_
 
 Users can upload a custom avatar. The system stores images in two sizes (450x450 for profile views, 200x200 for lists and game UI) in AVIF format. Client-side conversion and cropping means the backend never runs image processing code — eliminating an entire class of vulnerabilities (ImageMagick-style exploits).
@@ -476,6 +483,7 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ### kwurster
 
+- Tech Lead responsibilities: overall technical direction, architecture decisions, security best practices, code review
 - Entire Rust backend architecture: Salvo routing, middleware hoops, async request lifecycle
 - Auth system: registration, login, two-token model (JWT + session token), BLAKE3 hashing, Argon2id passwords
 - Session management backend: all endpoints, rolling/absolute reauth policy, deauth vs delete semantics
@@ -484,7 +492,7 @@ In a competitive gaming platform, account security matters. This module gives us
 - Rate limiting: IP-based and user-based quota hoops on all public and authenticated routes
 - WebTransport backend: `/api/wt` endpoint, `stream_manager`, per-user stream lifecycle
 - Notification system: `notifications` table, CBOR-encoded `Notification` enum, `ServerHello`
-- Frontend WebTransport codec: `CompressedCborCodec.ts` (CBOR + zstd)
+- Frontend WebTransport: codec `CompressedCborCodec.ts` (CBOR + zstd) and Stream manager
 - Backend CI/CD pipeline
 - Full backend test infrastructure: mock server, `ApiClient`, `User` typestate, test conventions
 
@@ -501,6 +509,7 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ### lmeubrin
 
+- Project Manager responsibilities: team coordination, meeting facilitation, timeline management, review leadership
 - Frontend architecture: React Router setup, `AppRoutes.tsx`, `AuthContext.tsx`
 - Route guards: `ProtectedRoute` and `PublicRoute` components
 - JWT refresh: proactive (`useJwtRefresh` hook) and reactive (Axios interceptor) mechanisms
@@ -551,9 +560,9 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ### AI usage
 
-AI assistants (Claude) were used throughout the project for:
+AI assistants were used throughout the project for:
 
-- **Code review and debugging** — understanding cryptic Rust compiler errors, reviewing auth middleware logic, and catching subtle JWT/cookie security issues before they reached production.
+- **Code review and debugging** — every pull request was reviewed by AI as well as at least one human reviewer. AI was used to write most frontend tests and identify bugs and edge cases in the auth flows and everywhere else. It was also used to discuss the architecture and design of the backend logic.
 - **Documentation drafting** — initial drafts of `docs/backend-auth.md`, `docs/avatar-backend.md`, and this README were written with AI assistance and then reviewed and corrected by the team.
 - **Design decisions** — discussing trade-offs for session token storage, avatar caching strategies, and WebTransport vs WebSocket.
 - **Test infrastructure** — the backend mock server and typestate-based test helpers were developed with AI pair-programming.
