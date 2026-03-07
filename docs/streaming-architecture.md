@@ -241,8 +241,8 @@ On the frontend, `parseStreamType()` handles serde's externally-tagged format:
 
 The frontend `ConnectionManager` maintains two registries:
 
-- **`uniHandlers: Map<string, (data: unknown) => UniStreamHandler>`** — factories for server → client streams
-- **`bidiHandlers: Map<string, (data: unknown, send: (msg) => void) => BidiStreamHandler>`** — factories for full-duplex streams
+- **`uniFactories: Map<string, (data: unknown) => UniStreamHandler>`** — factories for server → client streams
+- **`bidiFactories: Map<string, (data: unknown, send: (msg) => void) => BidiStreamHandler>`** — factories for full-duplex streams
 
 Handler **factories** are registered before connecting and remain active across
 reconnections. Each incoming stream invokes the factory, producing a **distinct
@@ -331,19 +331,23 @@ NotificationManager.open_stream(db, streams, user_id)
 Incoming uni stream
     │
     ├─ Decode StreamType header → "Notifications"
-    │  Look up factory via uniHandlers.get("Notifications")
+    │  Look up factory via uniFactories.get("Notifications")
     │  Call factory(data) → handler instance
     │
     ├─ handler.onOpen() → log "stream opened"
     │
     ├─ handler.onMessage(wireNotification)
     │     │
-    │     ├─ setNotifications(prev => [notification, ...prev])
-    │     └─ setLatestToast(notification)
+    │     └─ enqueueNotification(wireNotification)
     │           │
-    │           └─ NotificationToast renders:
-    │              "Connected to server"  (for ServerHello)
-    │              Auto-dismiss after 5 seconds
+    │           ├─ queueRef.push(prepareToast(notification))
+    │           │     └─ resolveDisplayText(payload) ← async; may fetch nicknames
+    │           │
+    │           └─ drainQueue()  ← awaits promises in FIFO order
+    │                 │
+    │                 ├─ toast = await promise  (displayText now resolved)
+    │                 ├─ setNotifications(prev => [notification, ...prev])
+    │                 └─ setActiveToasts(prev => [toast, ...prev])
     │
     └─ handler.onClose() → log "stream closed"
 ```
@@ -566,13 +570,17 @@ await initZstd();  // called by StreamProvider on mount
   <AuthProvider>           // user state, login/logout
     <StreamProvider>       // owns ConnectionManager, connects on auth
       <NotificationProvider>  // registers notification handler
-        <AppRoutes />
-        <NotificationToast />  // renders latest toast
+        <AppRoutes />         // NotificationToast is rendered inside AppRoutes
       </NotificationProvider>
     </StreamProvider>
   </AuthProvider>
 </HashRouter>
 ```
+
+`NotificationToast` (along with `ConnectionStatusBanner` and `DisplacedModal`) is
+rendered by the `RealtimeStatusOverlays` component inside `AppRoutes.tsx`, not
+directly in `App.tsx`. Since `AppRoutes` is a child of `NotificationProvider`, those
+components can still use `useNotifications()` and `useStream()`.
 
 The nesting order matters:
 - `StreamProvider` depends on `AuthProvider` (reads `user` to know when to

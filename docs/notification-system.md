@@ -8,48 +8,48 @@ send-or-store pattern that guarantees delivery regardless of user connectivity.
 ## Table of Contents
 
 - [Notification System](#notification-system)
-	- [Table of Contents](#table-of-contents)
-	- [Design Overview](#design-overview)
-		- [Why This Pattern](#why-this-pattern)
-	- [Send-or-Store Pattern](#send-or-store-pattern)
-		- [Insert-Before-Drain Ordering](#insert-before-drain-ordering)
-		- [Graceful Drain Failure](#graceful-drain-failure)
-	- [Backend Implementation](#backend-implementation)
-		- [NotificationManager](#notificationmanager)
-			- [Public API](#public-api)
-			- [Private Methods](#private-methods)
-			- [Error Types](#error-types)
-			- [Internal State](#internal-state)
-		- [Types \& Payloads](#types--payloads)
-			- [NotificationPayload](#notificationpayload)
-			- [WireNotification](#wirenotification)
-			- [NotificationManagerDepotExt](#notificationmanagerdepotext)
-		- [Database Schema](#database-schema)
-			- [Diesel Models](#diesel-models)
-		- [Integration with Streaming](#integration-with-streaming)
-	- [Frontend Implementation](#frontend-implementation)
-		- [User Resolver API](#user-resolver-api)
-		- [NotificationContext](#notificationcontext)
-			- [Handler Registration \& Preparation Queue](#handler-registration--preparation-queue)
-			- [resolveDisplayText](#resolvedisplaytext)
-			- [getClickAction](#getclickaction)
-			- [prepareToast](#preparetoast)
-			- [ToastNotification Interface](#toastnotification-interface)
-			- [useNotifications Hook](#usenotifications-hook)
-			- [Debug Helper](#debug-helper)
-		- [NotificationToast](#notificationtoast)
-			- [Layout Algorithm](#layout-algorithm)
-			- [Display Modes](#display-modes)
-			- [Animations](#animations)
-			- [Card Content](#card-content)
-		- [Provider Hierarchy](#provider-hierarchy)
-	- [End-to-End Lifecycle](#end-to-end-lifecycle)
-		- [Reconnection \& Backlog Drain](#reconnection--backlog-drain)
-	- [Delivery Guarantees](#delivery-guarantees)
-	- [Extending the System](#extending-the-system)
-		- [Adding a New Notification Type](#adding-a-new-notification-type)
-		- [Sending from a Route Handler](#sending-from-a-route-handler)
-	- [Related Documentation](#related-documentation)
+  - [Table of Contents](#table-of-contents)
+  - [Design Overview](#design-overview)
+    - [Why This Pattern](#why-this-pattern)
+  - [Send-or-Store Pattern](#send-or-store-pattern)
+    - [Insert-Before-Drain Ordering](#insert-before-drain-ordering)
+    - [Graceful Drain Failure](#graceful-drain-failure)
+  - [Backend Implementation](#backend-implementation)
+    - [NotificationManager](#notificationmanager)
+      - [Public API](#public-api)
+      - [Private Methods](#private-methods)
+      - [Error Types](#error-types)
+      - [Internal State](#internal-state)
+    - [Types \& Payloads](#types--payloads)
+      - [NotificationPayload](#notificationpayload)
+      - [WireNotification](#wirenotification)
+      - [NotificationManagerDepotExt](#notificationmanagerdepotext)
+    - [Database Schema](#database-schema)
+      - [Diesel Models](#diesel-models)
+    - [Integration with Streaming](#integration-with-streaming)
+  - [Frontend Implementation](#frontend-implementation)
+    - [User Resolver API](#user-resolver-api)
+    - [NotificationContext](#notificationcontext)
+      - [Handler Registration \& Preparation Queue](#handler-registration--preparation-queue)
+      - [resolveDisplayText](#resolvedisplaytext)
+      - [getClickAction](#getclickaction)
+      - [prepareToast](#preparetoast)
+      - [ToastNotification Interface](#toastnotification-interface)
+      - [useNotifications Hook](#usenotifications-hook)
+      - [Debug Helper](#debug-helper)
+    - [NotificationToast](#notificationtoast)
+      - [Layout Algorithm](#layout-algorithm)
+      - [Display Modes](#display-modes)
+      - [Animations](#animations)
+      - [Card Content](#card-content)
+    - [Provider Hierarchy](#provider-hierarchy)
+  - [End-to-End Lifecycle](#end-to-end-lifecycle)
+    - [Reconnection \& Backlog Drain](#reconnection--backlog-drain)
+  - [Delivery Guarantees](#delivery-guarantees)
+  - [Extending the System](#extending-the-system)
+    - [Adding a New Notification Type](#adding-a-new-notification-type)
+    - [Sending from a Route Handler](#sending-from-a-route-handler)
+  - [Related Documentation](#related-documentation)
 
 ---
 
@@ -416,21 +416,29 @@ resolution:
 
 ```typescript
 const drainQueue = useCallback(async () => {
-    if (drainingRef.current) return;
-    drainingRef.current = true;
+    for (;;) {
+        if (drainingRef.current) return;
+        drainingRef.current = true;
 
-    while (queueRef.current.length > 0) {
-        const promise = queueRef.current.shift()!;
         try {
-            const toast = await promise;
-            setNotifications((prev) => [toast.notification, ...prev]);
-            setActiveToasts((prev) => [toast, ...prev]);
-        } catch (err) {
-            console.warn('[Notifications] failed to prepare toast:', err);
+            while (queueRef.current.length > 0) {
+                const promise = queueRef.current.shift()!;
+                try {
+                    const toast = await promise;
+                    setNotifications((prev) => [toast.notification, ...prev]);
+                    setActiveToasts((prev) => [toast, ...prev]);
+                } catch (err) {
+                    console.warn('[Notifications] failed to prepare toast:', err);
+                }
+            }
+        } finally {
+            drainingRef.current = false;
         }
-    }
 
-    drainingRef.current = false;
+        // Items may have been enqueued while awaiting a promise.
+        // Re-check after clearing the guard to avoid stuck items.
+        if (queueRef.current.length === 0) return;
+    }
 }, []);
 ```
 
@@ -592,8 +600,7 @@ Clicking anywhere on the card dismisses it. The action chevron fires
 <AuthProvider>
     <StreamProvider>
         <NotificationProvider>
-            <AppRoutes />
-            <NotificationToast />
+            <AppRoutes />  {/* NotificationToast is rendered inside AppRoutes */}
         </NotificationProvider>
     </StreamProvider>
 </AuthProvider>
@@ -604,8 +611,10 @@ The nesting order is mandatory:
 2. `StreamProvider` — creates `ConnectionManager`, connects on auth.
 3. `NotificationProvider` — registers notification handler on `ConnectionManager`.
 
-`NotificationToast` is rendered inside `NotificationProvider` so it can use
-`useNotifications()`.
+`NotificationToast` is rendered by the `RealtimeStatusOverlays` component inside
+`AppRoutes.tsx` (alongside `ConnectionStatusBanner` and `DisplacedModal`). Because
+`AppRoutes` is a child of `NotificationProvider`, those components can use
+`useNotifications()` and `useStream()`.
 
 ---
 
