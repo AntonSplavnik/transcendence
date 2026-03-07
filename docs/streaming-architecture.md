@@ -212,7 +212,9 @@ The server is the sole entity that opens streams. The pattern is always:
 3. The handler opens the raw QUIC stream via `wt_session.open_bi()` or
    `open_uni()`.
 4. The framing function sends the `StreamType` header as the first CBOR frame.
-5. The typed `Sender`/`Receiver` is returned to the calling component.
+5. The typed `Sender`/`Receiver` is returned to the calling component together
+  with a `CancellationToken` that is cancelled when the underlying connection
+  is dropped.
 
 ### StreamType Header
 
@@ -313,13 +315,17 @@ NotificationManager.open_stream(db, streams, user_id)
     │
     ├─ 1. StreamManager.request_uni_stream(user_id, StreamType::Notifications)
     │     → server opens uni stream, sends "Notifications" header
-    │     → returns Sender<WireNotification>
+  │     → returns (Sender<WireNotification>, CancellationToken)
     │
     ├─ 2. Wrap Sender in SharedSender (cloneable, spawns forwarding task)
     │
-    ├─ 3. Register in streams map (replaces any previous sender)
+  ├─ 3. Spawn cleanup task waiting on disconnect_token.cancelled()
+  │     → removes the cached sender immediately when the WebTransport
+  │       connection drops
+  │
+  ├─ 4. Register in streams map (replaces any previous sender)
     │
-    └─ 4. Drain DB backlog (oldest → newest)
+  └─ 5. Drain DB backlog (oldest → newest)
           SELECT + DELETE in single transaction
           Send each stored notification over the new stream
           If send fails mid-drain: re-store unsent notifications to DB
