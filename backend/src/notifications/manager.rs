@@ -16,7 +16,7 @@ use crate::models::cbor_blob::CborBlob;
 use crate::models::{NewOfflineNotification, OfflineNotification};
 use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
-use crate::stream::{Sender, SharedSender, StreamManager, StreamManagerError, StreamType};
+use crate::stream::{SharedSender, StreamManager, StreamManagerError, StreamType};
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
@@ -117,7 +117,7 @@ impl NotificationManager {
         streams: &StreamManager,
         user_id: i32,
     ) -> Result<(), NotificationError> {
-        let sender: Sender<WireNotification> = streams
+        let (sender, disconnect_token) = streams
             .request_uni_stream(user_id, StreamType::Notifications)
             .await?;
 
@@ -130,6 +130,18 @@ impl NotificationManager {
         // This might deliver new notifications before the backlog, but because every payload
         // is tagged with the send timestamp, the client can sort them correctly.
         self.streams.insert(user_id, sender.clone());
+
+        // Spawn a cleanup task: when the WebTransport connection is dropped,
+        // the disconnect_token is cancelled and we remove the stale sender.
+        {
+            let streams = self.streams.clone();
+            let sender_for_cleanup = sender.clone();
+            tokio::spawn(async move {
+                disconnect_token.cancelled().await;
+                streams.remove_if(&user_id, |_, v| v.eq(&sender_for_cleanup));
+                tracing::debug!(user_id, "notification stream cleaned up after disconnect");
+            });
+        }
 
         // Drain the DB backlog.
         let pending = match Self::drain_from_db(db, user_id).await {

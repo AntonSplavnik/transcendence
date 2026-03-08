@@ -171,6 +171,7 @@ async fn shutdown_signal(handle: ServerHandle) {
         _ = terminate => tracing::info!("terminate signal received"),
     }
     handle.stop_graceful(Duration::from_secs(10));
+    tokio::time::sleep(Duration::from_secs(1)).await;
     ON_SHUTDOWN.notify_waiters();
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
 }

@@ -11,14 +11,23 @@ Uses the existing **Notifications** stream as the reference implementation.
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Step 1 — Add the Backend StreamType Variant](#step-1--add-the-backend-streamtype-variant)
-- [Step 2 — Create the Backend Manager](#step-2--create-the-backend-manager)
-- [Step 3 — Hook into on\_connect()](#step-3--hook-into-on_connect)
-- [Step 4 — Add the Frontend Types](#step-4--add-the-frontend-types)
-- [Step 5 — Register the Frontend Handler](#step-5--register-the-frontend-handler)
-- [Step 6 — Wire Up React State](#step-6--wire-up-react-state)
-- [Checklist](#checklist)
+- [How to Add a New StreamType](#how-to-add-a-new-streamtype)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Step 1 — Add the Backend StreamType Variant](#step-1--add-the-backend-streamtype-variant)
+  - [Step 2 — Create the Backend Manager](#step-2--create-the-backend-manager)
+    - [Minimal Example](#minimal-example)
+    - [Bidirectional Streams](#bidirectional-streams)
+    - [Depot Integration](#depot-integration)
+  - [Step 3 — Hook into on\_connect()](#step-3--hook-into-on_connect)
+  - [Step 4 — Add the Frontend Types](#step-4--add-the-frontend-types)
+    - [4a. Extend the StreamType Union](#4a-extend-the-streamtype-union)
+    - [4b. Define the Wire Types](#4b-define-the-wire-types)
+  - [Step 5 — Register the Frontend Handler](#step-5--register-the-frontend-handler)
+    - [Handler Lifecycle](#handler-lifecycle)
+  - [Step 6 — Wire Up React State](#step-6--wire-up-react-state)
+    - [Provider Nesting Order (App.tsx)](#provider-nesting-order-apptsx)
+  - [Checklist](#checklist)
 
 ---
 
@@ -112,10 +121,19 @@ impl ChatManager {
         user_id: i32,
         room_id: i32,
     ) -> anyhow::Result<()> {
-        let sender = streams
+        let (sender, disconnect_token) = streams
             .request_uni_stream::<ChatMessage>(user_id, StreamType::ChatRoom(room_id))
             .await?;
-        self.streams.insert(user_id, SharedSender::new(sender));
+        let sender = SharedSender::new(sender);
+        self.streams.insert(user_id, sender.clone());
+
+        let streams_map = self.streams.clone();
+        let sender_for_cleanup = sender.clone();
+        tokio::spawn(async move {
+            disconnect_token.cancelled().await;
+            streams_map.remove_if(&user_id, |_, v| v.eq(&sender_for_cleanup));
+        });
+
         Ok(())
     }
 
@@ -135,9 +153,10 @@ impl ChatManager {
 ### Bidirectional Streams
 
 If the client needs to send data back (e.g. chat input), use
-`request_stream()` instead of `request_uni_stream()`. This returns both a
-`Sender<TSend>` and a `Receiver<TRecv>`. Spawn a task to read from the
-receiver.
+`request_stream()` instead of `request_uni_stream()`. This returns a
+`Sender<TSend>`, a `Receiver<TRecv>`, and a `CancellationToken`. Spawn a task
+to read from the receiver, and use the token if you cache per-connection state
+that must be dropped immediately on disconnect.
 
 ### Depot Integration
 

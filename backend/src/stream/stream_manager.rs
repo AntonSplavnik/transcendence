@@ -94,6 +94,7 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
+use tokio_util::sync::CancellationToken;
 
 use super::CtrlMessage;
 use super::StreamType;
@@ -249,10 +250,15 @@ enum ConnectionCommand {
 
 /// Entry in the connection registry, containing the channel and a unique connection ID.
 struct ConnectionEntry {
+    /// Task that resolves on auth expiry and unregisters the connection.
+    /// This is aborted and replaced on auth refresh.
     unregister_task: AbortHandle,
+    /// Channel for sending commands to the connection handler (e.g., open stream, displace).
     tx: mpsc::Sender<ConnectionCommand>,
     connection_id: u64,
     session_id: i32,
+    /// Cancellation token used to signal connection closure
+    disconnect_token: CancellationToken,
 }
 
 impl ConnectionEntry {
@@ -267,6 +273,7 @@ impl ConnectionEntry {
             connection_id,
             session_id: session.id,
             unregister_task: Self::new_unregister_task(streams, session, connection_id),
+            disconnect_token: CancellationToken::new(),
         }
     }
 
@@ -301,6 +308,7 @@ impl ConnectionEntry {
 
 impl Drop for ConnectionEntry {
     fn drop(&mut self) {
+        self.disconnect_token.cancel();
         self.unregister_task.abort();
     }
 }
@@ -485,13 +493,17 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    async fn request_unframed_stream(&self, user_id: i32) -> Result<((WtSend, WtRecv), u64)> {
+    async fn request_unframed_stream(
+        &self,
+        user_id: i32,
+    ) -> Result<((WtSend, WtRecv), u64, CancellationToken)> {
         let entry = self
             .connections
             .get(&user_id)
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
+        let token = entry.disconnect_token.clone();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -513,7 +525,7 @@ impl StreamManager {
 
         // Wait for response with timeout - if timeout or error, connection is dead
         match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id)),
+            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
             Ok(Err(_)) | Err(_) => {
                 self.unregister(user_id, Some(connection_id), None);
                 Err(StreamManagerError::ConnectionClosed {
@@ -533,13 +545,17 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    async fn request_unframed_uni_stream(&self, user_id: i32) -> Result<(WtSend, u64)> {
+    async fn request_unframed_uni_stream(
+        &self,
+        user_id: i32,
+    ) -> Result<(WtSend, u64, CancellationToken)> {
         let entry = self
             .connections
             .get(&user_id)
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
+        let token = entry.disconnect_token.clone();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -561,7 +577,7 @@ impl StreamManager {
 
         // Wait for response with timeout - if timeout or error, connection is dead
         match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id)),
+            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
             Ok(Err(_)) | Err(_) => {
                 self.unregister(user_id, Some(connection_id), None);
                 Err(StreamManagerError::ConnectionClosed {
@@ -609,7 +625,7 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S>, Receiver<R>)>
+    ) -> Result<(Sender<S>, Receiver<R>, CancellationToken)>
     where
         S: Serialize,
         R: DeserializeOwned,
@@ -641,16 +657,17 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>)>
+    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>, CancellationToken)>
     where
         S: Serialize,
         R: DeserializeOwned,
         BP: BufferParams,
     {
-        let ((send, recv), connection_id) = self.request_unframed_stream(user_id).await?;
+        let ((send, recv), connection_id, token) = self.request_unframed_stream(user_id).await?;
 
         frame_stream::<S, R, BP, MAX_FRAME>(send, recv, r#type)
             .await
+            .map(|(sender, receiver)| (sender, receiver, token))
             .map_err(|e| {
                 self.unregister(user_id, Some(connection_id), None);
                 StreamManagerError::ConnectionClosed {
@@ -686,7 +703,11 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_uni_stream<S>(&self, user_id: i32, r#type: StreamType) -> Result<Sender<S>>
+    pub async fn request_uni_stream<S>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+    ) -> Result<(Sender<S>, CancellationToken)>
     where
         S: Serialize,
     {
@@ -713,20 +734,23 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<Sender<S, BP>>
+    ) -> Result<(Sender<S, BP>, CancellationToken)>
     where
         S: Serialize,
         BP: BufferParams,
     {
-        let (send, connection_id) = self.request_unframed_uni_stream(user_id).await?;
+        let (send, connection_id, token) = self.request_unframed_uni_stream(user_id).await?;
 
-        frame_uni_stream::<S, BP>(send, r#type).await.map_err(|e| {
-            self.unregister(user_id, Some(connection_id), None);
-            StreamManagerError::ConnectionClosed {
-                user_id,
-                reason: format!("failed to frame uni stream: {e}"),
-            }
-        })
+        frame_uni_stream::<S, BP>(send, r#type)
+            .await
+            .map(|sender| (sender, token))
+            .map_err(|e| {
+                self.unregister(user_id, Some(connection_id), None);
+                StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: format!("failed to frame uni stream: {e}"),
+                }
+            })
     }
 
     /// Force-disconnect a user's WebTransport connection.

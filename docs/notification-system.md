@@ -124,6 +124,11 @@ send(db, user_id, payload)
          data = CborBlob<NotificationPayload>
 ```
 
+`open_stream()` also installs a cleanup task tied to the connection's
+`CancellationToken`, so cached senders are removed immediately when the
+underlying WebTransport connection drops, even if no later `send()` call occurs
+to discover the stale channel.
+
 ### Insert-Before-Drain Ordering
 
 When a user connects and `open_stream()` is called, the sender is registered
@@ -134,13 +139,16 @@ open_stream(db, streams, user_id)
     │
     ├─ 1. Request uni stream from StreamManager
     │     → sends StreamType::Notifications header
-    │     → returns Sender<WireNotification>
+    │     → returns (Sender<WireNotification>, CancellationToken)
     │
     ├─ 2. Wrap in SharedSender (cloneable, spawns mpsc forwarding task)
     │
-    ├─ 3. Register sender in DashMap  ◄── BEFORE draining
+    ├─ 3. Spawn cleanup task waiting on disconnect_token.cancelled()
+    │     → remove sender from DashMap as soon as the connection drops
     │
-    └─ 4. Drain DB backlog (oldest → newest)
+    ├─ 4. Register sender in DashMap  ◄── BEFORE draining
+    │
+    └─ 5. Drain DB backlog (oldest → newest)
           SELECT + DELETE in single transaction
           Send each stored notification over the stream
           If send fails mid-drain: re-store unsent notifications
@@ -178,8 +186,8 @@ using the `NotificationManagerDepotExt` trait.
 | Method | Signature | Purpose |
 |--------|-----------|---------|
 | `new()` | `fn new() -> Self` | Constructor with empty `DashMap`. |
-| `send()` | `async fn send(&self, db: &Db, user_id: i32, payload: NotificationPayload) -> Result<()>` | Send-or-store delivery. Tries open stream first; on failure cleans up stale sender, falls back to DB. |
-| `open_stream()` | `async fn open_stream(&self, db: &Db, streams: &StreamManager, user_id: i32) -> Result<()>` | Opens uni stream, drains DB backlog, registers sender. Insert-before-drain pattern. |
+| `send()` | `async fn send(&self, db: &Db, user_id: i32, payload: NotificationPayload) -> Result<()>` | Send-or-store delivery. Tries open stream first; on send failure cleans up stale sender and falls back to DB. |
+| `open_stream()` | `async fn open_stream(&self, db: &Db, streams: &StreamManager, user_id: i32) -> Result<()>` | Opens uni stream, installs disconnect-token cleanup, drains DB backlog, registers sender. Insert-before-drain pattern. |
 | `close_stream()` | `fn close_stream(&self, user_id: i32)` | Removes sender from map (e.g. on disconnect). |
 | `has_stream()` | `fn has_stream(&self, user_id: i32) -> bool` | Checks if user has an active notification stream. |
 
@@ -693,9 +701,12 @@ on_connect(user_id, db, streams, depot)
     │     │
     │     ├─ StreamManager.request_uni_stream(user_id, StreamType::Notifications)
     │     │   → server opens uni stream, sends "Notifications" header
-    │     │   → returns Sender<WireNotification>
+    │     │   → returns (Sender<WireNotification>, CancellationToken)
     │     │
     │     ├─ SharedSender::new(sender) → wraps in cloneable mpsc
+    │     │
+    │     ├─ tokio::spawn(wait for disconnect_token)
+    │     │   → remove sender from DashMap on disconnect
     │     │
     │     ├─ DashMap.insert(user_id, sender)  ← register BEFORE drain
     │     │
@@ -726,6 +737,7 @@ on_connect(user_id, db, streams, depot)
 |----------|-----------|
 | **User online** | Payload sent directly via WebTransport uni stream — zero DB round-trip. |
 | **User offline** | Payload persisted to `notifications` table as `CborBlob`. |
+| **Connection drops silently** | Cached sender is removed immediately by the disconnect-token cleanup task; later notifications fall back to DB without waiting for another send failure. |
 | **User reconnects** | All stored notifications drained (oldest first) and sent over new stream. |
 | **Stream breaks mid-drain** | Unsent notifications re-persisted via `store_back_to_db()`. |
 | **Concurrent send during drain** | New send hits the already-registered sender (insert-before-drain), goes to wire. |
