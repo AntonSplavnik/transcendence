@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../helpers/msw-handlers';
 import { createMockApiError } from '../../fixtures/errors';
-import type { AxiosRequestConfig } from 'axios';
 
 describe('API client interceptors', () => {
 	beforeEach(() => {
@@ -103,25 +102,6 @@ describe('API client interceptors', () => {
 
 		await expect(apiClient.get('/test')).rejects.toThrow();
 		expect(onAuthFailure).toHaveBeenCalledTimes(1);
-	});
-
-	it('does not store errors for silent requests', async () => {
-		server.use(
-			http.get('/api/silent-test', () => {
-				return HttpResponse.json(
-					{ error: createMockApiError({ code: 401, brief: 'InvalidSessionToken' }) },
-					{ status: 401 }
-				);
-			})
-		);
-
-		const { default: apiClient } = await import('../../../src/api/client');
-
-		await expect(
-			apiClient.get('/silent-test', { _silent: true } as AxiosRequestConfig & { _silent?: boolean })
-		).rejects.toThrow();
-
-		expect(localStorage.getItem('auth_error')).toBeNull();
 	});
 
 	it('does not store error for login errors (handled by component)', async () => {

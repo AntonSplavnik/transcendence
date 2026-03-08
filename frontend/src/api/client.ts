@@ -10,7 +10,6 @@ export function setAuthFailureCallback(cb: (() => void) | null) {
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
-	_silent?: boolean;
 }
 
 const apiClient = axios.create({
@@ -34,11 +33,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	if (!originalRequest) {
 		return Promise.reject(error);
 	}
-	// Skip error storage for silent requests (initial auth check)
-	if (originalRequest._silent) {
-		return Promise.reject(error);
-	}
-
 	// Network error (status 0 = server unreachable)
 	if (!error.response) {
 		console.error('Network error:', error);
@@ -65,8 +59,8 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 				// Network errors are already stored as network_error.
 				// Only store for non-401 server errors (429, 500) that the interceptor doesn't handle.
 				if (axios.isAxiosError(refreshError) && refreshError.response && refreshError.response.status !== 401) {
-					storeError(refreshError, 'session_expired');
-					console.error('JWT refresh failed:', refreshError);
+					storeError(refreshError, 'refresh_failed');
+					console.log('JWT refresh failed:', refreshError);
 				}
 				authFailureCallback?.();
 				return Promise.reject(refreshError);
@@ -75,8 +69,9 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 
 		// Session is absent or expired — not an error, just not logged in
 		// Don't store - ProtectedRoute handles redirect silently
-		if (brief === 'MissingSessionCookie' || brief === 'SessionNotFound')
+		if (brief === 'MissingSessionCookie' || brief === 'SessionNotFound') {
 			return Promise.reject(error);
+		}
 
 		// User needs to log in again (session is invalid/corrupted)
 		const deadSessionErrors = [
@@ -101,7 +96,7 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			console.log('Logged out');
 			return Promise.reject(error);
 		}
-		console.error('unknown 401 error:', error);
+		console.log('unknown 401 error:', error);
 		storeError(error, 'unauthorized');
 	}
 	return Promise.reject(error);
