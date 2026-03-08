@@ -211,6 +211,10 @@ Colors are derived from KayKit dungeon/forest textures. Defined in `tailwind.con
 
 ---
 
+## Console Logging
+
+`console.log` and `console.debug` are stripped from production builds via Vite's `esbuild.pure` option. Use `console.error` or `console.warn` for messages that should appear in production (real errors, unexpected failures). Use `console.log` for debug/development output.
+
 ## Libraries
 
 ### overview
