@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { AlertCircle, AlertTriangle, Info, X } from "lucide-react";
 import type { StoredError } from "../../api/error";
 
+export const AUTO_DISMISS_MS = 9000;
+
 export interface ErrorBannerProps {
   error: StoredError | null;
   onDismiss: () => void;
@@ -27,7 +29,7 @@ const variantStyles: Record<string, { bg: string; icon: React.ReactNode }> = {
 export default function ErrorBanner({
   error,
   onDismiss,
-  duration = 9000,
+  duration = AUTO_DISMISS_MS,
   variant = "error",
 }: ErrorBannerProps) {
   useEffect(() => {
