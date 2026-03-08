@@ -107,17 +107,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	};
 
 	return (
-		<AuthContext.Provider value={{
-			user,
-			session,
-			authChecked,
-			login,
-			register,
-			reauth,
-			logout,
-			clearAuth,
-			refreshUser
-		}}>
+		<AuthContext.Provider
+			value={{
+				user,
+				session,
+				authChecked,
+				login,
+				register,
+				reauth,
+				logout,
+				clearAuth,
+				refreshUser,
+			}}
+		>
 			{children}
 		</AuthContext.Provider>
 	);
@@ -130,4 +132,3 @@ export function useAuth(): AuthContextType {
 	}
 	return context;
 }
-

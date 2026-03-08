@@ -20,9 +20,7 @@ interface BannerContent {
  * Shows contextual information for each non-connected state so the
  * user (and developers) can immediately see what's going on.
  */
-export default function ConnectionStatusBanner({
-	state,
-}: ConnectionStatusBannerProps) {
+export default function ConnectionStatusBanner({ state }: ConnectionStatusBannerProps) {
 	// Don't render when connected (caller should already guard this).
 	if (state.status === 'connected') return null;
 
@@ -68,15 +66,13 @@ function bannerContent(state: ConnectionState): BannerContent {
 			return {
 				icon: <RefreshCw size={14} className="animate-spin" />,
 				text: `Reconnecting (attempt ${state.attempt + 1})\u2026`,
-				bgClass:
-					'bg-warning-bg text-warning-light border-b border-warning/30',
+				bgClass: 'bg-warning-bg text-warning-light border-b border-warning/30',
 			};
 		case 'displaced':
 			return {
 				icon: <AlertTriangle size={14} />,
 				text: 'Connected from another location \u2014 realtime features unavailable',
-				bgClass:
-					'bg-warning-bg text-warning-light border-b border-warning/30',
+				bgClass: 'bg-warning-bg text-warning-light border-b border-warning/30',
 			};
 		default:
 			return {

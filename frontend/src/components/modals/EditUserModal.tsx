@@ -18,7 +18,13 @@ interface EditProfileProps {
 	onDescriptionChanged: (description: string) => void;
 }
 
-export default function EditUserModal({ user, description, onClose, onAvatarChanged, onDescriptionChanged }: EditProfileProps) {
+export default function EditUserModal({
+	user,
+	description,
+	onClose,
+	onAvatarChanged,
+	onDescriptionChanged,
+}: EditProfileProps) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [descriptionError, setDescriptionError] = useState<string | null>(null);
@@ -30,7 +36,9 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
-		return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+		return () => {
+			if (previewUrl) URL.revokeObjectURL(previewUrl);
+		};
 	}, [previewUrl]);
 
 	async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -104,7 +112,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 			avatarCallback?.();
 			onClose();
 		} catch (err) {
-			setError(getErrorMessage(err, "Failed to save changes"));
+			setError(getErrorMessage(err, 'Failed to save changes'));
 		} finally {
 			setLoading(false);
 		}
@@ -126,8 +134,17 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 					aria-label="Change avatar"
 					className="relative group rounded-full disabled:opacity-50"
 				>
-					<AvatarDisplay userId={user.id} size="large" src={previewUrl} alt={`${user.nickname}'s avatar`} className="w-32 h-32 rounded-full" />
-					<div aria-hidden="true" className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+					<AvatarDisplay
+						userId={user.id}
+						size="large"
+						src={previewUrl}
+						alt={`${user.nickname}'s avatar`}
+						className="w-32 h-32 rounded-full"
+					/>
+					<div
+						aria-hidden="true"
+						className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+					>
 						<span className="text-white text-sm font-medium">Edit</span>
 					</div>
 				</button>
@@ -154,20 +171,26 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 			{/* Description Section */}
 			<div className="space-y-3">
 				<div>
-					<label htmlFor="description" className="block text-sm text-stone-300 mb-1">Description</label>
+					<label htmlFor="description" className="block text-sm text-stone-300 mb-1">
+						Description
+					</label>
 					<textarea
 						id="description"
 						value={descriptionValue}
-						onChange={(e) => { setDescriptionValue(e.target.value); setDescriptionError(null); }}
+						onChange={(e) => {
+							setDescriptionValue(e.target.value);
+							setDescriptionError(null);
+						}}
 						rows={2}
 						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${descriptionError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
 						placeholder="A few words about you…"
 					/>
 					<div className="flex justify-between items-center">
-						{descriptionError
-							? <p className="text-xs text-red-400">{descriptionError}</p>
-							: <span />
-						}
+						{descriptionError ? (
+							<p className="text-xs text-red-400">{descriptionError}</p>
+						) : (
+							<span />
+						)}
 						<p className="text-xs text-stone-500">{[...descriptionValue].length}/50</p>
 					</div>
 				</div>
@@ -178,12 +201,7 @@ export default function EditUserModal({ user, description, onClose, onAvatarChan
 					</Alert>
 				)}
 
-				<Button
-					onClick={handleSave}
-					loading={loading}
-					loadingText="Saving..."
-					fullWidth
-				>
+				<Button onClick={handleSave} loading={loading} loadingText="Saving..." fullWidth>
 					Save
 				</Button>
 			</div>

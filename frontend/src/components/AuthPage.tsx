@@ -1,25 +1,31 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Swords, User, Lock, Mail } from "lucide-react";
-import { Button, Card, Input, Alert } from "./ui";
-import { useAuth } from "../contexts/AuthContext";
-import * as usersApi from "../api/users";
-import { getErrorMessage, getErrorBrief } from "../api/error";
-import { validateNickname, validateEmail } from "../utils/validation";
-import TwoFactorLoginModal from "./modals/TwoFactorLoginModal";
+import React, { useState, useRef, useEffect } from 'react';
+import { Swords, User, Lock, Mail } from 'lucide-react';
+import { Button, Card, Input, Alert } from './ui';
+import { useAuth } from '../contexts/AuthContext';
+import * as usersApi from '../api/users';
+import { getErrorMessage, getErrorBrief } from '../api/error';
+import { validateNickname, validateEmail } from '../utils/validation';
+import TwoFactorLoginModal from './modals/TwoFactorLoginModal';
 
 const NICKNAME_DEBOUNCE_MS = 500;
 
-export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
+export default function AuthPage({
+	onBack,
+	onAuthSuccess,
+}: {
+	onBack: () => void;
+	onAuthSuccess: () => void;
+}) {
 	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);
-	const [email, setEmail] = useState("");
-	const [username, setUsername] = useState("");
-	const [error, setError] = useState("");
-	const [nicknameError, setNicknameError] = useState("");
-	const [emailError, setEmailError] = useState("");
-	const [passwordError, setPasswordError] = useState("");
-	const [nicknameValidation, setNicknameValidation] = useState("");
+	const [email, setEmail] = useState('');
+	const [username, setUsername] = useState('');
+	const [error, setError] = useState('');
+	const [nicknameError, setNicknameError] = useState('');
+	const [emailError, setEmailError] = useState('');
+	const [passwordError, setPasswordError] = useState('');
+	const [nicknameValidation, setNicknameValidation] = useState('');
 	const [isCheckingNickname, setIsCheckingNickname] = useState(false);
 	const [showMfaModal, setShowMfaModal] = useState(false);
 	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -33,11 +39,11 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			const localErr = validateNickname(username);
 			if (localErr) {
 				setNicknameError(localErr);
-				setNicknameValidation("");
+				setNicknameValidation('');
 				setIsCheckingNickname(false);
 				return;
 			}
-			setNicknameError("");
+			setNicknameError('');
 			if (nicknameTimeoutRef.current) {
 				clearTimeout(nicknameTimeoutRef.current);
 			}
@@ -48,8 +54,8 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 				setIsCheckingNickname(false);
 			}, NICKNAME_DEBOUNCE_MS);
 		} else {
-			setNicknameError("");
-			setNicknameValidation("");
+			setNicknameError('');
+			setNicknameValidation('');
 			setIsCheckingNickname(false);
 		}
 		return () => {
@@ -61,15 +67,15 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setError("");
-		setEmailError("");
-		setPasswordError("");
+		setError('');
+		setEmailError('');
+		setPasswordError('');
 
-		const password = passwordRef.current?.value || "";
+		const password = passwordRef.current?.value || '';
 
 		if (!isLogin) {
-			if (nicknameError || !nicknameValidation.includes("✅")) {
-				setError("Please choose a valid, available nickname.");
+			if (nicknameError || !nicknameValidation.includes('✅')) {
+				setError('Please choose a valid, available nickname.');
 				return;
 			}
 		}
@@ -82,7 +88,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 
 		if (!isLogin) {
 			if (password.length < 8 || password.length > 128) {
-				setPasswordError("Must be between 8 and 128 characters long.");
+				setPasswordError('Must be between 8 and 128 characters long.');
 				return;
 			}
 		}
@@ -96,17 +102,17 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			}
 
 			if (passwordRef.current) {
-				passwordRef.current.value = "";
+				passwordRef.current.value = '';
 			}
 
 			onAuthSuccess();
 		} catch (error) {
 			const brief = getErrorBrief(error);
-			if (brief === "TwoFactorRequired") {
+			if (brief === 'TwoFactorRequired') {
 				setPendingEmail(email);
 				setShowMfaModal(true);
 			} else {
-				setError(getErrorMessage(error, "Authentication failed"));
+				setError(getErrorMessage(error, 'Authentication failed'));
 			}
 		} finally {
 			setIsLoading(false);
@@ -116,20 +122,16 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const getValidationNode = () => {
 		if (!username.trim().length) return null;
 		if (nicknameError) {
-			return (
-				<span className="text-xs font-medium text-danger-light">
-					{nicknameError}
-				</span>
-			);
+			return <span className="text-xs font-medium text-danger-light">{nicknameError}</span>;
 		}
 		const style = isCheckingNickname
-			? "text-stone-400"
-			: nicknameValidation.includes("❌")
-				? "text-danger-light"
-				: "text-stone-400";
+			? 'text-stone-400'
+			: nicknameValidation.includes('❌')
+				? 'text-danger-light'
+				: 'text-stone-400';
 		return (
 			<span className={`text-xs font-medium ${style}`}>
-				{isCheckingNickname ? "Checking..." : nicknameValidation}
+				{isCheckingNickname ? 'Checking...' : nicknameValidation}
 			</span>
 		);
 	};
@@ -137,7 +139,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 	const handleMfaSuccess = () => {
 		setShowMfaModal(false);
 		setPendingEmail(null);
-		if (passwordRef.current) passwordRef.current.value = "";
+		if (passwordRef.current) passwordRef.current.value = '';
 		onAuthSuccess();
 	};
 
@@ -151,13 +153,19 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			<Card accent="gold" className="w-full max-w-md">
 				<div className="text-center mb-8">
 					<Swords size={48} className="mx-auto text-gold-400 mb-2" aria-hidden="true" />
-					<h2>{isLogin ? "Welcome Back" : "Join the Guild"}</h2>
+					<h2>{isLogin ? 'Welcome Back' : 'Join the Guild'}</h2>
 					<p className="text-stone-300 text-sm mt-1">
-						{isLogin ? "Sign in to access your stats" : "Create an account to start your journey"}
+						{isLogin
+							? 'Sign in to access your stats'
+							: 'Create an account to start your journey'}
 					</p>
 				</div>
 
-				<form onSubmit={handleSubmit} className="space-y-4" aria-label={isLogin ? "Sign in form" : "Registration form"}>
+				<form
+					onSubmit={handleSubmit}
+					className="space-y-4"
+					aria-label={isLogin ? 'Sign in form' : 'Registration form'}
+				>
 					{error && <Alert variant="error">{error}</Alert>}
 
 					{!isLogin && (
@@ -186,7 +194,10 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						autoComplete="email"
 						type="email"
 						value={email}
-						onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+						onChange={(e) => {
+							setEmail(e.target.value);
+							setEmailError('');
+						}}
 						onBlur={() => {
 							if (email) {
 								const err = validateEmail(email);
@@ -205,13 +216,13 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 						type="password"
 						name="password"
 						placeholder="••••••••"
-						autoComplete={isLogin ? "current-password" : "new-password"}
-						onChange={() => setPasswordError("")}
+						autoComplete={isLogin ? 'current-password' : 'new-password'}
+						onChange={() => setPasswordError('')}
 						onBlur={() => {
 							if (!isLogin) {
-								const pw = passwordRef.current?.value || "";
+								const pw = passwordRef.current?.value || '';
 								if (pw && (pw.length < 8 || pw.length > 128))
-									setPasswordError("Must be between 8 and 128 characters long.");
+									setPasswordError('Must be between 8 and 128 characters long.');
 							}
 						}}
 						error={passwordError}
@@ -221,24 +232,24 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 					<Button
 						type="submit"
 						loading={isLoading}
-						loadingText={isLogin ? "Signing In..." : "Creating Account..."}
+						loadingText={isLogin ? 'Signing In...' : 'Creating Account...'}
 						fullWidth
 						className="mt-4"
 					>
-						{isLogin ? "Sign In" : "Create Account"}
+						{isLogin ? 'Sign In' : 'Create Account'}
 					</Button>
 				</form>
 
 				<div className="mt-6 text-center text-sm">
 					<span className="text-stone-300">
-						{isLogin ? "New here?  " : "Already have an account?  "}
+						{isLogin ? 'New here?  ' : 'Already have an account?  '}
 					</span>
 					<button
 						type="button"
 						onClick={() => setIsLogin(!isLogin)}
 						className="text-gold-400 hover:text-gold-300 font-semibold underline"
 					>
-						{isLogin ? "Create an account" : "Sign in"}
+						{isLogin ? 'Create an account' : 'Sign in'}
 					</button>
 				</div>
 
@@ -257,7 +268,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 			{showMfaModal && pendingEmail && (
 				<TwoFactorLoginModal
 					email={pendingEmail}
-					getPassword={() => passwordRef.current?.value || ""}
+					getPassword={() => passwordRef.current?.value || ''}
 					onSuccess={handleMfaSuccess}
 					onCancel={handleMfaCancel}
 				/>

@@ -10,13 +10,7 @@
  */
 
 import type { ReactNode } from 'react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { CborZstdCodec, initZstd } from '../stream/codec';
 import { ConnectionManager } from '../stream/ConnectionManager';
@@ -44,12 +38,10 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 	// Note: we use lazy initialisation via state (not ref) so that React
 	// StrictMode's dev-only mount→unmount→remount cycle gets a *fresh*
 	// instance after the first one is destroyed.
-	const [manager] = useState(
-		() => new ConnectionManager({ codec: new CborZstdCodec() }),
-	);
+	const [manager] = useState(() => new ConnectionManager({ codec: new CborZstdCodec() }));
 
-	const [connectionState, setConnectionState] = useState<ConnectionState>(
-		() => manager.getState(),
+	const [connectionState, setConnectionState] = useState<ConnectionState>(() =>
+		manager.getState(),
 	);
 
 	// Subscribe to state changes from the manager.
@@ -91,9 +83,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 	}, [manager]);
 
 	return (
-		<StreamContext.Provider
-			value={{ connectionManager: manager, connectionState }}
-		>
+		<StreamContext.Provider value={{ connectionManager: manager, connectionState }}>
 			{children}
 		</StreamContext.Provider>
 	);

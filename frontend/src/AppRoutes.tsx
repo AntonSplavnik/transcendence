@@ -50,14 +50,14 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function shouldDelayConnectionStatusBanner(
 	state: ConnectionState,
 ): state is DelayedBannerConnectionState {
-	return state.status === 'connecting' || state.status === 'authenticating' || state.status === 'disconnected';
+	return (
+		state.status === 'connecting' ||
+		state.status === 'authenticating' ||
+		state.status === 'disconnected'
+	);
 }
 
-function DelayedConnectionStatusBanner({
-	state,
-}: {
-	state: DelayedBannerConnectionState;
-}) {
+function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnectionState }) {
 	const [hasDelayElapsed, setHasDelayElapsed] = useState(false);
 
 	useEffect(() => {
@@ -80,9 +80,8 @@ function DelayedConnectionStatusBanner({
 function RealtimeStatusOverlays() {
 	const { user, authChecked } = useAuth();
 	const { connectionState } = useStream();
-	const [dismissedDisplacementState, setDismissedDisplacementState] = useState<
-		ConnectionState | null
-	>(null);
+	const [dismissedDisplacementState, setDismissedDisplacementState] =
+		useState<ConnectionState | null>(null);
 
 	// These overlays only make sense for authenticated users. On public pages
 	// the stream is intentionally disconnected, so showing a connection warning
@@ -92,8 +91,7 @@ function RealtimeStatusOverlays() {
 	}
 
 	const shouldShowDisplacedModal =
-		connectionState.status === 'displaced' &&
-		dismissedDisplacementState !== connectionState;
+		connectionState.status === 'displaced' && dismissedDisplacementState !== connectionState;
 	const shouldShowImmediateBanner =
 		connectionState.status !== 'connected' &&
 		!shouldDelayConnectionStatusBanner(connectionState);
@@ -107,9 +105,7 @@ function RealtimeStatusOverlays() {
 			) : null}
 			<NotificationToast />
 			{shouldShowDisplacedModal && (
-				<DisplacedModal
-					onDismiss={() => setDismissedDisplacementState(connectionState)}
-				/>
+				<DisplacedModal onDismiss={() => setDismissedDisplacementState(connectionState)} />
 			)}
 		</>
 	);
@@ -168,59 +164,80 @@ export default function AppRoutes() {
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>
-				<Route path="/landing" element={
-					<PublicRoute>
-						<LandingPage onLogin={() => navigate('/auth')} />
-					</PublicRoute>
-				} />
-				<Route path="/auth" element={
-					<PublicRoute>
-						<AuthPage onBack={() => navigate('/landing')} onAuthSuccess={handleAuthSuccess} />
-					</PublicRoute>
-				} />
-				<Route path="/home" element={
-					<ProtectedRoute>
-						<Home
-							onGame={() => navigate('/game')}
-							onLogout={handleLogout}
-							onSessions={() => navigate('/sessions')}
-						/>
-					</ProtectedRoute>
-				}
+				<Route
+					path="/landing"
+					element={
+						<PublicRoute>
+							<LandingPage onLogin={() => navigate('/auth')} />
+						</PublicRoute>
+					}
 				/>
-				<Route path="/sessions" element={
-					<ProtectedRoute>
-						<SessionManagement
-							onBack={() => navigate('/home')}
-							onLogout={handleLogout}
-						/>
-					</ProtectedRoute>
-				}
+				<Route
+					path="/auth"
+					element={
+						<PublicRoute>
+							<AuthPage
+								onBack={() => navigate('/landing')}
+								onAuthSuccess={handleAuthSuccess}
+							/>
+						</PublicRoute>
+					}
 				/>
-				<Route path="/game" element={
-					<ProtectedRoute>
-						<GameBoard onLeave={() => navigate('/home')} />
-					</ProtectedRoute>
-				}
+				<Route
+					path="/home"
+					element={
+						<ProtectedRoute>
+							<Home
+								onGame={() => navigate('/game')}
+								onLogout={handleLogout}
+								onSessions={() => navigate('/sessions')}
+							/>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/sessions"
+					element={
+						<ProtectedRoute>
+							<SessionManagement
+								onBack={() => navigate('/home')}
+								onLogout={handleLogout}
+							/>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/game"
+					element={
+						<ProtectedRoute>
+							<GameBoard onLeave={() => navigate('/home')} />
+						</ProtectedRoute>
+					}
 				/>
 
-				<Route path="/privacy" element={
-					<PrivacyPolicy onBack={() => navigate(-1)} />
-				} />
-				<Route path="/terms" element={
-					<TermsOfService onBack={() => navigate(-1)} />
-				} />
+				<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
+				<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
 
 				<Route path="*" element={<Navigate to="/landing" replace />} />
 			</Routes>
 			{!hideFooter && (
-				<footer role="contentinfo"
-					className="relative z-10 py-1 text-center text-xs text-stone-500">
-					<Link to="/privacy" aria-label="Privacy Policy" className="hover:text-gold-400 transition-colors">
+				<footer
+					role="contentinfo"
+					className="relative z-10 py-1 text-center text-xs text-stone-500"
+				>
+					<Link
+						to="/privacy"
+						aria-label="Privacy Policy"
+						className="hover:text-gold-400 transition-colors"
+					>
 						Privacy Policy
 					</Link>
 					<span className="mx-2">&middot;</span>
-					<Link to="/terms" aria-label="Terms of Service" className="hover:text-gold-400 transition-colors">
+					<Link
+						to="/terms"
+						aria-label="Terms of Service"
+						className="hover:text-gold-400 transition-colors"
+					>
 						Terms of Service
 					</Link>
 				</footer>
