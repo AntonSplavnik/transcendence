@@ -38,12 +38,12 @@ describe('ErrorBanner', () => {
 		expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 	});
 
-	it('auto-dismisses after 5 seconds', async () => {
+	it('auto-dismisses after 9 seconds', async () => {
 		renderBanner();
 
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(9000);
 
 		expect(mockOnDismiss).toHaveBeenCalledTimes(1);
 	});
@@ -73,7 +73,7 @@ describe('ErrorBanner', () => {
 
 		unmount();
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(9000);
 
 		// onDismiss should not be called after unmount
 		expect(mockOnDismiss).not.toHaveBeenCalled();
@@ -89,18 +89,18 @@ describe('ErrorBanner', () => {
 		);
 
 		// Advance halfway
-		vi.advanceTimersByTime(2500);
+		vi.advanceTimersByTime(4500);
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
 		// Change error - should reset timer
 		rerender(<ErrorBanner error={error2} onDismiss={mockOnDismiss} />);
 
-		// Advance another 2500ms (would be 5000ms total from first error)
-		vi.advanceTimersByTime(2500);
+		// Advance another 4500ms (would be 9000ms total from first error)
+		vi.advanceTimersByTime(4500);
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
 		// Advance remaining time for new error
-		vi.advanceTimersByTime(2500);
+		vi.advanceTimersByTime(4500);
 		expect(mockOnDismiss).toHaveBeenCalledTimes(1);
 	});
 
@@ -146,7 +146,7 @@ describe('ErrorBanner', () => {
 			{ withAuth: false }
 		);
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(9000);
 
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 	});

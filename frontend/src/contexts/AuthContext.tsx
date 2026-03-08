@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			}
 		}
 		checkAuth();
-	}, []);
+	}, [clearAuth]);
 
 	// Login Handler
 	const login = async (email: string, password: string, mfaCode?: string) => {
