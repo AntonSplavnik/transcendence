@@ -97,6 +97,7 @@ export function storeError(error: unknown, fallbackType = 'error'): void {
 		timestamp: Date.now(),
 	};
 	localStorage.setItem('auth_error', JSON.stringify(errorData));
+	window.dispatchEvent(new Event('auth-error-stored'));
 }
 
 /**
