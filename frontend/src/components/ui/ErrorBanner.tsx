@@ -27,7 +27,7 @@ const variantStyles: Record<string, { bg: string; icon: React.ReactNode }> = {
 export default function ErrorBanner({
   error,
   onDismiss,
-  duration = 5000,
+  duration = 9000,
   variant = "error",
 }: ErrorBannerProps) {
   useEffect(() => {

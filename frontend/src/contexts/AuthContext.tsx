@@ -25,11 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [session, setSession] = useState<Session | null>(null);
 	const [authChecked, setAuthChecked] = useState(false);
 
-	const clearAuth = () => {
+	const clearAuth = useCallback(() => {
 		console.log('🔒 Clearing authentication data');
 		setUser(null);
 		setSession(null);
-	};
+	}, []);
 
 	const setAuthData = (data: AuthResponse) => {
 		setUser(data.user);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		setAuthFailureCallback(clearAuth);
 		return () => setAuthFailureCallback(null);
-	}, []);
+	}, [clearAuth]);
 
 	// initial auth check on mount
 	useEffect(() => {
