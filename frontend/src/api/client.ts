@@ -56,7 +56,11 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 			} catch (refreshError) {
 				// Non-401 refresh failures (429, 500, network): session is still valid,
 				// the refresh just failed transiently. Show a banner but keep auth state.
-				if (!axios.isAxiosError(refreshError) || !refreshError.response || refreshError.response.status !== 401) {
+				if (
+					!axios.isAxiosError(refreshError) ||
+					!refreshError.response ||
+					refreshError.response.status !== 401
+				) {
 					if (axios.isAxiosError(refreshError) && refreshError.response) {
 						storeError(refreshError, 'refresh_failed');
 						console.log('JWT refresh failed:', refreshError);
@@ -90,9 +94,9 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		// --- Terminal 401s: store error, clear auth, redirect to login ---
 
 		const deadSessionErrors = [
-			'SessionNotFound',       // session deleted (by user, or oldest-session eviction)
-			'InvalidSessionToken',   // session cookie corrupted
-			'SessionMismatch',       // JWT references wrong session
+			'SessionNotFound', // session deleted (by user, or oldest-session eviction)
+			'InvalidSessionToken', // session cookie corrupted
+			'SessionMismatch', // JWT references wrong session
 		];
 		if (deadSessionErrors.includes(brief || '')) {
 			storeError(error, 'dead_session');

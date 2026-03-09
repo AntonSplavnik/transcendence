@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
-import { Lock } from "lucide-react";
-import { Button, Modal, Input, Alert } from "../ui";
-import { useAuth } from "../../contexts/AuthContext";
-import { getErrorMessage } from "../../api/error";
-import { validateMfaCode } from "../../utils/validation";
+import { useState, useRef } from 'react';
+import { Lock } from 'lucide-react';
+import { Button, Modal, Input, Alert } from '../ui';
+import { useAuth } from '../../contexts/AuthContext';
+import { getErrorMessage } from '../../api/error';
+import { validateMfaCode } from '../../utils/validation';
 
 interface ReauthModalProps {
 	onSuccess: () => void;
@@ -14,32 +14,32 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 	const { reauth, user } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [passwordError, setPasswordError] = useState("");
-	const [mfaError, setMfaError] = useState("");
+	const [passwordError, setPasswordError] = useState('');
+	const [mfaError, setMfaError] = useState('');
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const mfaRef = useRef<HTMLInputElement>(null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		setPasswordError("");
-		setMfaError("");
+		setPasswordError('');
+		setMfaError('');
 
-		const password = passwordRef.current?.value || "";
+		const password = passwordRef.current?.value || '';
 		const mfaCode = mfaRef.current?.value || undefined;
 
 		if (!password) {
-			setPasswordError("Password is required.");
+			setPasswordError('Password is required.');
 			return;
 		}
 		if (password.length < 8 || password.length > 128) {
-			setPasswordError("Must be between 8 and 128 characters long.");
+			setPasswordError('Must be between 8 and 128 characters long.');
 			return;
 		}
 
 		if (user?.totp_enabled) {
 			if (!mfaCode) {
-				setMfaError("Authentication code is required.");
+				setMfaError('Authentication code is required.');
 				return;
 			}
 			const mfaErr = validateMfaCode(mfaCode);
@@ -51,13 +51,12 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 
 		setIsLoading(true);
 
-
 		try {
 			await reauth(password, mfaCode);
-			if (passwordRef.current) passwordRef.current.value = "";
+			if (passwordRef.current) passwordRef.current.value = '';
 			onSuccess();
 		} catch (err) {
-			setError(getErrorMessage(err, "Re-authentication failed"));
+			setError(getErrorMessage(err, 'Re-authentication failed'));
 		} finally {
 			setIsLoading(false);
 		}
@@ -79,7 +78,7 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 					autoComplete="current-password"
 					placeholder="Enter your password"
 					error={passwordError}
-					onChange={() => setPasswordError("")}
+					onChange={() => setPasswordError('')}
 					disabled={isLoading}
 				/>
 
@@ -93,7 +92,7 @@ export default function ReauthModal({ onSuccess, onCancel }: ReauthModalProps) {
 						autoComplete="one-time-code"
 						placeholder="000000 or recovery code"
 						error={mfaError}
-						onChange={() => setMfaError("")}
+						onChange={() => setMfaError('')}
 						disabled={isLoading}
 					/>
 				)}

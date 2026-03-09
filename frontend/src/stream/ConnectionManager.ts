@@ -335,9 +335,7 @@ export class ConnectionManager {
 	 * {@link PendingConnectionKey} together with the still-open reader and
 	 * decoder so the caller can continue reading {@link CtrlMessage}s.
 	 */
-	private async readCtrlHeader(
-		wt: WebTransport,
-	): Promise<{
+	private async readCtrlHeader(wt: WebTransport): Promise<{
 		key: PendingConnectionKey;
 		reader: ReadableStreamDefaultReader<Uint8Array>;
 		decoder: StreamDecoder<CtrlMessage>;
@@ -480,9 +478,7 @@ export class ConnectionManager {
 	 *   2. Look up the handler.
 	 *   3. Feed subsequent frames to `handler.onMessage`.
 	 */
-	private async handleUniStream(
-		stream: ReadableStream<Uint8Array>,
-	): Promise<void> {
+	private async handleUniStream(stream: ReadableStream<Uint8Array>): Promise<void> {
 		const decoder: StreamDecoder = this.codec.createDecoder();
 		const reader = stream.getReader();
 		let handler: UniStreamHandler | undefined;
@@ -502,7 +498,9 @@ export class ConnectionManager {
 						const { key, data } = parseStreamType(msg);
 						const factory = this.uniFactories.get(key);
 						if (!factory) {
-							console.warn(`[ConnectionManager] no uni handler for "${key}", ignoring stream`);
+							console.warn(
+								`[ConnectionManager] no uni handler for "${key}", ignoring stream`,
+							);
 							await reader.cancel(`No uni handler registered for "${key}"`);
 							return;
 						}
@@ -533,9 +531,7 @@ export class ConnectionManager {
 	 *   3. Provide a `send` function wrapping the writable side.
 	 *   4. Feed subsequent frames to `handler.onMessage`.
 	 */
-	private async handleBidiStream(
-		stream: WebTransportBidirectionalStream,
-	): Promise<void> {
+	private async handleBidiStream(stream: WebTransportBidirectionalStream): Promise<void> {
 		const decoder: StreamDecoder = this.codec.createDecoder();
 		const reader = stream.readable.getReader();
 		const writer = stream.writable.getWriter();
@@ -562,7 +558,9 @@ export class ConnectionManager {
 						const { key, data } = parseStreamType(msg);
 						const factory = this.bidiFactories.get(key);
 						if (!factory) {
-							console.warn(`[ConnectionManager] no bidi handler for "${key}", ignoring stream`);
+							console.warn(
+								`[ConnectionManager] no bidi handler for "${key}", ignoring stream`,
+							);
 							try {
 								await reader.cancel(`No bidi handler registered for "${key}"`);
 							} catch {

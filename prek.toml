@@ -47,6 +47,15 @@ pass_filenames = false
 stages = ["pre-push", "manual"]
 
 [[repos.hooks]]
+id = "typescript-format"
+name = "TypeScript Prettier Formatting"
+entry = "bash -c 'cd frontend && npx prettier --check src/'"
+language = "system"
+files = '^frontend/.*\.(ts|tsx)$'
+pass_filenames = false
+stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
 id = "typescript-check"
 name = "TypeScript Check"
 entry = "bash -c 'cd frontend && npx tsc -b'"

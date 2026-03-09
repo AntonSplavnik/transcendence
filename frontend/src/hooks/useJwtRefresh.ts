@@ -26,7 +26,11 @@ interface UseJwtRefreshOptions {
 	onAuthLost: () => void;
 }
 
-export function useJwtRefresh({ session, onSessionUpdate, onAuthLost }: UseJwtRefreshOptions): void {
+export function useJwtRefresh({
+	session,
+	onSessionUpdate,
+	onAuthLost,
+}: UseJwtRefreshOptions): void {
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const retryCountRef = useRef(0);
 	const doRefreshRef = useRef<(() => Promise<void>) | null>(null);
@@ -68,7 +72,10 @@ export function useJwtRefresh({ session, onSessionUpdate, onAuthLost }: UseJwtRe
 
 				// Network error or unknown — retry with exponential backoff
 				retryCountRef.current += 1;
-				const backoff = Math.min(MIN_DELAY_MS * Math.pow(2, retryCountRef.current - 1), BACKOFF_CAP);
+				const backoff = Math.min(
+					MIN_DELAY_MS * Math.pow(2, retryCountRef.current - 1),
+					BACKOFF_CAP,
+				);
 				timerRef.current = setTimeout(doRefresh, backoff);
 			}
 		}

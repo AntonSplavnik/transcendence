@@ -496,3 +496,7 @@ The frontend supports TOTP-based two-factor authentication. Users can enable 2FA
 ### Key Pattern: Refs for Sensitive Data
 
 All 2FA modals use `useRef` instead of `useState` for passwords and codes to avoid keeping sensitive data in the React state tree.
+
+### Autoformatting
+
+[autoformatting in typescript](https://oneuptime.com/blog/post/2026-02-03-eslint-prettier-typescript/view)

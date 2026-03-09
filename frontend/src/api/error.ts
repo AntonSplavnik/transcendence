@@ -61,25 +61,25 @@ export function getErrorMessage(error: unknown, fallback = 'An unexpected error 
 function getMessageFromBrief(brief: string): string {
 	const briefMessages: Record<string, string> = {
 		// Session/Auth errors
-		'MissingSessionCookie': 'Session expired. Please log in again.',
-		'InvalidSessionToken': 'Invalid session.  Please log in again.',
-		'SessionNotFound': 'Session not found. Please log in again.',
-		'SessionMismatch': 'Session mismatch. Please log in properly.',
-		'NeedReauth': 'Your session has expired. Please reauthenticate.',
+		MissingSessionCookie: 'Session expired. Please log in again.',
+		InvalidSessionToken: 'Invalid session.  Please log in again.',
+		SessionNotFound: 'Session not found. Please log in again.',
+		SessionMismatch: 'Session mismatch. Please log in properly.',
+		NeedReauth: 'Your session has expired. Please reauthenticate.',
 
 		// JWT errors (shouldn't normally see these - interceptor handles them)
-		'MissingJwtCookie': 'Authentication required. Please log in.',
-		'InvalidJwt': 'Your session is invalid. Please log in again.',
+		MissingJwtCookie: 'Authentication required. Please log in.',
+		InvalidJwt: 'Your session is invalid. Please log in again.',
 
 		// Login errors
-		'InvalidCredentials': 'Invalid email or password.',
+		InvalidCredentials: 'Invalid email or password.',
 
 		// 2FA errors
-		'TwoFactorRequired': 'Two-factor authentication code is required.',
-		'TwoFactorInvalid': 'Invalid two-factor authentication code.',
+		TwoFactorRequired: 'Two-factor authentication code is required.',
+		TwoFactorInvalid: 'Invalid two-factor authentication code.',
 
 		// Success messages
-		'DidLogout': 'You have been logged out successfully.',
+		DidLogout: 'You have been logged out successfully.',
 	};
 	return briefMessages[brief] || `Authentication error: ${brief}`;
 }
@@ -89,9 +89,10 @@ function getMessageFromBrief(brief: string): string {
  */
 export function storeError(error: unknown, fallbackType = 'error'): void {
 	const message = getErrorMessage(error);
-	const type = isAxiosError(error) && error.response?.data?.error?.brief
-		? error.response.data.error.brief
-		: fallbackType;
+	const type =
+		isAxiosError(error) && error.response?.data?.error?.brief
+			? error.response.data.error.brief
+			: fallbackType;
 
 	const errorData: StoredError = {
 		type,
