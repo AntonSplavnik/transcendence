@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import type { StoredError } from './api/error';
+import { useAuth } from './contexts/AuthContext';
 import { retrieveStoredError } from './api/error';
+import type { StoredError } from './api/error';
 import AuthPage from './components/AuthPage';
 import GameBoard from './components/GameBoard';
 import Home from './components/Home';
@@ -14,7 +15,6 @@ import ConnectionStatusBanner from './components/ui/ConnectionStatusBanner';
 import ErrorBanner from './components/ui/ErrorBanner';
 import Layout from './components/ui/Layout';
 import NotificationToast from './components/ui/NotificationToast';
-import { useAuth } from './contexts/AuthContext';
 import { useStream } from './contexts/StreamContext';
 import type { ConnectionState } from './stream/types';
 
@@ -130,6 +130,17 @@ export default function AppRoutes() {
 		}
 		return storedError;
 	});
+
+	// Subscribe to errors stored by the interceptor during SPA navigation (no page reload).
+	// On page reload, the useState initializer above handles it instead.
+	useEffect(() => {
+		const onErrorStored = () => {
+			const storedError = retrieveStoredError();
+			if (storedError) setCurrentError(storedError);
+		};
+		window.addEventListener('auth-error-stored', onErrorStored);
+		return () => window.removeEventListener('auth-error-stored', onErrorStored);
+	}, []);
 
 	const handleAuthSuccess = async () => {
 		navigate('/home');

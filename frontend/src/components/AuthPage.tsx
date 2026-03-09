@@ -7,6 +7,8 @@ import { getErrorMessage, getErrorBrief } from "../api/error";
 import { validateNickname, validateEmail } from "../utils/validation";
 import TwoFactorLoginModal from "./modals/TwoFactorLoginModal";
 
+const NICKNAME_DEBOUNCE_MS = 500;
+
 export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void; onAuthSuccess: () => void }) {
 	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
@@ -44,7 +46,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: { onBack: () => void
 				const result = await usersApi.nicknameExists(username);
 				setNicknameValidation(result);
 				setIsCheckingNickname(false);
-			}, 500);
+			}, NICKNAME_DEBOUNCE_MS);
 		} else {
 			setNicknameError("");
 			setNicknameValidation("");

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { refreshJWT } from '../api/auth';
-import { getErrorBrief } from '../api/error';
+import { getErrorBrief, isAxiosError } from '../api/error';
 import type { Session } from '../api/types';
 
 const REFRESH_BUFFER_MS = 60_000; // refresh 1 min before expiry
 const MAX_INTERVAL_MS = 14 * 60 * 1000; // 14 min safety cap
 const MIN_DELAY_MS = 5_000; // prevent tight loops
+const BACKOFF_CAP = 60_000; // max backoff of 1 min
 
 const TERMINAL_AUTH_ERRORS = [
 	'NeedReauth',
@@ -58,15 +59,16 @@ export function useJwtRefresh({ session, onSessionUpdate, onAuthLost }: UseJwtRe
 				// No self-reschedule needed for the success path.
 			} catch (error) {
 				const brief = getErrorBrief(error);
+				const is401 = isAxiosError(error) && error.response?.status === 401;
 
-				if (TERMINAL_AUTH_ERRORS.includes(brief || '')) {
+				if (is401 || TERMINAL_AUTH_ERRORS.includes(brief || '')) {
 					onAuthLostRef.current();
 					return;
 				}
 
 				// Network error or unknown — retry with exponential backoff
 				retryCountRef.current += 1;
-				const backoff = Math.min(MIN_DELAY_MS * Math.pow(2, retryCountRef.current - 1), 60_000);
+				const backoff = Math.min(MIN_DELAY_MS * Math.pow(2, retryCountRef.current - 1), BACKOFF_CAP);
 				timerRef.current = setTimeout(doRefresh, backoff);
 			}
 		}

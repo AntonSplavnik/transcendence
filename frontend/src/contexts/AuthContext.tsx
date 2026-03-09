@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
-import type { AuthResponse, Session, User } from '../api/types';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
+import { setAuthFailureCallback } from '../api/client';
+import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
 	user: User | null;
@@ -24,11 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [session, setSession] = useState<Session | null>(null);
 	const [authChecked, setAuthChecked] = useState(false);
 
-	const clearAuth = () => {
+	const clearAuth = useCallback(() => {
 		console.log('🔒 Clearing authentication data');
 		setUser(null);
 		setSession(null);
-	};
+	}, []);
 
 	const setAuthData = (data: AuthResponse) => {
 		setUser(data.user);
@@ -46,13 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		onAuthLost: clearAuth,
 	});
 
+	// Register clearAuth as the handler for JWT refresh failures in the axios interceptor
+	useEffect(() => {
+		setAuthFailureCallback(clearAuth);
+		return () => setAuthFailureCallback(null);
+	}, [clearAuth]);
+
 	// initial auth check on mount
 	useEffect(() => {
 		async function checkAuth() {
 			try {
-				// Use silent mode to avoid storing errors during initial check
-				// ProtectedRoute handles redirect, no need for error messages
-				const data: AuthResponse = await userApi.getMe({ silent: true });
+				const data: AuthResponse = await userApi.getMe();
 				setAuthData(data);
 				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch {
@@ -63,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			}
 		}
 		checkAuth();
-	}, []);
+	}, [clearAuth]);
 
 	// Login Handler
 	const login = async (email: string, password: string, mfaCode?: string) => {

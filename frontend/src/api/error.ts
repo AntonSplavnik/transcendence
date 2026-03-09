@@ -1,6 +1,8 @@
 import type { AxiosError } from 'axios';
 import type { ApiErrorResponse } from './types';
 
+const MAX_STORED_ERROR_AGE_MS = 60_000; // Don't show stored errors older than 1 minute
+
 /**
  * Stored error info for displaying after redirect
  */
@@ -97,6 +99,7 @@ export function storeError(error: unknown, fallbackType = 'error'): void {
 		timestamp: Date.now(),
 	};
 	localStorage.setItem('auth_error', JSON.stringify(errorData));
+	window.dispatchEvent(new Event('auth-error-stored'));
 }
 
 /**
@@ -110,8 +113,7 @@ export function retrieveStoredError(): StoredError | null {
 	try {
 		const error = JSON.parse(stored) as StoredError;
 		localStorage.removeItem('auth_error');
-		// Ignore old errors (older than 1 minute)
-		const oneMinuteAgo = Date.now() - 60 * 1000;
+		const oneMinuteAgo = Date.now() - MAX_STORED_ERROR_AGE_MS;
 		if (error.timestamp < oneMinuteAgo) {
 			return null;
 		}
