@@ -282,20 +282,24 @@ The Axios response interceptor is a safety net for normal API calls:
 1. A request returns 401 with `InvalidJwt` or `MissingJwtCookie` (browser drops expired JWT cookies entirely).
 2. The interceptor calls `refreshJWT()` to get a new token.
 3. It retries the original request automatically.
-4. If the refresh fails, `authFailureCallback` (wired to `clearAuth()` in `AuthContext`) resets auth state. ProtectedRoute then redirects to `/auth`.
+4. If the refresh fails, behaviour depends on the failure type:
+   - **401** (session gone): the refresh response went through this same interceptor, which already classified it (stored error + called `authFailureCallback`). The catch block calls `authFailureCallback` as a safety net.
+   - **429 / 500** (transient failure): session is still valid — store an error banner but do **not** clear auth state. The user stays logged in.
+   - **Network error**: already stored as `network_error` by the interceptor's network check. Do not clear auth state.
 
-**Error storage in the refresh catch block** follows a simple rule: the refresh response itself goes through this same interceptor, so 401 failures are already classified (silent for `MissingSessionCookie`/`SessionNotFound`, stored for `NeedReauth`/`InvalidSessionToken`). The catch block only stores errors for non-401 server failures (e.g. 429 rate limit, 500) that the interceptor doesn't handle.
-
-**Other 401 classification** (when JWT refresh is not applicable):
+**401 classification** (all paths, including when JWT refresh is not applicable):
 
 | Brief | Action |
 | --- | --- |
-| `MissingSessionCookie`, `SessionNotFound` | Silent — user is not logged in, ProtectedRoute redirects |
-| `InvalidSessionToken`, `SessionMismatch` | Store `dead_session` — session is corrupted |
-| `NeedReauth` | Store `needReauth` — rolling inactivity exceeded |
-| `InvalidCredentials`, `TwoFactorRequired`, `TwoFactorInvalid` | Pass through — component handles |
+| `MissingSessionCookie` | Silent — ambiguous (could be fresh user or 30-day expiry). `AuthContext` mount check hits this for users who were never logged in, so no banner is shown. |
+| `InvalidCredentials`, `TwoFactorRequired`, `TwoFactorInvalid` | Pass through — component shows inline feedback |
 | `DidLogout` | Pass through |
-| Unknown | Store `unauthorized` |
+| `SessionNotFound` | Store `dead_session` + `authFailureCallback` — session was deleted (by user via session management, or evicted when session limit exceeded) |
+| `InvalidSessionToken`, `SessionMismatch` | Store `dead_session` + `authFailureCallback` — session cookie corrupted or JWT references wrong session |
+| `NeedReauth` | Store `needReauth` + `authFailureCallback` — rolling inactivity period exceeded |
+| Unknown | Store `unauthorized` + `authFailureCallback` — should not happen, but never leave user stranded |
+
+All terminal 401s (the last four rows) call `authFailureCallback`, which triggers `clearAuth()` in `AuthContext`. This sets `user` to `null`, causing `ProtectedRoute` to redirect to `/auth`. The stored error is displayed by `ErrorBanner` on the login page to explain why the redirect happened.
 
 ### Proactive refresh (`hooks/useJwtRefresh.ts`)
 
