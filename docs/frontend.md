@@ -499,4 +499,4 @@ All 2FA modals use `useRef` instead of `useState` for passwords and codes to avo
 
 ### Autoformatting
 
-[autoormatting in typescript](https://oneuptime.com/blog/post/2026-02-03-eslint-prettier-typescript/view)
+[autoformatting in typescript](https://oneuptime.com/blog/post/2026-02-03-eslint-prettier-typescript/view)
