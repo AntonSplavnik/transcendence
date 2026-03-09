@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
+import type { AuthResponse, Session, User } from '../api/types';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
-import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
 	user: User | null;
@@ -118,7 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextType {
 	const context = useContext(AuthContext);
 	if (!context) {

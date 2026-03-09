@@ -161,6 +161,8 @@ describe('TwoFactorLoginModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		expect(screen.getByText('Verifying...')).toBeInTheDocument();
+
+		await waitFor(() => expect(mockOnSuccess).toHaveBeenCalled());
 	});
 
 	it('disables input during loading', async () => {
@@ -179,6 +181,8 @@ describe('TwoFactorLoginModal', () => {
 		await user.click(screen.getByText('Continue'));
 
 		expect(input).toBeDisabled();
+
+		await waitFor(() => expect(mockOnSuccess).toHaveBeenCalled());
 	});
 
 	it('auto-focuses the code input', () => {

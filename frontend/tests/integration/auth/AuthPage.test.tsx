@@ -130,6 +130,8 @@ describe('AuthPage', () => {
 			await user.click(screen.getByText('Sign In'));
 
 			expect(screen.getByText('Signing In...')).toBeInTheDocument();
+
+			await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
 		});
 
 		it('opens MFA modal when TwoFactorRequired', async () => {

@@ -222,7 +222,7 @@ describe('Home', () => {
 	});
 
 	describe('loading state', () => {
-		it('shows loading while auth data is being fetched', () => {
+		it('shows loading while auth data is being fetched', async () => {
 			// Delay the auth response
 			server.use(
 				http.get('/api/user/me', async () => {
@@ -235,6 +235,11 @@ describe('Home', () => {
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
+
+			// Drain the delayed response before test exits
+			await waitFor(() => {
+				expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
+			}, { timeout: 2000 });
 		});
 	});
 

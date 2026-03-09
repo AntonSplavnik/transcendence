@@ -20,7 +20,7 @@ export async function fetchAvatar(
     return URL.createObjectURL(response.data);
 }
 
-/** Upload a new avatar. The backend upserts (replaces) any existing avatar, so a separate delete is not needed. */
+/** Upload a new avatar. The backend upserts (replaces) any existing avatar, so there is no need to delete before uploading. */
 export async function uploadAvatar(
     large: Blob,
     small: Blob

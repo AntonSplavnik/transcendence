@@ -3,6 +3,8 @@ use std::sync::Arc;
 #[cfg(debug_assertions)]
 use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 
+#[cfg(not(test))]
+use crate::ON_SHUTDOWN;
 use crate::{
     notifications::NotificationManager, prelude::*, stream::StreamManager, utils::NickCache,
 };
@@ -29,9 +31,21 @@ pub fn rest_api(database: Db) -> Router {
             crate::stream::router("stream"),
         ]);
 
+    let stream_manager = Arc::new(StreamManager::new());
+    #[cfg(not(test))]
+    {
+        let sm_shutdown = Arc::downgrade(&stream_manager);
+        tokio::spawn(async move {
+            ON_SHUTDOWN.notified().await;
+            if let Some(sm) = sm_shutdown.upgrade() {
+                sm.shutdown();
+            }
+        });
+    }
+
     Router::new()
         .hoop(affix_state::inject(database))
-        .hoop(affix_state::inject(Arc::new(StreamManager::new())))
+        .hoop(affix_state::inject(stream_manager))
         .hoop(affix_state::inject(NotificationManager::new()))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))

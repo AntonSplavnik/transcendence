@@ -17,6 +17,7 @@ const SMALL_SIZE = 200;
 const AVIF_QUALITY = 60;
 const MAX_LARGE_BYTES = 20 * 1024;
 const MAX_SMALL_BYTES = 8 * 1024;
+const MAX_INPUT_DIMENSION = 8192;
 
 export interface AvatarVariants {
   large: Blob;
@@ -37,6 +38,14 @@ export type ConversionResult =
  */
 async function decodeImage(file: File | Blob): Promise<ImageData> {
   const bitmap = await createImageBitmap(file);
+
+  if (bitmap.width > MAX_INPUT_DIMENSION || bitmap.height > MAX_INPUT_DIMENSION) {
+    bitmap.close();
+    throw new Error(
+      `Image dimensions (${bitmap.width}x${bitmap.height}) exceed the maximum allowed size of ${MAX_INPUT_DIMENSION}px`
+    );
+  }
+
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext("2d");
 
