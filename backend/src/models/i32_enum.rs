@@ -3,7 +3,7 @@ macro_rules! diesel_i32_enum {
     (
         $(#[$meta:meta])*
         $vis:vis enum $name:ident {
-            $($variant:ident),+ $(,)?
+            $($variant:ident $(= $disc:expr)?),+ $(,)?
         }
     ) => {
         #[derive(
@@ -23,7 +23,7 @@ macro_rules! diesel_i32_enum {
         #[diesel(sql_type = diesel::sql_types::Integer)]
         #[repr(i32)]
         $vis enum $name {
-            $($variant),+
+            $($variant $(= $disc)?),+
         }
 
         impl
