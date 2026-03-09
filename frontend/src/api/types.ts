@@ -7,6 +7,7 @@ export interface User {
 	"nickname": string;
 	"totp_confirmed_at": string | null;
 	"totp_enabled": boolean;
+	"description": string;
 }
 
 export interface Session {

@@ -1,3 +1,6 @@
+import "@fontsource-variable/fredoka";
+import "@fontsource-variable/nunito-sans";
+import "@fontsource-variable/jetbrains-mono";
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'

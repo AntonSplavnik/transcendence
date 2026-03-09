@@ -5,8 +5,9 @@ import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
 import TwoFactorModal from "./modals/TwoFactorAuthModal";
 import ReauthModal from "./modals/ReauthModal";
 import AvatarDisplay from "./ui/AvatarDisplay";
-import AvatarUploadModal from "./modals/AvatarUploadModal";
+import EditUserModal from "./modals/EditUserModal";
 import { useState } from "react";
+import { useAvatarUrls } from "../hooks/useAvatarUrls";
 
 const REAUTH_THRESHOLD_MINUTES = 30;
 
@@ -21,8 +22,8 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | undefined>(undefined);
-	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | undefined>(undefined);
+	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
+	const [description, setDescription] = useState(user?.description ?? '');
 
 	if (!user || !session) {
 		return (
@@ -62,10 +63,11 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-14 h-14"/>
+					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-20 h-20"/>
 					<div>
 						<h1>Player Dashboard</h1>
 						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
+						{description && <p className="text-stone-400 text-sm italic">{description}</p>}
 					</div>
 				</div>
 
@@ -180,13 +182,12 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 			{/* Edit profile Modal */}
 			{showEditProfile && (
-				<AvatarUploadModal
+				<EditUserModal
 					user={user}
+					description={description}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={(smallUrl, largeUrl) => {
-						setAvatarSmallUrl(smallUrl ?? undefined);
-						setAvatarLargeUrl(largeUrl ?? undefined);
-					}}
+					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
+					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}
 

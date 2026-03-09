@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { AuthProvider } from '../../../src/contexts/AuthContext';
-import AppRoutes from '../../../src/AppRoutes';
-import { server, mockUnauthenticatedUser } from '../../helpers/msw-handlers';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { createMockAuthResponse } from '../../fixtures/users';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import AppRoutes from '../../../src/AppRoutes';
+import { AuthProvider } from '../../../src/contexts/AuthContext';
 import { createMockStoredError } from '../../fixtures/errors';
+import { createMockAuthResponse } from '../../fixtures/users';
+import { mockUnauthenticatedUser, server } from '../../helpers/msw-handlers';
 
 // Mock the GameBoard component to avoid Babylon.js issues
 vi.mock('../../../src/components/GameBoard', () => ({
@@ -38,6 +39,26 @@ vi.mock('../../../src/components/LandingPage', () => ({
 			<button onClick={onLogin}>Login</button>
 		</div>
 	),
+}));
+
+// Mock StreamContext — AppRoutes calls useStream() for connection state
+vi.mock('../../../src/contexts/StreamContext', () => ({
+	useStream: vi.fn(() => ({
+		connectionManager: {
+			registerUniHandler: vi.fn(),
+			unregisterHandler: vi.fn(),
+		},
+		connectionState: { status: 'connected' },
+	})),
+}));
+
+// Mock NotificationContext — NotificationToast calls useNotifications()
+vi.mock('../../../src/contexts/NotificationContext', () => ({
+	useNotifications: vi.fn(() => ({
+		notifications: [],
+		activeToasts: [],
+		dismissToast: vi.fn(),
+	})),
 }));
 
 describe('AppRoutes', () => {
@@ -115,7 +136,7 @@ describe('AppRoutes', () => {
 	});
 
 	describe('authChecked gate', () => {
-		it('shows nothing while auth is being checked', () => {
+		it('shows nothing while auth is being checked', async () => {
 			// Set up a delayed response
 			server.use(
 				http.get('/api/user/me', async () => {
@@ -130,6 +151,11 @@ describe('AppRoutes', () => {
 			expect(screen.queryByText('Player Dashboard')).not.toBeInTheDocument();
 			// Also should not show auth page redirect yet
 			expect(screen.queryByText('Welcome Back')).not.toBeInTheDocument();
+
+			// Drain the delayed response before test exits
+			await waitFor(() => {
+				expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
+			}, { timeout: 2000 });
 		});
 	});
 
@@ -200,6 +226,70 @@ describe('AppRoutes', () => {
 			await waitFor(() => {
 				expect(screen.getByTestId('landing-page')).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe('footer links', () => {
+		it('renders Privacy Policy and Terms of Service links', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/auth');
+
+			await waitFor(() => {
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+			});
+
+			const privacyLink = screen.getByRole('link', { name: 'Privacy Policy' });
+			const termsLink = screen.getByRole('link', { name: 'Terms of Service' });
+
+			expect(privacyLink).toHaveAttribute('href', '/privacy');
+			expect(termsLink).toHaveAttribute('href', '/terms');
+		});
+
+		it('navigates to Privacy Policy page when link is clicked', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/auth');
+
+			await waitFor(() => {
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+			});
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('link', { name: 'Privacy Policy' }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Last updated: \d{2}\.\d{2}\.\d{4}/)).toBeInTheDocument();
+			});
+		});
+
+		it('navigates to Terms of Service page when link is clicked', async () => {
+			mockUnauthenticatedUser();
+			renderRoutes('/auth');
+
+			await waitFor(() => {
+				expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+			});
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('link', { name: 'Terms of Service' }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Who Can Use This Service/)).toBeInTheDocument();
+			});
+		});
+
+		it('does not render footer on /game route', async () => {
+			server.use(
+				http.get('/api/user/me', () => {
+					return HttpResponse.json(createMockAuthResponse());
+				})
+			);
+			renderRoutes('/game');
+
+			await waitFor(() => {
+				expect(screen.getByTestId('game-board')).toBeInTheDocument();
+			});
+
+			expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
 		});
 	});
 });

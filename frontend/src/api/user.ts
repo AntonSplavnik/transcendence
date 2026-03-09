@@ -22,6 +22,12 @@ export async function getMe(options?: { silent?: boolean }): Promise<AuthRespons
 	return response.data;
 }
 
+// ==================== USER DESCRIPTION ====================
+
+export async function updateDescription(description: string): Promise<void> {
+	await apiClient.put('/user/description', { description });
+}
+
 // ==================== TWO-FACTOR AUTHENTICATION ====================
 
 export async function start2FA(password: string): Promise<TwoFactorStartResponse> {
