@@ -44,7 +44,9 @@ pub async fn send_friend_request(
                     .first(conn)
                     .optional()?
                     .ok_or(FriendError::UserNotFound)?,
-                (None, None) => unreachable!("validate_target() ensures at least one identifier is set"),
+                (None, None) => {
+                    unreachable!("validate_target() ensures at least one identifier is set")
+                }
             };
 
             let receiver_id = receiver.id;
