@@ -149,9 +149,6 @@ export default function AppRoutes() {
 		setCurrentError(null);
 	}, []);
 
-	const [isFriendsOpen, setIsFriendsOpen] = useState(false);
-	const toggleFriends = useCallback(() => setIsFriendsOpen((prev) => !prev), []);
-
 	if (!authChecked) {
 		return <Layout>{null}</Layout>;
 	}
@@ -160,7 +157,7 @@ export default function AppRoutes() {
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			{user && <FriendsDrawer isOpen={isFriendsOpen} onToggle={toggleFriends} />}
+			{user && <FriendsDrawer />}
 			<Routes>
 				<Route path="/landing" element={
 					<PublicRoute>
