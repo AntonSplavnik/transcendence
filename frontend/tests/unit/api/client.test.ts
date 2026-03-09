@@ -75,13 +75,17 @@ describe('API client interceptors', () => {
 		);
 	}
 
-	it('stores error when refresh fails with non-401 server error (e.g. 429)', async () => {
+	it('stores error but does NOT clear auth when refresh fails with 429 (session still valid)', async () => {
+		const onAuthFailure = vi.fn();
 		setupFailedRefreshMocks('MissingJwtCookie', 429, 'RateLimited');
 
-		const { default: apiClient } = await import('../../../src/api/client');
+		const { default: apiClient, setAuthFailureCallback } = await import('../../../src/api/client');
+		setAuthFailureCallback(onAuthFailure);
+
 		await expect(apiClient.get('/test')).rejects.toThrow();
 
 		expect(localStorage.getItem('auth_error')).not.toBeNull();
+		expect(onAuthFailure).not.toHaveBeenCalled();
 	});
 
 	it('does not store error when refresh fails with 401 (session gone)', async () => {
@@ -93,7 +97,7 @@ describe('API client interceptors', () => {
 		expect(localStorage.getItem('auth_error')).toBeNull();
 	});
 
-	it('calls authFailureCallback when JWT refresh fails', async () => {
+	it('calls authFailureCallback when JWT refresh fails with 401 (session gone)', async () => {
 		const onAuthFailure = vi.fn();
 		setupFailedRefreshMocks('MissingJwtCookie');
 
@@ -127,27 +131,84 @@ describe('API client interceptors', () => {
 		}
 	});
 
-	it('does not store error for silent auth errors', async () => {
-		const silentBriefs = ['MissingSessionCookie', 'SessionNotFound'];
+	it('does not store error for MissingSessionCookie (user may have never logged in)', async () => {
+		server.use(
+			http.get('/api/test', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief: 'MissingSessionCookie' }) },
+					{ status: 401 }
+				);
+			})
+		);
 
-		for (const brief of silentBriefs) {
-			localStorage.clear();
-			vi.resetModules();
+		const { default: apiClient } = await import('../../../src/api/client');
 
-			server.use(
-				http.get('/api/test', () => {
-					return HttpResponse.json(
-						{ error: createMockApiError({ code: 401, brief }) },
-						{ status: 401 }
-					);
-				})
-			);
+		await expect(apiClient.get('/test')).rejects.toThrow();
+		expect(localStorage.getItem('auth_error')).toBeNull();
+	});
 
-			const { default: apiClient } = await import('../../../src/api/client');
+	it.each([
+		'SessionNotFound',
+		'InvalidSessionToken',
+		'SessionMismatch',
+	])('stores error and calls authFailureCallback for terminal 401: %s', async (brief) => {
+		const onAuthFailure = vi.fn();
 
-			await expect(apiClient.get('/test')).rejects.toThrow();
-			expect(localStorage.getItem('auth_error')).toBeNull();
-		}
+		server.use(
+			http.get('/api/test', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief }) },
+					{ status: 401 }
+				);
+			})
+		);
+
+		const { default: apiClient, setAuthFailureCallback } = await import('../../../src/api/client');
+		setAuthFailureCallback(onAuthFailure);
+
+		await expect(apiClient.get('/test')).rejects.toThrow();
+		expect(localStorage.getItem('auth_error')).not.toBeNull();
+		expect(onAuthFailure).toHaveBeenCalledTimes(1);
+	});
+
+	it('stores error and calls authFailureCallback for NeedReauth', async () => {
+		const onAuthFailure = vi.fn();
+
+		server.use(
+			http.get('/api/test', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief: 'NeedReauth' }) },
+					{ status: 401 }
+				);
+			})
+		);
+
+		const { default: apiClient, setAuthFailureCallback } = await import('../../../src/api/client');
+		setAuthFailureCallback(onAuthFailure);
+
+		await expect(apiClient.get('/test')).rejects.toThrow();
+		expect(localStorage.getItem('auth_error')).not.toBeNull();
+		expect(onAuthFailure).toHaveBeenCalledTimes(1);
+	});
+
+	it('stores error and calls authFailureCallback for unknown 401', async () => {
+		const onAuthFailure = vi.fn();
+
+		server.use(
+			http.get('/api/test', () => {
+				return HttpResponse.json(
+					{ error: createMockApiError({ code: 401, brief: 'SomethingUnexpected' }) },
+					{ status: 401 }
+				);
+			})
+		);
+
+		const { default: apiClient, setAuthFailureCallback } = await import('../../../src/api/client');
+		setAuthFailureCallback(onAuthFailure);
+
+		await expect(apiClient.get('/test')).rejects.toThrow();
+		expect(localStorage.getItem('auth_error')).not.toBeNull();
+		expect(onAuthFailure).toHaveBeenCalledTimes(1);
 	});
 
 	it('passes through non-401 errors', async () => {
