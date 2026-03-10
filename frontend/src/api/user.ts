@@ -1,5 +1,4 @@
 import apiClient from './client';
-import type { AxiosRequestConfig } from 'axios';
 import type {
 	AuthResponse,
 	Session,
@@ -15,11 +14,15 @@ import type {
 /**
  * Get current user and session info
  */
-export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
-	const response = await apiClient.get<AuthResponse>('/user/me', {
-		_silent: options?.silent
-	} as AxiosRequestConfig & { _silent?: boolean });
+export async function getMe(): Promise<AuthResponse> {
+	const response = await apiClient.get<AuthResponse>('/user/me');
 	return response.data;
+}
+
+// ==================== USER DESCRIPTION ====================
+
+export async function updateDescription(description: string): Promise<void> {
+	await apiClient.put('/user/description', { description });
 }
 
 // ==================== TWO-FACTOR AUTHENTICATION ====================
@@ -31,7 +34,10 @@ export async function start2FA(password: string): Promise<TwoFactorStartResponse
 	return response.data;
 }
 
-export async function confirm2FA(password: string, code: string): Promise<TwoFactorConfirmResponse> {
+export async function confirm2FA(
+	password: string,
+	code: string,
+): Promise<TwoFactorConfirmResponse> {
 	const response = await apiClient.post<TwoFactorConfirmResponse>('/user/2fa/confirm', {
 		password,
 		code,
@@ -80,12 +86,16 @@ export async function changePassword(
 // ==================== SESSION MANAGEMENT ====================
 
 export async function getSessions(password: string, mfaCode?: string): Promise<Session[]> {
-	const payload: PasswordMfaPayload = { password, mfa_code: mfaCode };  // ✅ Reused type
+	const payload: PasswordMfaPayload = { password, mfa_code: mfaCode }; // ✅ Reused type
 	const response = await apiClient.post<Session[]>('/user/sessions', payload);
 	return response.data;
 }
 
-export async function deleteSessions(password: string, sessionIds: number[], mfa_code?: string): Promise<void> {
+export async function deleteSessions(
+	password: string,
+	sessionIds: number[],
+	mfa_code?: string,
+): Promise<void> {
 	const payload: SessionManagementPayload = {
 		password,
 		session_ids: sessionIds,
@@ -103,7 +113,11 @@ export async function logoutOtherSessions(password: string, mfa_code?: string): 
 	await apiClient.post('/user/logout-other-sessions', payload);
 }
 
-export async function logoutSessions(password: string, sessionIds: number[], mfa_code?: string): Promise<void> {
+export async function logoutSessions(
+	password: string,
+	sessionIds: number[],
+	mfa_code?: string,
+): Promise<void> {
 	const payload: SessionManagementPayload = {
 		password,
 		session_ids: sessionIds,

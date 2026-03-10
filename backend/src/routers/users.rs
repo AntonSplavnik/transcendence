@@ -34,6 +34,7 @@ pub fn router(path: &str) -> Router {
 pub struct PublicUser {
     pub id: i32,
     pub nickname: Nickname,
+    pub description: String,
     pub created_at: DateTime<Utc>,
     pub online: bool,
 }
@@ -43,6 +44,7 @@ impl PublicUser {
         Self {
             id: user.id,
             nickname: user.nickname,
+            description: user.description,
             created_at: user.created_at,
             online,
         }

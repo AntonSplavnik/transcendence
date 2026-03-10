@@ -1,12 +1,13 @@
-import { useAuth } from "../contexts/AuthContext";
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from "lucide-react";
-import { Button, Card, Badge, LoadingSpinner } from "./ui";
-import { Dropdown, DropdownItem, DropdownSeparator } from "./ui";
-import TwoFactorModal from "./modals/TwoFactorAuthModal";
-import ReauthModal from "./modals/ReauthModal";
-import AvatarDisplay from "./ui/AvatarDisplay";
-import AvatarUploadModal from "./modals/AvatarUploadModal";
-import { useState } from "react";
+import { useAuth } from '../contexts/AuthContext';
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen } from 'lucide-react';
+import { Button, Card, Badge, LoadingSpinner } from './ui';
+import { Dropdown, DropdownItem, DropdownSeparator } from './ui';
+import TwoFactorModal from './modals/TwoFactorAuthModal';
+import ReauthModal from './modals/ReauthModal';
+import AvatarDisplay from './ui/AvatarDisplay';
+import EditUserModal from './modals/EditUserModal';
+import { useState } from 'react';
+import { useAvatarUrls } from '../hooks/useAvatarUrls';
 
 const REAUTH_THRESHOLD_MINUTES = 30;
 
@@ -21,8 +22,8 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const [avatarSmallUrl, setAvatarSmallUrl] = useState<string | undefined>(undefined);
-	const [avatarLargeUrl, setAvatarLargeUrl] = useState<string | undefined>(undefined);
+	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
+	const [description, setDescription] = useState(user?.description ?? '');
 
 	if (!user || !session) {
 		return (
@@ -62,10 +63,18 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 			{/* Header with User Menu */}
 			<header className="flex items-center justify-between mb-8 pb-4 border-b border-stone-700">
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={user.id} size="small" src={avatarSmallUrl} className="w-14 h-14"/>
+					<AvatarDisplay
+						userId={user.id}
+						size="small"
+						src={avatarSmallUrl}
+						className="w-20 h-20"
+					/>
 					<div>
 						<h1>Player Dashboard</h1>
 						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
+						{description && (
+							<p className="text-stone-400 text-sm italic">{description}</p>
+						)}
 					</div>
 				</div>
 
@@ -96,18 +105,17 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 						icon={<Shield className="w-4 h-4" />}
 						onClick={() => setShow2FASettings(true)}
 						suffix={
-							user.totp_enabled
-								? <Badge variant="success" size="sm">Active</Badge>
-								: undefined
+							user.totp_enabled ? (
+								<Badge variant="success" size="sm">
+									Active
+								</Badge>
+							) : undefined
 						}
 					>
 						Two-Factor Auth
 					</DropdownItem>
 
-					<DropdownItem
-						icon={<Monitor className="w-4 h-4" />}
-						onClick={onSessions}
-					>
+					<DropdownItem icon={<Monitor className="w-4 h-4" />} onClick={onSessions}>
 						Manage Sessions
 					</DropdownItem>
 
@@ -127,9 +135,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 			<section className="grid gap-6 md:grid-cols-2" aria-label="Dashboard content">
 				<Card hoverable>
 					<h2 className="text-xl font-bold mb-2 text-gold-400">Play Game</h2>
-					<p className="text-sm text-stone-300 mb-4">
-						Jump into a match immediately.
-					</p>
+					<p className="text-sm text-stone-300 mb-4">Jump into a match immediately.</p>
 					<Button onClick={handlePlayGame} fullWidth>
 						Play a Match
 					</Button>
@@ -137,27 +143,36 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 				<Card>
 					<div className="flex justify-between items-center">
-					<div>
-					<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
-					<div className="space-y-2 text-sm">
-						<p className="text-stone-300">
-							<span className="text-stone-400">Email:</span> {user.email}
-						</p>
-						<p className="text-stone-300">
-							<span className="text-stone-400">Member since:</span>{" "}
-							{new Date(user.created_at).toLocaleDateString()}
-						</p>
-						<p className="text-stone-300">
-							<span className="text-stone-400">2FA:</span>{" "}
-							{user.totp_enabled ? (
-								<Badge variant="success" dot>Enabled</Badge>
-							) : (
-								<Badge variant="warning" dot>Disabled</Badge>
-							)}
-						</p>
-					</div>
-					</div>
-					<AvatarDisplay userId={user.id} size="large" src={avatarLargeUrl} className="w-28 h-28 rounded-lg"/>
+						<div>
+							<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
+							<div className="space-y-2 text-sm">
+								<p className="text-stone-300">
+									<span className="text-stone-400">Email:</span> {user.email}
+								</p>
+								<p className="text-stone-300">
+									<span className="text-stone-400">Member since:</span>{' '}
+									{new Date(user.created_at).toLocaleDateString()}
+								</p>
+								<p className="text-stone-300">
+									<span className="text-stone-400">2FA:</span>{' '}
+									{user.totp_enabled ? (
+										<Badge variant="success" dot>
+											Enabled
+										</Badge>
+									) : (
+										<Badge variant="warning" dot>
+											Disabled
+										</Badge>
+									)}
+								</p>
+							</div>
+						</div>
+						<AvatarDisplay
+							userId={user.id}
+							size="large"
+							src={avatarLargeUrl}
+							className="w-28 h-28 rounded-lg"
+						/>
 					</div>
 				</Card>
 
@@ -180,13 +195,12 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 			{/* Edit profile Modal */}
 			{showEditProfile && (
-				<AvatarUploadModal
+				<EditUserModal
 					user={user}
+					description={description}
 					onClose={() => setShowEditProfile(false)}
-					onAvatarChanged={(smallUrl, largeUrl) => {
-						setAvatarSmallUrl(smallUrl ?? undefined);
-						setAvatarLargeUrl(largeUrl ?? undefined);
-					}}
+					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
+					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}
 

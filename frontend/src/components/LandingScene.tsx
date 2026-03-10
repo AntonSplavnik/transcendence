@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
 	Engine,
 	Scene,
@@ -6,9 +6,9 @@ import {
 	HemisphericLight,
 	Vector3,
 	SceneLoader,
-	Color4
-} from "@babylonjs/core";
-import "@babylonjs/loaders/glTF";
+	Color4,
+} from '@babylonjs/core';
+import '@babylonjs/loaders/glTF';
 
 export default function LandingScene() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,38 +23,48 @@ export default function LandingScene() {
 
 		// Camera
 		const camera = new ArcRotateCamera(
-			"camera",
+			'camera',
 			-Math.PI / 2,
 			Math.PI / 2.5,
 			10,
 			Vector3.Zero(),
-			scene
+			scene,
 		);
 		camera.attachControl(canvasRef.current, false);
 		camera.lowerRadiusLimit = 8;
 		camera.upperRadiusLimit = 12;
 
 		// Light
-		const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
+		const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene);
 		light.intensity = 0.8;
 
 		// Load models
 		(async () => {
 			try {
 				const [treeResult, rockResult] = await Promise.all([
-					SceneLoader.ImportMeshAsync(null, "/models/ForestKaykit/", "Tree_1_A_Color1.gltf", scene),
-					SceneLoader.ImportMeshAsync(null, "/models/ForestKaykit/", "Rock_1_A_Color1.gltf", scene)
+					SceneLoader.ImportMeshAsync(
+						null,
+						'/models/ForestKaykit/',
+						'Tree_1_A_Color1.gltf',
+						scene,
+					),
+					SceneLoader.ImportMeshAsync(
+						null,
+						'/models/ForestKaykit/',
+						'Rock_1_A_Color1.gltf',
+						scene,
+					),
 				]);
 
-				treeResult.meshes.forEach(mesh => {
+				treeResult.meshes.forEach((mesh) => {
 					mesh.position.x = -3;
 				});
 
-				rockResult.meshes.forEach(mesh => {
+				rockResult.meshes.forEach((mesh) => {
 					mesh.position.x = 3;
 				});
 			} catch (error) {
-				console.error("Failed to load models:", error);
+				console.error('Failed to load models:', error);
 			}
 		})();
 
@@ -76,8 +86,7 @@ export default function LandingScene() {
 			if (backgroundRef.current) {
 				const bgMoveX = mouseX * 20; // 20px max movement
 				const bgMoveY = mouseY * 20;
-				backgroundRef.current.style.transform =
-					`translate(${bgMoveX}px, ${bgMoveY}px) scale(1.1)`;
+				backgroundRef.current.style.transform = `translate(${bgMoveX}px, ${bgMoveY}px) scale(1.1)`;
 			}
 		};
 
@@ -118,7 +127,7 @@ export default function LandingScene() {
 					backgroundPosition: 'center',
 					transition: 'transform 0.1s ease-out',
 					zIndex: 0,
-					pointerEvents: 'none'
+					pointerEvents: 'none',
 				}}
 			/>
 
@@ -132,7 +141,7 @@ export default function LandingScene() {
 					width: '100%',
 					height: '100%',
 					pointerEvents: 'none',
-					zIndex: 1  // In front of background
+					zIndex: 1, // In front of background
 				}}
 			/>
 		</>

@@ -1,3 +1,4 @@
+mod description;
 mod login;
 mod logout;
 mod me;

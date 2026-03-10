@@ -4,6 +4,8 @@ import {
 	validateEmail,
 	validateMfaCode,
 	validateTotpOnly,
+	validateAvatarFile,
+	validateDescription,
 } from '../../../src/utils/validation';
 
 describe('validateNickname', () => {
@@ -166,5 +168,62 @@ describe('validateTotpOnly', () => {
 	it('rejects non-digit characters', () => {
 		expect(validateTotpOnly('12345a')).toBe('Code must be 6 digits.');
 		expect(validateTotpOnly('abcdef')).toBe('Code must be 6 digits.');
+	});
+});
+
+describe('validateAvatarFile', () => {
+	function makeFile(name: string, type: string, size: number): File {
+		const blob = new Blob([new Uint8Array(size)], { type });
+		return new File([blob], name, { type });
+	}
+
+	it('accepts a valid image under 10MB', () => {
+		expect(validateAvatarFile(makeFile('photo.jpg', 'image/jpeg', 1024))).toBeNull();
+		expect(validateAvatarFile(makeFile('photo.png', 'image/png', 5 * 1024 * 1024))).toBeNull();
+		expect(validateAvatarFile(makeFile('photo.avif', 'image/avif', 10 * 1024 * 1024))).toBeNull();
+	});
+
+	it('rejects a non-image MIME type', () => {
+		expect(validateAvatarFile(makeFile('doc.pdf', 'application/pdf', 100))).toBe('File must be an image.');
+		expect(validateAvatarFile(makeFile('data.json', 'application/json', 100))).toBe('File must be an image.');
+		expect(validateAvatarFile(makeFile('script.js', 'text/javascript', 100))).toBe('File must be an image.');
+	});
+
+	it('rejects a file larger than 10MB', () => {
+		const tooBig = 10 * 1024 * 1024 + 1;
+		expect(validateAvatarFile(makeFile('big.jpg', 'image/jpeg', tooBig))).toBe('File must be smaller than 10 MB.');
+	});
+
+	it('checks MIME type before size', () => {
+		const tooBig = 10 * 1024 * 1024 + 1;
+		expect(validateAvatarFile(makeFile('big.pdf', 'application/pdf', tooBig))).toBe('File must be an image.');
+	});
+});
+
+describe('validateDescription', () => {
+	it('accepts empty string', () => {
+		expect(validateDescription('')).toBeNull();
+	});
+
+	it('accepts valid description', () => {
+		expect(validateDescription('Hello, Comment ca va ?')).toBeNull();
+	});
+
+	it('accepts exactly 50 ASCII characters', () => {
+		expect(validateDescription('a'.repeat(50))).toBeNull();
+	});
+
+	it('rejects 51 ASCII characters', () => {
+		expect(validateDescription('a'.repeat(51))).toBe('Must be at most 50 characters long.');
+	});
+
+	it('counts Unicode code points, not bytes — accepts 50 emojis', () => {
+		const fiftyEmojis = '😀'.repeat(50);
+		expect(validateDescription(fiftyEmojis)).toBeNull();
+	});
+
+	it('counts Unicode code points, not bytes — rejects 51 emojis', () => {
+		const fiftyOneEmojis = '😀'.repeat(51);
+		expect(validateDescription(fiftyOneEmojis)).toBe('Must be at most 50 characters long.');
 	});
 });

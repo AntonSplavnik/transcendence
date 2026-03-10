@@ -1,23 +1,24 @@
 // ==================== DOMAIN MODELS ====================
 
 export interface User {
-	"created_at": string;
-	"email": string;
-	"id": number;
-	"nickname": string;
-	"totp_confirmed_at": string | null;
-	"totp_enabled": boolean;
+	created_at: string;
+	email: string;
+	id: number;
+	nickname: string;
+	totp_confirmed_at: string | null;
+	totp_enabled: boolean;
+	description: string;
 }
 
 export interface Session {
-	"access_expiry": string;
-	"created_at": string;
-	"device_name": string | null;
-	"ip_address": string | null;
-	"last_used_at": string;
-	"login_expiry": string;
-	"session_id": number;
-	"user_id": number;
+	access_expiry: string;
+	created_at: string;
+	device_name: string | null;
+	ip_address: string | null;
+	last_used_at: string;
+	login_expiry: string;
+	session_id: number;
+	user_id: number;
 }
 
 // ==================== API RESPONSE TYPES ====================
