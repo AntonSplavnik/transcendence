@@ -1,7 +1,60 @@
-import { useEffect } from 'react';
-import { Users, X, Circle, UserMinus, Check, Clock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Users, X, Circle, UserMinus, Check, Clock, MessageCircle, User } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
+import type { PublicUser } from '../../api/types';
 import AddFriendForm from './AddFriendForm';
+
+// ─── Friend action popup ──────────────────────────────────────────────────────
+
+interface FriendPopupProps {
+	friend: PublicUser;
+	onClose: () => void;
+}
+
+function FriendPopup({ friend, onClose }: FriendPopupProps) {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const handleClick = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) {
+				onClose();
+			}
+		};
+		document.addEventListener('mousedown', handleClick);
+		return () => document.removeEventListener('mousedown', handleClick);
+	}, [onClose]);
+
+	return (
+		<div
+			ref={ref}
+			className="mt-1 mx-2 rounded-lg bg-stone-900 border border-stone-600 shadow-lg overflow-hidden"
+		>
+			<div className="px-3 py-2 border-b border-stone-700 flex items-center gap-2">
+				<Circle className={`w-2 h-2 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`} />
+				<span className="text-sm font-semibold text-stone-100 truncate">{friend.nickname}</span>
+				<span className="text-xs text-stone-500 ml-auto">{friend.online ? 'Online' : 'Offline'}</span>
+			</div>
+			<div className="p-1">
+				<button
+					className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-stone-300 hover:bg-stone-700 hover:text-stone-100 transition-colors text-left"
+					onClick={() => {/* TODO: open chat */ onClose();}}
+				>
+					<MessageCircle className="w-4 h-4 flex-shrink-0" />
+					Send a message
+				</button>
+				<button
+					className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-stone-300 hover:bg-stone-700 hover:text-stone-100 transition-colors text-left"
+					onClick={() => {/* TODO: show profile */ onClose();}}
+				>
+					<User className="w-4 h-4 flex-shrink-0" />
+					Show profile
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// ─── Main drawer ──────────────────────────────────────────────────────────────
 
 export default function FriendsDrawer() {
 	const {
@@ -12,15 +65,28 @@ export default function FriendsDrawer() {
 		handleAccept, handleReject, handleCancel, handleRemove,
 	} = useFriends();
 
-	// Escape key to close
+	const [activePopupId, setActivePopupId] = useState<number | null>(null);
+
+	const togglePopup = (id: number) =>
+		setActivePopupId((prev) => (prev === id ? null : id));
+
+	// Escape key closes drawer (and any open popup)
 	useEffect(() => {
 		if (!isOpen) return;
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') toggleDrawer();
+			if (e.key === 'Escape') {
+				if (activePopupId !== null) setActivePopupId(null);
+				else toggleDrawer();
+			}
 		};
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, [isOpen, toggleDrawer]);
+	}, [isOpen, toggleDrawer, activePopupId]);
+
+	// Close popup when drawer closes
+	useEffect(() => {
+		if (!isOpen) setActivePopupId(null);
+	}, [isOpen]);
 
 	return (
 		<>
@@ -145,22 +211,37 @@ export default function FriendsDrawer() {
 								{friends.length === 0 ? (
 									<p className="text-stone-500 text-sm px-2 py-1">No friends yet.</p>
 								) : (
-									<ul className="space-y-1">
+									<ul className="space-y-0.5">
 										{friends.map((friend) => (
-											<li key={friend.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50">
-												<Circle
-													className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
-												/>
-												<span className="text-sm text-stone-100 truncate flex-1">{friend.nickname}</span>
-												<button
-													onClick={() => handleRemove(friend.id)}
-													disabled={actionInProgress !== null}
-													className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
-													title="Remove friend"
-													aria-label={`Remove ${friend.nickname} from friends`}
-												>
-													<UserMinus className="w-4 h-4" />
-												</button>
+											<li key={friend.id}>
+												<div className={`flex items-center gap-2 px-2 py-1.5 rounded ${activePopupId === friend.id ? 'bg-stone-700/50' : 'hover:bg-stone-700/50'}`}>
+													<Circle
+														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
+													/>
+													<button
+														className="text-sm text-stone-100 truncate flex-1 text-left hover:text-white transition-colors"
+														onClick={() => togglePopup(friend.id)}
+														aria-expanded={activePopupId === friend.id}
+														aria-label={`Open actions for ${friend.nickname}`}
+													>
+														{friend.nickname}
+													</button>
+													<button
+														onClick={() => { setActivePopupId(null); handleRemove(friend.id); }}
+														disabled={actionInProgress !== null}
+														className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+														title="Remove friend"
+														aria-label={`Remove ${friend.nickname} from friends`}
+													>
+														<UserMinus className="w-4 h-4" />
+													</button>
+												</div>
+												{activePopupId === friend.id && (
+													<FriendPopup
+														friend={friend}
+														onClose={() => setActivePopupId(null)}
+													/>
+												)}
 											</li>
 										))}
 									</ul>
