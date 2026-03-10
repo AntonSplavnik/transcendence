@@ -5,8 +5,8 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::models::User;
 use crate::models::nickname::Nickname;
+use crate::models::User;
 use crate::prelude::*;
 
 pub fn router(path: &str) -> Router {

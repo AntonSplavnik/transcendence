@@ -82,14 +82,7 @@ impl GameManager {
     ) {
         let mut game = self.game.write().await;
         game.set_input(
-            player_id,
-            move_dir,
-            look_dir,
-            attacking,
-            jumping,
-            ability1,
-            ability2,
-            dodging,
+            player_id, move_dir, look_dir, attacking, jumping, ability1, ability2, dodging,
             sprinting,
         );
     }
@@ -102,7 +95,10 @@ impl GameManager {
     pub async fn register_hit(&self, attacker_id: u32, victim_id: u32, damage: f32) {
         let mut game = self.game.write().await;
         game.register_hit(attacker_id, victim_id, damage);
-        debug!("Player {} hit player {} for {} damage", attacker_id, victim_id, damage);
+        debug!(
+            "Player {} hit player {} for {} damage",
+            attacker_id, victim_id, damage
+        );
     }
 
     /// Add a player's stream sender for snapshot broadcasting

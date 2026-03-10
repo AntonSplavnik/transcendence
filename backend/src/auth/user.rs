@@ -5,8 +5,8 @@ use chrono::Utc;
 
 use super::two_factor;
 use super::util;
-use crate::auth::TwoFactorError;
 use crate::auth::router::PasswordInput;
+use crate::auth::TwoFactorError;
 use crate::models::{Session, User};
 use crate::prelude::*;
 use crate::stream::StreamManager;

@@ -1,16 +1,16 @@
 use std::{borrow::Cow, sync::LazyLock};
 
-use argon2::password_hash::{self, SaltString, rand_core::OsRng};
+use argon2::password_hash::{self, rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use cookie::Cookie;
 
 use crate::auth::session_token::{SessionToken, SessionTokenHashTruncated};
-use crate::auth::{JwtClaims, jwt_encoding_key};
+use crate::auth::{jwt_encoding_key, JwtClaims};
 use crate::models::{Session, User};
 use crate::prelude::*;
 
-use super::SESSION_ACCESS_EXPIRY;
 use super::two_factor;
+use super::SESSION_ACCESS_EXPIRY;
 
 pub fn prune_excess_sessions(
     conn: &mut DbConn,

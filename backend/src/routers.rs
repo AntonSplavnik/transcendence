@@ -15,7 +15,6 @@ pub mod users;
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
 pub fn rest_api(database: Db, game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
-
     let api_routes = Router::with_path("api")
         .hoop(affix_state::inject(NickCache::new(
             crate::utils::NICK_CACHE_TTI,

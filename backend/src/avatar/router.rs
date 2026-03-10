@@ -4,16 +4,16 @@
 //! Avatars are stored in two sizes: large (450x450) and small (200x200).
 
 use super::cache;
+use crate::avatar::validate::{validate_large, validate_small, AvatarValidationError};
 use crate::avatar::DEFAULT_AVATAR_LARGE;
 use crate::avatar::DEFAULT_AVATAR_SMALL;
-use crate::avatar::validate::{AvatarValidationError, validate_large, validate_small};
 use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
-use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use base64::Engine as _;
 use chrono::{DateTime, Utc};
-use salvo::http::StatusCode;
 use salvo::http::header;
+use salvo::http::StatusCode;
 use salvo::oapi::extract::PathParam;
 use std::borrow::Cow;
 use std::sync::LazyLock;

@@ -1,7 +1,7 @@
 mod sqlite;
 
 use diesel::SqliteConnection;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use salvo::extract::{Extractible, Metadata};
 use salvo::http::ParseError;
 use tracing::info;

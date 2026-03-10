@@ -1,8 +1,8 @@
 // FFI bindings to C++ game engine
 // Updated to work with Entity-Component-System architecture
-use std::ffi::{CString, c_void};
-use serde::{Serialize, Deserialize};
 use salvo::oapi::ToSchema;
+use serde::{Deserialize, Serialize};
+use std::ffi::{c_void, CString};
 
 // Opaque pointer to C++ game object
 pub type GameHandle = *mut c_void;
@@ -56,15 +56,23 @@ extern "C" {
     pub fn game_create_projectile(
         game: GameHandle,
         entity_id: u32,
-        pos_x: f32, pos_y: f32, pos_z: f32,
-        vel_x: f32, vel_y: f32, vel_z: f32,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        vel_x: f32,
+        vel_y: f32,
+        vel_z: f32,
     ) -> bool;
 
     pub fn game_create_wall(
         game: GameHandle,
         entity_id: u32,
-        pos_x: f32, pos_y: f32, pos_z: f32,
-        half_x: f32, half_y: f32, half_z: f32,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        half_x: f32,
+        half_y: f32,
+        half_z: f32,
     ) -> bool;
 
     pub fn game_destroy_entity(game: GameHandle, entity_id: u32) -> bool;
@@ -92,7 +100,9 @@ extern "C" {
     pub fn game_set_entity_position(
         game: GameHandle,
         entity_id: u32,
-        x: f32, y: f32, z: f32,
+        x: f32,
+        y: f32,
+        z: f32,
     ) -> bool;
 
     pub fn game_get_entity_velocity(
@@ -106,15 +116,21 @@ extern "C" {
     pub fn game_set_entity_velocity(
         game: GameHandle,
         entity_id: u32,
-        x: f32, y: f32, z: f32,
+        x: f32,
+        y: f32,
+        z: f32,
     ) -> bool;
 
     // Input handling (backwards compatible)
     pub fn game_set_input(
         game: GameHandle,
         player_id: u32,
-        move_x: f32, move_y: f32, move_z: f32,
-        look_x: f32, look_y: f32, look_z: f32,
+        move_x: f32,
+        move_y: f32,
+        move_z: f32,
+        look_x: f32,
+        look_y: f32,
+        look_z: f32,
         attacking: bool,
         jumping: bool,
         ability1: bool,
@@ -145,7 +161,11 @@ pub struct Vector3D {
 
 impl Default for Vector3D {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 }
 
@@ -211,24 +231,42 @@ impl Game {
         unsafe { game_get_player_count(self.handle) }
     }
 
-    pub fn create_projectile(&mut self, entity_id: u32, position: Vector3D, velocity: Vector3D) -> bool {
+    pub fn create_projectile(
+        &mut self,
+        entity_id: u32,
+        position: Vector3D,
+        velocity: Vector3D,
+    ) -> bool {
         unsafe {
             game_create_projectile(
                 self.handle,
                 entity_id,
-                position.x, position.y, position.z,
-                velocity.x, velocity.y, velocity.z,
+                position.x,
+                position.y,
+                position.z,
+                velocity.x,
+                velocity.y,
+                velocity.z,
             )
         }
     }
 
-    pub fn create_wall(&mut self, entity_id: u32, position: Vector3D, half_extents: Vector3D) -> bool {
+    pub fn create_wall(
+        &mut self,
+        entity_id: u32,
+        position: Vector3D,
+        half_extents: Vector3D,
+    ) -> bool {
         unsafe {
             game_create_wall(
                 self.handle,
                 entity_id,
-                position.x, position.y, position.z,
-                half_extents.x, half_extents.y, half_extents.z,
+                position.x,
+                position.y,
+                position.z,
+                half_extents.x,
+                half_extents.y,
+                half_extents.z,
             )
         }
     }
@@ -319,8 +357,12 @@ impl Game {
             game_set_input(
                 self.handle,
                 player_id,
-                move_dir.x, move_dir.y, move_dir.z,
-                look_dir.x, look_dir.y, look_dir.z,
+                move_dir.x,
+                move_dir.y,
+                move_dir.z,
+                look_dir.x,
+                look_dir.y,
+                look_dir.z,
                 attacking,
                 jumping,
                 ability1,

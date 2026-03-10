@@ -7,8 +7,8 @@ pub use futures::SinkExt;
 pub use futures::StreamExt;
 use salvo::Depot;
 pub use stream_manager::{
-    Receiver, Sender, SharedSender, StreamApiError, StreamManager, StreamManagerDepotExt,
-    StreamManagerError, connect_stream, router, webtransport_router,
+    connect_stream, router, webtransport_router, Receiver, Sender, SharedSender, StreamApiError,
+    StreamManager, StreamManagerDepotExt, StreamManagerError,
 };
 
 use crate::db::Db;

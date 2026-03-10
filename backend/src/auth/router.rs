@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use diesel::OptionalExtension;
 
-use crate::auth::AuthError;
 use crate::auth::hoops::set_session;
 use crate::auth::session_token::{SessionToken, SessionTokenHash};
 use crate::auth::user::{SessionInfo, UserSessionInfo};
+use crate::auth::AuthError;
 use crate::models::nickname::Nickname;
 use crate::models::{NewSession, NewUser, Session, User};
 use crate::prelude::*;

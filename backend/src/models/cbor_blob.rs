@@ -28,8 +28,8 @@ use diesel::expression::AsExpression;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Binary;
 use diesel::sqlite::{Sqlite, SqliteValue};
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 

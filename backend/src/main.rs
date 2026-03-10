@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use salvo::catcher::Catcher;
-use salvo::conn::Acceptor;
 use salvo::conn::rustls::{Keycert, RustlsConfig};
+use salvo::conn::Acceptor;
 use salvo::prelude::*;
 use salvo::server::ServerHandle;
 use tokio::signal;
@@ -100,8 +100,8 @@ async fn async_main() -> ExitCode {
         }
     });
 
-    let mut router =
-        routers::root(database, game_manager).hoop(ForceHttps::new().https_port(config.listen_https_port));
+    let mut router = routers::root(database, game_manager)
+        .hoop(ForceHttps::new().https_port(config.listen_https_port));
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router).await;
@@ -147,7 +147,7 @@ async fn setup_acme_acceptor_socket(
         .add_domain(domain)
         .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
         .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
-    // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
+                                                                  // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
     let acceptor = https.join(http).bind().await;
     acceptor
 }

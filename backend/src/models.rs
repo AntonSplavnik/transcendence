@@ -17,7 +17,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_autoincrement_new_struct::{NewInsertable, apply};
+use diesel_autoincrement_new_struct::{apply, NewInsertable};
 use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 
