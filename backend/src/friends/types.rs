@@ -199,7 +199,7 @@ impl FriendRequestResponse {
             id: request.id,
             sender: PublicUser::new(sender, sender_online),
             receiver: PublicUser::new(receiver, receiver_online),
-            status: request.status,
+            status: request.status.clone(),
             created_at: request.created_at,
             updated_at: request.updated_at,
         }

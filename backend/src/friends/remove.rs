@@ -1,7 +1,6 @@
 //! DELETE /api/friends/remove/{user_id} - Remove a friend
 
 use crate::error::FriendError;
-use crate::models::FriendRequest;
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
@@ -19,21 +18,26 @@ pub async fn remove_friend(depot: &mut Depot, user_id: PathParam<i32>, db: Db) -
     let user_id = depot.session().user_id;
 
     db.write(move |conn| {
-        // Find accepted friendship in either direction
-        let friendship: FriendRequest = fr::friend_requests
-            .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
-            .filter(
-                fr::sender_id
-                    .eq(user_id)
-                    .and(fr::receiver_id.eq(friend_id))
-                    .or(fr::sender_id.eq(friend_id).and(fr::receiver_id.eq(user_id))),
-            )
-            .first(conn)
-            .optional()?
-            .ok_or(FriendError::NotFriends)?;
+        // Atomically delete the accepted friendship in either direction.
+        // Combining the lookup and delete into one query prevents a race
+        // condition where two concurrent removals could both SELECT the same
+        // row, then one DELETE succeeds while the other silently deletes
+        // nothing — yet both would have returned Ok with the two-step approach.
+        let deleted = diesel::delete(
+            fr::friend_requests
+                .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                .filter(
+                    fr::sender_id
+                        .eq(user_id)
+                        .and(fr::receiver_id.eq(friend_id))
+                        .or(fr::sender_id.eq(friend_id).and(fr::receiver_id.eq(user_id))),
+                ),
+        )
+        .execute(conn)?;
 
-        // Delete the friendship
-        diesel::delete(fr::friend_requests.filter(fr::id.eq(friendship.id))).execute(conn)?;
+        if deleted == 0 {
+            return Err(FriendError::NotFriends.into());
+        }
 
         Ok::<_, ApiError>(())
     })
