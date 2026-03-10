@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
 	ArrowLeft,
 	LogOut,
@@ -9,27 +9,18 @@ import {
 	Trash2,
 	ShieldAlert,
 	RefreshCw,
-} from "lucide-react";
-import {
-	Button,
-	Card,
-	Badge,
-	Input,
-	Alert,
-	InfoBlock,
-	LoadingSpinner,
-	Modal,
-} from "./ui";
+} from 'lucide-react';
+import { Button, Card, Badge, Input, Alert, InfoBlock, LoadingSpinner, Modal } from './ui';
 import {
 	changePassword,
 	getSessions,
 	logoutSessions,
 	logoutOtherSessions,
 	deleteSessions,
-} from "../api/user";
-import { getErrorMessage } from "../api/error";
-import { validateMfaCode } from "../utils/validation";
-import type { Session } from "../api/types";
+} from '../api/user';
+import { getErrorMessage } from '../api/error';
+import { validateMfaCode } from '../utils/validation';
+import type { Session } from '../api/types';
 
 interface SessionManagementProps {
 	onBack: () => void;
@@ -44,7 +35,7 @@ function formatDate(dateString: string): string {
 
 function getTimeRemaining(expiryString: string): string {
 	const diff = new Date(expiryString).getTime() - Date.now();
-	if (diff < 0) return "Expired";
+	if (diff < 0) return 'Expired';
 	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 	const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -67,13 +58,14 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 		<div
 			className={`
 				rounded-lg border p-4 transition-colors
-				${isCurrent
-					? "border-info/40 bg-info-bg/30"
-					: isSelected
-						? "border-gold-400/40 bg-stone-800/60"
-						: "border-stone-700/50 bg-stone-900"
+				${
+					isCurrent
+						? 'border-info/40 bg-info-bg/30'
+						: isSelected
+							? 'border-gold-400/40 bg-stone-800/60'
+							: 'border-stone-700/50 bg-stone-900'
 				}
-				${!isCurrent ? "cursor-pointer hover:border-stone-600" : ""}
+				${!isCurrent ? 'cursor-pointer hover:border-stone-600' : ''}
 			`}
 			onClick={!isCurrent ? onToggle : undefined}
 		>
@@ -100,37 +92,30 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 					</div>
 					<div className="grid gap-2 text-xs text-stone-400 sm:grid-cols-2">
 						<span>
-							Created:{" "}
-							<span className="text-stone-300">
-								{formatDate(session.created_at)}
-							</span>
+							Created:{' '}
+							<span className="text-stone-300">{formatDate(session.created_at)}</span>
 						</span>
 						<span>
-							Last used:{" "}
+							Last used:{' '}
 							<span className="text-stone-300">
 								{formatDate(session.last_used_at)}
 							</span>
 						</span>
 						<span>
-							Expires:{" "}
+							Expires:{' '}
 							<span className="text-stone-300">
 								{getTimeRemaining(session.login_expiry)}
 							</span>
 						</span>
 						{session.ip_address && (
 							<span>
-								IP:{" "}
-								<span className="text-stone-300">
-									{session.ip_address}
-								</span>
+								IP: <span className="text-stone-300">{session.ip_address}</span>
 							</span>
 						)}
 						{session.device_name && (
 							<span>
-								Device:{" "}
-								<span className="text-stone-300">
-									{session.device_name}
-								</span>
+								Device:{' '}
+								<span className="text-stone-300">{session.device_name}</span>
 							</span>
 						)}
 					</div>
@@ -142,115 +127,112 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 
 // ==================== ACTION MODAL CONFIG ====================
 
-type PendingAction = "logout-selected" | "logout-others" | "delete-selected" | "refresh";
+type PendingAction = 'logout-selected' | 'logout-others' | 'delete-selected' | 'refresh';
 
-const ACTION_CONFIG: Record<PendingAction, {
-	title: string;
-	icon: React.ReactNode;
-	confirmLabel: string;
-	confirmVariant: "primary" | "secondary" | "danger";
-	loadingText: string;
-}> = {
-	"logout-selected": {
-		title: "Log Out Sessions",
+const ACTION_CONFIG: Record<
+	PendingAction,
+	{
+		title: string;
+		icon: React.ReactNode;
+		confirmLabel: string;
+		confirmVariant: 'primary' | 'secondary' | 'danger';
+		loadingText: string;
+	}
+> = {
+	'logout-selected': {
+		title: 'Log Out Sessions',
 		icon: <LogOut className="w-6 h-6" />,
-		confirmLabel: "Log Out",
-		confirmVariant: "secondary",
-		loadingText: "Logging out...",
+		confirmLabel: 'Log Out',
+		confirmVariant: 'secondary',
+		loadingText: 'Logging out...',
 	},
-	"logout-others": {
-		title: "Log Out All Others",
+	'logout-others': {
+		title: 'Log Out All Others',
 		icon: <LogOut className="w-6 h-6" />,
-		confirmLabel: "Log Out",
-		confirmVariant: "secondary",
-		loadingText: "Logging out...",
+		confirmLabel: 'Log Out',
+		confirmVariant: 'secondary',
+		loadingText: 'Logging out...',
 	},
-	"delete-selected": {
-		title: "Delete Session Records",
+	'delete-selected': {
+		title: 'Delete Session Records',
 		icon: <Trash2 className="w-6 h-6" />,
-		confirmLabel: "Delete",
-		confirmVariant: "danger",
-		loadingText: "Deleting...",
+		confirmLabel: 'Delete',
+		confirmVariant: 'danger',
+		loadingText: 'Deleting...',
 	},
-	"refresh": {
-		title: "Refresh Sessions",
+	refresh: {
+		title: 'Refresh Sessions',
 		icon: <RefreshCw className="w-6 h-6" />,
-		confirmLabel: "Refresh",
-		confirmVariant: "primary",
-		loadingText: "Refreshing...",
+		confirmLabel: 'Refresh',
+		confirmVariant: 'primary',
+		loadingText: 'Refreshing...',
 	},
 };
 
 // ==================== COMPONENT ====================
 
-export default function SessionManagement({
-	onBack,
-	onLogout,
-}: SessionManagementProps) {
+export default function SessionManagement({ onBack, onLogout }: SessionManagementProps) {
 	const { user, session: authSession } = useAuth();
 	const currentSessionId = authSession?.session_id ?? null;
 
 	// Change password form
-	const [cpCurrentPw, setCpCurrentPw] = useState("");
-	const [cpNewPw, setCpNewPw] = useState("");
-	const [cpConfirmPw, setCpConfirmPw] = useState("");
-	const [cpMfaCode, setCpMfaCode] = useState("");
+	const [cpCurrentPw, setCpCurrentPw] = useState('');
+	const [cpNewPw, setCpNewPw] = useState('');
+	const [cpConfirmPw, setCpConfirmPw] = useState('');
+	const [cpMfaCode, setCpMfaCode] = useState('');
 	const [cpKeepSessions, setCpKeepSessions] = useState(false);
 	const [cpLoading, setCpLoading] = useState(false);
-	const [cpError, setCpError] = useState("");
-	const [cpSuccess, setCpSuccess] = useState("");
-	const [cpCurrentPwError, setCpCurrentPwError] = useState("");
-	const [cpNewPwError, setCpNewPwError] = useState("");
-	const [cpMfaError, setCpMfaError] = useState("");
+	const [cpError, setCpError] = useState('');
+	const [cpSuccess, setCpSuccess] = useState('');
+	const [cpCurrentPwError, setCpCurrentPwError] = useState('');
+	const [cpNewPwError, setCpNewPwError] = useState('');
+	const [cpMfaError, setCpMfaError] = useState('');
 
 	// All sessions (password-gated)
-	const passwordRef = useRef("");
-	const [unlockPw, setUnlockPw] = useState("");
-	const [unlockMfa, setUnlockMfa] = useState("");
+	const passwordRef = useRef('');
+	const [unlockPw, setUnlockPw] = useState('');
+	const [unlockMfa, setUnlockMfa] = useState('');
 	const [unlocked, setUnlocked] = useState(false);
 	const [allSessions, setAllSessions] = useState<Session[]>([]);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const [unlockMfaError, setUnlockMfaError] = useState("");
+	const [unlockMfaError, setUnlockMfaError] = useState('');
 	const [unlockLoading, setUnlockLoading] = useState(false);
-	const [sessionsError, setSessionsError] = useState("");
-	const [sessionsSuccess, setSessionsSuccess] = useState("");
+	const [sessionsError, setSessionsError] = useState('');
+	const [sessionsSuccess, setSessionsSuccess] = useState('');
 
 	// Confirmation modal
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-	const [modalMfa, setModalMfa] = useState("");
-	const [modalMfaError, setModalMfaError] = useState("");
+	const [modalMfa, setModalMfa] = useState('');
+	const [modalMfaError, setModalMfaError] = useState('');
 	const [modalLoading, setModalLoading] = useState(false);
-	const [modalError, setModalError] = useState("");
+	const [modalError, setModalError] = useState('');
 
 	// Clear credentials and re-lock when tab becomes hidden (security)
 	useEffect(() => {
 		const handleVisibilityChange = () => {
 			if (document.hidden) {
-				passwordRef.current = "";
-				setModalMfa("");
+				passwordRef.current = '';
+				setModalMfa('');
 				if (unlocked) {
 					setUnlocked(false);
 					setAllSessions([]);
 					setSelectedIds(new Set());
-					setSessionsError("");
-					setSessionsSuccess("");
+					setSessionsError('');
+					setSessionsSuccess('');
 				}
 			}
 		};
-		document.addEventListener("visibilitychange", handleVisibilityChange);
-		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
 	}, [unlocked]);
 
 	const fetchAllSessions = useCallback(async (mfaCode?: string) => {
 		try {
-			const sessions = await getSessions(
-				passwordRef.current,
-				mfaCode || undefined,
-			);
+			const sessions = await getSessions(passwordRef.current, mfaCode || undefined);
 			setAllSessions(sessions);
 			setSelectedIds(new Set());
 		} catch (err) {
-			setSessionsError(getErrorMessage(err, "Failed to refresh sessions"));
+			setSessionsError(getErrorMessage(err, 'Failed to refresh sessions'));
 		}
 	}, []);
 
@@ -259,53 +241,50 @@ export default function SessionManagement({
 	const handleUnlock = async () => {
 		if (!unlockPw) return;
 		if (user?.totp_enabled) {
-			const mfaErr = validateMfaCode(unlockMfa || "");
+			const mfaErr = validateMfaCode(unlockMfa || '');
 			if (mfaErr) {
 				setUnlockMfaError(mfaErr);
 				return;
 			}
 		}
-		setSessionsError("");
+		setSessionsError('');
 		setUnlockLoading(true);
 		try {
-			const sessions = await getSessions(
-				unlockPw,
-				unlockMfa || undefined,
-			);
+			const sessions = await getSessions(unlockPw, unlockMfa || undefined);
 			passwordRef.current = unlockPw;
 			setModalMfa(unlockMfa);
 			setAllSessions(sessions);
 			setUnlocked(true);
-			setUnlockPw("");
-			setUnlockMfa("");
+			setUnlockPw('');
+			setUnlockMfa('');
 		} catch (err) {
-			setSessionsError(getErrorMessage(err, "Verification failed"));
+			setSessionsError(getErrorMessage(err, 'Verification failed'));
 		} finally {
 			setUnlockLoading(false);
 		}
 	};
 
 	const handleChangePassword = async () => {
-		setCpError("");
-		setCpSuccess("");
+		setCpError('');
+		setCpSuccess('');
 		if (!cpCurrentPw || !cpNewPw || !cpConfirmPw) {
-			setCpError("Please fill in all required fields.");
+			setCpError('Please fill in all required fields.');
 			return;
 		}
 		if (cpCurrentPw.length < 8 || cpCurrentPw.length > 128) {
-			setCpCurrentPwError("Must be between 8 and 128 characters long.");
+			setCpCurrentPwError('Must be between 8 and 128 characters long.');
 			return;
 		}
 		if (cpNewPw.length < 8 || cpNewPw.length > 128) {
-			setCpNewPwError("Must be between 8 and 128 characters long.");
+			setCpNewPwError('Must be between 8 and 128 characters long.');
 			return;
 		}
 		if (cpCurrentPw === cpNewPw) {
-			setCpError("New password must differ from your current password.");
+			setCpError('New password must differ from your current password.');
 			return;
 		}
 		if (cpNewPw !== cpConfirmPw) {
-			setCpError("New passwords do not match.");
+			setCpError('New passwords do not match.');
 			return;
 		}
 		if (user?.totp_enabled) {
@@ -317,30 +296,25 @@ export default function SessionManagement({
 		}
 		setCpLoading(true);
 		try {
-			await changePassword(
-				cpCurrentPw,
-				cpNewPw,
-				cpMfaCode || undefined,
-				cpKeepSessions,
-			);
-			setCpSuccess("Password changed successfully.");
-			setCpCurrentPw("");
-			setCpNewPw("");
-			setCpConfirmPw("");
-			setCpMfaCode("");
-			setCpCurrentPwError("");
-			setCpNewPwError("");
-			setCpMfaError("");
+			await changePassword(cpCurrentPw, cpNewPw, cpMfaCode || undefined, cpKeepSessions);
+			setCpSuccess('Password changed successfully.');
+			setCpCurrentPw('');
+			setCpNewPw('');
+			setCpConfirmPw('');
+			setCpMfaCode('');
+			setCpCurrentPwError('');
+			setCpNewPwError('');
+			setCpMfaError('');
 			// Password changed — stored password is stale, re-lock sessions
 			if (unlocked) {
 				setUnlocked(false);
 				setAllSessions([]);
-				passwordRef.current = "";
-				setSessionsError("");
-				setSessionsSuccess("");
+				passwordRef.current = '';
+				setSessionsError('');
+				setSessionsSuccess('');
 			}
 		} catch (err) {
-			setCpError(getErrorMessage(err, "Failed to change password"));
+			setCpError(getErrorMessage(err, 'Failed to change password'));
 		} finally {
 			setCpLoading(false);
 		}
@@ -357,7 +331,7 @@ export default function SessionManagement({
 
 	const handleRefresh = () => {
 		if (user?.totp_enabled) {
-			setPendingAction("refresh");
+			setPendingAction('refresh');
 		} else {
 			fetchAllSessions();
 		}
@@ -365,8 +339,8 @@ export default function SessionManagement({
 
 	const closeModal = () => {
 		setPendingAction(null);
-		setModalError("");
-		setModalMfaError("");
+		setModalError('');
+		setModalMfaError('');
 		setModalLoading(false);
 	};
 
@@ -380,37 +354,29 @@ export default function SessionManagement({
 			}
 		}
 		const mfa = modalMfa || undefined;
-		setModalError("");
+		setModalError('');
 		setModalLoading(true);
 		try {
 			switch (pendingAction) {
-				case "logout-selected":
-					await logoutSessions(
-						passwordRef.current,
-						Array.from(selectedIds),
-						mfa,
-					);
+				case 'logout-selected':
+					await logoutSessions(passwordRef.current, Array.from(selectedIds), mfa);
 					break;
-				case "logout-others":
+				case 'logout-others':
 					await logoutOtherSessions(passwordRef.current, mfa);
 					break;
-				case "delete-selected":
-					await deleteSessions(
-						passwordRef.current,
-						Array.from(selectedIds),
-						mfa,
-					);
+				case 'delete-selected':
+					await deleteSessions(passwordRef.current, Array.from(selectedIds), mfa);
 					break;
-				case "refresh":
+				case 'refresh':
 					await fetchAllSessions(mfa);
 					break;
 			}
 			closeModal();
-			if (pendingAction !== "refresh") {
+			if (pendingAction !== 'refresh') {
 				await fetchAllSessions(mfa);
 			}
 		} catch (err) {
-			setModalError(getErrorMessage(err, "Action failed"));
+			setModalError(getErrorMessage(err, 'Action failed'));
 			setModalLoading(false);
 		}
 	};
@@ -429,16 +395,16 @@ export default function SessionManagement({
 	// Modal description text
 	const getModalDescription = () => {
 		switch (pendingAction) {
-			case "logout-selected":
+			case 'logout-selected':
 				return `Log out ${selectedIds.size} selected session(s)? Those devices will need to log in again.`;
-			case "logout-others":
-				return "Log out all sessions except your current one? All other devices will need to log in again.";
-			case "delete-selected":
+			case 'logout-others':
+				return 'Log out all sessions except your current one? All other devices will need to log in again.';
+			case 'delete-selected':
 				return `Permanently delete ${selectedIds.size} session record(s)? This action cannot be undone.`;
-			case "refresh":
-				return "Confirm your MFA code to refresh sessions.";
+			case 'refresh':
+				return 'Confirm your MFA code to refresh sessions.';
 			default:
-				return "";
+				return '';
 		}
 	};
 
@@ -485,19 +451,12 @@ export default function SessionManagement({
 					</div>
 					{authSession && (
 						<div className="grid gap-3 sm:grid-cols-2">
-							<InfoBlock
-								label="Session ID"
-								value={authSession.session_id}
-								mono
-							/>
+							<InfoBlock label="Session ID" value={authSession.session_id} mono />
 							<InfoBlock
 								label="Last Used"
 								value={formatDate(authSession.last_used_at)}
 							/>
-							<InfoBlock
-								label="Created"
-								value={formatDate(authSession.created_at)}
-							/>
+							<InfoBlock label="Created" value={formatDate(authSession.created_at)} />
 							<InfoBlock
 								label="Session Expiry"
 								value={formatDate(authSession.login_expiry)}
@@ -508,24 +467,24 @@ export default function SessionManagement({
 								value={formatDate(authSession.access_expiry)}
 								sublabel={`Expires in: ${getTimeRemaining(authSession.access_expiry)}`}
 							/>
-							{(authSession.device_name ||
-								authSession.ip_address) && (
-									<InfoBlock
-										label="Device Info"
-										value={
-											<>
-												{authSession.device_name && (
-													<span>{authSession.device_name}</span>
-												)}
-												{authSession.device_name &&
-													authSession.ip_address && <br />}
-												{authSession.ip_address && (
-													<span>IP: {authSession.ip_address}</span>
-												)}
-											</>
-										}
-									/>
-								)}
+							{(authSession.device_name || authSession.ip_address) && (
+								<InfoBlock
+									label="Device Info"
+									value={
+										<>
+											{authSession.device_name && (
+												<span>{authSession.device_name}</span>
+											)}
+											{authSession.device_name && authSession.ip_address && (
+												<br />
+											)}
+											{authSession.ip_address && (
+												<span>IP: {authSession.ip_address}</span>
+											)}
+										</>
+									}
+								/>
+							)}
 						</div>
 					)}
 				</Card>
@@ -538,12 +497,22 @@ export default function SessionManagement({
 					</div>
 
 					{cpError && (
-						<Alert variant="error" className="mb-4" dismissable onDismiss={() => setCpError("")}>
+						<Alert
+							variant="error"
+							className="mb-4"
+							dismissable
+							onDismiss={() => setCpError('')}
+						>
 							{cpError}
 						</Alert>
 					)}
 					{cpSuccess && (
-						<Alert variant="success" className="mb-4" dismissable onDismiss={() => setCpSuccess("")}>
+						<Alert
+							variant="success"
+							className="mb-4"
+							dismissable
+							onDismiss={() => setCpSuccess('')}
+						>
 							{cpSuccess}
 						</Alert>
 					)}
@@ -553,12 +522,20 @@ export default function SessionManagement({
 							label="Current Password"
 							type="password"
 							value={cpCurrentPw}
-							onChange={(e) => { setCpCurrentPw(e.target.value); setCpCurrentPwError(""); }}
-							onBlur={() => {
-								if (cpCurrentPw && (cpCurrentPw.length < 8 || cpCurrentPw.length > 128))
-									setCpCurrentPwError("Must be between 8 and 128 characters long.");
+							onChange={(e) => {
+								setCpCurrentPw(e.target.value);
+								setCpCurrentPwError('');
 							}}
-							onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+							onBlur={() => {
+								if (
+									cpCurrentPw &&
+									(cpCurrentPw.length < 8 || cpCurrentPw.length > 128)
+								)
+									setCpCurrentPwError(
+										'Must be between 8 and 128 characters long.',
+									);
+							}}
+							onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
 							error={cpCurrentPwError}
 							autoComplete="current-password"
 							fullWidth
@@ -568,12 +545,17 @@ export default function SessionManagement({
 								label="New Password"
 								type="password"
 								value={cpNewPw}
-								onChange={(e) => { setCpNewPw(e.target.value); setCpNewPwError(""); }}
+								onChange={(e) => {
+									setCpNewPw(e.target.value);
+									setCpNewPwError('');
+								}}
 								onBlur={() => {
 									if (cpNewPw && (cpNewPw.length < 8 || cpNewPw.length > 128))
-										setCpNewPwError("Must be between 8 and 128 characters long.");
+										setCpNewPwError(
+											'Must be between 8 and 128 characters long.',
+										);
 								}}
-								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+								onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
 								error={cpNewPwError}
 								autoComplete="new-password"
 								fullWidth
@@ -583,11 +565,11 @@ export default function SessionManagement({
 								type="password"
 								value={cpConfirmPw}
 								onChange={(e) => setCpConfirmPw(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+								onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
 								autoComplete="new-password"
 								error={
 									cpConfirmPw && cpNewPw !== cpConfirmPw
-										? "Passwords do not match"
+										? 'Passwords do not match'
 										: undefined
 								}
 								fullWidth
@@ -599,8 +581,11 @@ export default function SessionManagement({
 								type="text"
 								variant="code"
 								value={cpMfaCode}
-								onChange={(e) => { setCpMfaCode(e.target.value); setCpMfaError(""); }}
-								onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+								onChange={(e) => {
+									setCpMfaCode(e.target.value);
+									setCpMfaError('');
+								}}
+								onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
 								placeholder="000000 or recovery code"
 								error={cpMfaError}
 								autoComplete="one-time-code"
@@ -631,10 +616,7 @@ export default function SessionManagement({
 				<Card>
 					<div className="flex items-center justify-between mb-4">
 						<div className="flex items-center gap-2">
-							<ShieldAlert
-								className="w-5 h-5 text-gold-400"
-								aria-hidden="true"
-							/>
+							<ShieldAlert className="w-5 h-5 text-gold-400" aria-hidden="true" />
 							<h2 className="text-lg font-bold text-stone-50">All Sessions</h2>
 						</div>
 						{unlocked && (
@@ -655,7 +637,11 @@ export default function SessionManagement({
 								Enter your password to view and manage all active sessions.
 							</p>
 							{sessionsError && (
-								<Alert variant="error" dismissable onDismiss={() => setSessionsError("")}>
+								<Alert
+									variant="error"
+									dismissable
+									onDismiss={() => setSessionsError('')}
+								>
 									{sessionsError}
 								</Alert>
 							)}
@@ -664,7 +650,7 @@ export default function SessionManagement({
 								type="password"
 								value={unlockPw}
 								onChange={(e) => setUnlockPw(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+								onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
 								autoComplete="current-password"
 								fullWidth
 							/>
@@ -674,8 +660,11 @@ export default function SessionManagement({
 									type="text"
 									variant="code"
 									value={unlockMfa}
-									onChange={(e) => { setUnlockMfa(e.target.value); setUnlockMfaError(""); }}
-									onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+									onChange={(e) => {
+										setUnlockMfa(e.target.value);
+										setUnlockMfaError('');
+									}}
+									onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
 									placeholder="000000 or recovery code"
 									error={unlockMfaError}
 									autoComplete="one-time-code"
@@ -694,12 +683,20 @@ export default function SessionManagement({
 						/* ---- Unlocked state: session list ---- */
 						<div className="space-y-4">
 							{sessionsError && (
-								<Alert variant="error" dismissable onDismiss={() => setSessionsError("")}>
+								<Alert
+									variant="error"
+									dismissable
+									onDismiss={() => setSessionsError('')}
+								>
 									{sessionsError}
 								</Alert>
 							)}
 							{sessionsSuccess && (
-								<Alert variant="success" dismissable onDismiss={() => setSessionsSuccess("")}>
+								<Alert
+									variant="success"
+									dismissable
+									onDismiss={() => setSessionsSuccess('')}
+								>
 									{sessionsSuccess}
 								</Alert>
 							)}
@@ -728,7 +725,7 @@ export default function SessionManagement({
 										<Button
 											variant="secondary"
 											size="sm"
-											onClick={() => setPendingAction("logout-selected")}
+											onClick={() => setPendingAction('logout-selected')}
 											disabled={selectedIds.size === 0}
 											icon={<LogOut className="w-4 h-4" />}
 										>
@@ -737,8 +734,12 @@ export default function SessionManagement({
 										<Button
 											variant="secondary"
 											size="sm"
-											onClick={() => setPendingAction("logout-others")}
-											disabled={allSessions.filter(s => s.session_id !== currentSessionId).length === 0}
+											onClick={() => setPendingAction('logout-others')}
+											disabled={
+												allSessions.filter(
+													(s) => s.session_id !== currentSessionId,
+												).length === 0
+											}
 											icon={<LogOut className="w-4 h-4" />}
 										>
 											Log Out All Others
@@ -746,7 +747,7 @@ export default function SessionManagement({
 										<Button
 											variant="danger"
 											size="sm"
-											onClick={() => setPendingAction("delete-selected")}
+											onClick={() => setPendingAction('delete-selected')}
 											disabled={selectedIds.size === 0}
 											icon={<Trash2 className="w-4 h-4" />}
 										>
@@ -769,11 +770,7 @@ export default function SessionManagement({
 					maxWidth="sm"
 					footer={
 						<div className="flex gap-3 w-full">
-							<Button
-								variant="secondary"
-								onClick={closeModal}
-								fullWidth
-							>
+							<Button variant="secondary" onClick={closeModal} fullWidth>
 								Cancel
 							</Button>
 							<Button
@@ -789,11 +786,9 @@ export default function SessionManagement({
 					}
 				>
 					<div className="space-y-4">
-						<p className="text-sm text-stone-300">
-							{getModalDescription()}
-						</p>
+						<p className="text-sm text-stone-300">{getModalDescription()}</p>
 						{modalError && (
-							<Alert variant="error" dismissable onDismiss={() => setModalError("")}>
+							<Alert variant="error" dismissable onDismiss={() => setModalError('')}>
 								{modalError}
 							</Alert>
 						)}
@@ -803,8 +798,11 @@ export default function SessionManagement({
 								type="text"
 								variant="code"
 								value={modalMfa}
-								onChange={(e) => { setModalMfa(e.target.value); setModalMfaError(""); }}
-								onKeyDown={(e) => e.key === "Enter" && handleConfirmAction()}
+								onChange={(e) => {
+									setModalMfa(e.target.value);
+									setModalMfaError('');
+								}}
+								onKeyDown={(e) => e.key === 'Enter' && handleConfirmAction()}
 								placeholder="000000 or recovery code"
 								error={modalMfaError}
 								autoComplete="one-time-code"

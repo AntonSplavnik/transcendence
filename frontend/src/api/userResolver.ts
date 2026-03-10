@@ -33,10 +33,9 @@ const ID_PREFIX = '#';
  */
 export async function getNickname(userId: number): Promise<string> {
 	try {
-		const res = await apiClient.post<{ id: number; nickname: string }[]>(
-			'/users/nickname',
-			[userId],
-		);
+		const res = await apiClient.post<{ id: number; nickname: string }[]>('/users/nickname', [
+			userId,
+		]);
 		const entry = res.data.find((u) => u.id === userId);
 		return entry?.nickname ?? `${ID_PREFIX}${userId}`;
 	} catch {
@@ -59,10 +58,9 @@ export async function getUserId(nickname: string): Promise<number> {
 		if (Number.isInteger(num) && num > 0) return num;
 	}
 
-	const res = await apiClient.post<{ id: number; nickname: string }[]>(
-		'/users/by-nickname',
-		[nickname],
-	);
+	const res = await apiClient.post<{ id: number; nickname: string }[]>('/users/by-nickname', [
+		nickname,
+	]);
 	const entry = res.data[0];
 	if (!entry) throw new Error(`User not found: ${nickname}`);
 	return entry.id;
@@ -78,9 +76,7 @@ export async function getUserId(nickname: string): Promise<number> {
  * Uses the lightweight `POST /api/users/nickname` endpoint which is
  * backed by the server-side nickname cache.
  */
-export async function getNicknames(
-	userIds: number[],
-): Promise<Map<number, string>> {
+export async function getNicknames(userIds: number[]): Promise<Map<number, string>> {
 	const result = new Map<number, string>();
 	if (userIds.length === 0) return result;
 

@@ -1,13 +1,13 @@
-import "@fontsource-variable/fredoka";
-import "@fontsource-variable/nunito-sans";
-import "@fontsource-variable/jetbrains-mono";
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import '@fontsource-variable/fredoka';
+import '@fontsource-variable/nunito-sans';
+import '@fontsource-variable/jetbrains-mono';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.tsx';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+	<StrictMode>
+		<App />
+	</StrictMode>,
+);

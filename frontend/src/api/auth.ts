@@ -11,7 +11,7 @@ import type { AuthResponse, Session } from './types';
 export async function login(
 	email: string,
 	password: string,
-	mfa_code?: string
+	mfa_code?: string,
 ): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/login', {
 		email,
@@ -31,12 +31,12 @@ export async function login(
 export async function register(
 	nickname: string,
 	email: string,
-	password: string
+	password: string,
 ): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/register', {
 		nickname,
 		email,
-		password
+		password,
 	});
 	return response.data;
 }
@@ -55,9 +55,7 @@ export async function logout(): Promise<void> {
  * @returns Updated session info with new JWT expiry time
  */
 export async function refreshJWT(): Promise<Session> {
-	const response = await apiClient.post<Session>(
-		'/auth/session-management/refresh-jwt'
-	);
+	const response = await apiClient.post<Session>('/auth/session-management/refresh-jwt');
 	return response.data;
 }
 
@@ -68,13 +66,10 @@ export async function refreshJWT(): Promise<Session> {
  * @param mfa_code - Optional 2FA code (required if 2FA is enabled)
  * @returns User session info on successful reauth
  */
-export async function reauth(
-	password: string,
-	mfa_code?: string
-): Promise<AuthResponse> {
-	const response = await apiClient.post<AuthResponse>(
-		'/auth/session-management/reauth',
-		{ password, mfa_code }
-	);
+export async function reauth(password: string, mfa_code?: string): Promise<AuthResponse> {
+	const response = await apiClient.post<AuthResponse>('/auth/session-management/reauth', {
+		password,
+		mfa_code,
+	});
 	return response.data;
 }
