@@ -28,6 +28,7 @@ pub async fn handle_player_stream(
     player_id: u32,
     name: String,
     game_manager: Arc<GameManager>,
+    stream_manager: Arc<StreamManager>,
 ) -> Result<(), anyhow::Error> {
     info!(
         user_id,
@@ -35,8 +36,7 @@ pub async fn handle_player_stream(
     );
 
     // Request bidirectional WebTransport stream
-    let stream_manager = StreamManager::global();
-    let (mut sender, mut receiver) = stream_manager
+    let (mut sender, mut receiver, cancel) = stream_manager
         .request_stream::<GameServerMessage, GameClientMessage>(
             user_id,
             crate::stream::StreamType::Game,
@@ -46,9 +46,7 @@ pub async fn handle_player_stream(
 
     // Send initial game state snapshot
     let snapshot = game_manager.get_snapshot().await;
-    sender
-        .send(GameServerMessage::Snapshot(snapshot))
-        .await?;
+    sender.send(GameServerMessage::Snapshot(snapshot)).await?;
     sender.flush().await?;
 
     // Register this stream with GameManager for snapshot broadcasts
@@ -59,23 +57,12 @@ pub async fn handle_player_stream(
         player_id, "Game stream established, listening for input"
     );
 
-    // Process incoming messages from client
-    while let Some(result) = receiver.next().await {
-        match result {
-            Ok(GameClientMessage::Input {
-                movement,
-                look_direction,
-                attacking,
-                jumping,
-                ability1,
-                ability2,
-                dodging,
-                sprinting,
-            }) => {
-                // Update player input in game state
-                game_manager
-                    .set_input(
-                        player_id,
+    cancel
+        .run_until_cancelled_owned(async {
+            // Process incoming messages from client
+            while let Some(result) = receiver.next().await {
+                match result {
+                    Ok(GameClientMessage::Input {
                         movement,
                         look_direction,
                         attacking,
@@ -84,31 +71,46 @@ pub async fn handle_player_stream(
                         ability2,
                         dodging,
                         sprinting,
-                    )
-                    .await;
-            }
+                    }) => {
+                        // Update player input in game state
+                        game_manager
+                            .set_input(
+                                player_id,
+                                movement,
+                                look_direction,
+                                attacking,
+                                jumping,
+                                ability1,
+                                ability2,
+                                dodging,
+                                sprinting,
+                            )
+                            .await;
+                    }
 
-            Ok(GameClientMessage::RegisterHit { victim_id, damage }) => {
-                // Process hit registration (client-authoritative for now)
-                game_manager
-                    .register_hit(player_id, victim_id, damage)
-                    .await;
-            }
+                    Ok(GameClientMessage::RegisterHit { victim_id, damage }) => {
+                        // Process hit registration (client-authoritative for now)
+                        game_manager
+                            .register_hit(player_id, victim_id, damage)
+                            .await;
+                    }
 
-            Ok(GameClientMessage::Leave) => {
-                info!(user_id, player_id, "Player requested leave via stream");
-                break;
-            }
+                    Ok(GameClientMessage::Leave) => {
+                        info!(user_id, player_id, "Player requested leave via stream");
+                        break;
+                    }
 
-            Err(e) => {
-                warn!(
-                    user_id,
-                    player_id, "Stream error, disconnecting player: {}", e
-                );
-                break;
+                    Err(e) => {
+                        warn!(
+                            user_id,
+                            player_id, "Stream error, disconnecting player: {}", e
+                        );
+                        break;
+                    }
+                }
             }
-        }
-    }
+        })
+        .await;
 
     // Cleanup when stream ends
     info!(user_id, player_id, "Removing player from game");

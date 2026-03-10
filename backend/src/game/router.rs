@@ -51,14 +51,14 @@ async fn join_stream(
         return Err(StatusError::bad_request()
             .detail("Failed to join game (game full or player already exists)"));
     }
-
+    let sm = Arc::clone(depot.stream_manager());
     // Spawn background task to handle the WebTransport stream
     tokio::spawn({
         let gm = game_manager.clone();
         let name = req.name.clone();
         async move {
             if let Err(e) =
-                stream_handler::handle_player_stream(user_id, player_id, name, gm).await
+                stream_handler::handle_player_stream(user_id, player_id, name, gm, sm).await
             {
                 tracing::error!("Game stream handler error for player {}: {}", player_id, e);
             }
@@ -89,7 +89,6 @@ async fn get_snapshot(depot: &mut Depot) -> Json<GameStateSnapshot> {
     let snapshot = game_manager.get_snapshot().await;
     Json(snapshot)
 }
-
 
 // =============================================================================
 // Router
