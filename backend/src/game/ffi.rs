@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::ffi::{c_void, CString};
 
 // Opaque pointer to C++ game object
-pub type GameHandle = *mut c_void;
+type RawGameHandle = *mut c_void;
 
 // =============================================================================
 // C-compatible structures
@@ -40,21 +40,21 @@ pub struct CGameStateSnapshot {
 
 extern "C" {
     // Game lifecycle
-    pub fn game_create() -> GameHandle;
-    pub fn game_destroy(game: GameHandle);
-    pub fn game_start(game: GameHandle);
-    pub fn game_stop(game: GameHandle);
-    pub fn game_update(game: GameHandle);
-    pub fn game_is_running(game: GameHandle) -> bool;
+    fn game_create() -> RawGameHandle;
+    fn game_destroy(game: RawGameHandle);
+    fn game_start(game: RawGameHandle);
+    fn game_stop(game: RawGameHandle);
+    fn game_update(game: RawGameHandle);
+    fn game_is_running(game: RawGameHandle) -> bool;
 
-    // Player management (backwards compatible)
-    pub fn game_add_player(game: GameHandle, player_id: u32, name: *const i8) -> bool;
-    pub fn game_remove_player(game: GameHandle, player_id: u32) -> bool;
-    pub fn game_get_player_count(game: GameHandle) -> usize;
+    // Player management
+    fn game_add_player(game: RawGameHandle, player_id: u32, name: *const i8) -> bool;
+    fn game_remove_player(game: RawGameHandle, player_id: u32) -> bool;
+    fn game_get_player_count(game: RawGameHandle) -> usize;
 
-    // Entity management (NEW - ECS features)
-    pub fn game_create_projectile(
-        game: GameHandle,
+    // Entity management
+    fn game_create_projectile(
+        game: RawGameHandle,
         entity_id: u32,
         pos_x: f32,
         pos_y: f32,
@@ -64,8 +64,8 @@ extern "C" {
         vel_z: f32,
     ) -> bool;
 
-    pub fn game_create_wall(
-        game: GameHandle,
+    fn game_create_wall(
+        game: RawGameHandle,
         entity_id: u32,
         pos_x: f32,
         pos_y: f32,
@@ -75,55 +75,55 @@ extern "C" {
         half_z: f32,
     ) -> bool;
 
-    pub fn game_destroy_entity(game: GameHandle, entity_id: u32) -> bool;
-    pub fn game_entity_exists(game: GameHandle, entity_id: u32) -> bool;
-    pub fn game_entity_is_alive(game: GameHandle, entity_id: u32) -> bool;
+    fn game_destroy_entity(game: RawGameHandle, entity_id: u32) -> bool;
+    fn game_entity_exists(game: RawGameHandle, entity_id: u32) -> bool;
+    fn game_entity_is_alive(game: RawGameHandle, entity_id: u32) -> bool;
 
-    // Component access (NEW)
-    pub fn game_get_entity_health(
-        game: GameHandle,
+    // Component access
+    fn game_get_entity_health(
+        game: RawGameHandle,
         entity_id: u32,
         out_current: *mut f32,
         out_max: *mut f32,
     ) -> bool;
 
-    pub fn game_set_entity_health(game: GameHandle, entity_id: u32, health: f32) -> bool;
+    fn game_set_entity_health(game: RawGameHandle, entity_id: u32, health: f32) -> bool;
 
-    pub fn game_get_entity_position(
-        game: GameHandle,
+    fn game_get_entity_position(
+        game: RawGameHandle,
         entity_id: u32,
         out_x: *mut f32,
         out_y: *mut f32,
         out_z: *mut f32,
     ) -> bool;
 
-    pub fn game_set_entity_position(
-        game: GameHandle,
+    fn game_set_entity_position(
+        game: RawGameHandle,
         entity_id: u32,
         x: f32,
         y: f32,
         z: f32,
     ) -> bool;
 
-    pub fn game_get_entity_velocity(
-        game: GameHandle,
+    fn game_get_entity_velocity(
+        game: RawGameHandle,
         entity_id: u32,
         out_x: *mut f32,
         out_y: *mut f32,
         out_z: *mut f32,
     ) -> bool;
 
-    pub fn game_set_entity_velocity(
-        game: GameHandle,
+    fn game_set_entity_velocity(
+        game: RawGameHandle,
         entity_id: u32,
         x: f32,
         y: f32,
         z: f32,
     ) -> bool;
 
-    // Input handling (backwards compatible)
-    pub fn game_set_input(
-        game: GameHandle,
+    // Input handling
+    fn game_set_input(
+        game: RawGameHandle,
         player_id: u32,
         move_x: f32,
         move_y: f32,
@@ -139,13 +139,13 @@ extern "C" {
         sprinting: bool,
     );
 
-    // Snapshot retrieval (backwards compatible)
-    pub fn game_get_snapshot(game: GameHandle, out_snapshot: *mut CGameStateSnapshot);
-    pub fn game_get_frame_number(game: GameHandle) -> u64;
-    pub fn game_get_game_time(game: GameHandle) -> f64;
+    // Snapshot retrieval
+    fn game_get_snapshot(game: RawGameHandle, out_snapshot: *mut CGameStateSnapshot);
+    fn game_get_frame_number(game: RawGameHandle) -> u64;
+    fn game_get_game_time(game: RawGameHandle) -> f64;
 
-    // Combat (backwards compatible)
-    pub fn game_register_hit(game: GameHandle, attacker_id: u32, victim_id: u32, damage: f32);
+    // Combat
+    fn game_register_hit(game: RawGameHandle, attacker_id: u32, victim_id: u32, damage: f32);
 }
 
 // =============================================================================
@@ -188,47 +188,44 @@ pub struct GameStateSnapshot {
 }
 
 // =============================================================================
-// Safe Rust wrapper
+// GameHandle — low-level newtype over the raw C++ pointer.
+// NOT Send/Sync. All FFI calls go through here.
 // =============================================================================
 
-pub struct Game {
-    handle: GameHandle,
-}
+pub struct GameHandle(RawGameHandle);
 
-impl Game {
-    pub fn new() -> Self {
-        let handle = unsafe { game_create() };
-        Self { handle }
+impl GameHandle {
+    pub(super) fn new() -> Self {
+        Self(unsafe { game_create() })
     }
 
     pub fn start(&mut self) {
-        unsafe { game_start(self.handle) }
+        unsafe { game_start(self.0) }
     }
 
     pub fn stop(&mut self) {
-        unsafe { game_stop(self.handle) }
+        unsafe { game_stop(self.0) }
     }
 
     pub fn update(&mut self) {
-        unsafe { game_update(self.handle) }
+        unsafe { game_update(self.0) }
     }
 
     pub fn is_running(&self) -> bool {
-        unsafe { game_is_running(self.handle) }
+        unsafe { game_is_running(self.0) }
     }
 
-    // Player management
     pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
         let c_name = CString::new(name).unwrap();
-        unsafe { game_add_player(self.handle, player_id, c_name.as_ptr()) }
+        unsafe { game_add_player(self.0, player_id, c_name.as_ptr()) }
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
-        unsafe { game_remove_player(self.handle, player_id) }
+        unsafe { game_remove_player(self.0, player_id) }
     }
 
     pub fn get_player_count(&self) -> usize {
-        unsafe { game_get_player_count(self.handle) }
+        unsafe { game_get_player_count(self.0) }
     }
 
     pub fn create_projectile(
@@ -239,13 +236,7 @@ impl Game {
     ) -> bool {
         unsafe {
             game_create_projectile(
-                self.handle,
-                entity_id,
-                position.x,
-                position.y,
-                position.z,
-                velocity.x,
-                velocity.y,
+                self.0, entity_id, position.x, position.y, position.z, velocity.x, velocity.y,
                 velocity.z,
             )
         }
@@ -259,7 +250,7 @@ impl Game {
     ) -> bool {
         unsafe {
             game_create_wall(
-                self.handle,
+                self.0,
                 entity_id,
                 position.x,
                 position.y,
@@ -272,23 +263,22 @@ impl Game {
     }
 
     pub fn destroy_entity(&mut self, entity_id: u32) -> bool {
-        unsafe { game_destroy_entity(self.handle, entity_id) }
+        unsafe { game_destroy_entity(self.0, entity_id) }
     }
 
     pub fn entity_exists(&self, entity_id: u32) -> bool {
-        unsafe { game_entity_exists(self.handle, entity_id) }
+        unsafe { game_entity_exists(self.0, entity_id) }
     }
 
     pub fn entity_is_alive(&self, entity_id: u32) -> bool {
-        unsafe { game_entity_is_alive(self.handle, entity_id) }
+        unsafe { game_entity_is_alive(self.0, entity_id) }
     }
 
     pub fn get_entity_health(&self, entity_id: u32) -> Option<(f32, f32)> {
         let mut current = 0.0f32;
         let mut max = 0.0f32;
-
         unsafe {
-            if game_get_entity_health(self.handle, entity_id, &mut current, &mut max) {
+            if game_get_entity_health(self.0, entity_id, &mut current, &mut max) {
                 Some((current, max))
             } else {
                 None
@@ -297,16 +287,15 @@ impl Game {
     }
 
     pub fn set_entity_health(&mut self, entity_id: u32, health: f32) -> bool {
-        unsafe { game_set_entity_health(self.handle, entity_id, health) }
+        unsafe { game_set_entity_health(self.0, entity_id, health) }
     }
 
     pub fn get_entity_position(&self, entity_id: u32) -> Option<Vector3D> {
         let mut x = 0.0f32;
         let mut y = 0.0f32;
         let mut z = 0.0f32;
-
         unsafe {
-            if game_get_entity_position(self.handle, entity_id, &mut x, &mut y, &mut z) {
+            if game_get_entity_position(self.0, entity_id, &mut x, &mut y, &mut z) {
                 Some(Vector3D { x, y, z })
             } else {
                 None
@@ -315,18 +304,15 @@ impl Game {
     }
 
     pub fn set_entity_position(&mut self, entity_id: u32, position: Vector3D) -> bool {
-        unsafe {
-            game_set_entity_position(self.handle, entity_id, position.x, position.y, position.z)
-        }
+        unsafe { game_set_entity_position(self.0, entity_id, position.x, position.y, position.z) }
     }
 
     pub fn get_entity_velocity(&self, entity_id: u32) -> Option<Vector3D> {
         let mut x = 0.0f32;
         let mut y = 0.0f32;
         let mut z = 0.0f32;
-
         unsafe {
-            if game_get_entity_velocity(self.handle, entity_id, &mut x, &mut y, &mut z) {
+            if game_get_entity_velocity(self.0, entity_id, &mut x, &mut y, &mut z) {
                 Some(Vector3D { x, y, z })
             } else {
                 None
@@ -335,12 +321,9 @@ impl Game {
     }
 
     pub fn set_entity_velocity(&mut self, entity_id: u32, velocity: Vector3D) -> bool {
-        unsafe {
-            game_set_entity_velocity(self.handle, entity_id, velocity.x, velocity.y, velocity.z)
-        }
+        unsafe { game_set_entity_velocity(self.0, entity_id, velocity.x, velocity.y, velocity.z) }
     }
 
-    // Input handling
     pub fn set_input(
         &mut self,
         player_id: u32,
@@ -355,31 +338,17 @@ impl Game {
     ) {
         unsafe {
             game_set_input(
-                self.handle,
-                player_id,
-                move_dir.x,
-                move_dir.y,
-                move_dir.z,
-                look_dir.x,
-                look_dir.y,
-                look_dir.z,
-                attacking,
-                jumping,
-                ability1,
-                ability2,
-                dodging,
-                sprinting,
+                self.0, player_id, move_dir.x, move_dir.y, move_dir.z, look_dir.x, look_dir.y,
+                look_dir.z, attacking, jumping, ability1, ability2, dodging, sprinting,
             )
         }
     }
 
     pub fn get_snapshot(&self) -> GameStateSnapshot {
         let mut c_snapshot = std::mem::MaybeUninit::<CGameStateSnapshot>::uninit();
-
         unsafe {
-            game_get_snapshot(self.handle, c_snapshot.as_mut_ptr());
+            game_get_snapshot(self.0, c_snapshot.as_mut_ptr());
             let c_snapshot = c_snapshot.assume_init();
-
             let characters = (0..c_snapshot.character_count)
                 .map(|i| {
                     let c = &c_snapshot.characters[i];
@@ -402,7 +371,6 @@ impl Game {
                     }
                 })
                 .collect();
-
             GameStateSnapshot {
                 frame_number: c_snapshot.frame_number,
                 timestamp: c_snapshot.timestamp,
@@ -412,24 +380,20 @@ impl Game {
     }
 
     pub fn get_frame_number(&self) -> u64 {
-        unsafe { game_get_frame_number(self.handle) }
+        unsafe { game_get_frame_number(self.0) }
     }
 
     pub fn get_game_time(&self) -> f64 {
-        unsafe { game_get_game_time(self.handle) }
+        unsafe { game_get_game_time(self.0) }
     }
 
     pub fn register_hit(&mut self, attacker_id: u32, victim_id: u32, damage: f32) {
-        unsafe { game_register_hit(self.handle, attacker_id, victim_id, damage) }
+        unsafe { game_register_hit(self.0, attacker_id, victim_id, damage) }
     }
 }
 
-impl Drop for Game {
+impl Drop for GameHandle {
     fn drop(&mut self) {
-        unsafe { game_destroy(self.handle) }
+        unsafe { game_destroy(self.0) }
     }
 }
-
-// Thread-safe because C++ engine handles its own synchronization
-unsafe impl Send for Game {}
-unsafe impl Sync for Game {}
