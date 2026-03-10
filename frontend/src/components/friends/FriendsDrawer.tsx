@@ -3,7 +3,7 @@ import { Users, X, Circle, UserMinus, Check, Clock, MessageCircle, User } from '
 import { useFriends } from '../../contexts/FriendsContext';
 import type { PublicUser } from '../../api/types';
 import AddFriendForm from './AddFriendForm';
-import FriendProfileModal from '../modals/PublicProfileModal';
+import PublicProfileModal from '../modals/PublicProfileModal';
 
 // ─── Friend action popup ──────────────────────────────────────────────────────
 
@@ -285,12 +285,9 @@ export default function FriendsDrawer() {
 					)}
 				</div>
 			</div>
-		{profileFriend && (
-			<FriendProfileModal
-				friend={profileFriend}
-				onClose={() => setProfileFriend(null)}
-			/>
-		)}
+			{profileFriend && (
+				<PublicProfileModal user={profileFriend} onClose={() => setProfileFriend(null)} />
+			)}
 		</>
 	);
 }

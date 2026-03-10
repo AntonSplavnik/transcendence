@@ -3,25 +3,29 @@ import { Modal, Card, Badge } from '../ui';
 import AvatarDisplay from '../ui/AvatarDisplay';
 import type { PublicUser } from '../../api/types';
 
-interface FriendProfileModalProps {
-	friend: PublicUser;
+interface PublicProfileModalProps {
+	user: PublicUser;
 	onClose: () => void;
 }
 
-export default function FriendProfileModal({ friend, onClose }: FriendProfileModalProps) {
+export default function PublicProfileModal({ user, onClose }: PublicProfileModalProps) {
 	return (
 		<Modal
 			onClose={onClose}
-			title={friend.nickname}
+			title={user.nickname}
 			icon={<User className="w-6 h-6" />}
 			maxWidth="sm"
 		>
 			<div className="space-y-4">
 				{/* Avatar + status */}
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={friend.id} size="large" className="w-24 h-24 rounded-lg" />
+					<AvatarDisplay
+						userId={user.id}
+						size="large"
+						className="w-24 h-24 rounded-lg"
+					/>
 					<div className="space-y-2">
-						{friend.online ? (
+						{user.online ? (
 							<Badge variant="success" dot>
 								Online
 							</Badge>
@@ -31,7 +35,7 @@ export default function FriendProfileModal({ friend, onClose }: FriendProfileMod
 							</Badge>
 						)}
 						<p className="text-xs text-stone-400">
-							Member since {new Date(friend.created_at).toLocaleDateString()}
+							Member since {new Date(user.created_at).toLocaleDateString()}
 						</p>
 					</div>
 				</div>
