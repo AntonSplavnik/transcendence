@@ -1,8 +1,5 @@
 // Build script to compile C++ game engine
 
-use std::env;
-use std::path::PathBuf;
-
 fn main() {
     // Path to game engine
     let game_engine_path = "../game_engine";
