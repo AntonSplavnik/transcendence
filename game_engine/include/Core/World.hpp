@@ -7,11 +7,11 @@
 #include "Components/Health.hpp"
 #include "Components/CharacterController.hpp"
 #include "Components/CombatController.hpp"
-#include "Systems/SystemManager.hpp"
-#include "Systems/CharacterControllerSystem.hpp"
-#include "Systems/PhysicsSystem.hpp"
-#include "Systems/CollisionSystem.hpp"
-#include "Systems/CombatSystem.hpp"
+#include "systems/SystemManager.hpp"
+#include "systems/CharacterControllerSystem.hpp"
+#include "systems/PhysicsSystem.hpp"
+#include "systems/CollisionSystem.hpp"
+#include "systems/CombatSystem.hpp"
 #include <entt/entt.hpp>
 #include <unordered_map>
 #include <vector>
