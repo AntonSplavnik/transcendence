@@ -1,41 +1,66 @@
 //! POST /api/friends/accept/{request_id} - Accept a friend request
 
-use crate::models::{FriendRequest, User};
+use crate::models::{FriendRequest, FriendRequestStatus, User};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
 use crate::error::FriendError;
 
-use super::types::{
-    FriendRequestResponse, RequestStatus, find_pending_request, parse_param, send_notification,
-};
+use salvo::oapi::extract::PathParam;
+
+use super::types::{FriendRequestResponse, MAX_FRIENDS, find_pending_request, send_notification};
 
 /// Accept a friend request
-#[endpoint(parameters(("request_id" = i32, description = "Friend request ID")))]
+#[endpoint]
 pub async fn accept_friend_request(
     depot: &mut Depot,
-    req: &mut Request,
+    request_id: PathParam<i32>,
     db: Db,
 ) -> JsonResult<FriendRequestResponse> {
     use crate::schema::friend_requests::dsl as fr;
     use crate::schema::users::dsl as u;
 
     let user_id = depot.session().user_id;
-    let request_id: i32 = parse_param(req, "request_id")?;
+    let request_id = request_id.into_inner();
 
     let (updated_request, sender, receiver) = db
         .write(move |conn| {
             let request = find_pending_request(conn, request_id, user_id, false)?;
+
+            // Reject if either party has already reached the friend limit
+            let sender_count: i64 = fr::friend_requests
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
+                .filter(
+                    fr::sender_id
+                        .eq(request.sender_id)
+                        .or(fr::receiver_id.eq(request.sender_id)),
+                )
+                .count()
+                .get_result(conn)?;
+
+            let receiver_count: i64 = fr::friend_requests
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
+                .filter(
+                    fr::sender_id
+                        .eq(request.receiver_id)
+                        .or(fr::receiver_id.eq(request.receiver_id)),
+                )
+                .count()
+                .get_result(conn)?;
+
+            if sender_count >= MAX_FRIENDS || receiver_count >= MAX_FRIENDS {
+                return Err(FriendError::FriendListFull.into());
+            }
 
             // Atomically update: re-check pending status in WHERE to prevent races
             let now = chrono::Utc::now();
             let updated_count = diesel::update(
                 fr::friend_requests
                     .filter(fr::id.eq(request_id))
-                    .filter(fr::status.eq(RequestStatus::PENDING)),
+                    .filter(fr::status.eq(FriendRequestStatus::Pending)),
             )
             .set((
-                fr::status.eq(RequestStatus::ACCEPTED),
+                fr::status.eq(FriendRequestStatus::Accepted),
                 fr::updated_at.eq(now),
             ))
             .execute(conn)?;

@@ -21,7 +21,7 @@ diesel::table! {
         id -> Integer,
         sender_id -> Integer,
         receiver_id -> Integer,
-        status -> Text,
+        status -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
     }

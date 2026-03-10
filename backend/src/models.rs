@@ -175,19 +175,6 @@ impl AvatarLarge {
     }
 }
 
-#[apply(NewInsertable!)]
-#[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
-#[diesel(table_name = crate::schema::friend_requests)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct FriendRequest {
-    pub id: i32,
-    pub sender_id: i32,
-    pub receiver_id: i32,
-    pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
 /// Small avatar (200x200, AVIF format)
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug, Clone)]
 #[diesel(table_name = crate::schema::avatars_small)]
@@ -206,10 +193,27 @@ impl AvatarSmall {
             updated_at: chrono::Utc::now(),
         }
     }
+}
 
-    pub fn updated_at(&self) -> DateTime<Utc> {
-        self.updated_at
+diesel_i32_enum! {
+    #[serde(rename_all = "lowercase")]
+    pub enum FriendRequestStatus {
+        Pending = 0,
+        Accepted = 1,
     }
+}
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::friend_requests)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct FriendRequest {
+    pub id: i32,
+    pub sender_id: i32,
+    pub receiver_id: i32,
+    pub status: FriendRequestStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl NewFriendRequest {
@@ -218,7 +222,7 @@ impl NewFriendRequest {
         Self {
             sender_id,
             receiver_id,
-            status: crate::friends::types::RequestStatus::PENDING.to_string(),
+            status: FriendRequestStatus::Pending,
             created_at: now,
             updated_at: now,
         }

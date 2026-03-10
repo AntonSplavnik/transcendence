@@ -1,5 +1,5 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 115aa40..9094fb5 100644
+index 41b5d2f..3fdee30 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
 @@ -1,79 +1,79 @@
@@ -28,7 +28,7 @@ index 115aa40..9094fb5 100644
          id -> Integer,
          sender_id -> Integer,
          receiver_id -> Integer,
-         status -> Text,
+         status -> Integer,
 -        created_at -> Timestamp,
 -        updated_at -> Timestamp,
 +        created_at -> TimestamptzSqlite,

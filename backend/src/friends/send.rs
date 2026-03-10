@@ -7,14 +7,16 @@ use crate::models::{FriendRequest, NewFriendRequest, User};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
+use crate::models::FriendRequestStatus;
+
 use super::types::{
-    FriendRequestResponse, MAX_PENDING_REQUESTS, RequestStatus, SendFriendRequestInput,
-    send_notification,
+    FriendRequestResponse, MAX_PENDING_REQUESTS, SendFriendRequestInput, send_notification,
 };
 
 /// Send a friend request to another user
 ///
-/// Provide either `user_id` or `nickname` to identify the target user.
+/// Provide `user_id` or `nickname` to identify the target user.
+/// If both are given, `user_id` takes precedence.
 #[endpoint]
 pub async fn send_friend_request(
     depot: &mut Depot,
@@ -26,7 +28,6 @@ pub async fn send_friend_request(
 
     let sender_id = depot.session().user_id;
     let input = json.into_inner();
-    input.validate()?;
     input.validate_target()?;
 
     let (request, sender, receiver) = db
@@ -43,7 +44,9 @@ pub async fn send_friend_request(
                     .first(conn)
                     .optional()?
                     .ok_or(FriendError::UserNotFound)?,
-                (None, None) => return Err(FriendError::UserNotFound.into()),
+                (None, None) => {
+                    unreachable!("validate_target() ensures at least one identifier is set")
+                }
             };
 
             let receiver_id = receiver.id;
@@ -56,7 +59,7 @@ pub async fn send_friend_request(
             // Check if already friends
             let already_friends: bool = diesel::select(diesel::dsl::exists(
                 fr::friend_requests
-                    .filter(fr::status.eq(RequestStatus::ACCEPTED))
+                    .filter(fr::status.eq(FriendRequestStatus::Accepted))
                     .filter(
                         fr::sender_id
                             .eq(sender_id)
@@ -75,7 +78,7 @@ pub async fn send_friend_request(
             // Check spam: limit pending requests per user
             let pending_count: i64 = fr::friend_requests
                 .filter(fr::sender_id.eq(sender_id))
-                .filter(fr::status.eq(RequestStatus::PENDING))
+                .filter(fr::status.eq(FriendRequestStatus::Pending))
                 .count()
                 .get_result(conn)?;
 

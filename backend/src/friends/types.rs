@@ -8,33 +8,20 @@ use chrono::{DateTime, Utc};
 use crate::db::DepotDatabaseExt;
 use crate::error::FriendError;
 use crate::models::nickname::Nickname;
-use crate::models::{FriendRequest, User};
+use crate::models::{FriendRequest, FriendRequestStatus, User};
 use crate::notifications::{NotificationManagerDepotExt, NotificationPayload};
 use crate::prelude::*;
 use crate::routers::users::PublicUser;
 use crate::stream::StreamManager;
 
-/// Friend request status values stored in the database.
-pub struct RequestStatus;
-
-impl RequestStatus {
-    pub const PENDING: &'static str = "pending";
-    pub const ACCEPTED: &'static str = "accepted";
-}
-
-/// Maximum number of results returned by list endpoints.
+/// Maximum number of results returned by pending-request list endpoints.
 pub const MAX_LIST_RESULTS: i64 = 100;
 
 /// Maximum number of pending friend requests a user can have.
 pub const MAX_PENDING_REQUESTS: i64 = 50;
 
-/// Helper to parse path parameters safely.
-pub fn parse_param<T: std::str::FromStr>(req: &Request, name: &str) -> Result<T, FriendError> {
-    req.param::<String>(name)
-        .ok_or_else(|| FriendError::InvalidParam(format!("missing {}", name)))?
-        .parse::<T>()
-        .map_err(|_| FriendError::InvalidParam(format!("invalid {}", name)))
-}
+/// Maximum number of accepted friends a user can have.
+pub const MAX_FRIENDS: i64 = 100;
 
 /// Send a notification, logging a warning on failure.
 pub async fn send_notification(depot: &Depot, target_id: i32, payload: NotificationPayload) {
@@ -72,7 +59,7 @@ pub fn find_pending_request(
         return Err(FriendError::NotAuthorized.into());
     }
 
-    if request.status != RequestStatus::PENDING {
+    if request.status != FriendRequestStatus::Pending {
         return Err(FriendError::RequestNotPending.into());
     }
 
@@ -100,13 +87,13 @@ pub fn load_pending_requests(
     let requests: Vec<FriendRequest> = match direction {
         RequestDirection::Incoming => fr::friend_requests
             .filter(fr::receiver_id.eq(user_id))
-            .filter(fr::status.eq(RequestStatus::PENDING))
+            .filter(fr::status.eq(FriendRequestStatus::Pending))
             .order(fr::created_at.desc())
             .limit(MAX_LIST_RESULTS)
             .load(conn)?,
         RequestDirection::Outgoing => fr::friend_requests
             .filter(fr::sender_id.eq(user_id))
-            .filter(fr::status.eq(RequestStatus::PENDING))
+            .filter(fr::status.eq(FriendRequestStatus::Pending))
             .order(fr::created_at.desc())
             .limit(MAX_LIST_RESULTS)
             .load(conn)?,
@@ -171,31 +158,31 @@ pub fn load_pending_requests(
     Ok(result)
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SendFriendRequestInput {
     pub user_id: Option<i32>,
-    #[validate(custom(function = "crate::validate::nickname"))]
     pub nickname: Option<Nickname>,
 }
 
 impl SendFriendRequestInput {
     /// Validate that at least one identifier is provided.
+    /// If both are given, `user_id` takes precedence.
     pub fn validate_target(&self) -> Result<(), FriendError> {
         if self.user_id.is_none() && self.nickname.as_ref().is_none_or(|n| n.is_empty()) {
             return Err(FriendError::InvalidParam(
-                "provide either user_id or nickname".into(),
+                "provide user_id or nickname".into(),
             ));
         }
         Ok(())
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct FriendRequestResponse {
     pub id: i32,
     pub sender: PublicUser,
     pub receiver: PublicUser,
-    pub status: String,
+    pub status: FriendRequestStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
