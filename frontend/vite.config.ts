@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react()],
+	esbuild: {
+		pure: ['console.log', 'console.debug'],
+	},
 	optimizeDeps: {
 		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm'],
 	},

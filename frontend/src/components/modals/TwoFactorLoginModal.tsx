@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
-import { Shield } from "lucide-react";
-import { Button, Modal, Input, Alert } from "../ui";
-import { useAuth } from "../../contexts/AuthContext";
-import { getErrorMessage, getErrorBrief } from "../../api/error";
-import { validateMfaCode } from "../../utils/validation";
+import { useState, useRef } from 'react';
+import { Shield } from 'lucide-react';
+import { Button, Modal, Input, Alert } from '../ui';
+import { useAuth } from '../../contexts/AuthContext';
+import { getErrorMessage, getErrorBrief } from '../../api/error';
+import { validateMfaCode } from '../../utils/validation';
 
 interface TwoFactorLoginModalProps {
 	email: string;
@@ -21,15 +21,15 @@ export default function TwoFactorLoginModal({
 	const { login } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [codeError, setCodeError] = useState("");
+	const [codeError, setCodeError] = useState('');
 	const codeRef = useRef<HTMLInputElement>(null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		setCodeError("");
+		setCodeError('');
 
-		const code = codeRef.current?.value || "";
+		const code = codeRef.current?.value || '';
 
 		const mfaErr = validateMfaCode(code);
 		if (mfaErr) {
@@ -45,10 +45,10 @@ export default function TwoFactorLoginModal({
 			onSuccess();
 		} catch (err) {
 			const brief = getErrorBrief(err);
-			if (brief === "TwoFactorInvalid") {
-				setError("Invalid authentication code. Please try again.");
+			if (brief === 'TwoFactorInvalid') {
+				setError('Invalid authentication code. Please try again.');
 			} else {
-				setError(getErrorMessage(err, "Authentication failed"));
+				setError(getErrorMessage(err, 'Authentication failed'));
 			}
 		} finally {
 			setIsLoading(false);
@@ -56,12 +56,20 @@ export default function TwoFactorLoginModal({
 	};
 
 	return (
-		<Modal onClose={onCancel} title="Two-Factor Authentication" icon={<Shield className="w-6 h-6" />}>
+		<Modal
+			onClose={onCancel}
+			title="Two-Factor Authentication"
+			icon={<Shield className="w-6 h-6" />}
+		>
 			<p className="text-sm text-stone-300 mb-4">
 				Enter the 6-digit code from your authenticator app, or use a recovery code.
 			</p>
 
-			<form onSubmit={handleSubmit} className="space-y-4" aria-label="Two-factor authentication form">
+			<form
+				onSubmit={handleSubmit}
+				className="space-y-4"
+				aria-label="Two-factor authentication form"
+			>
 				<Input
 					ref={codeRef}
 					label="Authentication Code"
@@ -71,7 +79,7 @@ export default function TwoFactorLoginModal({
 					autoComplete="one-time-code"
 					placeholder="000000 or recovery code"
 					error={codeError}
-					onChange={() => setCodeError("")}
+					onChange={() => setCodeError('')}
 					disabled={isLoading}
 				/>
 

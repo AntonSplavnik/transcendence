@@ -1,10 +1,7 @@
 import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-	useNotifications,
-	type ToastNotification,
-} from '../../contexts/NotificationContext';
+import { useNotifications, type ToastNotification } from '../../contexts/NotificationContext';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 
@@ -40,9 +37,8 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 	return (
 		<div
 			className={`bg-stone-800 border rounded-lg shadow-xl select-none
-				h-[4.5rem] flex items-center transition-colors ${actionable
-					? 'border-gold/40 hover:border-gold/70'
-					: 'border-stone-600'
+				h-[4.5rem] flex items-center transition-colors ${
+					actionable ? 'border-gold/40 hover:border-gold/70' : 'border-stone-600'
 				}`}
 		>
 			<div className="flex items-center gap-3 w-full h-full">
@@ -66,9 +62,7 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 							{toast.displayText}
 						</p>
 						<p className="text-xs text-stone-400 mt-0.5">
-							{new Date(
-								notification.created_at,
-							).toLocaleTimeString()}
+							{new Date(notification.created_at).toLocaleTimeString()}
 						</p>
 					</div>
 				</div>
@@ -83,11 +77,7 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 							rounded-r-lg"
 						aria-label="Open"
 					>
-						<svg
-							className="w-4 h-4"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-						>
+						<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
 							<path
 								fillRule="evenodd"
 								d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
@@ -114,11 +104,7 @@ interface CardLayout {
  * Extracted so the render function stays clean and the logic is independently
  * testable.
  */
-function getCardLayout(
-	index: number,
-	visibleCount: number,
-	isStackMode: boolean,
-): CardLayout {
+function getCardLayout(index: number, visibleCount: number, isStackMode: boolean): CardLayout {
 	if (!isStackMode) {
 		return {
 			bottom: (visibleCount - 1 - index) * STRIDE,
@@ -208,10 +194,7 @@ export default function NotificationToast() {
 	const overflowCount = Math.max(0, activeToasts.length - MAX_VISIBLE);
 
 	return (
-		<div
-			className="fixed bottom-6 left-6 z-50 pointer-events-none"
-			style={{ width: '22rem' }}
-		>
+		<div className="fixed bottom-6 left-6 z-50 pointer-events-none" style={{ width: '22rem' }}>
 			{visible.map((toast, index) => {
 				const isExiting = exitingIds.has(toast.id);
 				const { bottom, scale, interactive } = getCardLayout(
@@ -223,8 +206,9 @@ export default function NotificationToast() {
 				return (
 					<div
 						key={toast.id}
-						className={`absolute left-0 w-full ${interactive ? 'pointer-events-auto cursor-pointer' : ''
-							} ${isExiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+						className={`absolute left-0 w-full ${
+							interactive ? 'pointer-events-auto cursor-pointer' : ''
+						} ${isExiting ? 'animate-toast-out' : 'animate-toast-in'}`}
 						style={{
 							bottom: `${bottom}px`,
 							zIndex: 50 - index,
@@ -236,11 +220,11 @@ export default function NotificationToast() {
 						onKeyDown={
 							interactive
 								? (e) => {
-									if (e.key === 'Enter' || e.key === ' ') {
-										e.preventDefault();
-										animateDismiss(toast);
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											animateDismiss(toast);
+										}
 									}
-								}
 								: undefined
 						}
 						role={interactive ? 'button' : undefined}

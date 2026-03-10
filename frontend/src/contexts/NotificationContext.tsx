@@ -19,21 +19,9 @@
  */
 
 import type { ReactNode } from 'react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
-
-import type {
-	NotificationPayload,
-	UniHandlerFactory,
-	WireNotification,
-} from '../stream/types';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { getNickname } from '../api/userResolver';
+import type { NotificationPayload, UniHandlerFactory, WireNotification } from '../stream/types';
 import { useStream } from './StreamContext';
 
 // ─── Toast type ──────────────────────────────────────────────────────────────
@@ -70,9 +58,7 @@ interface NotificationContextType {
 	dismissToast: (id: string) => void;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(
-	undefined,
-);
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 // ─── Async display-text resolution ───────────────────────────────────────────
 
@@ -152,9 +138,7 @@ function getClickAction(payload: NotificationPayload): (() => void) | null {
  * The returned promise is placed in the preparation queue so that toasts
  * appear in arrival order regardless of resolution speed.
  */
-async function prepareToast(
-	notification: WireNotification,
-): Promise<ToastNotification> {
+async function prepareToast(notification: WireNotification): Promise<ToastNotification> {
 	const displayText = await resolveDisplayText(notification.payload);
 	return {
 		id: crypto.randomUUID(),
@@ -186,7 +170,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	const drainingRef = useRef(false);
 
 	const drainQueue = useCallback(async () => {
-		for (; ;) {
+		for (;;) {
 			if (drainingRef.current) return;
 			drainingRef.current = true;
 
@@ -272,9 +256,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	}, [drainQueue]);
 
 	return (
-		<NotificationContext.Provider
-			value={{ notifications, activeToasts, dismissToast }}
-		>
+		<NotificationContext.Provider value={{ notifications, activeToasts, dismissToast }}>
 			{children}
 		</NotificationContext.Provider>
 	);
@@ -285,9 +267,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 export function useNotifications(): NotificationContextType {
 	const ctx = useContext(NotificationContext);
 	if (!ctx) {
-		throw new Error(
-			'useNotifications must be used within a NotificationProvider',
-		);
+		throw new Error('useNotifications must be used within a NotificationProvider');
 	}
 	return ctx;
 }

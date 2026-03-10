@@ -1,6 +1,6 @@
-import { Button, Card } from "./ui";
-import { Swords } from "lucide-react";
-import LandingScene from "./LandingScene";
+import { Button, Card } from './ui';
+import { Swords } from 'lucide-react';
+import LandingScene from './LandingScene';
 
 export default function LandingPage({ onLogin }: { onLogin: () => void }) {
 	return (

@@ -29,9 +29,7 @@ import type { PendingConnectionKey } from '../api/stream';
  * The `Ctrl` variant carries the {@link PendingConnectionKey} used for
  * the authentication handshake.
  */
-export type StreamType =
-	| 'Notifications'
-	| { Ctrl: PendingConnectionKey };
+export type StreamType = 'Notifications' | { Ctrl: PendingConnectionKey };
 
 // ─── Ctrl stream messages ────────────────────────────────────────────────────
 
@@ -191,9 +189,7 @@ export interface BidiStreamHandler<TRecv = unknown> {
  * });
  * ```
  */
-export type UniHandlerFactory<T = unknown> = (
-	data: unknown,
-) => UniStreamHandler<T>;
+export type UniHandlerFactory<T = unknown> = (data: unknown) => UniStreamHandler<T>;
 
 /**
  * Factory that creates a new {@link BidiStreamHandler} for each incoming
