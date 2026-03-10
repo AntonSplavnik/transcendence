@@ -59,7 +59,6 @@ impl Default for Server {
 
         // TODO mock game manager???
         let gm = crate::game::GameManager::new();
-        gm.start();
 
         let router = crate::routers::rest_api(db.clone(), Arc::new(gm));
         Server {
