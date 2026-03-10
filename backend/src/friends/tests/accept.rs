@@ -107,9 +107,9 @@ async fn accept_request_by_sender_forbidden() {
     // The sender of a request cannot accept their own request.
     let server = mock::Server::default();
     let mut alice = server.user().register().await;
-    let _bob = server.user().register().await;
+    let bob = server.user().register().await;
 
-    let req = alice.send_friend_request_to(_bob.user_id()).await;
+    let req = alice.send_friend_request_to(bob.user_id()).await;
     let res = alice.try_accept_friend_request(req.id).await;
 
     assert_eq!(

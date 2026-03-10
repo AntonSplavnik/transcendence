@@ -42,8 +42,8 @@ async fn make_friends(
 #[tokio::test]
 async fn remove_friend_succeeds() {
     let server = mock::Server::default();
-    let (mut alice, _bob) = make_friends(&server).await;
-    alice.remove_friend(_bob.user_id()).await;
+    let (mut alice, bob) = make_friends(&server).await;
+    alice.remove_friend(bob.user_id()).await;
 }
 
 #[tokio::test]
