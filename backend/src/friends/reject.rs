@@ -30,7 +30,7 @@ pub async fn reject_friend_request(
             let deleted_count = diesel::delete(
                 fr::friend_requests
                     .filter(fr::id.eq(request.id))
-                    .filter(fr::status.eq(FriendRequestStatus::PENDING)),
+                    .filter(fr::status.eq(FriendRequestStatus::Pending)),
             )
             .execute(conn)?;
 

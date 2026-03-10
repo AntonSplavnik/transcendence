@@ -59,7 +59,7 @@ async fn send_request_by_id_succeeds() {
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
-    assert_eq!(res.status, FriendRequestStatus::PENDING);
+    assert_eq!(res.status, FriendRequestStatus::Pending);
 }
 
 #[tokio::test]
@@ -74,7 +74,7 @@ async fn send_request_by_nickname_succeeds() {
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
-    assert_eq!(res.status, FriendRequestStatus::PENDING);
+    assert_eq!(res.status, FriendRequestStatus::Pending);
 }
 
 #[tokio::test]

@@ -59,7 +59,7 @@ pub fn find_pending_request(
         return Err(FriendError::NotAuthorized.into());
     }
 
-    if request.status != FriendRequestStatus::PENDING {
+    if request.status != FriendRequestStatus::Pending {
         return Err(FriendError::RequestNotPending.into());
     }
 
@@ -87,13 +87,13 @@ pub fn load_pending_requests(
     let requests: Vec<FriendRequest> = match direction {
         RequestDirection::Incoming => fr::friend_requests
             .filter(fr::receiver_id.eq(user_id))
-            .filter(fr::status.eq(FriendRequestStatus::PENDING))
+            .filter(fr::status.eq(FriendRequestStatus::Pending))
             .order(fr::created_at.desc())
             .limit(MAX_LIST_RESULTS)
             .load(conn)?,
         RequestDirection::Outgoing => fr::friend_requests
             .filter(fr::sender_id.eq(user_id))
-            .filter(fr::status.eq(FriendRequestStatus::PENDING))
+            .filter(fr::status.eq(FriendRequestStatus::Pending))
             .order(fr::created_at.desc())
             .limit(MAX_LIST_RESULTS)
             .load(conn)?,

@@ -61,7 +61,7 @@ async fn incoming_requests_shows_pending_request() {
     assert_eq!(incoming[0].id, req.id);
     assert_eq!(incoming[0].sender.id, alice.user_id());
     assert_eq!(incoming[0].receiver.id, bob.user_id());
-    assert_eq!(incoming[0].status, FriendRequestStatus::PENDING);
+    assert_eq!(incoming[0].status, FriendRequestStatus::Pending);
 }
 
 #[tokio::test]

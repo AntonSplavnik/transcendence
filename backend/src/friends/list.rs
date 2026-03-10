@@ -21,7 +21,7 @@ pub async fn get_friends(depot: &mut Depot, db: Db) -> JsonResult<Vec<PublicUser
         .read(move |conn| {
             // Get all accepted friend requests where user is either sender or receiver
             let friendships: Vec<FriendRequest> = fr::friend_requests
-                .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
                 .filter(fr::sender_id.eq(user_id).or(fr::receiver_id.eq(user_id)))
                 .limit(MAX_LIST_RESULTS)
                 .load(conn)?;

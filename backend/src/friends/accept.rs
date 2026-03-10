@@ -29,7 +29,7 @@ pub async fn accept_friend_request(
 
             // Reject if either party has already reached the friend limit
             let sender_count: i64 = fr::friend_requests
-                .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
                 .filter(
                     fr::sender_id
                         .eq(request.sender_id)
@@ -39,7 +39,7 @@ pub async fn accept_friend_request(
                 .get_result(conn)?;
 
             let receiver_count: i64 = fr::friend_requests
-                .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
                 .filter(
                     fr::sender_id
                         .eq(request.receiver_id)
@@ -57,10 +57,10 @@ pub async fn accept_friend_request(
             let updated_count = diesel::update(
                 fr::friend_requests
                     .filter(fr::id.eq(request_id))
-                    .filter(fr::status.eq(FriendRequestStatus::PENDING)),
+                    .filter(fr::status.eq(FriendRequestStatus::Pending)),
             )
             .set((
-                fr::status.eq(FriendRequestStatus::ACCEPTED),
+                fr::status.eq(FriendRequestStatus::Accepted),
                 fr::updated_at.eq(now),
             ))
             .execute(conn)?;

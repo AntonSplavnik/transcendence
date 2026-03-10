@@ -127,7 +127,7 @@ async fn remove_friend_allows_new_request_afterwards() {
         new_req.id > 0,
         "new friend request must be created after removal"
     );
-    assert_eq!(new_req.status, FriendRequestStatus::PENDING);
+    assert_eq!(new_req.status, FriendRequestStatus::Pending);
 }
 
 #[tokio::test]

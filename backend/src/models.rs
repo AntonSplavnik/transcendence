@@ -198,8 +198,8 @@ impl AvatarSmall {
 diesel_i32_enum! {
     #[serde(rename_all = "lowercase")]
     pub enum FriendRequestStatus {
-        PENDING = 0,
-        ACCEPTED = 1,
+        Pending = 0,
+        Accepted = 1,
     }
 }
 
@@ -222,7 +222,7 @@ impl NewFriendRequest {
         Self {
             sender_id,
             receiver_id,
-            status: FriendRequestStatus::PENDING,
+            status: FriendRequestStatus::Pending,
             created_at: now,
             updated_at: now,
         }

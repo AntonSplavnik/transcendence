@@ -59,7 +59,7 @@ pub async fn send_friend_request(
             // Check if already friends
             let already_friends: bool = diesel::select(diesel::dsl::exists(
                 fr::friend_requests
-                    .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                    .filter(fr::status.eq(FriendRequestStatus::Accepted))
                     .filter(
                         fr::sender_id
                             .eq(sender_id)
@@ -78,7 +78,7 @@ pub async fn send_friend_request(
             // Check spam: limit pending requests per user
             let pending_count: i64 = fr::friend_requests
                 .filter(fr::sender_id.eq(sender_id))
-                .filter(fr::status.eq(FriendRequestStatus::PENDING))
+                .filter(fr::status.eq(FriendRequestStatus::Pending))
                 .count()
                 .get_result(conn)?;
 

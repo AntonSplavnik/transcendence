@@ -25,7 +25,7 @@ pub async fn remove_friend(depot: &mut Depot, user_id: PathParam<i32>, db: Db) -
         // nothing — yet both would have returned Ok with the two-step approach.
         let deleted = diesel::delete(
             fr::friend_requests
-                .filter(fr::status.eq(FriendRequestStatus::ACCEPTED))
+                .filter(fr::status.eq(FriendRequestStatus::Accepted))
                 .filter(
                     fr::sender_id
                         .eq(user_id)
