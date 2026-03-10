@@ -129,7 +129,7 @@ function getCardLayout(index: number, visibleCount: number, isStackMode: boolean
 // ─── Toast container ─────────────────────────────────────────────────────────
 
 /**
- * Multi-toast notification stack anchored to the bottom-left corner.
+ * Multi-toast notification stack anchored to the bottom-right corner.
  *
  * - Up to {@link MAX_INDIVIDUAL} notifications are shown spaced vertically.
  * - When more are active the newest stays at the top and extra cards collapse
@@ -194,7 +194,7 @@ export default function NotificationToast() {
 	const overflowCount = Math.max(0, activeToasts.length - MAX_VISIBLE);
 
 	return (
-		<div className="fixed bottom-6 left-6 z-50 pointer-events-none" style={{ width: '22rem' }}>
+		<div className="fixed bottom-6 right-6 z-50 pointer-events-none" style={{ width: '22rem' }}>
 			{visible.map((toast, index) => {
 				const isExiting = exitingIds.has(toast.id);
 				const { bottom, scale, interactive } = getCardLayout(
@@ -206,14 +206,14 @@ export default function NotificationToast() {
 				return (
 					<div
 						key={toast.id}
-						className={`absolute left-0 w-full ${
+						className={`absolute right-0 w-full ${
 							interactive ? 'pointer-events-auto cursor-pointer' : ''
 						} ${isExiting ? 'animate-toast-out' : 'animate-toast-in'}`}
 						style={{
 							bottom: `${bottom}px`,
 							zIndex: 50 - index,
 							transform: `scale(${scale})`,
-							transformOrigin: 'bottom left',
+							transformOrigin: 'bottom right',
 							transition: 'bottom 200ms ease, transform 200ms ease',
 						}}
 						onClick={interactive ? () => animateDismiss(toast) : undefined}
@@ -249,7 +249,7 @@ export default function NotificationToast() {
 			{overflowCount > 0 && (
 				<div
 					className="absolute pointer-events-none"
-					style={{ bottom: `${CARD_H - 8}px`, left: -4, zIndex: 60 }}
+					style={{ bottom: `${CARD_H - 8}px`, right: -4, zIndex: 60 }}
 				>
 					<span className="text-[0.65rem] font-medium text-stone-100 bg-gold/80 px-1.5 py-0.5 rounded-full leading-none">
 						+{overflowCount}

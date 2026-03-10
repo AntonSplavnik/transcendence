@@ -79,12 +79,12 @@ export default {
           to: { opacity: "1", transform: "translateY(0) scale(1)" },
         },
         "toast-slide-in": {
-          from: { opacity: "0", transform: "translateX(-100%)" },
+          from: { opacity: "0", transform: "translateX(100%)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
         "toast-slide-out": {
           from: { opacity: "1", transform: "translateX(0)" },
-          to: { opacity: "0", transform: "translateX(-100%)" },
+          to: { opacity: "0", transform: "translateX(100%)" },
         },
       },
       animation: {
