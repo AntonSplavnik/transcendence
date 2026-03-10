@@ -3,15 +3,17 @@ import { Users, X, Circle, UserMinus, Check, Clock, MessageCircle, User } from '
 import { useFriends } from '../../contexts/FriendsContext';
 import type { PublicUser } from '../../api/types';
 import AddFriendForm from './AddFriendForm';
+import FriendProfileModal from '../modals/PublicProfileModal';
 
 // ─── Friend action popup ──────────────────────────────────────────────────────
 
 interface FriendPopupProps {
 	friend: PublicUser;
 	onClose: () => void;
+	onShowProfile: (friend: PublicUser) => void;
 }
 
-function FriendPopup({ friend, onClose }: FriendPopupProps) {
+function FriendPopup({ friend, onClose, onShowProfile }: FriendPopupProps) {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -53,7 +55,8 @@ function FriendPopup({ friend, onClose }: FriendPopupProps) {
 				<button
 					className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-stone-300 hover:bg-stone-700 hover:text-stone-100 transition-colors text-left"
 					onClick={() => {
-						/* TODO: show profile */ onClose();
+						onShowProfile(friend);
+						onClose();
 					}}
 				>
 					<User className="w-4 h-4 flex-shrink-0" />
@@ -67,6 +70,7 @@ function FriendPopup({ friend, onClose }: FriendPopupProps) {
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 
 export default function FriendsDrawer() {
+	const [profileFriend, setProfileFriend] = useState<PublicUser | null>(null);
 	const {
 		isOpen,
 		toggleDrawer,
@@ -269,6 +273,7 @@ export default function FriendsDrawer() {
 													<FriendPopup
 														friend={friend}
 														onClose={() => setActivePopupId(null)}
+														onShowProfile={setProfileFriend}
 													/>
 												)}
 											</li>
@@ -280,6 +285,12 @@ export default function FriendsDrawer() {
 					)}
 				</div>
 			</div>
+		{profileFriend && (
+			<FriendProfileModal
+				friend={profileFriend}
+				onClose={() => setProfileFriend(null)}
+			/>
+		)}
 		</>
 	);
 }
