@@ -82,16 +82,16 @@ function getMessageFromBrief(brief: string): string {
 		DidLogout: 'You have been logged out successfully.',
 
 		// Friend errors
-		'SelfRequest': 'You cannot add yourself as a friend.',
-		'DuplicateRequest': 'A friend request already exists with this user.',
-		'AlreadyFriends': 'You are already friends with this user.',
-		'UserNotFound': 'User not found.',
-		'NotFriends': 'You are not friends with this user.',
-		'RequestNotFound': 'Friend request not found.',
-		'TooManyPending': 'Too many pending requests. Try again later.',
-		'RequestNotPending': 'This friend request is no longer pending.',
-		'NotAuthorized': 'You are not authorized to perform this action.',
-		'InvalidParam': 'Invalid request parameter.',
+		SelfRequest: 'You cannot add yourself as a friend.',
+		DuplicateRequest: 'A friend request already exists with this user.',
+		AlreadyFriends: 'You are already friends with this user.',
+		UserNotFound: 'User not found.',
+		NotFriends: 'You are not friends with this user.',
+		RequestNotFound: 'Friend request not found.',
+		TooManyPending: 'Too many pending requests. Try again later.',
+		RequestNotPending: 'This friend request is no longer pending.',
+		NotAuthorized: 'You are not authorized to perform this action.',
+		InvalidParam: 'Invalid request parameter.',
 	};
 	return briefMessages[brief] || `Authentication error: ${brief}`;
 }

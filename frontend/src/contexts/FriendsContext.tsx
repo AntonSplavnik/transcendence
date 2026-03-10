@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import * as friendsApi from '../api/friends';
 import { getErrorMessage } from '../api/error';
@@ -18,13 +11,12 @@ import { useNotifications } from './NotificationContext';
 
 function isFriendNotification(payload: NotificationPayload): boolean {
 	return (
-		typeof payload === 'object' && (
-			'FriendRequestReceived' in payload ||
+		typeof payload === 'object' &&
+		('FriendRequestReceived' in payload ||
 			'FriendRequestAccepted' in payload ||
 			'FriendRequestRejected' in payload ||
 			'FriendRequestCancelled' in payload ||
-			'FriendRemoved' in payload
-		)
+			'FriendRemoved' in payload)
 	);
 }
 
@@ -107,71 +99,93 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
 
 	// ─── Action handlers ──────────────────────────────────────────────────
 
-	const handleRemove = useCallback(async (userId: number) => {
-		if (actionInProgress !== null) return;
-		setError('');
-		setActionInProgress(userId);
-		try {
-			await friendsApi.removeFriend(userId);
-			setFriends((prev) => prev.filter((f) => f.id !== userId));
-		} catch (err) {
-			setError(getErrorMessage(err, 'Failed to remove friend'));
-		} finally {
-			setActionInProgress(null);
-		}
-	}, [actionInProgress]);
+	const handleRemove = useCallback(
+		async (userId: number) => {
+			if (actionInProgress !== null) return;
+			setError('');
+			setActionInProgress(userId);
+			try {
+				await friendsApi.removeFriend(userId);
+				setFriends((prev) => prev.filter((f) => f.id !== userId));
+			} catch (err) {
+				setError(getErrorMessage(err, 'Failed to remove friend'));
+			} finally {
+				setActionInProgress(null);
+			}
+		},
+		[actionInProgress],
+	);
 
-	const handleAccept = useCallback(async (requestId: number) => {
-		if (actionInProgress !== null) return;
-		setError('');
-		setActionInProgress(requestId);
-		try {
-			const accepted = await friendsApi.acceptFriendRequest(requestId);
-			setIncoming((prev) => prev.filter((r) => r.id !== requestId));
-			setFriends((prev) => [...prev, accepted.sender]);
-		} catch (err) {
-			setError(getErrorMessage(err, 'Failed to accept request'));
-		} finally {
-			setActionInProgress(null);
-		}
-	}, [actionInProgress]);
+	const handleAccept = useCallback(
+		async (requestId: number) => {
+			if (actionInProgress !== null) return;
+			setError('');
+			setActionInProgress(requestId);
+			try {
+				const accepted = await friendsApi.acceptFriendRequest(requestId);
+				setIncoming((prev) => prev.filter((r) => r.id !== requestId));
+				setFriends((prev) => [...prev, accepted.sender]);
+			} catch (err) {
+				setError(getErrorMessage(err, 'Failed to accept request'));
+			} finally {
+				setActionInProgress(null);
+			}
+		},
+		[actionInProgress],
+	);
 
-	const handleReject = useCallback(async (requestId: number) => {
-		if (actionInProgress !== null) return;
-		setError('');
-		setActionInProgress(requestId);
-		try {
-			await friendsApi.rejectFriendRequest(requestId);
-			setIncoming((prev) => prev.filter((r) => r.id !== requestId));
-		} catch (err) {
-			setError(getErrorMessage(err, 'Failed to reject request'));
-		} finally {
-			setActionInProgress(null);
-		}
-	}, [actionInProgress]);
+	const handleReject = useCallback(
+		async (requestId: number) => {
+			if (actionInProgress !== null) return;
+			setError('');
+			setActionInProgress(requestId);
+			try {
+				await friendsApi.rejectFriendRequest(requestId);
+				setIncoming((prev) => prev.filter((r) => r.id !== requestId));
+			} catch (err) {
+				setError(getErrorMessage(err, 'Failed to reject request'));
+			} finally {
+				setActionInProgress(null);
+			}
+		},
+		[actionInProgress],
+	);
 
-	const handleCancel = useCallback(async (requestId: number) => {
-		if (actionInProgress !== null) return;
-		setError('');
-		setActionInProgress(requestId);
-		try {
-			await friendsApi.cancelFriendRequest(requestId);
-			setOutgoing((prev) => prev.filter((r) => r.id !== requestId));
-		} catch (err) {
-			setError(getErrorMessage(err, 'Failed to cancel request'));
-		} finally {
-			setActionInProgress(null);
-		}
-	}, [actionInProgress]);
+	const handleCancel = useCallback(
+		async (requestId: number) => {
+			if (actionInProgress !== null) return;
+			setError('');
+			setActionInProgress(requestId);
+			try {
+				await friendsApi.cancelFriendRequest(requestId);
+				setOutgoing((prev) => prev.filter((r) => r.id !== requestId));
+			} catch (err) {
+				setError(getErrorMessage(err, 'Failed to cancel request'));
+			} finally {
+				setActionInProgress(null);
+			}
+		},
+		[actionInProgress],
+	);
 
 	return (
-		<FriendsContext.Provider value={{
-			isOpen, toggleDrawer,
-			friends, incoming, outgoing,
-			loading, error, actionInProgress,
-			fetchAll,
-			handleRemove, handleAccept, handleReject, handleCancel,
-		}}>
+		<FriendsContext.Provider
+			value={{
+				isOpen,
+				toggleDrawer,
+				friends,
+				incoming,
+				outgoing,
+				loading,
+				error,
+				actionInProgress,
+				fetchAll,
+				handleRemove,
+				handleAccept,
+				handleReject,
+				handleCancel,
+			}}
+		>
 			{children}
 		</FriendsContext.Provider>
 	);

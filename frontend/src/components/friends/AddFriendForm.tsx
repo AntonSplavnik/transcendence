@@ -11,7 +11,9 @@ interface AddFriendFormProps {
 export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormProps) {
 	const [nickname, setNickname] = useState('');
 	const [isSending, setIsSending] = useState(false);
-	const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+	const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(
+		null,
+	);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -47,7 +49,10 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 					<input
 						type="text"
 						value={nickname}
-						onChange={(e) => { setNickname(e.target.value); setMessage(null); }}
+						onChange={(e) => {
+							setNickname(e.target.value);
+							setMessage(null);
+						}}
 						placeholder="Add by nickname..."
 						aria-label="Friend's nickname"
 						className="w-full bg-stone-900 border border-stone-700 rounded px-3 py-1.5 text-sm text-stone-100 focus:outline-none focus:border-primary"
@@ -63,7 +68,9 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 				</button>
 			</div>
 			{message && (
-				<p className={`text-xs mt-1 ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+				<p
+					className={`text-xs mt-1 ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
+				>
 					{message.text}
 				</p>
 			)}

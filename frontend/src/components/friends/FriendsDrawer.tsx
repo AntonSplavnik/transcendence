@@ -30,21 +30,31 @@ function FriendPopup({ friend, onClose }: FriendPopupProps) {
 			className="mt-1 mx-2 rounded-lg bg-stone-900 border border-stone-600 shadow-lg overflow-hidden"
 		>
 			<div className="px-3 py-2 border-b border-stone-700 flex items-center gap-2">
-				<Circle className={`w-2 h-2 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`} />
-				<span className="text-sm font-semibold text-stone-100 truncate">{friend.nickname}</span>
-				<span className="text-xs text-stone-500 ml-auto">{friend.online ? 'Online' : 'Offline'}</span>
+				<Circle
+					className={`w-2 h-2 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
+				/>
+				<span className="text-sm font-semibold text-stone-100 truncate">
+					{friend.nickname}
+				</span>
+				<span className="text-xs text-stone-500 ml-auto">
+					{friend.online ? 'Online' : 'Offline'}
+				</span>
 			</div>
 			<div className="p-1">
 				<button
 					className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-stone-300 hover:bg-stone-700 hover:text-stone-100 transition-colors text-left"
-					onClick={() => {/* TODO: open chat */ onClose();}}
+					onClick={() => {
+						/* TODO: open chat */ onClose();
+					}}
 				>
 					<MessageCircle className="w-4 h-4 flex-shrink-0" />
 					Send a message
 				</button>
 				<button
 					className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-stone-300 hover:bg-stone-700 hover:text-stone-100 transition-colors text-left"
-					onClick={() => {/* TODO: show profile */ onClose();}}
+					onClick={() => {
+						/* TODO: show profile */ onClose();
+					}}
 				>
 					<User className="w-4 h-4 flex-shrink-0" />
 					Show profile
@@ -58,35 +68,39 @@ function FriendPopup({ friend, onClose }: FriendPopupProps) {
 
 export default function FriendsDrawer() {
 	const {
-		isOpen, toggleDrawer,
-		friends, incoming, outgoing,
-		loading, error, actionInProgress,
+		isOpen,
+		toggleDrawer,
+		friends,
+		incoming,
+		outgoing,
+		loading,
+		error,
+		actionInProgress,
 		fetchAll,
-		handleAccept, handleReject, handleCancel, handleRemove,
+		handleAccept,
+		handleReject,
+		handleCancel,
+		handleRemove,
 	} = useFriends();
 
-	const [activePopupId, setActivePopupId] = useState<number | null>(null);
+	const [rawActivePopupId, setActivePopupId] = useState<number | null>(null);
+	// Derive popup visibility from drawer state — avoids a sync setState-in-effect
+	const activePopupId = isOpen ? rawActivePopupId : null;
 
-	const togglePopup = (id: number) =>
-		setActivePopupId((prev) => (prev === id ? null : id));
+	const togglePopup = (id: number) => setActivePopupId((prev) => (prev === id ? null : id));
 
 	// Escape key closes drawer (and any open popup)
 	useEffect(() => {
 		if (!isOpen) return;
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
-				if (activePopupId !== null) setActivePopupId(null);
+				if (rawActivePopupId !== null) setActivePopupId(null);
 				else toggleDrawer();
 			}
 		};
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, [isOpen, toggleDrawer, activePopupId]);
-
-	// Close popup when drawer closes
-	useEffect(() => {
-		if (!isOpen) setActivePopupId(null);
-	}, [isOpen]);
+	}, [isOpen, toggleDrawer, rawActivePopupId]);
 
 	return (
 		<>
@@ -129,9 +143,7 @@ export default function FriendsDrawer() {
 				<div className="flex-1 overflow-y-auto p-3 space-y-4">
 					<AddFriendForm isOpen={isOpen} onRequestSent={fetchAll} />
 
-					{error && (
-						<p className="text-xs text-red-400">{error}</p>
-					)}
+					{error && <p className="text-xs text-red-400">{error}</p>}
 
 					{loading ? (
 						<p className="text-stone-400 text-sm text-center py-4">Loading...</p>
@@ -148,8 +160,13 @@ export default function FriendsDrawer() {
 									</h3>
 									<ul className="space-y-1">
 										{incoming.map((req) => (
-											<li key={req.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50">
-												<span className="text-sm text-stone-100 truncate flex-1">{req.sender.nickname}</span>
+											<li
+												key={req.id}
+												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50"
+											>
+												<span className="text-sm text-stone-100 truncate flex-1">
+													{req.sender.nickname}
+												</span>
 												<button
 													onClick={() => handleAccept(req.id)}
 													disabled={actionInProgress !== null}
@@ -185,9 +202,14 @@ export default function FriendsDrawer() {
 									</h3>
 									<ul className="space-y-1">
 										{outgoing.map((req) => (
-											<li key={req.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50 opacity-70">
+											<li
+												key={req.id}
+												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50 opacity-70"
+											>
 												<Clock className="w-2.5 h-2.5 flex-shrink-0 text-stone-500" />
-												<span className="text-sm text-stone-100 truncate flex-1">{req.receiver.nickname}</span>
+												<span className="text-sm text-stone-100 truncate flex-1">
+													{req.receiver.nickname}
+												</span>
 												<button
 													onClick={() => handleCancel(req.id)}
 													disabled={actionInProgress !== null}
@@ -209,12 +231,16 @@ export default function FriendsDrawer() {
 									Friends ({friends.length})
 								</h3>
 								{friends.length === 0 ? (
-									<p className="text-stone-500 text-sm px-2 py-1">No friends yet.</p>
+									<p className="text-stone-500 text-sm px-2 py-1">
+										No friends yet.
+									</p>
 								) : (
 									<ul className="space-y-0.5">
 										{friends.map((friend) => (
 											<li key={friend.id}>
-												<div className={`flex items-center gap-2 px-2 py-1.5 rounded ${activePopupId === friend.id ? 'bg-stone-700/50' : 'hover:bg-stone-700/50'}`}>
+												<div
+													className={`flex items-center gap-2 px-2 py-1.5 rounded ${activePopupId === friend.id ? 'bg-stone-700/50' : 'hover:bg-stone-700/50'}`}
+												>
 													<Circle
 														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
 													/>
@@ -227,7 +253,10 @@ export default function FriendsDrawer() {
 														{friend.nickname}
 													</button>
 													<button
-														onClick={() => { setActivePopupId(null); handleRemove(friend.id); }}
+														onClick={() => {
+															setActivePopupId(null);
+															handleRemove(friend.id);
+														}}
 														disabled={actionInProgress !== null}
 														className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 														title="Remove friend"
