@@ -37,7 +37,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	}
 
 	const handlePlayGame = () => {
-		const expiryTime = new Date(session.access_expiry).getTime();
+		const expiryTime = new Date(session.login_expiry).getTime();
 		const now = Date.now();
 		const minutesLeft = (expiryTime - now) / (1000 * 60);
 
