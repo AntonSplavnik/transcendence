@@ -35,6 +35,8 @@ export interface UsernameProps {
 	colored?: boolean;
 	/** Whether this user is already a friend. Hides the Friend Request option. Defaults to false. */
 	isFriend?: boolean;
+	/** Called when the user clicks "Show Profile". If omitted, the button stays disabled. */
+	onShowProfile?: () => void;
 }
 
 // ─── Context menu ─────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ interface ContextMenuProps {
 	nickname: string;
 	anchorRect: DOMRect;
 	isFriend: boolean;
+	onShowProfile?: () => void;
 	onClose: () => void;
 }
 
@@ -52,6 +55,7 @@ function UsernameContextMenu({
 	nickname,
 	anchorRect,
 	isFriend,
+	onShowProfile,
 	onClose,
 }: ContextMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
@@ -94,15 +98,25 @@ function UsernameContextMenu({
 			style={{ position: 'fixed', top, left }}
 			className="z-[9999] min-w-[10rem] bg-stone-800 border border-stone-700 rounded shadow-xl text-sm"
 		>
-			{/* Show Profile (stub) */}
-			<button
-				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
-				disabled
-				aria-disabled="true"
-			>
-				Show Profile
-			</button>
+			{/* Show Profile */}
+			{onShowProfile ? (
+				<button
+					role="menuitem"
+					onClick={() => { onShowProfile(); onClose(); }}
+					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
+				>
+					Show Profile
+				</button>
+			) : (
+				<button
+					role="menuitem"
+					disabled
+					aria-disabled="true"
+					className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				>
+					Show Profile
+				</button>
+			)}
 			{/* Message (stub P2) */}
 			<button
 				role="menuitem"
@@ -172,6 +186,7 @@ export default function Username({
 	interactive,
 	colored = true,
 	isFriend = false,
+	onShowProfile,
 }: UsernameProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -212,6 +227,7 @@ export default function Username({
 					nickname={nickname}
 					anchorRect={anchorRect}
 					isFriend={isFriend}
+					onShowProfile={onShowProfile}
 					onClose={() => setMenuOpen(false)}
 				/>
 			)}
