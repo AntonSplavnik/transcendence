@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { ChatErrorBoundary, ChatOverlay } from './components/chat';
 import { retrieveStoredError } from './api/error';
 import type { StoredError } from './api/error';
 import AuthPage from './components/AuthPage';
@@ -104,6 +105,9 @@ function RealtimeStatusOverlays() {
 				<ConnectionStatusBanner state={connectionState} />
 			) : null}
 			<NotificationToast />
+			<ChatErrorBoundary>
+				<ChatOverlay />
+			</ChatErrorBoundary>
 			{shouldShowDisplacedModal && (
 				<DisplacedModal onDismiss={() => setDismissedDisplacementState(connectionState)} />
 			)}
