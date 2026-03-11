@@ -47,15 +47,19 @@ interface ContextMenuProps {
 	onClose: () => void;
 }
 
-function UsernameContextMenu({ userId: _userId, nickname, anchorRect, isFriend, onClose }: ContextMenuProps) {
+function UsernameContextMenu({
+	userId: _userId,
+	nickname,
+	anchorRect,
+	isFriend,
+	onClose,
+}: ContextMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
 
 	// Position the menu above the anchor by default, flip below if not enough space
 	const spaceAbove = anchorRect.top;
 	const menuHeight = 220; // approximate
-	const top = spaceAbove > menuHeight
-		? anchorRect.top - menuHeight
-		: anchorRect.bottom + 4;
+	const top = spaceAbove > menuHeight ? anchorRect.top - menuHeight : anchorRect.bottom + 4;
 	const left = anchorRect.left;
 
 	useEffect(() => {
@@ -81,7 +85,6 @@ function UsernameContextMenu({ userId: _userId, nickname, anchorRect, isFriend, 
 		});
 		onClose();
 	}
-
 
 	return createPortal(
 		<div
@@ -162,7 +165,14 @@ function UsernameContextMenu({ userId: _userId, nickname, anchorRect, isFriend, 
 
 // ─── Username component ────────────────────────────────────────────────────────
 
-export default function Username({ userId, nickname, isSelf, interactive, colored = true, isFriend = false }: UsernameProps) {
+export default function Username({
+	userId,
+	nickname,
+	isSelf,
+	interactive,
+	colored = true,
+	isFriend = false,
+}: UsernameProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
