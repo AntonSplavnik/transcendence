@@ -54,6 +54,7 @@ export default function FriendsDrawer() {
 			{/* Panel */}
 			<div
 				className={`fixed top-0 right-0 h-full w-80 bg-stone-800 border-l border-stone-700 z-40 flex flex-col transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+				inert={!isOpen || undefined}
 			>
 				{/* Header */}
 				<div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
