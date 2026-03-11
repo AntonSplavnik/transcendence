@@ -9,7 +9,7 @@
  * A room is "unread" if its newest message is newer than the last viewed time.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 
 // How many tabs to show at once before overflow kicks in.
@@ -46,48 +46,38 @@ export default function ChatTabBar({ currentUserId }: ChatTabBarProps) {
 	const { rooms, orderedRoomIds, activeRoomId, setActiveRoomId } = useChat();
 	const [visibleStartIndex, setVisibleStartIndex] = useState(0);
 
-	// Track when each room was last viewed for unread detection.
-	const lastViewedAtRef = useRef<Map<string, number>>(new Map());
-
-	// Update lastViewedAt when the active tab changes.
-	useEffect(() => {
-		if (activeRoomId) {
-			lastViewedAtRef.current.set(activeRoomId, Date.now());
-		}
-	}, [activeRoomId]);
-
-	// Clean up lastViewedAt entries for removed rooms (e.g. GameLobby deletion).
-	useEffect(() => {
-		for (const key of [...lastViewedAtRef.current.keys()]) {
-			if (!rooms.has(key)) {
-				lastViewedAtRef.current.delete(key);
-			}
-		}
-	}, [rooms]);
+	// Track the last message ID seen per room for unread detection.
+	// Updated on tab click — only state, no refs during render.
+	const [lastSeenMsgId, setLastSeenMsgId] = useState<Map<string, string>>(() => new Map());
 
 	// Auto-scroll active tab into visible window.
-	useEffect(() => {
-		if (activeRoomId === null) return;
-		const idx = orderedRoomIds.indexOf(activeRoomId);
-		if (idx < visibleStartIndex) {
-			setVisibleStartIndex(idx);
-		} else if (idx >= visibleStartIndex + MAX_VISIBLE_TABS) {
-			setVisibleStartIndex(idx - MAX_VISIBLE_TABS + 1);
+	// Uses React's "setState during render" pattern — one DOM commit, no effect cascade.
+	const [prevActiveRoomId, setPrevActiveRoomId] = useState(activeRoomId);
+	if (activeRoomId !== prevActiveRoomId) {
+		setPrevActiveRoomId(activeRoomId);
+		if (activeRoomId !== null) {
+			const idx = orderedRoomIds.indexOf(activeRoomId);
+			if (idx >= 0 && idx < visibleStartIndex) {
+				setVisibleStartIndex(idx);
+			} else if (idx >= visibleStartIndex + MAX_VISIBLE_TABS) {
+				setVisibleStartIndex(idx - MAX_VISIBLE_TABS + 1);
+			}
 		}
-	}, [activeRoomId, orderedRoomIds, visibleStartIndex]);
+	}
 
 	const visibleTabs = orderedRoomIds.slice(visibleStartIndex, visibleStartIndex + MAX_VISIBLE_TABS);
 	const showLeft = visibleStartIndex > 0;
 	const showRight = visibleStartIndex + MAX_VISIBLE_TABS < orderedRoomIds.length;
 
 	function hasUnread(roomId: string): boolean {
+		if (roomId === activeRoomId) return false;
 		const room = rooms.get(roomId);
-		if (!room || roomId === activeRoomId) return false;
-		const lastViewed = lastViewedAtRef.current.get(roomId);
-		if (lastViewed === undefined) return false; // never viewed before = no dot
+		if (!room) return false;
+		const seenId = lastSeenMsgId.get(roomId);
+		if (seenId === undefined) return false; // never viewed = no dot
 		const lastMsg = room.messages[room.messages.length - 1];
 		if (!lastMsg) return false;
-		return new Date(lastMsg.created_at).getTime() > lastViewed;
+		return lastMsg.id !== seenId;
 	}
 
 	if (orderedRoomIds.length === 0) return null;
@@ -123,7 +113,14 @@ export default function ChatTabBar({ currentUserId }: ChatTabBarProps) {
 							aria-selected={isActive}
 							aria-label={`${label} chat room${unread ? ', unread messages' : ''}`}
 							onClick={() => {
-								lastViewedAtRef.current.set(roomId, Date.now());
+								const lastMsg = room.messages[room.messages.length - 1];
+								if (lastMsg) {
+									setLastSeenMsgId((prev) => {
+										const next = new Map(prev);
+										next.set(roomId, lastMsg.id);
+										return next;
+									});
+								}
 								setActiveRoomId(roomId);
 							}}
 							className={`relative flex items-center gap-1 px-2.5 py-1 text-xs transition-colors whitespace-nowrap ${

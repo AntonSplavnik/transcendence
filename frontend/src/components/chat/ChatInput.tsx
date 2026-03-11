@@ -9,7 +9,7 @@
  * Command autocomplete: shown when value starts with '/'.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import { COMMAND_NAMES, handleCommand } from '../../chat/commands';
 
@@ -75,20 +75,18 @@ export default function ChatInput({
 	const [feedback, setFeedback] = useState<string | null>(null);
 	const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	// Command autocomplete state
-	const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+	// Command autocomplete — derived, not stateful.
 	const [autocompleteIndex, setAutocompleteIndex] = useState(0);
 
-	const suggestions =
-		value.startsWith('/') && chatOpen
-			? COMMAND_NAMES.filter((name) => name.startsWith(value.slice(1))).slice(0, 5)
-			: [];
+	const suggestions = useMemo(
+		() =>
+			value.startsWith('/') && chatOpen
+				? COMMAND_NAMES.filter((name) => name.startsWith(value.slice(1))).slice(0, 5)
+				: [],
+		[value, chatOpen],
+	);
 
-	// Sync autocomplete open state
-	useEffect(() => {
-		setAutocompleteOpen(suggestions.length > 0);
-		setAutocompleteIndex(0);
-	}, [suggestions.length, value]);
+	const autocompleteOpen = suggestions.length > 0;
 
 	// Cleanup feedback timer on unmount
 	useEffect(() => {
@@ -150,7 +148,8 @@ export default function ChatInput({
 				return;
 			}
 			if (e.key === 'Escape') {
-				setAutocompleteOpen(false);
+				// Clear the `/` prefix to close autocomplete.
+				setValue('');
 				return;
 			}
 		}
@@ -192,12 +191,13 @@ export default function ChatInput({
 
 	function selectSuggestion(name: string) {
 		setValue(`/${name} `);
-		setAutocompleteOpen(false);
+		setAutocompleteIndex(0);
 		inputRef.current?.focus();
 	}
 
 	function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
 		setValue(e.target.value);
+		setAutocompleteIndex(0);
 		// Send typing indicator when user types (cooldown managed in context).
 		if (activeRoomId && e.target.value.length > 0) {
 			sendTypingIndicator(activeRoomId);

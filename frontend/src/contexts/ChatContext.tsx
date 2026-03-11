@@ -43,7 +43,7 @@ const SEND_COOLDOWN_MS = 200;
 
 // ─── Context shape ────────────────────────────────────────────────────────────
 
-interface ChatContextType {
+export interface ChatContextType {
 	rooms: ChatState;
 	orderedRoomIds: string[];
 	activeRoomId: string | null;
@@ -198,7 +198,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const { user } = useAuth();
 
 	const [rooms, dispatch] = useReducer(chatReducer, new Map<string, ChatRoomState>());
-	const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+	const [rawActiveRoomId, setActiveRoomId] = useState<string | null>(null);
 	const [chatOpen, setChatOpen] = useState(false);
 	const [chatError, setChatError] = useState<{
 		roomId: string;
@@ -208,6 +208,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const [preferences, setPreferences] = useState<ChatPreferences>(() =>
 		user ? loadPreferences(user.id) : { globalEnabled: true, visible: true, blockedUsers: [] },
 	);
+
+	// Reload preferences when the authenticated user changes.
+	// This is React's "setState during render" pattern — safe and synchronous.
+	const [prevUserId, setPrevUserId] = useState(user?.id ?? null);
+	if (user && user.id !== prevUserId) {
+		setPrevUserId(user.id);
+		setPreferences(loadPreferences(user.id));
+	}
 
 	// Stable refs for timeout management — avoids recreating callbacks on every render.
 	const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -220,13 +228,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		roomsRef.current = rooms;
 	}, [rooms]);
-
-	// Load preferences when the authenticated user changes.
-	useEffect(() => {
-		if (user) {
-			setPreferences(loadPreferences(user.id));
-		}
-	}, [user]);
 
 	const updatePreferences = useCallback(
 		(patch: Partial<ChatPreferences>) => {
@@ -270,11 +271,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	}, [connectionManager]);
 
 	// Clean up all timeouts on unmount.
+	// Map refs are captured into locals — same object identity, safe to read in cleanup.
 	useEffect(() => {
+		const typingTimeouts = typingTimeoutsRef.current;
+		const typingSendCooldowns = typingSendCooldownsRef.current;
+		const sendDisabled = sendDisabledRef.current;
 		return () => {
-			for (const h of typingTimeoutsRef.current.values()) clearTimeout(h);
-			for (const h of typingSendCooldownsRef.current.values()) clearTimeout(h);
-			for (const h of sendDisabledRef.current.values()) clearTimeout(h);
+			for (const h of typingTimeouts.values()) clearTimeout(h);
+			for (const h of typingSendCooldowns.values()) clearTimeout(h);
+			for (const h of sendDisabled.values()) clearTimeout(h);
+			// errorClearRef is a timeout handle, not a DOM ref — safe to read .current
+			// at cleanup time. The linter cannot distinguish the two.
+			// eslint-disable-next-line react-hooks/exhaustive-deps
 			if (errorClearRef.current !== null) clearTimeout(errorClearRef.current);
 		};
 	}, []);
@@ -294,19 +302,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		});
 	}, [rooms]);
 
-	// Auto-select the first room when rooms become available.
-	useEffect(() => {
-		if (activeRoomId === null && orderedRoomIds.length > 0) {
-			setActiveRoomId(orderedRoomIds[0]);
-		}
-	}, [orderedRoomIds, activeRoomId]);
-
-	// If the active room was deleted (GameLobby ended), fall back to first available.
-	useEffect(() => {
-		if (activeRoomId !== null && !rooms.has(activeRoomId)) {
-			setActiveRoomId(orderedRoomIds[0] ?? null);
-		}
-	}, [rooms, activeRoomId, orderedRoomIds]);
+	// Derive the effective active room: falls back to the first available room
+	// if the raw selection is null or was deleted (e.g. GameLobby ended).
+	const activeRoomId = useMemo(() => {
+		if (rawActiveRoomId !== null && rooms.has(rawActiveRoomId)) return rawActiveRoomId;
+		return orderedRoomIds[0] ?? null;
+	}, [rawActiveRoomId, rooms, orderedRoomIds]);
 
 	const sendMessage = useCallback((roomId: string, text: string) => {
 		if (sendDisabledRef.current.has(roomId)) return;
