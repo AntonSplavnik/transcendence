@@ -102,7 +102,10 @@ function UsernameContextMenu({
 			{onShowProfile ? (
 				<button
 					role="menuitem"
-					onClick={() => { onShowProfile(); onClose(); }}
+					onClick={() => {
+						onShowProfile();
+						onClose();
+					}}
 					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
 				>
 					Show Profile

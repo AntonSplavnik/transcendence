@@ -184,7 +184,9 @@ export default function FriendsDrawer() {
 															interactive={true}
 															colored={false}
 															isFriend={true}
-															onShowProfile={() => setProfileFriend(friend)}
+															onShowProfile={() =>
+																setProfileFriend(friend)
+															}
 														/>
 													</span>
 													<button
