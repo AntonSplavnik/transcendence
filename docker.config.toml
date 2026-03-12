@@ -1,6 +1,6 @@
 listen_addr = "0.0.0.0"
 serve_dir = "/www"
-database_url = "/app/data/db.sqlite"
+database_url = "/app/data/diesel.sqlite"
 
 [log]
 format = "compact"

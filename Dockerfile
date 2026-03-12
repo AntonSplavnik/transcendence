@@ -9,8 +9,11 @@ RUN npm run build
 # Stage 2 — Backend build
 FROM rust:1.91-bookworm AS backend
 RUN apt-get update && apt-get install -y libsqlite3-dev pkg-config meson ninja-build nasm git && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 --branch 1.5.1 https://code.videolan.org/videolan/dav1d.git /tmp/dav1d \
+# Pin to exact commit SHA instead of tag to prevent tag rewriting attacks (supply chain security)
+# SHA corresponds to tag 1.5.1: https://code.videolan.org/videolan/dav1d/-/tags/1.5.1
+RUN git clone https://code.videolan.org/videolan/dav1d.git /tmp/dav1d \
     && cd /tmp/dav1d \
+    && git checkout 3060ebf8dd26952579373084984daf70a54f5368 \
     && meson setup build --buildtype release --default-library shared --prefix /usr \
     && ninja -C build \
     && ninja -C build install \
@@ -35,5 +38,5 @@ COPY --from=backend /build/migrations/ /app/migrations/
 COPY docker.config.toml /app/config.toml
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-EXPOSE 8080 8443
+EXPOSE 8080 8443/tcp 8443/udp
 ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,6 +1,7 @@
 services:
   transcendence:
     build: .
+    restart: unless-stopped
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -9,7 +10,7 @@ services:
       - db-data:/app/data
       - ./backend/certs:/app/certs
     env_file:
-      - path: .env
+      - path: backend/.env
         required: false
 volumes:
   db-data:
