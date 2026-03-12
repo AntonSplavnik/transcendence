@@ -1,11 +1,13 @@
 #![allow(unused_imports)]
 
 mod compress_cbor_codec;
+mod stream_group;
 mod stream_manager;
 
 pub use futures::SinkExt;
 pub use futures::StreamExt;
 use salvo::Depot;
+pub use stream_group::{StreamGroup, StreamHandle};
 pub use stream_manager::{
     connect_stream, router, webtransport_router, Receiver, Sender, SharedSender, StreamApiError,
     StreamManager, StreamManagerDepotExt, StreamManagerError,
