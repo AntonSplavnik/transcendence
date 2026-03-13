@@ -15,7 +15,7 @@ pub fn router(path: &str) -> Router {
                 .get(get_my_stats),
         )
         .push(
-            Router::with_path("<user_id>")
+            Router::with_path("{user_id}")
                 .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
                 .get(get_user_stats),

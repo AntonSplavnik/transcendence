@@ -15,7 +15,7 @@ pub fn router(path: &str) -> Router {
                 .get(get_my_games),
         )
         .push(
-            Router::with_path("<user_id>")
+            Router::with_path("{user_id}")
                 .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
                 .get(get_user_games),
@@ -31,6 +31,7 @@ pub struct GameResponse {
     pub score_p1: i32,
     pub score_p2: i32,
     pub played_at: DateTime<Utc>,
+    pub mode: String,
 }
 
 impl From<Game> for GameResponse {
@@ -43,6 +44,7 @@ impl From<Game> for GameResponse {
             score_p1: g.score_p1,
             score_p2: g.score_p2,
             played_at: g.played_at,
+            mode: g.mode,
         }
     }
 }

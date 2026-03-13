@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 574cb30..7cf08f9 100644
+index e619b13..378096e 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,94 +1,94 @@
+@@ -1,95 +1,95 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -33,6 +33,7 @@ index 574cb30..7cf08f9 100644
          score_p2 -> Integer,
 -        played_at -> Timestamp,
 +        played_at -> TimestamptzSqlite,
+         mode -> Text,
      }
  }
  

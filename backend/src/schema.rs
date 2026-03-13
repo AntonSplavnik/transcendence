@@ -25,6 +25,7 @@ diesel::table! {
         score_p1 -> Integer,
         score_p2 -> Integer,
         played_at -> TimestamptzSqlite,
+        mode -> Text,
     }
 }
 

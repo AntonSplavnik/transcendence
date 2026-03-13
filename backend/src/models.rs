@@ -120,6 +120,7 @@ pub struct Game {
     pub score_p1: i32,
     pub score_p2: i32,
     pub played_at: DateTime<Utc>,
+    pub mode: String,
 }
 
 impl NewGame {
@@ -129,6 +130,7 @@ impl NewGame {
         winner_id: i32,
         score_p1: i32,
         score_p2: i32,
+        mode: String,
     ) -> Self {
         NewGame {
             player1_id,
@@ -137,6 +139,7 @@ impl NewGame {
             score_p1,
             score_p2,
             played_at: chrono::Utc::now(),
+            mode,
         }
     }
 }
