@@ -1,10 +1,10 @@
 mod ffi;
 mod game;
+pub mod lobby;
+pub mod lobby_messages;
+pub mod manager;
 mod messages;
 mod router;
-mod stream_handler;
 
-pub use ffi::{CharacterSnapshot, GameHandle, GameStateSnapshot, Vector3D};
-pub use game::Game;
-pub use messages::{GameClientMessage, GameServerMessage};
+pub use manager::{GameError, GameManager, GameManagerDepotExt};
 pub use router::router;

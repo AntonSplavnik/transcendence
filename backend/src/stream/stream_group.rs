@@ -25,10 +25,6 @@ impl<S: Clone> StreamHandle<S> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Internal bookkeeping
-// ---------------------------------------------------------------------------
-
 struct StreamGroupInner<S: Clone> {
     handles: IndexMap<i32, StreamHandle<S>, RandomState>,
     pending: IndexSet<i32, RandomState>,
@@ -42,10 +38,6 @@ impl<S: Clone> Default for StreamGroupInner<S> {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// StreamGroup
-// ---------------------------------------------------------------------------
 
 /// Atomically manages a set of user streams within a group
 /// (game lobby, chat room, etc.).
@@ -76,7 +68,15 @@ impl<S: Clone> Default for StreamGroup<S> {
 impl<S: Clone> Drop for StreamGroup<S> {
     fn drop(&mut self) {
         // &mut self → exclusive access, no lock needed.
-        for handle in self.inner.get_mut().handles.values() {
+        let inner = self.inner.get_mut();
+        let n = inner.handles.len();
+        if n > 0 {
+            tracing::debug!(
+                handles = n,
+                "StreamGroup dropped, cancelling all stream handles"
+            );
+        }
+        for handle in inner.handles.values() {
             handle.cancellation.cancel();
         }
     }

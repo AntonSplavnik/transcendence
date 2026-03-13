@@ -14,15 +14,27 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(gamemode: &str) -> Self {
         Self {
-            handle: Mutex::new(GameHandle::new()),
+            handle: Mutex::new(GameHandle::new(gamemode)),
         }
     }
 
     /// Provides exclusive access to the underlying GameHandle.
     pub fn lock(&self) -> MutexGuard<'_, GameHandle> {
         self.handle.lock()
+    }
+
+    pub fn min_players(&self) -> u32 {
+        self.handle.lock().min_players()
+    }
+
+    pub fn max_players(&self) -> u32 {
+        self.handle.lock().max_players()
+    }
+
+    pub fn gamemode(&self) -> String {
+        self.handle.lock().gamemode().to_owned()
     }
 
     /// Called when a player connects to the game.

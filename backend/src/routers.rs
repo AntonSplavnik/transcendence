@@ -6,7 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    notifications::NotificationManager, prelude::*, stream::StreamManager, utils::NickCache,
+    game::GameManager, notifications::NotificationManager, prelude::*, stream::StreamManager,
+    utils::NickCache,
 };
 
 pub mod users;
@@ -14,11 +15,8 @@ pub mod users;
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api(database: Db, game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
+pub fn rest_api(database: Db) -> Router {
     let api_routes = Router::with_path("api")
-        .hoop(affix_state::inject(NickCache::new(
-            crate::utils::NICK_CACHE_TTI,
-        )))
         .hoop(crate::auth::device_id_inserter_hoop)
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
@@ -28,7 +26,7 @@ pub fn rest_api(database: Db, game_manager: std::sync::Arc<crate::game::GameMana
             users::router("users"),
             crate::avatar::router("avatar"),
             crate::stream::router("stream"),
-            crate::game::router(game_manager),
+            crate::game::router("game"),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -43,16 +41,20 @@ pub fn rest_api(database: Db, game_manager: std::sync::Arc<crate::game::GameMana
         });
     }
 
+    let nick_cache = NickCache::new(crate::utils::NICK_CACHE_TTI);
+
     Router::new()
         .hoop(affix_state::inject(database))
-        .hoop(affix_state::inject(stream_manager))
+        .hoop(affix_state::inject(stream_manager.clone()))
         .hoop(affix_state::inject(NotificationManager::new()))
+        .hoop(affix_state::inject(GameManager::new(stream_manager)))
+        .hoop(affix_state::inject(nick_cache))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root(database: Db, game_manager: std::sync::Arc<crate::game::GameManager>) -> Router {
-    let api_routes = rest_api(database, game_manager);
+pub fn root(database: Db) -> Router {
+    let api_routes = rest_api(database);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(

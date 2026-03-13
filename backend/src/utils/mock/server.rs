@@ -57,10 +57,7 @@ impl Default for Server {
     fn default() -> Self {
         let db = Db::new_test().expect("Failed to create test database");
 
-        // TODO mock game manager???
-        let gm = crate::game::GameManager::new();
-
-        let router = crate::routers::rest_api(db.clone(), Arc::new(gm));
+        let router = crate::routers::rest_api(db.clone());
         Server {
             host: "http://localhost".into(),
             db,

@@ -7,10 +7,6 @@ use std::ffi::{c_void, CString};
 // Opaque pointer to C++ game object
 type RawGameHandle = *mut c_void;
 
-// =============================================================================
-// C-compatible structures
-// =============================================================================
-
 #[repr(C)]
 pub struct CCharacterSnapshot {
     pub player_id: u32,
@@ -34,10 +30,7 @@ pub struct CGameStateSnapshot {
     pub characters: [CCharacterSnapshot; 32],
 }
 
-// =============================================================================
-// External C functions
-// =============================================================================
-
+#[allow(dead_code)]
 extern "C" {
     // Game lifecycle
     fn game_create() -> RawGameHandle;
@@ -148,10 +141,6 @@ extern "C" {
     fn game_register_hit(game: RawGameHandle, attacker_id: u32, victim_id: u32, damage: f32);
 }
 
-// =============================================================================
-// Rust-friendly types
-// =============================================================================
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct Vector3D {
     pub x: f32,
@@ -187,16 +176,25 @@ pub struct GameStateSnapshot {
     pub characters: Vec<CharacterSnapshot>,
 }
 
-// =============================================================================
-// GameHandle — low-level newtype over the raw C++ pointer.
-// NOT Send/Sync. All FFI calls go through here.
-// =============================================================================
-
 pub struct GameHandle(RawGameHandle);
 
+// SAFETY: The underlying C++ game engine is only accessed through
+// `parking_lot::Mutex<GameHandle>` (in `Game`), ensuring exclusive
+// access. The raw pointer is never aliased across threads.
+unsafe impl Send for GameHandle {}
+
+#[allow(dead_code)]
 impl GameHandle {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(_gamemode: &str) -> Self {
         Self(unsafe { game_create() })
+    }
+
+    /// The gamemode name for this game.
+    ///
+    /// TODO: replace with `game_get_gamemode(RawGameHandle) -> *const c_char`
+    /// FFI call once the C++ side exposes per-gamemode configuration.
+    pub fn gamemode(&self) -> &str {
+        "Free for all"
     }
 
     pub fn start(&mut self) {
@@ -389,6 +387,22 @@ impl GameHandle {
 
     pub fn register_hit(&mut self, attacker_id: u32, victim_id: u32, damage: f32) {
         unsafe { game_register_hit(self.0, attacker_id, victim_id, damage) }
+    }
+
+    /// Minimum number of players required to start a game.
+    ///
+    /// TODO: replace with `game_get_min_players(RawGameHandle) -> u32` FFI call
+    /// once the C++ side exposes per-gamemode configuration.
+    pub fn min_players(&self) -> u32 {
+        2
+    }
+
+    /// Maximum number of players allowed in a game.
+    ///
+    /// TODO: replace with `game_get_max_players(RawGameHandle) -> u32` FFI call
+    /// once the C++ side exposes per-gamemode configuration.
+    pub fn max_players(&self) -> u32 {
+        8
     }
 }
 

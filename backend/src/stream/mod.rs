@@ -31,6 +31,7 @@ pub enum StreamType {
     /// [`CtrlMessage`] values.
     Ctrl(stream_manager::PendingConnectionKey),
     Game,
+    Lobby(ulid::Ulid),
 }
 
 /// Messages sent on the [`StreamType::Ctrl`] uni stream after the header.

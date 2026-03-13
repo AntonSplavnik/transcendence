@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
+use crate::game::GameError;
 use crate::stream::StreamApiError;
 
 #[derive(Error, Debug)]
@@ -20,6 +21,7 @@ pub enum ApiError {
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
+    Game(#[from] GameError),
 }
 
 impl Scribe for ApiError {
@@ -123,6 +125,22 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
+            Self::Game(err) => {
+                use crate::game::GameError;
+                match err {
+                    GameError::AlreadyInLobby => StatusError::conflict().brief(err.to_string()),
+                    GameError::LobbyFull => StatusError::conflict().brief(err.to_string()),
+                    GameError::SettingsLocked => StatusError::conflict().brief(err.to_string()),
+                    GameError::NotInLobby => StatusError::bad_request().brief(err.to_string()),
+                    GameError::NotAPlayer => StatusError::bad_request().brief(err.to_string()),
+                    GameError::LobbyNotFound => StatusError::not_found().brief(err.to_string()),
+                    GameError::NotHost => StatusError::forbidden().brief(err.to_string()),
+                    GameError::Stream(e) => {
+                        tracing::error!(error = %e, "game stream error");
+                        StatusError::internal_server_error()
+                    }
+                }
+            }
         };
 
         res.render(status_error);
