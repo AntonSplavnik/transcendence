@@ -17,33 +17,35 @@ BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f
 all: run
 
 docker: setup
-	@echo "Starting Docker deployment..."
+	@echo "🐳 Starting Docker deployment..."
+	@( until curl -sk https://localhost:8443 >/dev/null 2>&1; do sleep 1; done; \
+		$(MAKE) chrome-dev CHROME_URL=https://localhost:8443 ) &
 	@docker compose up --build
 
 # 'run' depends on the frontend build output and the DB
 run: frontend/dist/index.html setup create-db
-	@echo "Running development build..."
+	@echo "🚀 Running development build..."
 	@cd backend && cargo run
 
 run-opt: $(BACKEND_BIN) setup create-db
-	@echo "Starting optimized backend..."
+	@echo "🚀 Starting optimized backend..."
 	@cd backend && ../$(BACKEND_BIN)
 
 build: $(BACKEND_BIN) frontend/dist/index.html
 
 $(BACKEND_BIN): $(BACKEND_SRC)
-	@echo "Building backend (release)..."
+	@echo "📦 Building backend (release)..."
 	@cd backend && cargo build --release
 
 frontend/dist/index.html: $(FRONTEND_SRC)
-	@echo "Building frontend..."
+	@echo "🎨 Building frontend..."
 	@cd frontend && npm install && npm run build
 	@touch frontend/dist/index.html # Update timestamp to ensure Make knows it's done
 
 # --------------------------
 
 dev: setup create-db
-	@echo "Starting development environment..."
+	@echo "🛠️  Starting development environment..."
 	@$(MAKE) chrome-dev CHROME_URL=http://localhost:5173 &
 	@cd frontend && npm install && VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev & \
 		cd backend && cargo run
@@ -52,14 +54,20 @@ setup:
 	@echo "⚙️  Setting up environment..."
 	@if [ ! -f $(ENV_FILE) ]; then \
 		cp $(ENV_EXAMPLE) $(ENV_FILE); \
-		echo "Created $(ENV_FILE) from example."; \
+		echo "✅ Created $(ENV_FILE) from example."; \
 	fi
 	@if [ ! -f backend/certs/cert.pem ]; then \
+		if ! command -v mkcert >/dev/null 2>&1; then \
+			echo "❌ mkcert is not installed. Please install it first:"; \
+			echo "   macOS:  brew install mkcert"; \
+			echo "   Linux:  https://github.com/FiloSottile/mkcert#installation"; \
+			exit 1; \
+		fi; \
 		mkdir -p backend/certs; \
 		mkcert -install > /dev/null 2>&1; \
 		mkcert -key-file backend/certs/key.pem -cert-file backend/certs/cert.pem \
 			ip6-localhost ip6-loopback localhost 127.0.0.1 0.0.0.0 "::1" "::" > /dev/null 2>&1; \
-		echo "Generated mkcert TLS certificate in backend/certs/."; \
+		echo "✅ Generated mkcert TLS certificate in backend/certs/."; \
 	fi
 
 check-cert:
@@ -84,7 +92,7 @@ check-cert:
 			echo "⚠️  WARNING: mkcert CA is not installed in the system trust store."; \
 			echo "   Browsers will not trust the certificate. Run: mkcert -install"; \
 		else \
-			echo "Certificate is a valid mkcert certificate and the CA is trusted."; \
+			echo "✅ Certificate is a valid mkcert certificate and the CA is trusted."; \
 		fi; \
 	fi
 
@@ -97,10 +105,19 @@ chrome-dev:
 		fi; \
 	done; \
 	if [ -z "$$CHROME_BIN" ]; then \
+		for mac_path in \
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+			"/Applications/Chromium.app/Contents/MacOS/Chromium"; do \
+			if [ -x "$$mac_path" ]; then \
+				CHROME_BIN="$$mac_path"; break; \
+			fi; \
+		done; \
+	fi; \
+	if [ -z "$$CHROME_BIN" ]; then \
 		echo "⚠️  No Chrome/Chromium binary found in PATH."; \
 		exit 1; \
 	fi; \
-	$$CHROME_BIN \
+	"$$CHROME_BIN" \
 		--user-data-dir="/tmp/chrome-dev-wt" \
 		--webtransport-developer-mode \
 		--no-first-run \
@@ -141,4 +158,4 @@ clean:
 	@rm -rf frontend/node_modules
 	@rm -rf /tmp/chrome-dev-wt
 	@cd backend && cargo clean
-	@echo "Workspace cleaned."
+	@echo "✨ Workspace cleaned."

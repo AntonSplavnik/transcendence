@@ -2,12 +2,13 @@
 set -e
 
 # Generate self-signed certs if absent (users can mount their own)
-if [ ! -f /app/certs/cert.pem ]; then
+if [ ! -f /app/certs/cert.pem ] || [ ! -f /app/certs/key.pem ]; then
     mkdir -p /app/certs
     openssl req -x509 -newkey rsa:2048 -nodes \
         -keyout /app/certs/key.pem \
         -out /app/certs/cert.pem \
-        -days 365 -subj "/CN=localhost"
+        -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+    chmod 600 /app/certs/key.pem
 fi
 
 # Create data directory for SQLite if absent
