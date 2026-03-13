@@ -4,100 +4,104 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Font custom properties (change one line to swap all headings/body) ── */
-  :root {
-    --font-display: 'Fredoka', 'Nunito Sans', system-ui, sans-serif;
-    --font-body: 'Nunito Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
-    height: 100%;
-    margin: 0;
-  }
+	/* ── Font custom properties (change one line to swap all headings/body) ── */
+	:root {
+		--font-display: 'Fredoka Variable', 'Nunito Sans Variable', system-ui, sans-serif;
+		--font-body: 'Nunito Sans Variable', system-ui, sans-serif;
+		--font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+		height: 100%;
+		margin: 0;
+	}
 
-  html, body, #root { height: 100%; }
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
 
-  html {
-    font-size: 16px;
-  }
+	html {
+		font-size: 16px;
+	}
 
-  body {
-    @apply bg-stone-900 text-stone-200 antialiased;
-    font-family: var(--font-body);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background-image: radial-gradient(ellipse at 50% 0%, rgba(224, 160, 48, 0.03) 0%, transparent 60%);
-  }
+	body {
+		@apply bg-stone-900 text-stone-200 antialiased;
+		font-family: var(--font-body);
+		line-height: 1.5;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		background-image: radial-gradient(
+			ellipse at 50% 0%,
+			rgba(224, 160, 48, 0.03) 0%,
+			transparent 60%
+		);
+	}
 
-  /* ── Typography ── */
-  h1 { @apply font-display text-4xl font-bold tracking-tight text-stone-50; }
-  h2 { @apply font-display text-2xl font-semibold text-stone-50; }
-  h3 { @apply font-display text-xl font-semibold text-stone-100; }
-  p  { @apply text-base leading-relaxed; }
+	/* ── Typography ── */
+	h1 {
+		@apply font-display text-4xl font-bold tracking-tight text-stone-50;
+	}
+	h2 {
+		@apply font-display text-2xl font-semibold text-stone-50;
+	}
+	h3 {
+		@apply font-display text-xl font-semibold text-stone-100;
+	}
+	p {
+		@apply text-base leading-relaxed;
+	}
 
-  /* ── Focus ring (gold instead of blue) ── */
-  :focus-visible {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgba(224, 160, 48, 0.4);
-  }
+	/* ── Focus ring (gold instead of blue) ── */
+	:focus-visible {
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+		box-shadow: 0 0 0 2px rgba(224, 160, 48, 0.4);
+	}
 
-  /* ── Selection ── */
-  ::selection {
-    background-color: rgba(224, 160, 48, 0.3);
-    color: #f8f0e0;
-  }
+	/* ── Selection ── */
+	::selection {
+		background-color: rgba(224, 160, 48, 0.3);
+		color: #f8f0e0;
+	}
 
-  /* ── Autofill overrides ── */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px #1a1a1e inset !important;
-    -webkit-text-fill-color: #e8e0d4 !important;
-    transition: background-color 5000s ease-in-out 0s;
-    border-radius: 0.5rem;
-  }
-  input:-moz-autofill {
-    filter: none !important;
-    background-color: #1a1a1e !important;
-    color: #e8e0d4 !important;
-  }
+	/* ── Autofill overrides ── */
+	input:-webkit-autofill,
+	input:-webkit-autofill:hover,
+	input:-webkit-autofill:focus,
+	input:-webkit-autofill:active {
+		-webkit-box-shadow: 0 0 0 30px #1a1a1e inset !important;
+		-webkit-text-fill-color: #e8e0d4 !important;
+		transition: background-color 5000s ease-in-out 0s;
+		border-radius: 0.5rem;
+	}
+	input:-moz-autofill {
+		filter: none !important;
+		background-color: #1a1a1e !important;
+		color: #e8e0d4 !important;
+	}
 
-  /* ── Scrollbar (webkit) ── */
-  ::-webkit-scrollbar {
-    width: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #1a1a1e;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #484448;
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #5a5a5a;
-  }
+	/* ── Scrollbar (webkit) ── */
+	::-webkit-scrollbar {
+		width: 8px;
+	}
+	::-webkit-scrollbar-track {
+		background: #1a1a1e;
+	}
+	::-webkit-scrollbar-thumb {
+		background: #484448;
+		border-radius: 4px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background: #5a5a5a;
+	}
 }
 
 @layer components {
-  /* ── Card stone surface ── */
-  .card-stone {
-    @apply bg-stone-800 border border-stone-700 rounded-lg;
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.3),
-      0 2px 4px -2px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 0 rgba(248, 240, 224, 0.03);
-  }
-}
-
-/* ── Animations ── */
-@keyframes dropdown-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+	/* ── Card stone surface ── */
+	.card-stone {
+		@apply bg-stone-800 border border-stone-700 rounded-lg;
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.3),
+			0 2px 4px -2px rgba(0, 0, 0, 0.2),
+			inset 0 1px 0 0 rgba(248, 240, 224, 0.03);
+	}
 }

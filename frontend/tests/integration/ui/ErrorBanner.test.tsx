@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, userEvent } from '../../helpers/render';
-import ErrorBanner from '../../../src/components/ui/ErrorBanner';
+import ErrorBanner, { AUTO_DISMISS_MS } from '../../../src/components/ui/ErrorBanner';
 import { createMockStoredError } from '../../fixtures/errors';
 
 describe('ErrorBanner', () => {
@@ -38,12 +38,12 @@ describe('ErrorBanner', () => {
 		expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 	});
 
-	it('auto-dismisses after 5 seconds', async () => {
+	it('auto-dismisses after AUTO_DISMISS_MS', async () => {
 		renderBanner();
 
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(AUTO_DISMISS_MS);
 
 		expect(mockOnDismiss).toHaveBeenCalledTimes(1);
 	});
@@ -73,7 +73,7 @@ describe('ErrorBanner', () => {
 
 		unmount();
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(AUTO_DISMISS_MS);
 
 		// onDismiss should not be called after unmount
 		expect(mockOnDismiss).not.toHaveBeenCalled();
@@ -88,19 +88,21 @@ describe('ErrorBanner', () => {
 			{ withAuth: false }
 		);
 
+		const half = AUTO_DISMISS_MS / 2;
+
 		// Advance halfway
-		vi.advanceTimersByTime(2500);
+		vi.advanceTimersByTime(half);
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
 		// Change error - should reset timer
 		rerender(<ErrorBanner error={error2} onDismiss={mockOnDismiss} />);
 
-		// Advance another 2500ms (would be 5000ms total from first error)
-		vi.advanceTimersByTime(2500);
+		// Advance another half (would be full duration from first error)
+		vi.advanceTimersByTime(half);
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 
 		// Advance remaining time for new error
-		vi.advanceTimersByTime(2500);
+		vi.advanceTimersByTime(half);
 		expect(mockOnDismiss).toHaveBeenCalledTimes(1);
 	});
 
@@ -146,7 +148,7 @@ describe('ErrorBanner', () => {
 			{ withAuth: false }
 		);
 
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(AUTO_DISMISS_MS);
 
 		expect(mockOnDismiss).not.toHaveBeenCalled();
 	});

@@ -109,11 +109,12 @@ function assertZstdInitialized(): void {
 function readU32BE(buf: Uint8Array, offset: number): number {
 	// Big-endian u32
 	return (
-		(buf[offset] << 24) |
-		(buf[offset + 1] << 16) |
-		(buf[offset + 2] << 8) |
-		buf[offset + 3]
-	) >>> 0;
+		((buf[offset] << 24) |
+			(buf[offset + 1] << 16) |
+			(buf[offset + 2] << 8) |
+			buf[offset + 3]) >>>
+		0
+	);
 }
 
 function writeU32BE(buf: Uint8Array, offset: number, value: number): void {
@@ -171,8 +172,7 @@ export class CompressedCborEncoder {
 	readonly maxFrameBytes: number;
 
 	constructor(options: EncoderOptions = {}) {
-		this.compressThreshold =
-			options.compressThreshold ?? DEFAULT_COMPRESS_THRESHOLD;
+		this.compressThreshold = options.compressThreshold ?? DEFAULT_COMPRESS_THRESHOLD;
 		this.zstdLevel = options.zstdLevel ?? DEFAULT_ZSTD_LEVEL;
 		this.maxFrameBytes = options.maxFrameBytes ?? DEFAULT_MAX_ENCODE_FRAME_BYTES;
 	}
@@ -200,9 +200,7 @@ export class CompressedCborEncoder {
 			);
 		}
 		if (totalLen > 0xffffffff) {
-			throw new Error(
-				`Frame too large to encode: total_len=${totalLen} exceeds u32`,
-			);
+			throw new Error(`Frame too large to encode: total_len=${totalLen} exceeds u32`);
 		}
 
 		const out = new Uint8Array(4 + totalLen);
@@ -256,8 +254,7 @@ export class CompressedCborDecoder<T = unknown> {
 	 * Keeps any incomplete trailing frame buffered for the next call.
 	 */
 	push(chunk: Uint8Array | ArrayBuffer): T[] {
-		const inChunk =
-			chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+		const inChunk = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
 		this.append(inChunk);
 		return this.drain();
 	}
@@ -329,9 +326,7 @@ export class CompressedCborDecoder<T = unknown> {
 				const decompressed = zstdDecompress(compressed);
 				msg = cborDecode(decompressed);
 			} else {
-				throw new Error(
-					`Unknown frame flags: ${flags} (expected 0 or 1)`,
-				);
+				throw new Error(`Unknown frame flags: ${flags} (expected 0 or 1)`);
 			}
 
 			out.push(msg as T);
@@ -344,7 +339,7 @@ export class CompressedCborDecoder<T = unknown> {
 			if (remaining === 0) {
 				this.start = 0;
 				this.end = 0;
-			} else if (this.start >= 64 * 1024 || this.start > (this.buf.length >>> 1)) {
+			} else if (this.start >= 64 * 1024 || this.start > this.buf.length >>> 1) {
 				this.buf.copyWithin(0, this.start, this.end);
 				this.start = 0;
 				this.end = remaining;

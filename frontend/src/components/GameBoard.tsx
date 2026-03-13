@@ -1,5 +1,5 @@
-import BabylonCanvas from "./GameBoard/BabylonCanvas";
-import { Button } from "./ui";
+import BabylonCanvas from './GameBoard/BabylonCanvas';
+import { Button } from './ui';
 
 export default function GameBoard({ onLeave }: { onLeave: () => void }) {
 	return (

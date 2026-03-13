@@ -65,7 +65,7 @@ export const handlers = [
 		// For testing auth check failures
 		if (request.url.includes('fail')) {
 			return HttpResponse.json(
-				{ error: createMockApiError({ code: 401, brief: 'MissingJwtCookie' }) },
+				{ error: createMockApiError({ code: 401, brief: 'MissingSessionCookie' }) },
 				{ status: 401 }
 			);
 		}
@@ -158,7 +158,7 @@ export function mockUnauthenticatedUser() {
 	server.use(
 		http.get('/api/user/me', () => {
 			return HttpResponse.json(
-				{ error: createMockApiError({ code: 401, brief: 'MissingJwtCookie' }) },
+				{ error: createMockApiError({ code: 401, brief: 'MissingSessionCookie' }) },
 				{ status: 401 }
 			);
 		})

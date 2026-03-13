@@ -1,5 +1,6 @@
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use salvo::catcher::Catcher;
 use salvo::conn::Acceptor;
@@ -26,8 +27,11 @@ mod utils;
 mod validate;
 
 pub use error::ApiError;
+use tokio::sync::Notify;
 
 use crate::config::{ServerConfig, TlsConfig};
+
+pub static ON_SHUTDOWN: Notify = Notify::const_new();
 
 fn main() -> ExitCode {
     #[allow(
@@ -57,12 +61,15 @@ async fn async_main() -> ExitCode {
     eprintln!("📖 Open API Pages are only enabled with debug builds.");
     #[cfg(debug_assertions)]
     {
-        let listen_addr = &config.listen_addr;
+        let listen_addr = if config.listen_addr == "::" {
+            "[::]".to_string()
+        } else if config.listen_addr.contains(':') && !config.listen_addr.starts_with('[') {
+            format!("[{}]", config.listen_addr)
+        } else {
+            config.listen_addr.clone()
+        };
         let port = config.listen_https_port;
-        eprintln!(
-            "📖 Open API Pages: https://{}:{port}/scalar",
-            listen_addr.replace("0.0.0.0", "127.0.0.1")
-        );
+        eprintln!("📖 Open API Pages: https://{listen_addr}:{port}/scalar");
     }
 
     let logger = config.log.guard();
@@ -140,7 +147,6 @@ where
     tokio::spawn(shutdown_signal(server.handle()));
 
     let service = Service::new(router).catcher(Catcher::default());
-
     server.serve(service).await;
 }
 
@@ -166,5 +172,8 @@ async fn shutdown_signal(handle: ServerHandle) {
         _ = ctrl_c => tracing::info!("ctrl_c signal received"),
         _ = terminate => tracing::info!("terminate signal received"),
     }
-    handle.stop_graceful(std::time::Duration::from_secs(60));
+    handle.stop_graceful(Duration::from_secs(10));
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    ON_SHUTDOWN.notify_waiters();
+    tokio::time::sleep(Duration::from_secs(1)).await;
 }
