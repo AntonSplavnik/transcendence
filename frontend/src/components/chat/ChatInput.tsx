@@ -69,8 +69,14 @@ export default function ChatInput({
 	onScrollMessages,
 	maxLength,
 }: ChatInputProps) {
-	const { activeRoomId, sendMessage, sendTypingIndicator, chatOpen, setChatOpen, updatePreferences } =
-		useChat();
+	const {
+		activeRoomId,
+		sendMessage,
+		sendTypingIndicator,
+		chatOpen,
+		setChatOpen,
+		updatePreferences,
+	} = useChat();
 	const [value, setValue] = useState('');
 	const [feedback, setFeedback] = useState<string | null>(null);
 	const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

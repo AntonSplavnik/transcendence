@@ -29,10 +29,7 @@ import type { PendingConnectionKey } from '../api/stream';
  * The `Ctrl` variant carries the {@link PendingConnectionKey} used for
  * the authentication handshake.
  */
-export type StreamType =
-	| 'Notifications'
-	| { Ctrl: PendingConnectionKey }
-	| { ChatRoom: string };
+export type StreamType = 'Notifications' | { Ctrl: PendingConnectionKey } | { ChatRoom: string };
 
 // ─── Ctrl stream messages ────────────────────────────────────────────────────
 

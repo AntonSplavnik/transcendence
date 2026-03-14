@@ -31,9 +31,7 @@ export default function ChatMessage({
 	if (item.kind === 'system') {
 		return (
 			<div className={`text-stone-500 italic text-[11px] leading-tight ${shadowClass}`}>
-				{roomTag && (
-					<span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>
-				)}
+				{roomTag && <span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>}
 				{item.event.text}
 			</div>
 		);
@@ -42,10 +40,8 @@ export default function ChatMessage({
 	if (item.kind === 'server') {
 		return (
 			<div className={`text-info-light italic text-[11px] leading-tight ${shadowClass}`}>
-				{roomTag && (
-					<span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>
-				)}
-				⚔ {item.text}
+				{roomTag && <span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>}⚔{' '}
+				{item.text}
 			</div>
 		);
 	}
@@ -53,9 +49,7 @@ export default function ChatMessage({
 	// kind === 'msg'
 	return (
 		<div className={`text-xs leading-tight ${shadowClass}`}>
-			{roomTag && (
-				<span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>
-			)}
+			{roomTag && <span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>}
 			<Username
 				userId={item.msg.sender_id}
 				nickname={item.nickname}

@@ -81,10 +81,7 @@ export type ServerMessage =
  * Messages the client can send on a chat room bidi stream.
  * Server silently ignores messages not applicable to the room type.
  */
-export type ClientMessage =
-	| { SendText: string }
-	| 'IsTyping'
-	| { ReadText: string }; // Ulid of the message being marked as read
+export type ClientMessage = { SendText: string } | 'IsTyping' | { ReadText: string }; // Ulid of the message being marked as read
 
 // ─── Internal: state types ────────────────────────────────────────────────────
 

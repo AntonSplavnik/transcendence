@@ -18,8 +18,15 @@ import ChatInput from './ChatInput';
 import ChatErrorToast from './ChatErrorToast';
 
 export default function ChatOverlay() {
-	const { preferences, chatOpen, setChatOpen, orderedRoomIds, activeRoomId, setActiveRoomId, rooms } =
-		useChat();
+	const {
+		preferences,
+		chatOpen,
+		setChatOpen,
+		orderedRoomIds,
+		activeRoomId,
+		setActiveRoomId,
+		rooms,
+	} = useChat();
 	const { user } = useAuth();
 	const location = useLocation();
 
@@ -105,9 +112,7 @@ export default function ChatOverlay() {
 			</div>
 
 			{/* Input — always visible, always interactive */}
-			<div
-				className="pointer-events-auto bg-stone-950/60 border border-stone-700/40 rounded mx-0 mb-0"
-			>
+			<div className="pointer-events-auto bg-stone-950/60 border border-stone-700/40 rounded mx-0 mb-0">
 				<ChatInput
 					inputRef={inputRef}
 					onNavigateTab={handleNavigateTab}

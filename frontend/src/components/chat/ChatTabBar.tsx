@@ -21,7 +21,12 @@ function truncateLabel(label: string, max = 7): string {
 
 function getRoomLabel(
 	roomId: string,
-	room: { chatType: string | null; name: string | null; members: { user_id: number }[] | null; nicks: Map<number, string> },
+	room: {
+		chatType: string | null;
+		name: string | null;
+		members: { user_id: number }[] | null;
+		nicks: Map<number, string>;
+	},
 	currentUserId: number,
 ): string {
 	void roomId;
@@ -65,7 +70,10 @@ export default function ChatTabBar({ currentUserId }: ChatTabBarProps) {
 		}
 	}
 
-	const visibleTabs = orderedRoomIds.slice(visibleStartIndex, visibleStartIndex + MAX_VISIBLE_TABS);
+	const visibleTabs = orderedRoomIds.slice(
+		visibleStartIndex,
+		visibleStartIndex + MAX_VISIBLE_TABS,
+	);
 	const showLeft = visibleStartIndex > 0;
 	const showRight = visibleStartIndex + MAX_VISIBLE_TABS < orderedRoomIds.length;
 
@@ -83,7 +91,11 @@ export default function ChatTabBar({ currentUserId }: ChatTabBarProps) {
 	if (orderedRoomIds.length === 0) return null;
 
 	return (
-		<div className="flex items-center border-b border-stone-700/60 select-none" role="tablist" aria-label="Chat rooms">
+		<div
+			className="flex items-center border-b border-stone-700/60 select-none"
+			role="tablist"
+			aria-label="Chat rooms"
+		>
 			{/* Left chevron */}
 			{showLeft ? (
 				<button

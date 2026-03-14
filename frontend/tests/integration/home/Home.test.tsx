@@ -34,10 +34,12 @@ describe('Home', () => {
 		server.use(
 			http.get('/api/user/me', () => {
 				return HttpResponse.json(authResponse);
-			})
+			}),
 		);
 
-		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+		return render(
+			<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />,
+		);
 	};
 
 	describe('user info display', () => {
@@ -123,7 +125,7 @@ describe('Home', () => {
 
 			// Session with plenty of time remaining
 			const futureExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-			renderHome({}, { access_expiry: futureExpiry });
+			renderHome({}, { login_expiry: futureExpiry });
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
@@ -137,9 +139,9 @@ describe('Home', () => {
 		it('opens ReauthModal when session near expiry (<30 min)', async () => {
 			const user = userEvent.setup();
 
-			// Session expiring soon
+			// Session expiring soon (login_expiry, not access_expiry)
 			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-			renderHome({}, { access_expiry: nearExpiry });
+			renderHome({}, { login_expiry: nearExpiry });
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
@@ -226,20 +228,25 @@ describe('Home', () => {
 			// Delay the auth response
 			server.use(
 				http.get('/api/user/me', async () => {
-					await new Promise(resolve => setTimeout(resolve, 1000));
+					await new Promise((resolve) => setTimeout(resolve, 1000));
 					return HttpResponse.json(createMockAuthResponse());
-				})
+				}),
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+			render(
+				<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />,
+			);
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
 
 			// Drain the delayed response before test exits
-			await waitFor(() => {
-				expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
-			}, { timeout: 2000 });
+			await waitFor(
+				() => {
+					expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
+				},
+				{ timeout: 2000 },
+			);
 		});
 	});
 
@@ -248,7 +255,7 @@ describe('Home', () => {
 			const user = userEvent.setup();
 
 			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-			const authResponse = createMockAuthResponse({}, { access_expiry: nearExpiry });
+			const authResponse = createMockAuthResponse({}, { login_expiry: nearExpiry });
 
 			server.use(
 				http.get('/api/user/me', () => {
@@ -256,10 +263,12 @@ describe('Home', () => {
 				}),
 				http.post('/api/auth/session-management/reauth', () => {
 					return HttpResponse.json(createMockAuthResponse());
-				})
+				}),
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+			render(
+				<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />,
+			);
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();
@@ -283,7 +292,7 @@ describe('Home', () => {
 			const user = userEvent.setup();
 
 			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-			renderHome({}, { access_expiry: nearExpiry });
+			renderHome({}, { login_expiry: nearExpiry });
 
 			await waitFor(() => {
 				expect(screen.getByText('Play a Match')).toBeInTheDocument();

@@ -33,7 +33,7 @@ export function createMockSession(overrides?: Partial<Session>): Session {
 
 export function createMockAuthResponse(
 	userOverrides?: Partial<User>,
-	sessionOverrides?: Partial<Session>
+	sessionOverrides?: Partial<Session>,
 ): AuthResponse {
 	return {
 		user: createMockUser(userOverrides),
@@ -43,9 +43,9 @@ export function createMockAuthResponse(
 
 export function createMockSessionNearExpiry(minutesLeft: number = 10): Session {
 	const now = new Date();
-	const accessExpiry = new Date(now.getTime() + minutesLeft * 60 * 1000);
+	const loginExpiry = new Date(now.getTime() + minutesLeft * 60 * 1000);
 
 	return createMockSession({
-		access_expiry: accessExpiry.toISOString(),
+		login_expiry: loginExpiry.toISOString(),
 	});
 }
