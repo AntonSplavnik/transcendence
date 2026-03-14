@@ -336,10 +336,9 @@ impl GameManager {
         if should_schedule_cleanup {
             let gm = self.clone();
             let mut lobby = lobby_arc.lock();
-            lobby.schedule_cleanup(
-                &tokio::runtime::Handle::current(),
-                move |lid| gm.destroy_lobby(lid),
-            );
+            lobby.schedule_cleanup(&tokio::runtime::Handle::current(), move |lid| {
+                gm.destroy_lobby(lid)
+            });
         }
 
         debug!(lobby_id = %lobby_id, user_id, "user left lobby");

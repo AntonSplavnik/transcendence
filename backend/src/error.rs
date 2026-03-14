@@ -141,9 +141,9 @@ impl Scribe for ApiError {
                     GameError::AlreadyInLobby
                     | GameError::LobbyFull
                     | GameError::SettingsLocked => StatusError::conflict().brief(code),
-                    GameError::NotInLobby
-                    | GameError::NotAPlayer
-                    | GameError::LobbyMismatch => StatusError::bad_request().brief(code),
+                    GameError::NotInLobby | GameError::NotAPlayer | GameError::LobbyMismatch => {
+                        StatusError::bad_request().brief(code)
+                    }
                 }
             }
         };

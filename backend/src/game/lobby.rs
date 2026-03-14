@@ -331,8 +331,8 @@ impl Lobby {
         // Countdown only starts when at least half the players (ceiling, min 2) are ready
         // AND there are enough players for the game.
         let ready_threshold = std::cmp::max(2, player_count.div_ceil(2));
-        let can_start = player_count >= self.game.min_players() as usize
-            && ready_count >= ready_threshold;
+        let can_start =
+            player_count >= self.game.min_players() as usize && ready_count >= ready_threshold;
 
         if !can_start {
             if matches!(self.countdown, CountdownState::Running { .. }) {
