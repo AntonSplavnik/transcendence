@@ -503,7 +503,7 @@ impl StreamManager {
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
-        let token = entry.disconnect_token.clone();
+        let token = entry.disconnect_token.child_token();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -555,7 +555,7 @@ impl StreamManager {
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
-        let token = entry.disconnect_token.clone();
+        let token = entry.disconnect_token.child_token();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
