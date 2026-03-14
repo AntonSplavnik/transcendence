@@ -127,18 +127,23 @@ impl Scribe for ApiError {
             },
             Self::Game(err) => {
                 use crate::game::GameError;
+                // Derive a static variant-name string for the HTTP `brief` field so
+                // clients can pattern-match on machine-readable codes (same pattern
+                // as AuthError / TwoFactorError above).
+                let code: &'static str = (&err).into();
                 match err {
-                    GameError::AlreadyInLobby => StatusError::conflict().brief(err.to_string()),
-                    GameError::LobbyFull => StatusError::conflict().brief(err.to_string()),
-                    GameError::SettingsLocked => StatusError::conflict().brief(err.to_string()),
-                    GameError::NotInLobby => StatusError::bad_request().brief(err.to_string()),
-                    GameError::NotAPlayer => StatusError::bad_request().brief(err.to_string()),
-                    GameError::LobbyNotFound => StatusError::not_found().brief(err.to_string()),
-                    GameError::NotHost => StatusError::forbidden().brief(err.to_string()),
                     GameError::Stream(e) => {
                         tracing::error!(error = %e, "game stream error");
                         StatusError::internal_server_error()
                     }
+                    GameError::NotHost => StatusError::forbidden().brief(code),
+                    GameError::LobbyNotFound => StatusError::not_found().brief(code),
+                    GameError::AlreadyInLobby
+                    | GameError::LobbyFull
+                    | GameError::SettingsLocked => StatusError::conflict().brief(code),
+                    GameError::NotInLobby
+                    | GameError::NotAPlayer
+                    | GameError::LobbyMismatch => StatusError::bad_request().brief(code),
                 }
             }
         };

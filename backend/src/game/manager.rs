@@ -14,7 +14,7 @@ use super::messages::GameClientMessage;
 use crate::models::nickname::Nickname;
 use crate::stream::{StreamManager, StreamType};
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, strum::IntoStaticStr)]
 pub enum GameError {
     #[error("already in a lobby")]
     AlreadyInLobby,
@@ -36,6 +36,10 @@ pub enum GameError {
 
     #[error("cannot modify settings of a public lobby")]
     SettingsLocked,
+
+    /// The user is in a lobby, but not the one specified in the request.
+    #[error("lobby id mismatch")]
+    LobbyMismatch,
 
     #[error("stream error: {0}")]
     Stream(#[from] anyhow::Error),
@@ -107,21 +111,39 @@ impl GameManager {
         };
 
         // Phase 2: async — open a uni-stream (server→client, no locks held)
-        let result = lobby_streams
+        let cancel = lobby_streams
             .create_uni_stream(host_id, StreamType::Lobby(lobby_id), &self.sm)
             .await;
 
-        if let Err(e) = result {
-            let mut state = self.state.lock();
-            state.lobbies.swap_remove(&lobby_id);
-            state.user_lobby.swap_remove(&host_id);
-            return Err(GameError::Stream(e));
+        let cancel = match cancel {
+            Err(e) => {
+                let mut state = self.state.lock();
+                state.lobbies.swap_remove(&lobby_id);
+                state.user_lobby.swap_remove(&host_id);
+                return Err(GameError::Stream(e));
+            }
+            Ok(c) => c,
+        };
+
+        // When the lobby stream closes for any reason (network drop, explicit leave,
+        // or server-side close) ensure the user is removed from the lobby so they
+        // are never left in a "ghost" state without an open stream.
+        {
+            let gm = self.clone();
+            tokio::spawn(async move {
+                cancel.cancelled().await;
+                let _ = gm.leave(host_id, lobby_id);
+            });
         }
 
-        // Phase 3: sync — finalize player addition (under lobby lock)
+        // Phase 3: sync — finalize player addition, send snapshot (under lobby lock)
         {
             let mut lobby = lobby_arc.lock();
             lobby.finish_add_player(host_id, nickname);
+            let snapshot = lobby.info();
+            lobby
+                .lobby_streams()
+                .send(host_id, &LobbyServerMessage::LobbySnapshot(snapshot));
         }
 
         info!(lobby_id = %lobby_id, host_id, "lobby created");
@@ -165,19 +187,35 @@ impl GameManager {
         };
 
         // Phase 2: async — open a uni-stream (server→client, no locks held)
-        let result = lobby_streams
+        let cancel = lobby_streams
             .create_uni_stream(user_id, StreamType::Lobby(lobby_id), &self.sm)
             .await;
 
-        if let Err(e) = result {
-            self.state.lock().user_lobby.swap_remove(&user_id);
-            return Err(GameError::Stream(e));
+        let cancel = match cancel {
+            Err(e) => {
+                self.state.lock().user_lobby.swap_remove(&user_id);
+                return Err(GameError::Stream(e));
+            }
+            Ok(c) => c,
+        };
+
+        // Auto-cleanup: remove from lobby when the lobby stream closes.
+        {
+            let gm = self.clone();
+            tokio::spawn(async move {
+                cancel.cancelled().await;
+                let _ = gm.leave(user_id, lobby_id);
+            });
         }
 
-        // Phase 3: sync — finalize + evaluate countdown (under lobby lock)
+        // Phase 3: sync — finalize, send snapshot, evaluate countdown (under lobby lock)
         {
             let mut lobby = lobby_arc.lock();
             lobby.finish_add_player(user_id, nickname);
+            let snapshot = lobby.info();
+            lobby
+                .lobby_streams()
+                .send(user_id, &LobbyServerMessage::LobbySnapshot(snapshot));
             let gm = self.clone();
             lobby.evaluate_countdown(move |lid| gm.start_game(lid));
         }
@@ -220,41 +258,64 @@ impl GameManager {
         };
 
         // Phase 2: async — open a uni-stream (server→client, no locks held)
-        let result = lobby_streams
+        let cancel = lobby_streams
             .create_uni_stream(user_id, StreamType::Lobby(lobby_id), &self.sm)
             .await;
 
-        if let Err(e) = result {
-            self.state.lock().user_lobby.swap_remove(&user_id);
-            return Err(GameError::Stream(e));
+        let cancel = match cancel {
+            Err(e) => {
+                self.state.lock().user_lobby.swap_remove(&user_id);
+                return Err(GameError::Stream(e));
+            }
+            Ok(c) => c,
+        };
+
+        // Auto-cleanup: remove from lobby when the lobby stream closes.
+        {
+            let gm = self.clone();
+            tokio::spawn(async move {
+                cancel.cancelled().await;
+                let _ = gm.leave(user_id, lobby_id);
+            });
         }
 
-        // Phase 3: sync — finalize (under lobby lock)
+        // Phase 3: sync — finalize, send snapshot (under lobby lock)
         {
             let mut lobby = lobby_arc.lock();
             lobby.finish_add_spectator(user_id, nickname);
+            let snapshot = lobby.info();
+            lobby
+                .lobby_streams()
+                .send(user_id, &LobbyServerMessage::LobbySnapshot(snapshot));
         }
 
         debug!(lobby_id = %lobby_id, user_id, "spectator joined lobby");
         Ok(())
     }
 
-    /// Leave the current lobby (works for both players and spectators).
-    pub fn leave(&self, user_id: i32) -> Result<(), GameError> {
-        let (lobby_id, lobby_arc) = {
+    /// Leave the specified lobby (works for both players and spectators).
+    ///
+    /// Returns [`GameError::LobbyMismatch`] if the user is in a different lobby
+    /// than `lobby_id`, giving the client a clear signal that it has stale state.
+    pub fn leave(&self, user_id: i32, lobby_id: Ulid) -> Result<(), GameError> {
+        let lobby_arc = {
             let mut state = self.state.lock();
 
-            let lobby_id = state
+            let current_lobby_id = state
                 .user_lobby
-                .swap_remove(&user_id)
-                .ok_or_else(|| GameError::NotInLobby)?;
+                .get(&user_id)
+                .ok_or(GameError::NotInLobby)?;
 
-            let lobby_arc = match state.lobbies.get(&lobby_id) {
+            if *current_lobby_id != lobby_id {
+                return Err(GameError::LobbyMismatch);
+            }
+
+            state.user_lobby.swap_remove(&user_id);
+
+            match state.lobbies.get(&lobby_id) {
                 Some(l) => l.clone(),
                 None => return Ok(()),
-            };
-
-            (lobby_id, lobby_arc)
+            }
         };
 
         let should_schedule_cleanup;
@@ -263,7 +324,6 @@ impl GameManager {
 
             if lobby.has_player(user_id) {
                 lobby.remove_player(user_id);
-                // Re-evaluate countdown
                 let gm = self.clone();
                 lobby.evaluate_countdown(move |lid| gm.start_game(lid));
             } else {
@@ -276,15 +336,19 @@ impl GameManager {
         if should_schedule_cleanup {
             let gm = self.clone();
             let mut lobby = lobby_arc.lock();
-            lobby.schedule_cleanup(move |lid| gm.destroy_lobby(lid));
+            lobby.schedule_cleanup(
+                &tokio::runtime::Handle::current(),
+                move |lid| gm.destroy_lobby(lid),
+            );
         }
 
         debug!(lobby_id = %lobby_id, user_id, "user left lobby");
         Ok(())
     }
 
-    pub fn set_ready(&self, user_id: i32, ready: bool) -> Result<(), GameError> {
-        let lobby_arc = self.get_user_lobby_arc(user_id)?;
+    /// Set the ready state for a player in the specified lobby.
+    pub fn set_ready(&self, user_id: i32, lobby_id: Ulid, ready: bool) -> Result<(), GameError> {
+        let lobby_arc = self.get_lobby_arc_verified(lobby_id, user_id)?;
         let mut lobby = lobby_arc.lock();
         if !lobby.set_ready(user_id, ready) {
             return Err(GameError::NotAPlayer);
@@ -295,12 +359,14 @@ impl GameManager {
         Ok(())
     }
 
+    /// Update settings for the specified lobby (host only, private lobby only).
     pub fn update_settings(
         &self,
         user_id: i32,
+        lobby_id: Ulid,
         patch: LobbySettingsPatch,
     ) -> Result<(), GameError> {
-        let lobby_arc = self.get_user_lobby_arc(user_id)?;
+        let lobby_arc = self.get_lobby_arc_verified(lobby_id, user_id)?;
         let mut lobby = lobby_arc.lock();
         if lobby.host_id() != user_id {
             return Err(GameError::NotHost);
@@ -407,7 +473,7 @@ impl GameManager {
                         let keep = game_ref.on_client_msg(user_id as u32, msg);
                         if !keep {
                             // Player sent Leave — remove from lobby
-                            let _ = gm.leave(user_id);
+                            let _ = gm.leave(user_id, lobby_id);
                         }
                         keep
                     },
@@ -420,11 +486,18 @@ impl GameManager {
             }
         }
 
-        // Phase 3: async — open uni-directional game streams for spectators.
+        // Phase 3: async — open bidi game streams for spectators.
+        // Spectators receive game-state snapshots but any ClientMessages they send
+        // are silently discarded (the receive loop returns `true` to keep reading).
         for uid in &spectators {
             let uid = *uid;
             let result = game_streams
-                .create_uni_stream(uid, StreamType::Game, &self.sm)
+                .create_stream::<GameClientMessage>(
+                    uid,
+                    StreamType::Game,
+                    &self.sm,
+                    |_user_id, _msg| true,
+                )
                 .await;
 
             if let Err(e) = result {
@@ -442,6 +515,9 @@ impl GameManager {
         let lobby_weak = Arc::downgrade(&lobby_arc);
         let game_for_loop = Arc::clone(&game);
         let gm_cleanup = self.clone();
+        // Capture the Tokio runtime handle before entering the std::thread,
+        // where Handle::current() would panic (no reactor running).
+        let rt = tokio::runtime::Handle::current();
 
         std::thread::Builder::new()
             .name(format!("game-{lobby_id}"))
@@ -464,7 +540,7 @@ impl GameManager {
 
                     if lobby.is_empty() {
                         let gm = gm_cleanup;
-                        lobby.schedule_cleanup(move |lid| gm.destroy_lobby(lid));
+                        lobby.schedule_cleanup(&rt, move |lid| gm.destroy_lobby(lid));
                     }
                 }
                 // gs drops here → old StreamGroup dropped → all handles cancelled
@@ -502,15 +578,25 @@ impl GameManager {
         info!(lobby_id = %lobby_id, "lobby destroyed (empty timeout)");
     }
 
-    fn get_user_lobby_arc(&self, user_id: i32) -> Result<Arc<Mutex<Lobby>>, GameError> {
+    /// Look up the lobby arc by `lobby_id` and verify that `user_id` is a
+    /// member of that exact lobby.  Returns the appropriate error if the user
+    /// is not in any lobby, is in a different lobby, or the lobby is gone.
+    fn get_lobby_arc_verified(
+        &self,
+        lobby_id: Ulid,
+        user_id: i32,
+    ) -> Result<Arc<Mutex<Lobby>>, GameError> {
         let state = self.state.lock();
-        let lobby_id = state
-            .user_lobby
-            .get(&user_id)
-            .ok_or_else(|| GameError::NotInLobby)?;
+
+        match state.user_lobby.get(&user_id) {
+            Some(lid) if *lid == lobby_id => {}
+            Some(_) => return Err(GameError::LobbyMismatch),
+            None => return Err(GameError::NotInLobby),
+        }
+
         state
             .lobbies
-            .get(lobby_id)
+            .get(&lobby_id)
             .cloned()
             .ok_or(GameError::LobbyNotFound)
     }

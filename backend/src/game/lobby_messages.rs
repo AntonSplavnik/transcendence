@@ -3,12 +3,19 @@ use serde::Serialize;
 
 use crate::models::nickname::Nickname;
 
-use super::lobby::LobbySettings;
+use super::lobby::{LobbyInfo, LobbySettings};
 
 /// Messages broadcast to all lobby members (players + spectators)
 /// over the lobby uni-stream.
 #[derive(Debug, Clone, Serialize)]
 pub enum LobbyServerMessage {
+    /// Sent once to a new member immediately after they join.
+    ///
+    /// Contains the full lobby snapshot so the client can initialize state
+    /// without a separate REST call.  Always the first message on a newly
+    /// opened lobby stream, before any delta events.
+    LobbySnapshot(LobbyInfo),
+
     PlayerJoined {
         user_id: i32,
         nickname: Nickname,

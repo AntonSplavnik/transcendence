@@ -17,9 +17,9 @@ pub fn router(path: impl Into<String>) -> Router {
                 .push(Router::with_path("{id}").get(get_lobby))
                 .push(Router::with_path("{id}/join").post(join_lobby))
                 .push(Router::with_path("{id}/spectate").post(spectate_lobby))
-                .push(Router::with_path("leave").post(leave))
-                .push(Router::with_path("ready").post(set_ready))
-                .push(Router::with_path("settings").patch(update_settings)),
+                .push(Router::with_path("{id}/leave").post(leave))
+                .push(Router::with_path("{id}/ready").post(set_ready))
+                .push(Router::with_path("{id}/settings").patch(update_settings)),
         )
 }
 
@@ -100,32 +100,43 @@ async fn spectate_lobby(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<()
     json_ok(())
 }
 
-/// Leave the current lobby (player or spectator).
+/// Leave the specified lobby (player or spectator).
 #[endpoint]
-async fn leave(depot: &mut Depot) -> JsonResult<()> {
+async fn leave(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<()> {
+    let id = id.into_inner();
     let user_id = depot.user_id();
-    depot.game_manager().leave(user_id)?;
+    depot.game_manager().leave(user_id, id)?;
     json_ok(())
 }
 
-/// Set ready state.
+/// Set ready state in the specified lobby.
 #[endpoint]
-async fn set_ready(req: JsonBody<SetReadyRequest>, depot: &mut Depot) -> JsonResult<()> {
+async fn set_ready(
+    id: PathParam<Ulid>,
+    req: JsonBody<SetReadyRequest>,
+    depot: &mut Depot,
+) -> JsonResult<()> {
+    let id = id.into_inner();
     let user_id = depot.user_id();
     depot
         .game_manager()
-        .set_ready(user_id, req.into_inner().ready)?;
+        .set_ready(user_id, id, req.into_inner().ready)?;
     json_ok(())
 }
 
 /// Partially update lobby settings (only allowed while the lobby is private).
 /// Only the provided fields are changed; omitted fields keep their current values.
 #[endpoint]
-async fn update_settings(req: JsonBody<LobbySettingsPatch>, depot: &mut Depot) -> JsonResult<()> {
+async fn update_settings(
+    id: PathParam<Ulid>,
+    req: JsonBody<LobbySettingsPatch>,
+    depot: &mut Depot,
+) -> JsonResult<()> {
+    let id = id.into_inner();
     let user_id = depot.user_id();
     depot
         .game_manager()
-        .update_settings(user_id, req.into_inner())?;
+        .update_settings(user_id, id, req.into_inner())?;
     json_ok(())
 }
 

@@ -116,7 +116,7 @@ impl Game {
             let update_snapshot = {
                 let mut handle = self.lock();
 
-                if !handle.is_running() {
+                if !handle.is_running() || handle.get_player_count() == 0 {
                     info!("Game loop stopped");
                     break;
                 }

@@ -6,6 +6,7 @@ use chrono::Utc;
 use indexmap::{IndexMap, IndexSet};
 use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
+use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use ulid::Ulid;
 
@@ -64,6 +65,8 @@ impl CountdownState {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct LobbyInfo {
     pub id: Ulid,
+    /// The user ID of the lobby host.
+    pub host_id: i32,
     pub settings: LobbySettings,
     pub player_count: usize,
     pub spectator_count: usize,
@@ -179,6 +182,7 @@ impl Lobby {
 
         LobbyInfo {
             id: self.id,
+            host_id: self.host_id,
             settings: self.settings.clone(),
             player_count: self.players.len(),
             spectator_count: self.spectators.len(),
@@ -322,9 +326,15 @@ impl Lobby {
     /// `GameManager::start_game`.
     pub fn evaluate_countdown(&mut self, start_game_fn: impl FnOnce(Ulid) + Send + 'static) {
         let player_count = self.players.len();
+        let ready_count = self.players.values().filter(|p| p.ready).count();
 
-        // Not enough players → cancel
-        if player_count < self.game.min_players() as usize {
+        // Countdown only starts when at least half the players (ceiling, min 2) are ready
+        // AND there are enough players for the game.
+        let ready_threshold = std::cmp::max(2, player_count.div_ceil(2));
+        let can_start = player_count >= self.game.min_players() as usize
+            && ready_count >= ready_threshold;
+
+        if !can_start {
             if matches!(self.countdown, CountdownState::Running { .. }) {
                 self.countdown.abort();
                 self.lobby_streams
@@ -428,14 +438,21 @@ impl Lobby {
 
     /// Start a cleanup timer. If no one joins before it fires, the lobby
     /// should be destroyed.
-    pub fn schedule_cleanup(&mut self, cleanup_fn: impl FnOnce(Ulid) + Send + 'static) {
+    ///
+    /// Requires a `Handle` so this can be called from non-Tokio threads (e.g.
+    /// the game loop thread which runs on a plain `std::thread`).
+    pub fn schedule_cleanup(
+        &mut self,
+        rt: &Handle,
+        cleanup_fn: impl FnOnce(Ulid) + Send + 'static,
+    ) {
         if let Some(handle) = self.cleanup_handle.take() {
             handle.abort();
         }
         debug!(lobby_id = %self.id, delay_secs = CLEANUP_DELAY.as_secs(),
             "scheduling lobby cleanup");
         let lobby_id = self.id;
-        self.cleanup_handle = Some(tokio::spawn(async move {
+        self.cleanup_handle = Some(rt.spawn(async move {
             tokio::time::sleep(CLEANUP_DELAY).await;
             cleanup_fn(lobby_id);
         }));
