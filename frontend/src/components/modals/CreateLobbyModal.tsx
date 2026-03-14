@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { Gamepad2 } from 'lucide-react';
+import { useState } from 'react';
 
-import { createLobby } from '../../api/lobby';
 import type { LobbySettings } from '../../api/lobby';
+import { createLobby } from '../../api/lobby';
 import { Button, Input, Modal } from '../ui';
 
 interface CreateLobbyModalProps {
@@ -75,7 +75,10 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 		>
 			<div className="space-y-4">
 				{error && (
-					<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
+					<p
+						className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
+						role="alert"
+					>
 						{error}
 					</p>
 				)}
@@ -104,7 +107,9 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 						onChange={(e) => setIsPublic(e.target.checked)}
 						className="w-4 h-4 accent-gold-400"
 					/>
-					<span className="text-sm text-stone-300">Public lobby (visible in lobby list)</span>
+					<span className="text-sm text-stone-300">
+						Public lobby (visible in lobby list)
+					</span>
 				</label>
 			</div>
 		</Modal>

@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Swords, User, Lock, Mail } from 'lucide-react';
-import { Button, Card, Input, Alert } from './ui';
-import { useAuth } from '../contexts/AuthContext';
+import { Lock, Mail, Swords, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { getErrorBrief, getErrorMessage } from '../api/error';
 import * as usersApi from '../api/users';
-import { getErrorMessage, getErrorBrief } from '../api/error';
-import { validateNickname, validateEmail } from '../utils/validation';
+import { useAuth } from '../contexts/AuthContext';
+import { validateEmail, validateNickname } from '../utils/validation';
 import TwoFactorLoginModal from './modals/TwoFactorLoginModal';
+import { Alert, Button, Card, Input } from './ui';
 
 const NICKNAME_DEBOUNCE_MS = 500;
 

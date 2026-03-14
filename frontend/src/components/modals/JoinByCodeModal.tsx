@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Hash } from 'lucide-react';
+import { useState } from 'react';
 
 import type { LobbyInfo } from '../../api/lobby';
 import { getLobby } from '../../api/lobby';
@@ -79,7 +79,10 @@ export default function JoinByCodeModal({ onClose }: JoinByCodeModalProps) {
 		>
 			<div className="space-y-4">
 				{error && (
-					<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
+					<p
+						className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
+						role="alert"
+					>
 						{error}
 					</p>
 				)}

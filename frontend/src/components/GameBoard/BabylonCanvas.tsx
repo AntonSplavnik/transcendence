@@ -1,5 +1,5 @@
+import { Engine, FreeCamera, HemisphericLight, MeshBuilder, Scene, Vector3 } from '@babylonjs/core';
 import { useEffect, useRef } from 'react';
-import { Engine, Scene, FreeCamera, HemisphericLight, MeshBuilder, Vector3 } from '@babylonjs/core';
 
 export default function SceneComponent() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);

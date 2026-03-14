@@ -21,17 +21,15 @@
  */
 
 import type { ReactNode, RefObject } from 'react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useReducer,
-	useRef,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { GameClientMessage, GameServerMessage, GameStateSnapshot, Vector3D } from '../game/types';
+import type {
+	GameClientMessage,
+	GameServerMessage,
+	GameStateSnapshot,
+	Vector3D,
+} from '../game/types';
 import type { BidiHandlerFactory } from '../stream/types';
 import { useAuth } from './AuthContext';
 import { useLobby } from './LobbyContext';
@@ -42,10 +40,10 @@ import { useStream } from './StreamContext';
 export type GameState =
 	| { status: 'idle' }
 	| {
-		status: 'active';
-		/** Keyed by player_id */
-		players: ReadonlyMap<number, { name: string }>;
-	};
+			status: 'active';
+			/** Keyed by player_id */
+			players: ReadonlyMap<number, { name: string }>;
+	  };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
@@ -202,8 +200,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 						return;
 					}
 					if (msg.type === 'PlayerJoined') {
-						console.debug('[Game] PlayerJoined player_id=%d name=%s', msg.player_id, msg.name);
-						dispatch({ type: 'PLAYER_JOINED', player_id: msg.player_id, name: msg.name });
+						console.debug(
+							'[Game] PlayerJoined player_id=%d name=%s',
+							msg.player_id,
+							msg.name,
+						);
+						dispatch({
+							type: 'PLAYER_JOINED',
+							player_id: msg.player_id,
+							name: msg.name,
+						});
 						return;
 					}
 					if (msg.type === 'PlayerLeft') {
@@ -254,7 +260,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 			jumping: boolean,
 			sprinting: boolean,
 		) => {
-			if (gameStateRef.current.status !== 'active' || !sendRef.current || isSpectatorRef.current) return;
+			if (
+				gameStateRef.current.status !== 'active' ||
+				!sendRef.current ||
+				isSpectatorRef.current
+			)
+				return;
 			sendRef.current({
 				type: 'Input',
 				movement,

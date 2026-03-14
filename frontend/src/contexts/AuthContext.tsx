@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
+import { setAuthFailureCallback } from '../api/client';
+import type { AuthResponse, Session, User } from '../api/types';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
-import { setAuthFailureCallback } from '../api/client';
-import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
 	user: User | null;

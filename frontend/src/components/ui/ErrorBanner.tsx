@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { useEffect } from 'react';
 import type { StoredError } from '../../api/error';
 
 export const AUTO_DISMISS_MS = 9000;

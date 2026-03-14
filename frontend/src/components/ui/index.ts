@@ -34,4 +34,4 @@ export { default as Modal } from './Modal';
 export type { ModalProps } from './Modal';
 
 export { Dropdown, DropdownItem, DropdownSeparator } from './Dropdown';
-export type { DropdownProps, DropdownItemProps } from './Dropdown';
+export type { DropdownItemProps, DropdownProps } from './Dropdown';

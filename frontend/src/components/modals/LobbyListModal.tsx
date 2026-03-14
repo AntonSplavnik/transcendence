@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { LobbyInfo } from '../../api/lobby';
 import { listLobbies } from '../../api/lobby';
@@ -65,7 +65,9 @@ export default function LobbyListModal({ onClose }: LobbyListModalProps) {
 			<div className="space-y-3">
 				<div className="flex items-center justify-between">
 					<p className="text-sm text-stone-400">
-						{isLoading ? 'Loading…' : `${lobbies.length} public ${lobbies.length === 1 ? 'lobby' : 'lobbies'} found`}
+						{isLoading
+							? 'Loading…'
+							: `${lobbies.length} public ${lobbies.length === 1 ? 'lobby' : 'lobbies'} found`}
 					</p>
 					<Button
 						variant="ghost"
@@ -80,7 +82,10 @@ export default function LobbyListModal({ onClose }: LobbyListModalProps) {
 				</div>
 
 				{error && (
-					<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
+					<p
+						className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
+						role="alert"
+					>
 						{error}
 					</p>
 				)}
@@ -115,7 +120,9 @@ export default function LobbyListModal({ onClose }: LobbyListModalProps) {
 											</span>
 										</div>
 									</div>
-									<p className="text-xs text-stone-500 mt-0.5">{lobby.settings.gamemode}</p>
+									<p className="text-xs text-stone-500 mt-0.5">
+										{lobby.settings.gamemode}
+									</p>
 								</button>
 							</li>
 						))}

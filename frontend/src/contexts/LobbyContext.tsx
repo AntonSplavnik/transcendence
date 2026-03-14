@@ -38,7 +38,12 @@ import { createContext, useCallback, useContext, useEffect, useReducer, useRef }
 import { useNavigate } from 'react-router-dom';
 
 import { leaveLobby, setReadyApi, updateLobbySettings } from '../api/lobby';
-import type { LobbyInfo, LobbyServerMessage, LobbySettings, UniHandlerFactory } from '../stream/types';
+import type {
+	LobbyInfo,
+	LobbyServerMessage,
+	LobbySettings,
+	UniHandlerFactory,
+} from '../stream/types';
 import { parseLobbyMessage } from '../stream/types';
 import { useStream } from './StreamContext';
 
@@ -49,19 +54,19 @@ export type { LobbySettings };
 export type LobbyState =
 	| { status: 'idle' }
 	| {
-		status: 'active';
-		lobbyId: string;
-		hostId: number;
-		settings: LobbySettings;
-		/** Keyed by user_id */
-		players: ReadonlyMap<number, { nickname: string; ready: boolean }>;
-		/** Keyed by user_id */
-		spectators: ReadonlySet<number>;
-		/** Present when a countdown is running. */
-		countdown: { startAt: Date } | null;
-		/** True while the game is running (between GameStarting and GameEnded). */
-		gameActive: boolean;
-	};
+			status: 'active';
+			lobbyId: string;
+			hostId: number;
+			settings: LobbySettings;
+			/** Keyed by user_id */
+			players: ReadonlyMap<number, { nickname: string; ready: boolean }>;
+			/** Keyed by user_id */
+			spectators: ReadonlySet<number>;
+			/** Present when a countdown is running. */
+			countdown: { startAt: Date } | null;
+			/** True while the game is running (between GameStarting and GameEnded). */
+			gameActive: boolean;
+	  };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
@@ -246,7 +251,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 				try {
 					msg = parseLobbyMessage(rawMsg);
 				} catch (err) {
-					console.warn('[Lobby:%s] unrecognised message, discarding:', lobbyId, rawMsg, err);
+					console.warn(
+						'[Lobby:%s] unrecognised message, discarding:',
+						lobbyId,
+						rawMsg,
+						err,
+					);
 					return;
 				}
 

@@ -219,7 +219,10 @@ export default function AppRoutes() {
 					element={
 						<ProtectedRoute>
 							<InGameGuard>
-								<Home onLogout={handleLogout} onSessions={() => navigate('/sessions')} />
+								<Home
+									onLogout={handleLogout}
+									onSessions={() => navigate('/sessions')}
+								/>
 							</InGameGuard>
 						</ProtectedRoute>
 					}

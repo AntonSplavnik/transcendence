@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Crown, Gamepad2, Users } from 'lucide-react';
+import { useState } from 'react';
 
 import type { LobbyInfo } from '../../api/lobby';
 import { joinLobby, spectateLobby } from '../../api/lobby';
@@ -100,7 +100,10 @@ export default function LobbyInfoPreviewModal({
 		>
 			<div className="space-y-3">
 				{error && (
-					<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
+					<p
+						className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
+						role="alert"
+					>
 						{error}
 					</p>
 				)}
@@ -108,8 +111,7 @@ export default function LobbyInfoPreviewModal({
 				{/* Meta row */}
 				<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
 					<span className="text-stone-400">
-						Gamemode:{' '}
-						<span className="text-stone-200">{lobby.settings.gamemode}</span>
+						Gamemode: <span className="text-stone-200">{lobby.settings.gamemode}</span>
 					</span>
 					<span className="text-stone-400">
 						<Badge variant={lobby.settings.public ? 'info' : 'neutral'} size="sm">
@@ -141,10 +143,10 @@ export default function LobbyInfoPreviewModal({
 										{p.nickname}
 									</span>
 									{!lobby.game_active && (
-									<Badge variant={p.ready ? 'success' : 'warning'} size="sm">
-										{p.ready ? 'Ready' : 'Not ready'}
-									</Badge>
-								)}
+										<Badge variant={p.ready ? 'success' : 'warning'} size="sm">
+											{p.ready ? 'Ready' : 'Not ready'}
+										</Badge>
+									)}
 								</li>
 							))}
 						</ul>
@@ -153,7 +155,8 @@ export default function LobbyInfoPreviewModal({
 
 				{lobby.spectator_count > 0 && (
 					<p className="text-sm text-stone-400">
-						{lobby.spectator_count} spectator{lobby.spectator_count !== 1 ? 's' : ''} watching
+						{lobby.spectator_count} spectator{lobby.spectator_count !== 1 ? 's' : ''}{' '}
+						watching
 					</p>
 				)}
 

@@ -1,10 +1,10 @@
+import { Check, ChevronLeft, Clock, Copy, Crown, LogOut, Pencil, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Check, ChevronLeft, Clock, Copy, Crown, LogOut, Pencil, Users, X } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { useLobby } from '../contexts/LobbyContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
+import { useLobby } from '../contexts/LobbyContext';
 import { Badge, Button, Card, Input } from './ui';
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
@@ -50,7 +50,10 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	return (
 		<div className="space-y-3">
 			{error && (
-				<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
+				<p
+					className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
+					role="alert"
+				>
 					{error}
 				</p>
 			)}
@@ -75,7 +78,9 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				/>
 				<span className="text-sm text-stone-300 group-hover:text-stone-100 transition-colors">
 					Make lobby public{' '}
-					<span className="text-xs text-stone-500">(visible in lobby list — cannot be undone)</span>
+					<span className="text-xs text-stone-500">
+						(visible in lobby list — cannot be undone)
+					</span>
 				</span>
 			</label>
 			<div className="flex gap-2 pt-1">
@@ -83,7 +88,12 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 					<X className="w-3.5 h-3.5" />
 					Cancel
 				</Button>
-				<Button variant="primary" size="sm" onClick={() => void handleSave()} loading={isSaving}>
+				<Button
+					variant="primary"
+					size="sm"
+					onClick={() => void handleSave()}
+					loading={isSaving}
+				>
 					Save
 				</Button>
 			</div>
@@ -189,12 +199,18 @@ export default function LobbyPage() {
 				<div className="flex items-start justify-between mb-6">
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-2">
-							<h1 className="text-2xl font-bold text-stone-50 truncate">{settings.name}</h1>
+							<h1 className="text-2xl font-bold text-stone-50 truncate">
+								{settings.name}
+							</h1>
 							{canEditSettings && (
 								<button
 									onClick={() => setShowSettings((s) => !s)}
 									className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
-									aria-label={showSettings ? 'Cancel editing settings' : 'Edit lobby settings'}
+									aria-label={
+										showSettings
+											? 'Cancel editing settings'
+											: 'Edit lobby settings'
+									}
 									title={showSettings ? 'Cancel edit' : 'Edit settings'}
 								>
 									<Pencil className="w-4 h-4" aria-hidden="true" />
@@ -228,11 +244,16 @@ export default function LobbyPage() {
 							<button
 								onClick={copyCode}
 								className="p-0.5 rounded text-stone-500 hover:text-stone-300 transition-colors"
-								aria-label={codeCopied ? 'Lobby code copied' : 'Copy full lobby code'}
+								aria-label={
+									codeCopied ? 'Lobby code copied' : 'Copy full lobby code'
+								}
 								title={codeCopied ? 'Copied!' : 'Copy lobby code'}
 							>
 								{codeCopied ? (
-									<Check className="w-3.5 h-3.5 text-success" aria-hidden="true" />
+									<Check
+										className="w-3.5 h-3.5 text-success"
+										aria-hidden="true"
+									/>
 								) : (
 									<Copy className="w-3.5 h-3.5" aria-hidden="true" />
 								)}
@@ -257,7 +278,9 @@ export default function LobbyPage() {
 								aria-label={`Game starts in ${secondsLeft} seconds`}
 							>
 								<Clock className="w-4 h-4" aria-hidden="true" />
-								<span className="text-lg font-bold tabular-nums">{secondsLeft}s</span>
+								<span className="text-lg font-bold tabular-nums">
+									{secondsLeft}s
+								</span>
 							</div>
 						)}
 					</div>
@@ -303,10 +326,10 @@ export default function LobbyPage() {
 										)}
 									</span>
 									{!gameActive && (
-									<Badge variant={p.ready ? 'success' : 'warning'} size="sm">
-										{p.ready ? 'Ready' : 'Not ready'}
-									</Badge>
-								)}
+										<Badge variant={p.ready ? 'success' : 'warning'} size="sm">
+											{p.ready ? 'Ready' : 'Not ready'}
+										</Badge>
+									)}
 								</li>
 							))}
 						</ul>

@@ -15,11 +15,7 @@ export default function LobbyOverlay() {
 	const { pathname } = useLocation();
 
 	// Not needed when already on the lobby page, or while in a game.
-	if (
-		lobbyState.status !== 'active' ||
-		gameState.status !== 'idle' ||
-		pathname === '/lobby'
-	) {
+	if (lobbyState.status !== 'active' || gameState.status !== 'idle' || pathname === '/lobby') {
 		return null;
 	}
 
@@ -61,7 +57,10 @@ export default function LobbyOverlay() {
 				{/* ── Collapsed column (always visible) ── */}
 				<div className="flex flex-col items-center gap-2 px-3 py-3">
 					{/* Status dot */}
-					<span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotCls}`} aria-hidden="true" />
+					<span
+						className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotCls}`}
+						aria-hidden="true"
+					/>
 
 					{/* Player count */}
 					<span className="flex flex-col items-center leading-tight" aria-hidden="true">
@@ -93,7 +92,9 @@ export default function LobbyOverlay() {
 						<p className="text-sm font-medium text-stone-100 leading-tight truncate max-w-[130px]">
 							{settings.name}
 						</p>
-						<p className={`text-xs mt-0.5 leading-tight ${hasCountdown ? 'text-gold-400' : allReady ? 'text-success-light' : 'text-stone-400'}`}>
+						<p
+							className={`text-xs mt-0.5 leading-tight ${hasCountdown ? 'text-gold-400' : allReady ? 'text-success-light' : 'text-stone-400'}`}
+						>
 							{statusText}
 						</p>
 						<p className="text-[10px] text-stone-500 mt-1 leading-tight">

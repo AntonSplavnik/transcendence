@@ -11,7 +11,15 @@ import JoinByCodeModal from './modals/JoinByCodeModal';
 import LobbyListModal from './modals/LobbyListModal';
 import ReauthModal from './modals/ReauthModal';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
-import { Badge, Button, Card, Dropdown, DropdownItem, DropdownSeparator, LoadingSpinner } from './ui';
+import {
+	Badge,
+	Button,
+	Card,
+	Dropdown,
+	DropdownItem,
+	DropdownSeparator,
+	LoadingSpinner,
+} from './ui';
 import AvatarDisplay from './ui/AvatarDisplay';
 
 const REAUTH_THRESHOLD_MINUTES = 60;
@@ -142,18 +150,26 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 
 			{/* Main Content */}
 			{/* items-start prevents cards from stretching to match a taller neighbour */}
-			<section className="grid gap-6 md:grid-cols-2 md:items-start" aria-label="Dashboard content">
+			<section
+				className="grid gap-6 md:grid-cols-2 md:items-start"
+				aria-label="Dashboard content"
+			>
 				<Card accent="gold">
 					<h2 className="text-xl font-bold mb-2 text-gold-400">Play Game</h2>
 
 					{lobbyState.status === 'active' ? (
 						/* Already in a lobby — show return prompt instead of entry buttons */
 						<div className="rounded-lg bg-stone-800/60 border border-stone-700 p-4 text-center">
-							<Users className="w-6 h-6 text-gold-400 mx-auto mb-2" aria-hidden="true" />
+							<Users
+								className="w-6 h-6 text-gold-400 mx-auto mb-2"
+								aria-hidden="true"
+							/>
 							<p className="text-stone-200 text-sm font-medium mb-1">
 								{lobbyState.settings.name}
 							</p>
-							<p className="text-stone-400 text-xs mb-3">You're already in a lobby.</p>
+							<p className="text-stone-400 text-xs mb-3">
+								You're already in a lobby.
+							</p>
 							<Link to="/lobby">
 								<Button fullWidth>Return to Lobby</Button>
 							</Link>
@@ -164,7 +180,10 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 								Find or create a lobby to jump into a match.
 							</p>
 							<div className="flex flex-wrap gap-2">
-								<Button size="sm" onClick={() => requireReauth(() => setShowLobbyList(true))}>
+								<Button
+									size="sm"
+									onClick={() => requireReauth(() => setShowLobbyList(true))}
+								>
 									Find Public Game
 								</Button>
 								<Button
@@ -257,7 +276,10 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 			{showReauthModal && (
 				<ReauthModal
 					onSuccess={handleReauthSuccess}
-					onCancel={() => { setShowReauthModal(false); pendingActionRef.current = null; }}
+					onCancel={() => {
+						setShowReauthModal(false);
+						pendingActionRef.current = null;
+					}}
 				/>
 			)}
 		</main>

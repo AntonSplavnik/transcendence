@@ -294,8 +294,14 @@ export type LobbyServerMessage =
 const LOBBY_UNIT_VARIANTS = new Set(['CountdownCancelled', 'GameStarting', 'GameEnded']);
 const LOBBY_OBJECT_VARIANTS = new Set([
 	'LobbySnapshot',
-	'PlayerJoined', 'PlayerLeft', 'SpectatorJoined', 'SpectatorLeft',
-	'ReadyChanged', 'CountdownUpdate', 'SettingsChanged', 'LobbyClosed',
+	'PlayerJoined',
+	'PlayerLeft',
+	'SpectatorJoined',
+	'SpectatorLeft',
+	'ReadyChanged',
+	'CountdownUpdate',
+	'SettingsChanged',
+	'LobbyClosed',
 ]);
 
 /**
