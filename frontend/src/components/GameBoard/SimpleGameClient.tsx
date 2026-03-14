@@ -1,8 +1,9 @@
 // Simple game client - adapted from simple_client.ts with minimal React wrapper
+import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import {
-    Scene, Engine, Vector3, MeshBuilder, UniversalCamera, HemisphericLight,
-    StandardMaterial, Color3, SceneLoader, AnimationGroup, AbstractMesh, TransformNode
+    Scene, Engine, Vector3, UniversalCamera,
+    SceneLoader, AnimationGroup, AbstractMesh, TransformNode
 } from '@babylonjs/core';
 import * as BabylonModule from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
@@ -10,7 +11,9 @@ import '@babylonjs/materials'; // Required for SkyMaterial and other materials
 import * as CANNON from 'cannon-es'; // Required for physics
 
 // Make BABYLON available globally for Inspector (must be extensible object)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).BABYLON = Object.assign({}, BabylonModule);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).CANNON = CANNON;
 import type { GameStateSnapshot, Vector3D } from '../../game/types';
 import { measureModel } from '../../utils/measureModel';
@@ -39,13 +42,14 @@ interface InputState {
     isSprinting: boolean;
 }
 
-enum CharacterState {
-    Idle = 0,
-    Moving = 1,
-    Attacking = 2,
-    Stunned = 4,
-    Dead = 5
-}
+const CharacterState = {
+    Idle: 0,
+    Moving: 1,
+    Attacking: 2,
+    Stunned: 4,
+    Dead: 5,
+} as const;
+type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
 const AnimationNames = {
     idle: 'Idle_A',
@@ -60,12 +64,13 @@ const AnimationNames = {
     spawn: 'Spawn_Air'
 };
 
-enum JumpState {
-    GROUNDED = 'grounded',      // On ground, normal animations
-    JUMP_START = 'jump_start',  // Playing jump start animation
-    AIRBORNE = 'airborne',      // In air, playing jump idle loop
-    LANDING = 'landing'         // Playing landing animation
-}
+const JumpState = {
+    GROUNDED: 'grounded',       // On ground, normal animations
+    JUMP_START: 'jump_start',   // Playing jump start animation
+    AIRBORNE: 'airborne',       // In air, playing jump idle loop
+    LANDING: 'landing',         // Playing landing animation
+} as const;
+type JumpState = (typeof JumpState)[keyof typeof JumpState];
 
 class AnimatedCharacter {
     public rootNode: TransformNode;
@@ -74,6 +79,7 @@ class AnimatedCharacter {
     private currentAnimation: AnimationGroup | null = null;
     private currentAnimationName: string = '';
     private scene: Scene;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private skeleton: any = null;  // Store this character's skeleton
 
     constructor(scene: Scene) {
@@ -106,6 +112,7 @@ class AnimatedCharacter {
             anim.targetedAnimations.forEach(ta => {
                 const targetName = ta.target?.name;
                 if (targetName) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const mainBone = this.skeleton.bones.find((b: any) => b.name === targetName);
                     if (mainBone) ta.target = mainBone.getTransformNode() || mainBone;
                 }
@@ -156,7 +163,6 @@ class GameClient {
     private camera: UniversalCamera;
     private currentAnimState: string = 'idle';
     private jumpState: JumpState = JumpState.GROUNDED;
-    private wasGrounded: boolean = true;
     // Track jump state for remote players
     private remoteJumpStates: Map<number, JumpState> = new Map();
     private remoteWasGrounded: Map<number, boolean> = new Map();
@@ -280,7 +286,7 @@ class GameClient {
                 this.camera.position = this.position.add(cameraOffset);
                 this.camera.setTarget(this.position);
             } else {
-                let remoteChar = this.characters.get(char.player_id);
+                const remoteChar = this.characters.get(char.player_id);
                 if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
                     this.createRemoteCharacter(char.player_id, char);
                 } else if (remoteChar) {
@@ -344,7 +350,6 @@ class GameClient {
 
         // Get or initialize jump state for this player
         let jumpState = this.remoteJumpStates.get(playerID) || JumpState.GROUNDED;
-        const wasGrounded = this.remoteWasGrounded.get(playerID) ?? true;
 
         // Check if character is grounded based on Y position
         const isGrounded = position.y <= 1.1;
@@ -427,7 +432,6 @@ class GameClient {
         if (this.jumpState === JumpState.GROUNDED && !isGrounded && input.isJumping) {
             this.jumpState = JumpState.JUMP_START;
             this.playAnimation('jumpStart', false);
-            this.wasGrounded = false;
             return;
         }
 
@@ -435,7 +439,6 @@ class GameClient {
         if (this.jumpState === JumpState.GROUNDED && !isGrounded && !input.isJumping) {
             this.jumpState = JumpState.AIRBORNE;
             this.playAnimation('jumpIdle', true);
-            this.wasGrounded = false;
             return;
         }
 
@@ -459,7 +462,6 @@ class GameClient {
         if (this.jumpState === JumpState.AIRBORNE && isGrounded) {
             this.jumpState = JumpState.LANDING;
             this.playAnimation('jumpLand', false);
-            this.wasGrounded = true;
             return;
         }
 
@@ -493,17 +495,20 @@ class GameClient {
 // ============ MINIMAL REACT WRAPPER ============
 
 interface Props {
-    snapshot: GameStateSnapshot | null;
+    /** Ref to the latest GameStateSnapshot. Read in the Babylon render loop — NOT React state. */
+    snapshotRef: RefObject<GameStateSnapshot | null>;
     onSendInput: (movement: Vector3D, lookDirection: Vector3D, attacking: boolean, jumping: boolean, sprinting: boolean) => void;
-    localPlayerId: number | undefined;
+    localPlayerId: number;
 }
 
-export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId }: Props) {
+export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayerId }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameClientRef = useRef<GameClient | null>(null);
     const engineRef = useRef<Engine | null>(null);
 
-    // Initialize once
+    // Initialize once — snapshotRef and onSendInput are stable refs/callbacks,
+    // intentionally omitted from deps to avoid re-mounting the Babylon scene.
+     
     useEffect(() => {
         if (!canvasRef.current || !localPlayerId) return;
 
@@ -559,7 +564,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
 
             // Keep using game camera (not camera from the editor)
             loadedScene.activeCamera = camera;
-        }, undefined, (scene, message, exception) => {
+        }, undefined, (_s, message, exception) => {
             console.error("Failed to load arena scene:", message, exception);
         });
 
@@ -623,23 +628,53 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
             gameClient.updateLocalAnimation(input);
         });
 
-        // Render loop
-        let lastInputSend = 0;
+        // Render loop — hard-capped at 60 fps.
+        //
+        // Babylon.js's engine.runRenderLoop() uses requestAnimationFrame, which
+        // runs at the display's native refresh rate (60, 120, 144 Hz, etc.).
+        // The game server produces snapshots at exactly 60 Hz, so rendering
+        // faster than 60 fps provides no visual benefit and wastes GPU.
+        //
+        // We skip frames until at least TARGET_FRAME_MS have elapsed, giving us
+        // a steady ~60 fps on any display without tearing or busy-waits.
+        // The server game loop runs at exactly 60 Hz and reads the latest input
+        // each tick.  Sending at the same rate ensures input lag is at most one
+        // server tick (~16.67 ms) instead of up to three ticks at 20 Hz (50 ms).
+        const TARGET_FRAME_MS = 1000 / 60; // ≈16.667 ms
+
+        let lastFrameTime = 0;
+
         engine.runRenderLoop(() => {
             const now = performance.now();
 
-            // PREDICTION DISABLED - Only use server positions
-            // gameClient.applyInput(input, deltaTime);
-
-            // Send input to server (throttled to 20/sec)
-            if (now - lastInputSend >= 50) {
-                // Use movement direction as look direction so character faces where they move
-                const lookDir = input.movementDirection.x !== 0 || input.movementDirection.z !== 0
-                    ? input.movementDirection
-                    : { x: 0, y: 0, z: 1 }; // Default forward when not moving
-                onSendInput(input.movementDirection, lookDir, input.isAttacking, input.isJumping, input.isSprinting);
-                lastInputSend = now;
+            // Frame-rate cap: skip if not enough time has passed for a full frame.
+            if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) {
+                return;
             }
+            // Advance by one frame interval; clamp to `now` if more than 2 frames
+            // behind to avoid a catch-up burst after a pause.
+            lastFrameTime =
+                now - lastFrameTime > TARGET_FRAME_MS * 2 ? now : lastFrameTime + TARGET_FRAME_MS;
+
+            // Apply the latest snapshot from the server (consumed once per frame).
+            const snap = snapshotRef.current;
+            if (snap !== null) {
+                gameClient.processSnapshot(snap);
+                snapshotRef.current = null;
+            }
+
+            // Send input at 60 Hz — matches the server's game-loop tick rate.
+            const lookDir =
+                input.movementDirection.x !== 0 || input.movementDirection.z !== 0
+                    ? input.movementDirection
+                    : { x: 0, y: 0, z: 1 };
+            onSendInput(
+                input.movementDirection,
+                lookDir,
+                input.isAttacking,
+                input.isJumping,
+                input.isSprinting,
+            );
 
             scene.render();
         });
@@ -651,14 +686,7 @@ export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId 
             scene.dispose();
             engine.dispose();
         };
-    }, [localPlayerId]);
-
-    // Process snapshots
-    useEffect(() => {
-        if (snapshot && gameClientRef.current) {
-            gameClientRef.current.processSnapshot(snapshot);
-        }
-    }, [snapshot]);
+    }, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }

@@ -44,6 +44,27 @@ export default function MinimalGameClient({ snapshot, onSendInput, localPlayerId
         onSendInputRef.current = onSendInput;
     }, [onSendInput]);
 
+    // Convert keyboard input to movement vector — declared before the Babylon
+    // useEffect so the closure inside the render loop can reference it without
+    // triggering a use-before-declare lint error.
+    const getInputFromKeys = () => {
+        const keys = keysRef.current;
+        const movement: Vector3D = { x: 0, y: 0, z: 0 };
+
+        // WASD movement (world space, not camera relative)
+        if (keys.has('w')) movement.z += 1;
+        if (keys.has('s')) movement.z -= 1;
+        if (keys.has('a')) movement.x -= 1;
+        if (keys.has('d')) movement.x += 1;
+
+        return {
+            movement,
+            lookDirection: { x: 0, y: 1, z: 0 },
+            attacking: keys.has('e'),
+            jumping: keys.has(' ')
+        };
+    };
+
     // Initialize Babylon.js scene once
     useEffect(() => {
         if (!canvasRef.current || initializedRef.current) return;
@@ -201,25 +222,6 @@ export default function MinimalGameClient({ snapshot, onSendInput, localPlayerId
         }
     }, [snapshot, localPlayerId]);
 
-    // Convert keyboard input to movement vector
-    const getInputFromKeys = () => {
-        const keys = keysRef.current;
-        const movement: Vector3D = { x: 0, y: 0, z: 0 };
-
-        // WASD movement (world space, not camera relative)
-        if (keys.has('w')) movement.z += 1;
-        if (keys.has('s')) movement.z -= 1;
-        if (keys.has('a')) movement.x -= 1;
-        if (keys.has('d')) movement.x += 1;
-
-        return {
-            movement,
-            lookDirection: { x: 0, y: 1, z: 0 },
-            attacking: keys.has('e'),
-            jumping: keys.has(' ')
-        };
-    };
-
     return (
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
             <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
@@ -237,6 +239,7 @@ export default function MinimalGameClient({ snapshot, onSendInput, localPlayerId
             }}>
                 <div>🎮 Minimal Game Client - Phase 1</div>
                 <div>Local Player ID: {localPlayerId}</div>
+                {/* eslint-disable-next-line react-hooks/refs */}
                 <div>Players in scene: {playerMeshesRef.current.size}</div>
                 {snapshot && (
                     <>

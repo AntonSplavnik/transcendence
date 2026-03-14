@@ -234,15 +234,51 @@ export interface LobbySettings {
 }
 
 /**
+ * A single player's state within a lobby snapshot.
+ *
+ * Mirrors `backend/src/game/lobby.rs` `LobbyPlayerInfo`.
+ */
+export interface LobbyPlayerInfo {
+	user_id: number;
+	nickname: string;
+	ready: boolean;
+}
+
+/**
+ * Full lobby state snapshot used both for the REST `GET /game/lobby/{id}`
+ * response and as the payload of the `LobbySnapshot` stream message.
+ *
+ * Mirrors `backend/src/game/lobby.rs` `LobbyInfo`.
+ */
+export interface LobbyInfo {
+	/** ULID string, e.g. "01J..." */
+	id: string;
+	/** User ID of the lobby host. */
+	host_id: number;
+	settings: LobbySettings;
+	player_count: number;
+	spectator_count: number;
+	players: LobbyPlayerInfo[];
+	game_active: boolean;
+	/** ISO-8601 UTC datetime string, or null when no countdown is running. */
+	countdown_start_at: string | null;
+}
+
+/**
  * Messages broadcast to all lobby members over the lobby uni-stream.
  *
  * Mirrors `backend/src/game/lobby_messages.rs` `LobbyServerMessage`.
  * Serde uses default external tagging:
  *   - Unit variants  → plain string  e.g. `"GameStarting"`
  *   - Struct variants → single-key object  e.g. `{ "PlayerJoined": { … } }`
- *   - Newtype variant → single-key object  e.g. `{ "SettingsChanged": { … } }`
+ *   - Newtype variant → single-key object  e.g. `{ "LobbySnapshot": { … } }`
+ *
+ * `LobbySnapshot` is always the first message on a newly opened lobby stream.
+ * It carries the full lobby state so the client never needs a separate REST
+ * call on stream open.
  */
 export type LobbyServerMessage =
+	| { LobbySnapshot: LobbyInfo }
 	| { PlayerJoined: { user_id: number; nickname: string } }
 	| { PlayerLeft: { user_id: number } }
 	| { SpectatorJoined: { user_id: number; nickname: string } }
@@ -257,6 +293,7 @@ export type LobbyServerMessage =
 
 const LOBBY_UNIT_VARIANTS = new Set(['CountdownCancelled', 'GameStarting', 'GameEnded']);
 const LOBBY_OBJECT_VARIANTS = new Set([
+	'LobbySnapshot',
 	'PlayerJoined', 'PlayerLeft', 'SpectatorJoined', 'SpectatorLeft',
 	'ReadyChanged', 'CountdownUpdate', 'SettingsChanged', 'LobbyClosed',
 ]);
