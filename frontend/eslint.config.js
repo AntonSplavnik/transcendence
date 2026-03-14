@@ -88,7 +88,7 @@ export default defineConfig([
       // inline `eslint-disable` comments.
       'react-refresh/only-export-components': ['warn', {
         allowConstantExport: true,
-        allowExportNames: ['useAuth', 'useStream', 'useNotifications'],
+        allowExportNames: ['useAuth', 'useStream', 'useNotifications', 'useChat'],
       }],
     },
   },
