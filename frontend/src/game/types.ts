@@ -38,6 +38,7 @@ export type GameClientMessage =
       look_direction: Vector3D;
       attacking?: boolean;
       jumping?: boolean;
+      sprinting?: boolean;
       ability1?: boolean;
       ability2?: boolean;
       dodging?: boolean;

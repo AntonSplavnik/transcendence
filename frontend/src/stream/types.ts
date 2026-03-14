@@ -5,6 +5,8 @@
  *   - backend/src/stream/mod.rs           (StreamType, CtrlMessage enums)
  *   - backend/src/stream/stream_manager.rs (PendingConnectionKey)
  *   - backend/src/notifications/mod.rs     (NotificationPayload, WireNotification)
+ *   - backend/src/game/lobby_messages.rs   (LobbyServerMessage)
+ *   - backend/src/game/lobby.rs            (LobbySettings)
  *
  * Serde's default (externally-tagged) enum encoding is used on the wire:
  *   - Unit variants  → plain string:  "Notifications"
@@ -28,8 +30,15 @@ import type { PendingConnectionKey } from '../api/stream';
  *
  * The `Ctrl` variant carries the {@link PendingConnectionKey} used for
  * the authentication handshake.
+ *
+ * `Game` is a unit variant for the bidirectional game stream (players).
+ * `Lobby` is a newtype variant carrying the lobby ULID string.
  */
-export type StreamType = 'Notifications' | { Ctrl: PendingConnectionKey };
+export type StreamType =
+	| 'Notifications'
+	| { Ctrl: PendingConnectionKey }
+	| 'Game'
+	| { Lobby: string };
 
 // ─── Ctrl stream messages ────────────────────────────────────────────────────
 
@@ -209,3 +218,64 @@ export type BidiHandlerFactory<TRecv = unknown, TSend = unknown> = (
 	data: unknown,
 	send: (msg: TSend) => void,
 ) => BidiStreamHandler<TRecv>;
+
+// ─── Lobby types ──────────────────────────────────────────────────────────────
+
+/**
+ * Lobby settings mirroring `backend/src/game/lobby.rs` `LobbySettings`.
+ *
+ * Defined here (not in api/lobby.ts) so that `LobbyServerMessage` can
+ * reference it without creating an upward api → stream dependency.
+ */
+export interface LobbySettings {
+	name: string;
+	public: boolean;
+	gamemode: string;
+}
+
+/**
+ * Messages broadcast to all lobby members over the lobby uni-stream.
+ *
+ * Mirrors `backend/src/game/lobby_messages.rs` `LobbyServerMessage`.
+ * Serde uses default external tagging:
+ *   - Unit variants  → plain string  e.g. `"GameStarting"`
+ *   - Struct variants → single-key object  e.g. `{ "PlayerJoined": { … } }`
+ *   - Newtype variant → single-key object  e.g. `{ "SettingsChanged": { … } }`
+ */
+export type LobbyServerMessage =
+	| { PlayerJoined: { user_id: number; nickname: string } }
+	| { PlayerLeft: { user_id: number } }
+	| { SpectatorJoined: { user_id: number; nickname: string } }
+	| { SpectatorLeft: { user_id: number } }
+	| { ReadyChanged: { user_id: number; ready: boolean } }
+	| { CountdownUpdate: { start_timestamp: string } } // ISO-8601
+	| { SettingsChanged: LobbySettings }
+	| { LobbyClosed: { reason: string } }
+	| 'CountdownCancelled'
+	| 'GameStarting'
+	| 'GameEnded';
+
+const LOBBY_UNIT_VARIANTS = new Set(['CountdownCancelled', 'GameStarting', 'GameEnded']);
+const LOBBY_OBJECT_VARIANTS = new Set([
+	'PlayerJoined', 'PlayerLeft', 'SpectatorJoined', 'SpectatorLeft',
+	'ReadyChanged', 'CountdownUpdate', 'SettingsChanged', 'LobbyClosed',
+]);
+
+/**
+ * Parse a raw CBOR-decoded value into a `LobbyServerMessage`.
+ *
+ * Validates that the variant key is known; trusts the backend for field shapes.
+ * Throws on unknown variants — the call site should catch and log+discard so
+ * future server variants don't break the client.
+ */
+export function parseLobbyMessage(raw: unknown): LobbyServerMessage {
+	const { key, data } = parseStreamType(raw);
+	if (data === undefined) {
+		if (!LOBBY_UNIT_VARIANTS.has(key))
+			throw new Error(`Unknown LobbyServerMessage unit variant: "${key}"`);
+	} else {
+		if (!LOBBY_OBJECT_VARIANTS.has(key))
+			throw new Error(`Unknown LobbyServerMessage object variant: "${key}"`);
+	}
+	return raw as LobbyServerMessage;
+}
