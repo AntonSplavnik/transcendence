@@ -34,28 +34,28 @@ export async function listLobbies(): Promise<LobbyInfo[]> {
 
 /** Get full details of a specific lobby by ULID string. */
 export async function getLobby(id: string): Promise<LobbyInfo> {
-	const res = await apiClient.get<LobbyInfo>('/game/lobby/${id}');
+	const res = await apiClient.get<LobbyInfo>(`/game/lobby/${id}`);
 	return res.data;
 }
 
 /** Join a lobby as a player. The server opens the lobby uni-stream after this. */
 export async function joinLobby(id: string): Promise<void> {
-	await apiClient.post('/game/lobby/${id}/join');
+	await apiClient.post(`/game/lobby/${id}/join`);
 }
 
 /** Join a lobby as a spectator. */
 export async function spectateLobby(id: string): Promise<void> {
-	await apiClient.post('/game/lobby/${id}/spectate');
+	await apiClient.post(`/game/lobby/${id}/spectate`);
 }
 
 /** Leave the specified lobby (works for both players and spectators). */
 export async function leaveLobby(id: string): Promise<void> {
-	await apiClient.post('/game/lobby/${id}/leave');
+	await apiClient.post(`/game/lobby/${id}/leave`);
 }
 
 /** Set ready state for the current player in the specified lobby. */
 export async function setReadyApi(id: string, ready: boolean): Promise<void> {
-	await apiClient.post('/game/lobby/${id}/ready', { ready });
+	await apiClient.post(`/game/lobby/${id}/ready`, { ready });
 }
 
 /** Partially update lobby settings (host only, private lobbies only). */
@@ -63,5 +63,5 @@ export async function updateLobbySettings(
 	id: string,
 	patch: Partial<LobbySettings>,
 ): Promise<void> {
-	await apiClient.patch('/game/lobby/${id}/settings', patch);
+	await apiClient.patch(`/game/lobby/${id}/settings`, patch);
 }
