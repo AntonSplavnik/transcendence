@@ -63,12 +63,6 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				onChange={(e) => setName(e.target.value)}
 				maxLength={32}
 			/>
-			<Input
-				label="Gamemode"
-				value={gamemode}
-				onChange={(e) => setGamemode(e.target.value)}
-				maxLength={32}
-			/>
 			<label className="flex items-start gap-3 cursor-pointer select-none group">
 				<input
 					type="checkbox"

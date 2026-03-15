@@ -92,14 +92,6 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 					autoFocus
 				/>
 
-				<Input
-					label="Gamemode"
-					value={gamemode}
-					onChange={(e) => setGamemode(e.target.value)}
-					placeholder="default"
-					maxLength={32}
-				/>
-
 				<label className="flex items-center gap-3 cursor-pointer select-none">
 					<input
 						type="checkbox"
