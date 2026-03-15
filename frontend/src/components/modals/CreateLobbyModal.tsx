@@ -23,6 +23,12 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter' && !isCreating) {
+			void handleCreate();
+		}
+	};
+
 	const handleCreate = async () => {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
@@ -87,6 +93,7 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 					label="Lobby name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
+					onKeyDown={handleKeyDown}
 					placeholder="My lobby"
 					maxLength={32}
 					autoFocus
