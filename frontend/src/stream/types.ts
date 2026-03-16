@@ -109,7 +109,9 @@ export type ConnectionState =
  *
  * Extend this union as the backend adds more variants.
  */
-export type NotificationPayload = 'ServerHello';
+export type NotificationPayload =
+	| 'ServerHello'
+	| { AchievementUnlocked: { achievement_name: string; tier: string; xp_reward: number } };
 
 /**
  * A single notification as transmitted on the wire.

@@ -133,3 +133,10 @@ export async function logoutSessions(
 	};
 	await apiClient.post('/user/logout-sessions', payload);
 }
+
+// ==================== STATS ====================
+
+export async function getMyStats(): Promise<UserStats> {
+	const response = await apiClient.get<UserStats>('/stats/@me');
+	return response.data;
+}

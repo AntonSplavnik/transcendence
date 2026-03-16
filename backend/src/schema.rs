@@ -1,6 +1,21 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    achievements (id) {
+        id -> Integer,
+        code -> Text,
+        name -> Text,
+        description -> Text,
+        category -> Text,
+        bronze_threshold -> Integer,
+        silver_threshold -> Integer,
+        gold_threshold -> Integer,
+        base_xp_reward -> Integer,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     avatars_large (user_id) {
         user_id -> Integer,
         data -> Binary,
@@ -64,6 +79,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    user_achievements (id) {
+        id -> Integer,
+        user_id -> Integer,
+        achievement_id -> Integer,
+        current_progress -> Integer,
+        bronze_unlocked_at -> Nullable<Timestamp>,
+        silver_unlocked_at -> Nullable<Timestamp>,
+        gold_unlocked_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     user_stats (user_id) {
         user_id -> Integer,
         xp -> Integer,
@@ -96,15 +123,19 @@ diesel::joinable!(avatars_small -> users (user_id));
 diesel::joinable!(notifications -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
+diesel::joinable!(user_achievements -> achievements (achievement_id));
+diesel::joinable!(user_achievements -> users (user_id));
 diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    achievements,
     avatars_large,
     avatars_small,
     games,
     notifications,
     sessions,
     two_fa_recovery_codes,
+    user_achievements,
     user_stats,
     users,
 );
