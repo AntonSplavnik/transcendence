@@ -58,6 +58,23 @@ export interface ChangePasswordPayload {
 	keep_other_sessions_logged_in: boolean;
 }
 
+// ==================== STATS ====================
+
+export interface UserStats {
+	user_id: number;
+	xp: number;
+	level: number;
+	xp_in_level: number;
+	xp_to_next: number;
+	progress_percent: number;
+	games_played: number;
+	games_won: number;
+	games_lost: number;
+	win_rate: number;
+	current_win_streak: number;
+	best_win_streak: number;
+}
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {
