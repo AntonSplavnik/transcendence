@@ -7,6 +7,7 @@ import type {
 	PasswordMfaPayload,
 	SessionManagementPayload,
 	ChangePasswordPayload,
+	UserStats,
 } from './types';
 
 // ==================== USER INFO ====================
@@ -124,4 +125,11 @@ export async function logoutSessions(
 		mfa_code,
 	};
 	await apiClient.post('/user/logout-sessions', payload);
+}
+
+// ==================== STATS ====================
+
+export async function getMyStats(): Promise<UserStats> {
+	const response = await apiClient.get<UserStats>('/stats/@me');
+	return response.data;
 }

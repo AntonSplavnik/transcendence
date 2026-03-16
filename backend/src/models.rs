@@ -15,7 +15,7 @@ use crate::{
     models::{cbor_blob::CborBlob, nickname::Nickname},
     notifications::NotificationPayload,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
@@ -143,6 +143,8 @@ pub struct UserAchievement {
     pub bronze_unlocked_at: Option<NaiveDateTime>,
     pub silver_unlocked_at: Option<NaiveDateTime>,
     pub gold_unlocked_at: Option<NaiveDateTime>,
+}
+
 // Games
 // ============================================================================
 

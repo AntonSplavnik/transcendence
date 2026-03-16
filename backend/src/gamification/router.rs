@@ -1,14 +1,10 @@
 //! Provides gamification routes: stats, XP, levels, achievements
 
 use crate::models::{Achievement, UserAchievement, UserStats};
+use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
 use super::achievements::{self, AchievementTier, AchievementUnlock};
-//! Provides gamification routes: stats, XP, levels
-
-use crate::models::UserStats;
-use crate::prelude::*;
-
 use super::xp;
 
 pub fn router(path: &str) -> Router {
@@ -43,13 +39,16 @@ pub fn router(path: &str) -> Router {
                 ),
         )
         .push(
-            Router::with_path("<user_id>")
             Router::with_path("{user_id}")
                 .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
                 .get(get_user_stats),
         )
 }
+
+// ============================================================================
+// Stats response types
+// ============================================================================
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct StatsResponse {
@@ -86,6 +85,10 @@ impl From<UserStats> for StatsResponse {
     }
 }
 
+// ============================================================================
+// record-game
+// ============================================================================
+
 #[derive(Debug, Deserialize, ToSchema)]
 struct RecordGameInput {
     won: bool,
@@ -99,58 +102,87 @@ pub struct RecordGameResponse {
     pub achievement_unlocks: Vec<AchievementUnlock>,
 }
 
-/// Record a game result: updates stats, awards XP, recalculates level, checks achievements
+/// Record a game result: updates stats, awards XP, recalculates level, checks achievements.
+/// Fires a notification for each newly unlocked achievement tier.
 #[endpoint]
-async fn record_game(depot: &mut Depot, json: JsonBody<RecordGameInput>) -> JsonResult<RecordGameResponse> {
-    use crate::schema::user_stats::dsl;
+async fn record_game(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<RecordGameInput>,
+) -> JsonResult<RecordGameResponse> {
     let user_id = depot.user_id();
     let input = json.into_inner();
-    let conn = &mut db::get()?;
 
-    // Get or create stats
-    let mut stats = dsl::user_stats
-        .filter(dsl::user_id.eq(user_id))
-        .first::<UserStats>(conn)
-        .optional()?
-        .unwrap_or_else(|| UserStats::new(user_id));
+    let (response, unlocks) = db
+        .transaction_write(move |conn| {
+            use crate::schema::user_stats::dsl;
 
-    // Apply game result
-    let (mut xp_gained, leveled_up) = stats.record_game(input.won);
+            // Get or create stats
+            let mut stats = dsl::user_stats
+                .filter(dsl::user_id.eq(user_id))
+                .first::<UserStats>(conn)
+                .optional()?
+                .unwrap_or_else(|| UserStats::new(user_id));
 
-    // Upsert stats
-    diesel::replace_into(dsl::user_stats)
-        .values(&stats)
-        .execute(conn)?;
+            // Apply game result
+            let (mut xp_gained, leveled_up) = stats.record_game(input.won);
 
-    // Check achievements
-    let achievement_unlocks = achievements::check_achievements(conn, user_id, &stats)?;
+            // Upsert stats
+            diesel::replace_into(dsl::user_stats)
+                .values(&stats)
+                .execute(conn)?;
 
-    // Award achievement XP
-    let achievement_xp: i32 = achievement_unlocks.iter().map(|u| u.xp_reward).sum();
-    if achievement_xp > 0 {
-        xp_gained += achievement_xp;
-        stats.xp += achievement_xp;
-        let new_level = xp::level_from_xp(stats.xp);
-        stats.level = new_level;
+            // Check achievements
+            let unlocks = achievements::check_achievements(conn, user_id, &stats)?;
 
-        diesel::update(dsl::user_stats.filter(dsl::user_id.eq(user_id)))
-            .set((dsl::xp.eq(stats.xp), dsl::level.eq(stats.level)))
-            .execute(conn)?;
+            // Award achievement XP
+            let achievement_xp: i32 = unlocks.iter().map(|u| u.xp_reward).sum();
+            if achievement_xp > 0 {
+                xp_gained += achievement_xp;
+                stats.xp += achievement_xp;
+                stats.level = xp::level_from_xp(stats.xp);
+
+                diesel::update(dsl::user_stats.filter(dsl::user_id.eq(user_id)))
+                    .set((dsl::xp.eq(stats.xp), dsl::level.eq(stats.level)))
+                    .execute(conn)?;
+            }
+
+            let response = RecordGameResponse {
+                xp_gained,
+                leveled_up,
+                stats: StatsResponse::from(stats),
+                achievement_unlocks: unlocks.clone(),
+            };
+
+            Ok((response, unlocks))
+        })
+        .await?;
+
+    // Send a notification for each newly unlocked achievement tier.
+    // Failures are logged but never bubble up to the caller.
+    let nm = depot.notification_manager();
+    for unlock in &unlocks {
+        let payload = NotificationPayload::AchievementUnlocked {
+            achievement_name: unlock.achievement_name.clone(),
+            tier: unlock.tier.as_str().to_string(),
+            xp_reward: unlock.xp_reward,
+        };
+        if let Err(err) = nm.send(&db, user_id, payload).await {
+            tracing::warn!(
+                user_id,
+                achievement = %unlock.achievement_code,
+                "failed to send achievement notification: {err}"
+            );
+        }
     }
 
-    json_ok(RecordGameResponse {
-        xp_gained,
-        leveled_up,
-        stats: StatsResponse::from(stats),
-        achievement_unlocks,
-    })
+    json_ok(response)
 }
 
-/// Get current user's stats
-#[endpoint]
-async fn get_my_stats(depot: &mut Depot) -> JsonResult<StatsResponse> {
-    let user_id = depot.user_id();
-    get_or_create_stats(user_id)
+// ============================================================================
+// Stats endpoints
+// ============================================================================
+
 /// Get current user's stats
 #[endpoint]
 async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
@@ -160,59 +192,48 @@ async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
 
 /// Get a user's stats by ID
 #[endpoint]
-async fn get_user_stats(req: &mut Request) -> JsonResult<StatsResponse> {
 async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> {
     let user_id: i32 = req.param("user_id").unwrap_or(0);
     if user_id == 0 {
         return Err(diesel::result::Error::NotFound.into());
     }
-    get_or_create_stats(user_id)
+    get_or_create_stats(user_id, db).await
 }
 
-fn get_or_create_stats(user_id: i32) -> JsonResult<StatsResponse> {
-    use crate::schema::user_stats::dsl;
-    let conn = &mut db::get()?;
+async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
+    let stats = db
+        .transaction_write(move |conn| {
+            use crate::schema::user_stats::dsl;
 
-    // Try to get existing stats
-    let stats = dsl::user_stats
-        .filter(dsl::user_id.eq(user_id))
-        .first::<UserStats>(conn)
-        .optional()?;
+            let stats = dsl::user_stats
+                .filter(dsl::user_id.eq(user_id))
+                .first::<UserStats>(conn)
+                .optional()?;
 
-    let stats = match stats {
-        Some(s) => s,
-        None => {
-            // Verify user exists (will return NotFound error if not)
-            use crate::schema::users;
-            users::table
-                .filter(users::id.eq(user_id))
-                .first::<crate::models::User>(conn)?;
+            match stats {
+                Some(s) => Ok(s),
+                None => {
+                    use crate::schema::users;
+                    users::table
+                        .filter(users::id.eq(user_id))
+                        .first::<crate::models::User>(conn)?;
 
-            // Create default stats for user
-            let new_stats = UserStats::new(user_id);
-            diesel::insert_into(dsl::user_stats)
-                .values(&new_stats)
-                .execute(conn)?;
-            new_stats
-        }
-    };
+                    let new_stats = UserStats::new(user_id);
+                    diesel::insert_into(dsl::user_stats)
+                        .values(&new_stats)
+                        .execute(conn)?;
+                    Ok(new_stats)
+                }
+            }
+        })
+        .await?;
 
     json_ok(StatsResponse::from(stats))
 }
 
 // ============================================================================
-// Achievement Endpoints
+// Achievement endpoints
 // ============================================================================
-
-#[derive(Debug, Serialize, ToSchema)]
-struct AchievementWithProgress {
-    #[serde(flatten)]
-    achievement: AchievementResponse,
-    current_progress: i32,
-    bronze_unlocked: bool,
-    silver_unlocked: bool,
-    gold_unlocked: bool,
-}
 
 #[derive(Debug, Serialize, ToSchema)]
 struct AchievementResponse {
@@ -243,30 +264,40 @@ impl From<Achievement> for AchievementResponse {
     }
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+struct AchievementWithProgress {
+    #[serde(flatten)]
+    achievement: AchievementResponse,
+    current_progress: i32,
+    bronze_unlocked: bool,
+    silver_unlocked: bool,
+    gold_unlocked: bool,
+}
+
 /// Get all achievements with current user's progress
 #[endpoint]
-async fn get_achievements(depot: &mut Depot) -> JsonResult<Vec<AchievementWithProgress>> {
+async fn get_achievements(depot: &mut Depot, db: Db) -> JsonResult<Vec<AchievementWithProgress>> {
     use crate::schema::achievements::dsl as ach_dsl;
     use crate::schema::user_achievements::dsl as ua_dsl;
 
     let user_id = depot.user_id();
-    let conn = &mut db::get()?;
 
-    let all_achievements = ach_dsl::achievements
-        .order(ach_dsl::id.asc())
-        .load::<Achievement>(conn)?;
+    let (all_achievements, user_progress) = db
+        .transaction_readonly(move |conn| {
+            let all = ach_dsl::achievements
+                .order(ach_dsl::id.asc())
+                .load::<Achievement>(conn)?;
+            let progress = ua_dsl::user_achievements
+                .filter(ua_dsl::user_id.eq(user_id))
+                .load::<UserAchievement>(conn)?;
+            Ok((all, progress))
+        })
+        .await?;
 
-    let user_progress = ua_dsl::user_achievements
-        .filter(ua_dsl::user_id.eq(user_id))
-        .load::<UserAchievement>(conn)?;
-
-    let result: Vec<AchievementWithProgress> = all_achievements
+    let result = all_achievements
         .into_iter()
         .map(|ach| {
-            let progress = user_progress
-                .iter()
-                .find(|ua| ua.achievement_id == ach.id);
-
+            let progress = user_progress.iter().find(|ua| ua.achievement_id == ach.id);
             AchievementWithProgress {
                 current_progress: progress.map_or(0, |p| p.current_progress),
                 bronze_unlocked: progress.is_some_and(|p| p.bronze_unlocked_at.is_some()),
@@ -288,24 +319,26 @@ struct RecentUnlock {
     unlocked_at: String,
 }
 
-/// Get recently unlocked achievements for the current user
+/// Get recently unlocked achievement tiers for the current user (last 20)
 #[endpoint]
-async fn get_recent_achievements(depot: &mut Depot) -> JsonResult<Vec<RecentUnlock>> {
+async fn get_recent_achievements(depot: &mut Depot, db: Db) -> JsonResult<Vec<RecentUnlock>> {
     use crate::schema::achievements::dsl as ach_dsl;
     use crate::schema::user_achievements::dsl as ua_dsl;
 
     let user_id = depot.user_id();
-    let conn = &mut db::get()?;
 
-    let user_progress = ua_dsl::user_achievements
-        .filter(ua_dsl::user_id.eq(user_id))
-        .load::<UserAchievement>(conn)?;
-
-    let achievement_ids: Vec<i32> = user_progress.iter().map(|ua| ua.achievement_id).collect();
-
-    let achievements_map: Vec<Achievement> = ach_dsl::achievements
-        .filter(ach_dsl::id.eq_any(&achievement_ids))
-        .load::<Achievement>(conn)?;
+    let (user_progress, achievements_map) = db
+        .transaction_readonly(move |conn| {
+            let progress = ua_dsl::user_achievements
+                .filter(ua_dsl::user_id.eq(user_id))
+                .load::<UserAchievement>(conn)?;
+            let ids: Vec<i32> = progress.iter().map(|ua| ua.achievement_id).collect();
+            let map = ach_dsl::achievements
+                .filter(ach_dsl::id.eq_any(&ids))
+                .load::<Achievement>(conn)?;
+            Ok((progress, map))
+        })
+        .await?;
 
     let mut recent: Vec<RecentUnlock> = Vec::new();
 
@@ -314,70 +347,24 @@ async fn get_recent_achievements(depot: &mut Depot) -> JsonResult<Vec<RecentUnlo
             continue;
         };
 
-        if let Some(at) = ua.gold_unlocked_at {
-            recent.push(RecentUnlock {
-                achievement_name: ach.name.clone(),
-                achievement_code: ach.code.clone(),
-                tier: AchievementTier::Gold,
-                unlocked_at: at.and_utc().to_rfc3339(),
-            });
-        }
-        if let Some(at) = ua.silver_unlocked_at {
-            recent.push(RecentUnlock {
-                achievement_name: ach.name.clone(),
-                achievement_code: ach.code.clone(),
-                tier: AchievementTier::Silver,
-                unlocked_at: at.and_utc().to_rfc3339(),
-            });
-        }
-        if let Some(at) = ua.bronze_unlocked_at {
-            recent.push(RecentUnlock {
-                achievement_name: ach.name.clone(),
-                achievement_code: ach.code.clone(),
-                tier: AchievementTier::Bronze,
-                unlocked_at: at.and_utc().to_rfc3339(),
-            });
+        for (ts, tier) in [
+            (ua.gold_unlocked_at, AchievementTier::Gold),
+            (ua.silver_unlocked_at, AchievementTier::Silver),
+            (ua.bronze_unlocked_at, AchievementTier::Bronze),
+        ] {
+            if let Some(at) = ts {
+                recent.push(RecentUnlock {
+                    achievement_name: ach.name.clone(),
+                    achievement_code: ach.code.clone(),
+                    tier,
+                    unlocked_at: at.and_utc().to_rfc3339(),
+                });
+            }
         }
     }
 
-    // Sort by most recent first
     recent.sort_by(|a, b| b.unlocked_at.cmp(&a.unlocked_at));
-
-    // Return last 20 unlocks
     recent.truncate(20);
 
     json_ok(recent)
-}
-    get_or_create_stats(user_id, db).await
-}
-
-async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
-    let stats = db.transaction_write(move |conn| {
-        use crate::schema::user_stats::dsl;
-
-        let stats = dsl::user_stats
-            .filter(dsl::user_id.eq(user_id))
-            .first::<UserStats>(conn)
-            .optional()?;
-
-        match stats {
-            Some(s) => Ok(s),
-            None => {
-                // Verify user exists (will return NotFound error if not)
-                use crate::schema::users;
-                users::table
-                    .filter(users::id.eq(user_id))
-                    .first::<crate::models::User>(conn)?;
-
-                // Create default stats for user
-                let new_stats = UserStats::new(user_id);
-                diesel::insert_into(dsl::user_stats)
-                    .values(&new_stats)
-                    .execute(conn)?;
-                Ok(new_stats)
-            }
-        }
-    }).await?;
-
-    json_ok(StatsResponse::from(stats))
 }

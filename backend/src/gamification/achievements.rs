@@ -14,6 +14,16 @@ pub enum AchievementTier {
 }
 
 impl AchievementTier {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AchievementTier::Bronze => "bronze",
+            AchievementTier::Silver => "silver",
+            AchievementTier::Gold => "gold",
+        }
+    }
+}
+
+impl AchievementTier {
     fn xp_multiplier(self) -> i32 {
         match self {
             AchievementTier::Bronze => 1,
@@ -23,7 +33,7 @@ impl AchievementTier {
     }
 }
 
-#[derive(Debug, Serialize, salvo::oapi::ToSchema)]
+#[derive(Debug, Clone, Serialize, salvo::oapi::ToSchema)]
 pub struct AchievementUnlock {
     pub achievement_id: i32,
     pub achievement_code: String,

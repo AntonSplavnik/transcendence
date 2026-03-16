@@ -82,12 +82,11 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 async function resolveDisplayText(payload: NotificationPayload): Promise<string> {
 	if (payload === 'ServerHello') return 'Connected to server';
 
-	// Future variants that carry user IDs would resolve nicknames here:
-	// import { getNickname } from '../api/userResolver';
-	// if (typeof payload === 'object' && 'FriendRequest' in payload) {
-	//     const name = await getNickname(payload.FriendRequest.sender_id);
-	//     return `Friend request from ${name}`;
-	// }
+	if (typeof payload === 'object' && 'AchievementUnlocked' in payload) {
+		const { achievement_name, tier, xp_reward } = payload.AchievementUnlocked;
+		const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+		return `${tierLabel} achievement unlocked: ${achievement_name} (+${xp_reward} XP)`;
+	}
 
 	return String(payload);
 }

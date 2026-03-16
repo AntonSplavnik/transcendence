@@ -13,6 +13,9 @@ diesel::table! {
         base_xp_reward -> Integer,
         created_at -> Timestamp,
     }
+}
+
+diesel::table! {
     avatars_large (user_id) {
         user_id -> Integer,
         data -> Binary,
@@ -126,16 +129,13 @@ diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     achievements,
-    sessions,
-    two_fa_recovery_codes,
-    user_achievements,
-    user_stats,
     avatars_large,
     avatars_small,
     games,
     notifications,
     sessions,
     two_fa_recovery_codes,
+    user_achievements,
     user_stats,
     users,
 );
