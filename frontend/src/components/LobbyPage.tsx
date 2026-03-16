@@ -5,7 +5,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
-import { Badge, Button, Card, Input } from './ui';
+import type { CharacterChoice } from './ui';
+import { Badge, Button, Card, CharacterPicker, Input } from './ui';
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ export default function LobbyPage() {
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
+	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice | null>(null);
 
 	// Countdown timer — primitive dep avoids interval reset on unrelated updates.
 	const countdownMs =
@@ -337,6 +339,11 @@ export default function LobbyPage() {
 					</p>
 				)}
 
+				{/* Character selection */}
+				{isPlayer && !gameActive && (
+					<CharacterPicker value={selectedCharacter} onChange={setSelectedCharacter} />
+				)}
+
 				{/* Actions */}
 				<div className="flex gap-3 border-t border-stone-700 pt-4">
 					{isPlayer && !gameActive && (
@@ -344,7 +351,9 @@ export default function LobbyPage() {
 							variant={myPlayer.ready ? 'secondary' : 'primary'}
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
+							disabled={!selectedCharacter}
 							fullWidth
+							title={!selectedCharacter ? 'Choose a champion first' : undefined}
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>
