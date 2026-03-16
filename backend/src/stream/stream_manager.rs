@@ -1,7 +1,8 @@
 //! WebTransport Stream Manager
 //!
 //! This module manages WebTransport (HTTP/3) connections and exposes a small API
-//! for *server-side* components to open bidirectional streams to a connected user.
+//! for *server-side* components to open bidirectional or uni-directional streams
+//! to a connected user.
 //!
 //! # What the current implementation does
 //!
@@ -13,8 +14,8 @@
 //! Instead, the connection is authenticated in two steps:
 //!
 //! 1. The client opens a WebTransport session via [`connect_stream`]. The server
-//!    creates a [`PendingConnectionKey`] and sends it over an initial control stream
-//!    as [`StreamType::Ctrl`].
+//!    opens a [`StreamType::Ctrl`] uni stream whose header carries the
+//!    [`PendingConnectionKey`].
 //! 2. The client performs an authenticated REST call to [`bind_pending_stream`]
 //!    (behind `Router::requires_user_login()`) and posts that `PendingConnectionKey`.
 //!    The server looks up the key and forwards the authenticated [`Session`] to the
@@ -26,7 +27,9 @@
 //! ## One active connection per user
 //!
 //! Connected users are stored in a `DashMap(user_id -> ConnectionEntry)`.
-//! Registering a new connection for the same user replaces the old entry.
+//! Registering a new connection for the same user sends a
+//! [`ConnectionCommand::Displace`] to the old handler (which sends a
+//! [`CtrlMessage::Displaced`] on the Ctrl stream) before replacing the entry.
 //! Dropping the old entry drops its command sender, which causes the old handler's
 //! `cmd_rx.recv()` to return `None` and exit.
 //!
@@ -47,7 +50,9 @@
 //!
 //! Server-side components call [`StreamManager::request_stream`] (or
 //! [`StreamManager::request_custom_stream`]) to open a fresh bidirectional stream
-//! on the user's WebTransport session.
+//! on the user's WebTransport session, or [`StreamManager::request_uni_stream`]
+//! (or [`StreamManager::request_custom_uni_stream`]) for a server → client
+//! send-only stream.
 //!
 //! The server always sends a first CBOR message describing the [`StreamType`] of
 //! that stream. The returned `Sender`/`Receiver` then carry typed CBOR messages
@@ -55,10 +60,9 @@
 //!
 //! ## Liveness detection (current state)
 //!
-//! The handler currently does **not** maintain a dedicated heartbeat stream.
-//! Connection closure is therefore observed indirectly (e.g. when an `open_bi`
-//! request fails). If no stream requests happen, the handler may not immediately
-//! notice that a client disappeared.
+//! The handler polls `accept_bi()` on the WebTransport session inside the main
+//! `select!` loop.  This drives the underlying h3 `Connection`, which discovers
+//! QUIC errors surfaced by quinn and breaks the loop on connection closure.
 //!
 //! # Errors
 //!
@@ -69,11 +73,12 @@
 //! # Thread safety
 //!
 //! The [`StreamManager`] uses [`DashMap`] for concurrent access and is safe to call
-//! from multiple tasks. The singleton is created lazily via [`StreamManager::global`].
+//! from multiple tasks. Instances are provided via dependency injection and accessed
+//! through the [`StreamManagerDepotExt`] trait rather than a global singleton.
 
 use std::ops::Deref;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use anyhow::Context;
@@ -83,17 +88,19 @@ use futures::SinkExt as _;
 use salvo::http::Method;
 use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
+use tokio_util::sync::CancellationToken;
 
+use super::CtrlMessage;
 use super::StreamType;
-use super::compress_cbor_codec::{
-    CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder,
-};
+use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use crate::models::Session;
+use crate::models::blob::FixedBlob;
 use crate::prelude::*;
 use crate::utils::adaptive_buffer::BufferParams;
 
@@ -128,12 +135,10 @@ const STREAM_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_STREAM_FRAME_SIZE: usize = 8 * 1024 * 1024;
 
 /// Send half of a WebTransport bidirectional stream (raw, unframed).
-type WtSend =
-    salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes>, Bytes>;
+type WtSend = salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes>, Bytes>;
 
 /// Receive half of a WebTransport bidirectional stream (raw, unframed).
-type WtRecv =
-    salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
+type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
 
 /// A sink for sending typed messages to a client.
 ///
@@ -142,8 +147,46 @@ type WtRecv =
 /// use futures::SinkExt;
 /// sender.send(MyMessage { ... }).await?;
 /// ```
-pub type Sender<S, BP = CodecBufferParams> =
-    FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
+pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
+
+/// A sharable (by clone) and comparable Sender for stream messages.
+///
+/// This is a thin wrapper around `mpsc::Sender` that spawns a task to forward messages to the actual `Sender`.
+#[derive(Clone)]
+pub struct SharedSender<T>(pub mpsc::Sender<T>);
+
+impl<T: Serialize + Send + 'static> SharedSender<T> {
+    /// When creating Shared Managers, you want to use SharedSender instead of Sender.
+    pub fn new<BP: Send + BufferParams + 'static>(sender: Sender<T, BP>) -> SharedSender<T> {
+        let (tx, mut rx) = mpsc::channel(32);
+        tokio::spawn(async move {
+            let mut sender = sender;
+            while let Some(payload) = rx.recv().await {
+                if let Err(err) = sender.send(payload).await {
+                    tracing::debug!(error = %err, "failed to send message to client, closing stream");
+                    break;
+                }
+            }
+        });
+        Self(tx)
+    }
+}
+
+impl<T> Deref for SharedSender<T> {
+    type Target = mpsc::Sender<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> PartialEq for SharedSender<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.same_channel(&other.0)
+    }
+}
+
+impl<T> Eq for SharedSender<T> {}
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -196,18 +239,31 @@ enum ConnectionCommand {
     OpenBidiStream {
         response: oneshot::Sender<Result<(WtSend, WtRecv)>>,
     },
+    /// Request to open a new uni-directional (server → client) stream.
+    OpenUniStream {
+        response: oneshot::Sender<Result<WtSend>>,
+    },
+    /// Signal that this connection is being displaced by a newer one.
+    /// The handler should send [`CtrlMessage::Displaced`] and shut down.
+    Displace,
 }
 
 /// Entry in the connection registry, containing the channel and a unique connection ID.
 struct ConnectionEntry {
+    /// Task that resolves on auth expiry and unregisters the connection.
+    /// This is aborted and replaced on auth refresh.
     unregister_task: AbortHandle,
+    /// Channel for sending commands to the connection handler (e.g., open stream, displace).
     tx: mpsc::Sender<ConnectionCommand>,
     connection_id: u64,
     session_id: i32,
+    /// Cancellation token used to signal connection closure
+    disconnect_token: CancellationToken,
 }
 
 impl ConnectionEntry {
     fn new(
+        streams: Weak<StreamManager>,
         session: &Session,
         connection_id: u64,
         tx: mpsc::Sender<ConnectionCommand>,
@@ -216,20 +272,21 @@ impl ConnectionEntry {
             tx,
             connection_id,
             session_id: session.id,
-            unregister_task: Self::new_unregister_task(session, connection_id),
+            unregister_task: Self::new_unregister_task(streams, session, connection_id),
+            disconnect_token: CancellationToken::new(),
         }
     }
 
-    fn refresh_auth(&mut self, session: &Session) {
+    fn refresh_auth(&mut self, streams: Weak<StreamManager>, session: &Session) {
         if session.id != self.session_id {
             return;
         }
         self.unregister_task.abort();
-        self.unregister_task =
-            Self::new_unregister_task(session, self.connection_id);
+        self.unregister_task = Self::new_unregister_task(streams, session, self.connection_id);
     }
 
     fn new_unregister_task(
+        streams: Weak<StreamManager>,
         session: &Session,
         connection_id: u64,
     ) -> AbortHandle {
@@ -241,11 +298,9 @@ impl ConnectionEntry {
                 .to_std()
                 .unwrap_or_default();
             tokio::time::sleep(until_unregister).await;
-            StreamManager::global().unregister(
-                user_id,
-                Some(connection_id),
-                None,
-            );
+            if let Some(streams) = streams.upgrade() {
+                streams.unregister(user_id, Some(connection_id), None);
+            }
         })
         .abort_handle()
     }
@@ -253,24 +308,14 @@ impl ConnectionEntry {
 
 impl Drop for ConnectionEntry {
     fn drop(&mut self) {
+        self.disconnect_token.cancel();
         self.unregister_task.abort();
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
-pub struct RandomNonce([u8; 32]);
+pub type RandomNonce = FixedBlob<32>;
 
-impl RandomNonce {
-    pub fn new() -> Self {
-        RandomNonce(rand::random())
-    }
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct PendingConnectionKey {
     connection_id: u64,
     challenge: RandomNonce,
@@ -280,14 +325,17 @@ impl PendingConnectionKey {
     pub fn new(connection_id: u64) -> Self {
         Self {
             connection_id,
-            challenge: RandomNonce::new(),
+            challenge: rand::random(),
         }
     }
 }
 
-struct PendingConnectionGuard(PendingConnectionKey);
+struct PendingConnectionGuard<'a>(
+    PendingConnectionKey,
+    &'a DashMap<PendingConnectionKey, oneshot::Sender<Session>, ahash::RandomState>,
+);
 
-impl Deref for PendingConnectionGuard {
+impl Deref for PendingConnectionGuard<'_> {
     type Target = PendingConnectionKey;
 
     fn deref(&self) -> &Self::Target {
@@ -295,23 +343,9 @@ impl Deref for PendingConnectionGuard {
     }
 }
 
-impl Drop for PendingConnectionGuard {
+impl Drop for PendingConnectionGuard<'_> {
     fn drop(&mut self) {
-        StreamManager::global().pending_connections.remove(&self.0);
-    }
-}
-
-impl PendingConnectionGuard {
-    /// Prevent the guard from cleaning up the pending connection.
-    ///
-    /// Only use, if we are sure that the pending connection has been
-    /// taken from the map already (e.g., after awaiting the session receiver).
-    /// Otherwise, this will lead to a memory leak.
-    fn disarm(self) {
-        // consume self, so that the drop impl of Self is not called
-        // could use std::mem::forget(self) as well, as long as the inner value isn't heap allocated.
-        // This is safer in the case the inner variable changes in the future.
-        let _ = self.0;
+        self.1.remove(&self.0);
     }
 }
 
@@ -321,11 +355,8 @@ impl PendingConnectionGuard {
 /// allowing external components to request new streams.
 pub struct StreamManager {
     /// Registry mapping pending connection keys to their session senders.
-    pending_connections: DashMap<
-        PendingConnectionKey,
-        oneshot::Sender<Session>,
-        ahash::RandomState,
-    >,
+    pending_connections:
+        DashMap<PendingConnectionKey, oneshot::Sender<Session>, ahash::RandomState>,
     /// Registry mapping user IDs to their connection entries.
     connections: DashMap<i32, ConnectionEntry, ahash::RandomState>,
     /// Counter for generating unique connection IDs.
@@ -333,56 +364,66 @@ pub struct StreamManager {
 }
 
 impl StreamManager {
-    /// Get the global StreamManager instance.
-    pub fn global() -> &'static Self {
-        static INSTANCE: LazyLock<StreamManager> =
-            LazyLock::new(|| StreamManager {
-                pending_connections: DashMap::default(),
-                connections: DashMap::default(),
-                connection_id_counter: AtomicU64::new(0),
-            });
-        &INSTANCE
+    pub fn new() -> Self {
+        Self {
+            pending_connections: Default::default(),
+            connections: Default::default(),
+            connection_id_counter: Default::default(),
+        }
     }
 
     /// Returns whether the given user is connected
     pub fn is_connected(&self, user_id: i32) -> bool {
-        self.connections.contains_key(&user_id)
+        self.connections
+            .get(&user_id)
+            .map(|conn| !conn.tx.is_closed())
+            .unwrap_or(false)
+    }
+
+    pub fn shutdown(&self) {
+        self.pending_connections.clear();
+        self.connections.clear();
     }
 
     /// This reauthenticates the stream associated to this session (if any)
-    pub fn refresh_auth(&self, session: &Session) {
+    pub fn refresh_auth(self: &Arc<Self>, session: &Session) {
         self.connections
             .entry(session.user_id)
-            .and_modify(|c| c.refresh_auth(session));
+            .and_modify(|c| c.refresh_auth(Arc::downgrade(self), session));
     }
 
-    fn register_pending(
-        &self,
-    ) -> (oneshot::Receiver<Session>, PendingConnectionGuard) {
-        let connection_id =
-            self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
+    fn register_pending<'a>(&'a self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'a>) {
+        let connection_id = self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
         let key = PendingConnectionKey::new(connection_id);
         let (tx, rx) = oneshot::channel();
         self.pending_connections.insert(key, tx);
-        (rx, PendingConnectionGuard(key))
+        (rx, PendingConnectionGuard(key, &self.pending_connections))
     }
 
     /// Register a user's WebTransport connection command channel.
     ///
     /// Returns a unique connection ID that must be passed to `unregister` later.
-    /// If the user already has a connection, the old sender is dropped,
-    /// causing the old handler's `rx.recv()` to return `None` and exit.
+    /// If the user already has a connection, the old handler is told to send
+    /// [`CtrlMessage::Displaced`] before exiting.
     fn register(
-        &self,
+        self: &Arc<Self>,
         session: &Session,
         tx: mpsc::Sender<ConnectionCommand>,
         connection_id: u64,
     ) -> u64 {
-        self.connections.insert(
+        // Tell the old connection it's being displaced before we replace it.
+        // try_send is used because register() is not async; the command is
+        // buffered and the old handler will process it before seeing the
+        // channel close (None).
+        if let Some(old) = self.connections.insert(
             session.user_id,
-            ConnectionEntry::new(session, connection_id, tx),
-        );
-        tracing::info!(
+            ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
+        ) {
+            if let Err(e) = old.tx.try_send(ConnectionCommand::Displace) {
+                tracing::debug!(error = %e, "failed to send command");
+            }
+        }
+        tracing::debug!(
             session.user_id,
             connection_id,
             "Registered WebTransport connection"
@@ -426,7 +467,7 @@ impl StreamManager {
                 None => true,
             };
             if matches {
-                tracing::info!(
+                tracing::debug!(
                     user_id,
                     connection_id = entry.connection_id,
                     "Unregistered connection"
@@ -455,13 +496,14 @@ impl StreamManager {
     async fn request_unframed_stream(
         &self,
         user_id: i32,
-    ) -> Result<((WtSend, WtRecv), u64)> {
+    ) -> Result<((WtSend, WtRecv), u64, CancellationToken)> {
         let entry = self
             .connections
             .get(&user_id)
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
+        let token = entry.disconnect_token.clone();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -483,7 +525,59 @@ impl StreamManager {
 
         // Wait for response with timeout - if timeout or error, connection is dead
         match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id)),
+            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
+            Ok(Err(_)) | Err(_) => {
+                self.unregister(user_id, Some(connection_id), None);
+                Err(StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: "handler unresponsive or crashed".into(),
+                })
+            }
+        }
+    }
+
+    /// Request a new raw uni-directional (server → client) stream for a connected user.
+    ///
+    /// Returns an unframed WebTransport send stream. This is a low-level API;
+    /// prefer [`request_uni_stream`](Self::request_uni_stream) for typed message passing.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    async fn request_unframed_uni_stream(
+        &self,
+        user_id: i32,
+    ) -> Result<(WtSend, u64, CancellationToken)> {
+        let entry = self
+            .connections
+            .get(&user_id)
+            .ok_or(StreamManagerError::UserNotConnected { user_id })?;
+        let tx = entry.tx.clone();
+        let connection_id = entry.connection_id;
+        let token = entry.disconnect_token.clone();
+        drop(entry);
+
+        let (response_tx, response_rx) = oneshot::channel();
+
+        // Send command to handler
+        if tx
+            .send(ConnectionCommand::OpenUniStream {
+                response: response_tx,
+            })
+            .await
+            .is_err()
+        {
+            self.unregister(user_id, Some(connection_id), None);
+            return Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler exited".into(),
+            });
+        }
+
+        // Wait for response with timeout - if timeout or error, connection is dead
+        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
             Ok(Err(_)) | Err(_) => {
                 self.unregister(user_id, Some(connection_id), None);
                 Err(StreamManagerError::ConnectionClosed {
@@ -531,14 +625,13 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S>, Receiver<R>)>
+    ) -> Result<(Sender<S>, Receiver<R>, CancellationToken)>
     where
         S: Serialize,
         R: DeserializeOwned,
     {
         self.request_custom_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            user_id,
-            r#type,
+            user_id, r#type,
         )
         .await
     }
@@ -564,22 +657,98 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>)>
+    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>, CancellationToken)>
     where
         S: Serialize,
         R: DeserializeOwned,
         BP: BufferParams,
     {
-        let ((send, recv), connection_id) =
-            self.request_unframed_stream(user_id).await?;
+        let ((send, recv), connection_id, token) = self.request_unframed_stream(user_id).await?;
 
         frame_stream::<S, R, BP, MAX_FRAME>(send, recv, r#type)
             .await
+            .map(|(sender, receiver)| (sender, receiver, token))
             .map_err(|e| {
                 self.unregister(user_id, Some(connection_id), None);
                 StreamManagerError::ConnectionClosed {
                     user_id,
                     reason: format!("failed to frame stream: {e}"),
+                }
+            })
+    }
+
+    /// Request a new uni-directional (server → client) stream for typed message passing.
+    ///
+    /// Unlike [`request_stream`](Self::request_stream), this opens a send-only stream.
+    /// The client cannot send data back on this stream. Use this for server-initiated
+    /// push scenarios such as notifications or state updates.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `S`: The type to send (must implement [`Serialize`])
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use futures::SinkExt;
+    ///
+    /// let mut send = manager
+    ///     .request_uni_stream::<Notification>(user_id, StreamType::Notifications)
+    ///     .await?;
+    ///
+    /// send.send(Notification::NewMessage { from: 42 }).await?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_uni_stream<S>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+    ) -> Result<(Sender<S>, CancellationToken)>
+    where
+        S: Serialize,
+    {
+        self.request_custom_uni_stream::<S, CodecBufferParams>(user_id, r#type)
+            .await
+    }
+
+    /// Request a new uni-directional stream with custom codec parameters.
+    ///
+    /// This is an advanced API for cases where you need to customize the codec
+    /// buffer behavior. For most use cases, prefer
+    /// [`request_uni_stream`](Self::request_uni_stream) which uses sensible defaults.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `S`: The type to send (must implement [`Serialize`])
+    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_custom_uni_stream<S, BP>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+    ) -> Result<(Sender<S, BP>, CancellationToken)>
+    where
+        S: Serialize,
+        BP: BufferParams,
+    {
+        let (send, connection_id, token) = self.request_unframed_uni_stream(user_id).await?;
+
+        frame_uni_stream::<S, BP>(send, r#type)
+            .await
+            .map(|sender| (sender, token))
+            .map_err(|e| {
+                self.unregister(user_id, Some(connection_id), None);
+                StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: format!("failed to frame uni stream: {e}"),
                 }
             })
     }
@@ -605,19 +774,44 @@ where
     R: DeserializeOwned,
     BP: BufferParams,
 {
-    let mut sender =
-        FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
+    let mut sender = FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
     sender
         .send(&r#type)
         .await
         .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
-    sender.flush().await.with_context(|| {
-        format!("failed to flush stream type: {:?}", r#type)
-    })?;
     let sender = sender.map_encoder(|_| CompressedCborEncoder::new());
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
     Ok((sender, receiver))
+}
+
+/// Frame a uni-directional (server → client) WebTransport stream.
+///
+/// Sends the [`StreamType`] header as the first CBOR message, then returns a
+/// typed [`Sender`] for subsequent messages.
+async fn frame_uni_stream<S, BP>(tx: WtSend, r#type: StreamType) -> anyhow::Result<Sender<S, BP>>
+where
+    S: Serialize,
+    BP: BufferParams,
+{
+    let mut sender = FramedWrite::new(tx, CompressedCborEncoder::<&StreamType, BP>::new());
+    sender
+        .send(&r#type)
+        .await
+        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+    Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
+}
+
+/// Open the server → client Ctrl uni stream.
+///
+/// Sends `StreamType::Ctrl(key)` as the header frame so the client can
+/// extract the [`PendingConnectionKey`] and authenticate via REST.
+/// Returns a typed [`Sender`] for subsequent [`CtrlMessage`]s.
+async fn open_ctrl_stream(
+    tx: WtSend,
+    key: PendingConnectionKey,
+) -> anyhow::Result<Sender<CtrlMessage>> {
+    frame_uni_stream(tx, StreamType::Ctrl(key)).await
 }
 
 /// WebTransport connection endpoint.
@@ -629,10 +823,12 @@ where
 /// # Protocol
 ///
 /// 1. Client initiates WebTransport connection via HTTP/3 CONNECT
-/// 2. Server opens a heartbeat stream for connection liveness detection
-/// 3. Server registers the connection in [`StreamManager`]
+/// 2. Server opens a [`StreamType::Ctrl`] uni stream whose header carries the
+///    [`PendingConnectionKey`] for the auth handshake
+/// 3. Client authenticates via REST, server registers the connection in [`StreamManager`]
 /// 4. Server-side components can request streams via [`StreamManager::request_stream`]
-/// 5. Connection ends when client disconnects or heartbeat fails
+/// 5. On displacement, server sends [`CtrlMessage::Displaced`] on the Ctrl stream
+/// 6. Connection closure is detected by polling `accept_bi()` which drives the h3 layer
 ///
 /// # Single Connection Policy
 ///
@@ -641,51 +837,63 @@ where
 #[endpoint]
 pub async fn connect_stream(
     req: &mut Request,
-) -> std::result::Result<(), salvo::Error> {
+    depot: &mut Depot,
+) -> std::result::Result<StatusCode, salvo::Error> {
     let wt_session = req.web_transport_mut().await.unwrap();
     let session_id = wt_session.session_id();
 
-    // Register this connection (replaces any existing connection for this user)
-    let manager = StreamManager::global();
-    let (session_rx, pending_key_guard) = manager.register_pending();
+    let streams = depot.stream_manager().clone();
+    let (session_rx, pending_key_guard) = streams.register_pending();
     let connection_id = pending_key_guard.connection_id;
-    // Open control stream with initial message
-    let (control_tx, control_rx) = {
-        let (tx, rx) = BidiStream::split(wt_session.open_bi(session_id).await?);
-        frame_stream::<(), (), CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            tx,
-            rx,
-            StreamType::Ctrl(*pending_key_guard),
-        )
-        .await
-        .context("pending connection")?
-    };
-    // drop control stream, for now we have no use for it other than the initial message
-    drop(control_rx);
-    drop(control_tx);
 
-    let user_session =
-        tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx)
-            .await
-            .context("pending connection timeout while waiting for bind/auth")?
-            .context(
-                "pending connection was dropped while waiting for bind/auth",
-            )?;
-    pending_key_guard.disarm();
+    // Open the Ctrl uni stream and send the PendingConnectionKey.
+    let tx = wt_session
+        .open_uni(session_id)
+        .await
+        .context("failed to open ctrl uni stream")?;
+    let mut ctrl = open_ctrl_stream(tx, *pending_key_guard)
+        .await
+        .context("failed to frame ctrl stream")?;
+
+    let user_session = match tokio::time::timeout(PENDING_CONNECTION_TIMEOUT, session_rx).await {
+        Ok(user_session) => user_session.context("waiting for pending connection bind")?,
+        Err(_) => return Ok(StatusCode::REQUEST_TIMEOUT),
+    };
 
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<ConnectionCommand>(16);
-    let connection_id = manager.register(&user_session, cmd_tx, connection_id);
+    let connection_id = streams.register(&user_session, cmd_tx, connection_id);
 
-    tracing::info!(
-        user_session.user_id,
-        user_session.id,
-        connection_id,
-        "User successfully connected via WebTransport"
-    );
-    // TODO check whether connection closure leads to handler panic
-    // if not, how do we detect whether the connection is closed? (-> reimpl heartbeat stream idea)
+    let db = depot.db().clone();
+
+    // Run on_connect concurrently with the command loop.  on_connect requests
+    // streams (uni / bidi) via the StreamManager, which sends commands through
+    // cmd_tx.  Those commands can only be fulfilled by the cmd_rx loop below.
+    // Running both in the same select! avoids the deadlock that would occur if
+    // on_connect were awaited *before* entering the loop.
+    let on_connect_fut = super::on_connect(user_session.user_id, &db, &*streams, depot);
+    tokio::pin!(on_connect_fut);
+    let mut on_connect_done = false;
+
     loop {
         tokio::select! {
+            result = &mut on_connect_fut, if !on_connect_done => {
+                on_connect_done = true;
+                match result {
+                    Ok(()) => {
+                        tracing::info!(
+                            user_session.user_id,
+                            user_session.id,
+                            connection_id,
+                            "User successfully connected via WebTransport"
+                        );
+                    }
+                    Err(err) => {
+                        tracing::error!(user_session.user_id, connection_id, error = %err, "on_connect failed");
+                        streams.unregister(user_session.user_id, Some(connection_id), None);
+                        return Ok(StatusCode::INTERNAL_SERVER_ERROR);
+                    }
+                }
+            }
             // Handle stream requests
             cmd = cmd_rx.recv() => {
                 match cmd {
@@ -705,8 +913,71 @@ pub async fn connect_stream(
                         };
                         let _ = response.send(result);
                     }
+                    Some(ConnectionCommand::OpenUniStream { response }) => {
+                        let result = match wt_session.open_uni(session_id).await {
+                            Ok(stream) => Ok(stream),
+                            Err(e) => {
+                                tracing::warn!(user_session.user_id, connection_id, error = %e, "Uni stream open failed");
+                                Err(StreamManagerError::ConnectionClosed {
+                                    user_id: user_session.user_id,
+                                    reason: format!("uni stream open failed: {}", e),
+                                })
+                            }
+                        };
+                        let _ = response.send(result);
+                    }
                     None => {
-                        tracing::info!(user_session.user_id, connection_id, "Channel closed");
+                        tracing::debug!(user_session.user_id, connection_id, "Channel closed");
+                        break;
+                    }
+                    Some(ConnectionCommand::Displace) => {
+                        if let Err(e) = ctrl.send(CtrlMessage::Displaced).await {
+                            tracing::debug!(error = %e, "failed to send Displaced on ctrl stream");
+                        }
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            "Connection displaced by newer session"
+                        );
+                        tokio::time::sleep(Duration::from_millis(50)).await; // Give the message a moment to be processed by the client
+                        break;
+                    }
+                }
+            }
+            // Drive the h3 connection to detect closure.
+            //
+            // accept_bi() polls the underlying h3 server::Connection, which in
+            // turn calls poll_control → poll_connection_error.  That is the
+            // *only* code path that discovers QUIC errors surfaced by quinn and
+            // stores them in SharedState.  open_bi/open_uni bypass h3 entirely
+            // (they use the raw opener), so without this arm the connection
+            // handler would never learn about a peer disconnect.
+            accepted = wt_session.accept_bi() => {
+                match accepted {
+                    Ok(Some(_)) => {
+                        // Client-initiated bidi stream – unexpected in our
+                        // protocol; just ignore and keep looping.
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            "Ignoring unexpected client-initiated bidi stream"
+                        );
+                    }
+                    Ok(None) => {
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            "WebTransport connection closed gracefully"
+                        );
+                        break;
+                    }
+                    Err(err) => {
+                        tracing::debug!(
+                            user_session.user_id,
+                            connection_id,
+                            error = %err,
+                            "WebTransport connection closed by peer"
+                        );
                         break;
                     }
                 }
@@ -714,13 +985,13 @@ pub async fn connect_stream(
         }
     }
 
-    manager.unregister(user_session.user_id, Some(connection_id), None);
-    tracing::info!(
+    streams.unregister(user_session.user_id, Some(connection_id), None);
+    tracing::debug!(
         user_session.user_id,
         connection_id,
         "WebTransport session ended"
     );
-    Ok(())
+    Ok(StatusCode::OK)
 }
 
 #[endpoint]
@@ -729,9 +1000,10 @@ pub async fn bind_pending_stream(
     json: JsonBody<PendingConnectionKey>,
 ) -> JsonResult<()> {
     let session = depot.session();
+    let streams = depot.stream_manager();
 
     let key = json.into_inner();
-    let sender = StreamManager::global()
+    let sender = streams
         .pending_connections
         .remove(&key)
         .ok_or(StreamApiError::InvalidPendingStreamKey)?
@@ -744,4 +1016,14 @@ pub async fn bind_pending_stream(
         .map_err(|_| StreamApiError::InvalidPendingStreamKey)?;
 
     json_ok(())
+}
+
+pub trait StreamManagerDepotExt {
+    fn stream_manager(&self) -> &Arc<StreamManager>;
+}
+
+impl StreamManagerDepotExt for Depot {
+    fn stream_manager(&self) -> &Arc<StreamManager> {
+        self.obtain().expect("StreamManager not found in depot. Make sure to inject it in the router with affix_state::inject")
+    }
 }

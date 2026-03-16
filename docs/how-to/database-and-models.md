@@ -91,18 +91,23 @@ use crate::schema::tasks::dsl::*; // Import table columns (id, title, etc.)
 ### Create (Insert)
 
 ```rust
-pub fn create_task(new_title: String) -> Result<(), diesel::result::Error> {
+pub async fn create_task(
+    db: Db,
+    new_title: String,
+) -> Result<(), diesel::result::Error> {
     let new_task = NewTask {
         title: new_title,
         is_completed: false,
     };
 
-    let conn = &mut db::get().unwrap(); // Get DB connection
+    db.write(|conn| async move {
+        diesel::insert_into(tasks)
+            .values(&new_task)
+            .execute(conn)?;
+        Ok(())
+    })
+    .await??;
 
-    diesel::insert_into(tasks)
-        .values(&new_task)
-        .execute(conn)?;
-        
     Ok(())
 }
 ```
@@ -110,42 +115,57 @@ pub fn create_task(new_title: String) -> Result<(), diesel::result::Error> {
 ### Read (Select)
 
 ```rust
-pub fn get_all_tasks() -> Vec<Task> {
-    let conn = &mut db::get().unwrap();
-
+pub async fn get_all_tasks(db: Db) -> Result<Vec<Task>, diesel::result::Error> {
     // Load all tasks
-    tasks.load::<Task>(conn).expect("Error loading tasks")
+    let tasks = db
+        .read(|conn| async move { tasks.load::<Task>(conn) })
+        .await??;
+    Ok(tasks)
 }
 
-pub fn get_task_by_id(task_id: i32) -> Option<Task> {
-    let conn = &mut db::get().unwrap();
-
+pub async fn get_task_by_id(
+    db: Db,
+    task_id: i32,
+) -> Result<Option<Task>, diesel::result::Error> {
     // Find one by ID
-    tasks.find(task_id).first::<Task>(conn).ok()
+    let task = db
+        .read(|conn| async move { tasks.find(task_id).first::<Task>(conn) })
+        .await??
+        .ok();
+    Ok(task)
 }
 ```
 
 ### Update
 
 ```rust
-pub fn complete_task(task_id: i32) {
-    let conn = &mut db::get().unwrap();
-
-    diesel::update(tasks.find(task_id))
-        .set(is_completed.eq(true))
-        .execute(conn)
-        .expect("Error updating task");
+pub async fn complete_task(
+    db: Db,
+    task_id: i32,
+) -> Result<(), diesel::result::Error> {
+    db.write(|conn| async move {
+        diesel::update(tasks.find(task_id))
+            .set(is_completed.eq(true))
+            .execute(conn)?;
+        Ok(())
+    })
+    .await??;
+    Ok(())
 }
 ```
 
 ### Delete
 
 ```rust
-pub fn delete_task(task_id: i32) {
-    let conn = &mut db::get().unwrap();
-
-    diesel::delete(tasks.find(task_id))
-        .execute(conn)
-        .expect("Error deleting task");
+pub async fn delete_task(
+    db: Db,
+    task_id: i32,
+) -> Result<(), diesel::result::Error> {
+    db.write(|conn| async move {
+        diesel::delete(tasks.find(task_id)).execute(conn)?;
+        Ok(())
+    })
+    .await??;
+    Ok(())
 }
 ```

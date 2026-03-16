@@ -20,9 +20,7 @@ pub fn init() {
     let config = match raw_config.extract::<ServerConfig>() {
         Ok(s) => s,
         Err(e) => {
-            eprintln!(
-                "It looks like your config is invalid. The following error occurred: {e}"
-            );
+            eprintln!("It looks like your config is invalid. The following error occurred: {e}");
             std::process::exit(1);
         }
     };
@@ -62,7 +60,7 @@ pub struct TlsConfig {
 }
 
 fn default_listen_addr() -> String {
-    "127.0.0.1".into()
+    "::".into()
 }
 
 fn default_listen_http_port() -> u16 {

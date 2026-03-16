@@ -3,19 +3,25 @@
 //! With this you can query users by ID or nickname.
 //!
 
+use chrono::{DateTime, Utc};
+
+use crate::models::User;
+use crate::models::nickname::Nickname;
 use crate::prelude::*;
-use crate::{models::User, stream::StreamManager};
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("users")
         .push(Router::new().requires_user_login().append(&mut vec![
-                Router::with_path("id")
+                Router::with_path("by-id")
                     .user_rate_limit(&RateLimit::per_5_minutes(200))
                     .post(get_users_by_id),
-                Router::with_path("nickname")
+                Router::with_path("by-nickname")
                     .user_rate_limit(&RateLimit::per_5_minutes(50))
                     .post(get_users_by_nickname),
+                Router::with_path("nickname")
+                    .user_rate_limit(&RateLimit::per_5_minutes(500))
+                    .post(get_nicknames_by_ids),
             ]))
         .push(
             Router::with_path("nickname-exists")
@@ -27,19 +33,20 @@ pub fn router(path: &str) -> Router {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PublicUser {
     pub id: i32,
-    pub nickname: String,
-    pub created_at: chrono::NaiveDateTime,
+    pub nickname: Nickname,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
     pub online: bool,
 }
 
-impl From<User> for PublicUser {
-    fn from(user: User) -> Self {
-        let created_at = user.created_at().naive_utc();
+impl PublicUser {
+    pub fn new(user: User, online: bool) -> Self {
         Self {
             id: user.id,
             nickname: user.nickname,
-            created_at,
-            online: StreamManager::global().is_connected(user.id),
+            description: user.description,
+            created_at: user.created_at,
+            online,
         }
     }
 }
@@ -54,44 +61,102 @@ struct CheckNicknameOutput {
 ///
 /// Does not require authentication
 #[endpoint]
-fn check_nickname(json: JsonBody<String>) -> JsonResult<CheckNicknameOutput> {
+async fn check_nickname(json: JsonBody<Nickname>, db: Db) -> JsonResult<CheckNicknameOutput> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
     let input = json.into_inner();
-
-    let exists =
-        diesel::select(diesel::dsl::exists(users.filter(nickname.eq(&input))))
-            .get_result(conn)?;
-
     let valid = crate::validate::nickname(&input).is_ok();
+    let input_clone = input.clone();
+
+    let exists = db
+        .read(move |conn| {
+            diesel::select(diesel::dsl::exists(users.filter(nickname.eq(&input_clone))))
+                .get_result(conn)
+        })
+        .await??;
 
     json_ok(CheckNicknameOutput { exists, valid })
 }
 
 /// Retrieve users by their IDs
 #[endpoint]
-fn get_users_by_id(json: JsonBody<Vec<i32>>) -> JsonResult<Vec<PublicUser>> {
+async fn get_users_by_id(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<Vec<i32>>,
+) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
     let user_ids = json.into_inner();
 
-    let result = users.filter(id.eq_any(user_ids)).load::<User>(conn)?;
+    let result = db
+        .read(move |conn| users.filter(id.eq_any(user_ids)).load::<User>(conn))
+        .await??;
 
-    json_ok(result.into_iter().map(PublicUser::from).collect())
+    let streams = depot.stream_manager();
+
+    json_ok(
+        result
+            .into_iter()
+            .map(|user| {
+                let online = streams.is_connected(user.id);
+                PublicUser::new(user, online)
+            })
+            .collect(),
+    )
 }
 
 /// Retrieve users by their nicknames
 #[endpoint]
-fn get_users_by_nickname(
-    json: JsonBody<Vec<String>>,
+async fn get_users_by_nickname(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<Vec<Nickname>>,
 ) -> JsonResult<Vec<PublicUser>> {
     use crate::schema::users::dsl::*;
-    let conn = &mut db::get()?;
     let nicknames = json.into_inner();
 
-    let result = users
-        .filter(nickname.eq_any(nicknames))
-        .load::<User>(conn)?;
+    let result = db
+        .read(move |conn| users.filter(nickname.eq_any(nicknames)).load::<User>(conn))
+        .await??;
 
-    json_ok(result.into_iter().map(PublicUser::from).collect())
+    let streams = depot.stream_manager();
+    json_ok(
+        result
+            .into_iter()
+            .map(|user| {
+                let online = streams.is_connected(user.id);
+                PublicUser::new(user, online)
+            })
+            .collect(),
+    )
+}
+
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+struct UserNickname {
+    id: i32,
+    nickname: Nickname,
+}
+
+impl From<(i32, Nickname)> for UserNickname {
+    fn from(value: (i32, Nickname)) -> Self {
+        Self {
+            id: value.0,
+            nickname: value.1,
+        }
+    }
+}
+
+/// High-performance endpoint for retrieving only the Nickname of a user
+#[endpoint]
+async fn get_nicknames_by_ids(
+    depot: &mut Depot,
+    db: Db,
+    json: JsonBody<Vec<i32>>,
+) -> JsonResult<Vec<UserNickname>> {
+    let user_ids = json.into_inner();
+    let nick_cache = depot.nickname_cache().clone();
+    let result = db
+        .read(move |conn| nick_cache.try_get_many(user_ids, conn))
+        .await??;
+
+    json_ok(result.into_iter().map(UserNickname::from).collect())
 }

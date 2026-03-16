@@ -1,9 +1,7 @@
 use std::sync::LazyLock;
 
 use base64::Engine;
-use base64::engine::general_purpose::{
-    STANDARD as base64std, URL_SAFE_NO_PAD as base64url,
-};
+use base64::engine::general_purpose::{STANDARD as base64std, URL_SAFE_NO_PAD as base64url};
 use chacha20poly1305::aead::{Aead, OsRng, Payload};
 use chacha20poly1305::{AeadCore as _, KeyInit, XChaCha20Poly1305, XNonce};
 use thiserror::Error;
@@ -17,7 +15,7 @@ const TOTP_ISSUER: &str = "Transcendence";
 const ENV_TOTP_ENC_KEY: &str = "TOTP_ENC_KEY";
 
 const RECOVERY_CODE_BYTES: usize = 16; // 128-bit
-const DEFAULT_RECOVERY_CODE_COUNT: usize = 10;
+pub(crate) const DEFAULT_RECOVERY_CODE_COUNT: usize = 10;
 
 #[derive(Error, Debug, strum::IntoStaticStr)]
 pub enum TwoFactorError {
@@ -67,7 +65,10 @@ static TOTP_ENC_KEY: LazyLock<Option<[u8; 32]>> = LazyLock::new(|| {
 
 fn totp_enc_key() -> AppResult<[u8; 32]> {
     TOTP_ENC_KEY.as_ref().copied().ok_or_else(|| {
-		ApiError::TwoFa(TwoFactorError::Internal(format!("Bad server configuration: Missing/invalid TOTP encryption key in env var {}", ENV_TOTP_ENC_KEY)))
+        ApiError::TwoFa(TwoFactorError::Internal(format!(
+            "Bad server configuration: Missing/invalid TOTP encryption key in env var {}",
+            ENV_TOTP_ENC_KEY
+        )))
     })
 }
 
@@ -101,10 +102,7 @@ pub fn encrypt_totp_secret(user_id: i32, secret: &[u8]) -> AppResult<String> {
     Ok(base64std.encode(blob))
 }
 
-pub fn decrypt_totp_secret(
-    user_id: i32,
-    secret_enc: &str,
-) -> AppResult<Vec<u8>> {
+pub fn decrypt_totp_secret(user_id: i32, secret_enc: &str) -> AppResult<Vec<u8>> {
     let bytes = base64std.decode(secret_enc.as_bytes()).map_err(|err| {
         ApiError::TwoFa(TwoFactorError::Internal(format!(
             "Invalid base64 for encrypted TOTP secret: {}",
@@ -223,10 +221,8 @@ pub fn replace_recovery_codes(
     codes_plain: &[String],
 ) -> AppResult<()> {
     use crate::schema::two_fa_recovery_codes::dsl::*;
-
     conn.transaction::<_, ApiError, _>(|conn| {
-        diesel::delete(two_fa_recovery_codes.filter(user_id.eq(user_id_val)))
-            .execute(conn)?;
+        diesel::delete(two_fa_recovery_codes.filter(user_id.eq(user_id_val))).execute(conn)?;
 
         if codes_plain.is_empty() {
             return Ok(());
@@ -234,9 +230,7 @@ pub fn replace_recovery_codes(
 
         let to_insert: Vec<NewTwoFaRecoveryCode> = codes_plain
             .iter()
-            .map(|code| {
-                NewTwoFaRecoveryCode::new(user_id_val, hash_recovery_code(code))
-            })
+            .map(|code| NewTwoFaRecoveryCode::new(user_id_val, hash_recovery_code(code)))
             .collect();
 
         diesel::insert_into(two_fa_recovery_codes)
@@ -254,7 +248,7 @@ pub fn consume_recovery_code(
 ) -> AppResult<bool> {
     use crate::schema::two_fa_recovery_codes::dsl::*;
 
-    let now = chrono::Utc::now().naive_utc();
+    let now = chrono::Utc::now();
     let hash = hash_recovery_code(code_plain);
 
     let updated = diesel::update(
@@ -267,4 +261,247 @@ pub fn consume_recovery_code(
     .execute(conn)?;
 
     Ok(updated == 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    /// Set the TOTP encryption key env var (needed for encrypt/decrypt tests).
+    fn ensure_key() {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            let key: [u8; 32] = rand::random();
+            unsafe { std::env::set_var(ENV_TOTP_ENC_KEY, hex::encode(key)) };
+        });
+    }
+
+    // ── parse_32_byte_key ────────────────────────────────────────────
+
+    #[test]
+    fn parse_key_hex_64_chars() {
+        let hex_key = "a".repeat(64); // 64 hex chars = 32 bytes
+        let result = parse_32_byte_key(&hex_key);
+        assert!(result.is_some(), "valid 64-char hex must parse");
+        assert_eq!(result.unwrap().len(), 32);
+    }
+
+    #[test]
+    fn parse_key_base64url() {
+        let raw: [u8; 32] = rand::random();
+        let encoded = base64url.encode(raw);
+        let result = parse_32_byte_key(&encoded);
+        assert_eq!(result, Some(raw), "base64url-encoded key must round-trip");
+    }
+
+    #[test]
+    fn parse_key_base64_standard() {
+        let raw: [u8; 32] = rand::random();
+        let encoded = base64std.encode(raw);
+        let result = parse_32_byte_key(&encoded);
+        assert_eq!(
+            result,
+            Some(raw),
+            "standard base64-encoded key must round-trip"
+        );
+    }
+
+    #[test]
+    fn parse_key_trims_whitespace() {
+        let raw: [u8; 32] = rand::random();
+        let encoded = format!("  {}  ", hex::encode(raw));
+        let result = parse_32_byte_key(&encoded);
+        assert_eq!(
+            result,
+            Some(raw),
+            "leading/trailing whitespace must be trimmed"
+        );
+    }
+
+    #[test]
+    fn parse_key_wrong_length_fails() {
+        let short_hex = "aa".repeat(16); // 16 bytes, not 32
+        assert!(parse_32_byte_key(&short_hex).is_none());
+    }
+
+    #[test]
+    fn parse_key_invalid_string_fails() {
+        assert!(parse_32_byte_key("not-a-key-at-all").is_none());
+    }
+
+    #[test]
+    fn parse_key_empty_fails() {
+        assert!(parse_32_byte_key("").is_none());
+    }
+
+    // ── encrypt / decrypt TOTP secret ────────────────────────────────
+
+    #[test]
+    fn encrypt_decrypt_roundtrip() {
+        ensure_key();
+        let secret = b"my-totp-secret-bytes";
+        let user_id = 42;
+
+        let encrypted = encrypt_totp_secret(user_id, secret).unwrap();
+        let decrypted = decrypt_totp_secret(user_id, &encrypted).unwrap();
+
+        assert_eq!(decrypted, secret, "decrypt must recover original secret");
+    }
+
+    #[test]
+    fn encrypt_different_nonce_each_time() {
+        ensure_key();
+        let secret = b"same-secret";
+        let enc1 = encrypt_totp_secret(1, secret).unwrap();
+        let enc2 = encrypt_totp_secret(1, secret).unwrap();
+        assert_ne!(
+            enc1, enc2,
+            "two encryptions of the same data must produce different ciphertexts (random nonce)"
+        );
+    }
+
+    #[test]
+    fn decrypt_wrong_user_id_fails() {
+        ensure_key();
+        let secret = b"test-secret";
+        let encrypted = encrypt_totp_secret(1, secret).unwrap();
+
+        // Decrypting with a different user_id (different AAD) must fail.
+        let result = decrypt_totp_secret(2, &encrypted);
+        assert!(result.is_err(), "decryption with wrong user_id must fail");
+    }
+
+    #[test]
+    fn decrypt_tampered_ciphertext_fails() {
+        ensure_key();
+        let secret = b"test-secret";
+        let encrypted = encrypt_totp_secret(1, secret).unwrap();
+
+        // Decode, tamper, re-encode.
+        let mut bytes = base64std.decode(encrypted.as_bytes()).unwrap();
+        if let Some(last) = bytes.last_mut() {
+            *last ^= 0xFF;
+        }
+        let tampered = base64std.encode(&bytes);
+
+        let result = decrypt_totp_secret(1, &tampered);
+        assert!(result.is_err(), "tampered ciphertext must fail decryption");
+    }
+
+    #[test]
+    fn decrypt_too_short_ciphertext_fails() {
+        ensure_key();
+        let short = base64std.encode([0u8; 10]); // less than 24 bytes (nonce size)
+        let result = decrypt_totp_secret(1, &short);
+        assert!(result.is_err(), "ciphertext shorter than nonce must fail");
+    }
+
+    // ── looks_like_totp_code ─────────────────────────────────────────
+
+    #[test]
+    fn looks_like_totp_6_digits() {
+        assert!(looks_like_totp_code("123456"));
+    }
+
+    #[test]
+    fn looks_like_totp_8_digits() {
+        assert!(looks_like_totp_code("12345678"));
+    }
+
+    #[test]
+    fn looks_like_totp_5_digits_rejected() {
+        assert!(!looks_like_totp_code("12345"));
+    }
+
+    #[test]
+    fn looks_like_totp_9_digits_rejected() {
+        assert!(!looks_like_totp_code("123456789"));
+    }
+
+    #[test]
+    fn looks_like_totp_non_digits_rejected() {
+        assert!(!looks_like_totp_code("12345a"));
+    }
+
+    #[test]
+    fn looks_like_totp_empty_rejected() {
+        assert!(!looks_like_totp_code(""));
+    }
+
+    #[test]
+    fn looks_like_totp_recovery_code_rejected() {
+        // Recovery codes are base64url, typically 22 chars.
+        let codes = generate_recovery_codes();
+        assert!(
+            !looks_like_totp_code(&codes[0]),
+            "recovery codes must not look like TOTP codes"
+        );
+    }
+
+    // ── generate_recovery_codes ──────────────────────────────────────
+
+    #[test]
+    fn recovery_codes_correct_count() {
+        let codes = generate_recovery_codes();
+        assert_eq!(
+            codes.len(),
+            DEFAULT_RECOVERY_CODE_COUNT,
+            "must generate exactly DEFAULT_RECOVERY_CODE_COUNT codes"
+        );
+    }
+
+    #[test]
+    fn recovery_codes_all_unique() {
+        let codes = generate_recovery_codes();
+        let unique: HashSet<&String> = codes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            codes.len(),
+            "all recovery codes must be unique"
+        );
+    }
+
+    #[test]
+    fn recovery_codes_non_empty() {
+        let codes = generate_recovery_codes();
+        for code in &codes {
+            assert!(!code.is_empty(), "recovery codes must not be empty");
+        }
+    }
+
+    #[test]
+    fn recovery_codes_valid_base64url() {
+        let codes = generate_recovery_codes();
+        for code in &codes {
+            assert!(
+                base64url.decode(code.as_bytes()).is_ok(),
+                "recovery code must be valid base64url: {code}"
+            );
+        }
+    }
+
+    // ── hash_recovery_code ───────────────────────────────────────────
+
+    #[test]
+    fn hash_recovery_code_deterministic() {
+        let code = "some-recovery-code";
+        let h1 = hash_recovery_code(code);
+        let h2 = hash_recovery_code(code);
+        assert_eq!(h1, h2, "hashing same code must produce same result");
+    }
+
+    #[test]
+    fn hash_recovery_code_different_inputs_differ() {
+        let h1 = hash_recovery_code("code-one");
+        let h2 = hash_recovery_code("code-two");
+        assert_ne!(h1, h2, "different codes must produce different hashes");
+    }
+
+    #[test]
+    fn hash_recovery_code_length() {
+        let h = hash_recovery_code("test");
+        assert_eq!(h.len(), 32, "blake3 hash must be 32 bytes");
+    }
 }
