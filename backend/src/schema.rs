@@ -29,6 +29,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    games (id) {
+        id -> Integer,
+        player1_id -> Integer,
+        player2_id -> Integer,
+        winner_id -> Integer,
+        score_p1 -> Integer,
+        score_p2 -> Integer,
+        played_at -> TimestamptzSqlite,
+        mode -> Text,
+    }
+}
+
+diesel::table! {
     notifications (id) {
         id -> Integer,
         user_id -> Integer,
@@ -83,8 +96,8 @@ diesel::table! {
         games_won -> Integer,
         current_win_streak -> Integer,
         best_win_streak -> Integer,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
     }
 }
 
@@ -119,8 +132,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     user_stats,
     avatars_large,
     avatars_small,
+    games,
     notifications,
     sessions,
     two_fa_recovery_codes,
+    user_stats,
     users,
 );

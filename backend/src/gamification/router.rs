@@ -4,6 +4,11 @@ use crate::models::{Achievement, UserAchievement, UserStats};
 use crate::prelude::*;
 
 use super::achievements::{self, AchievementTier, AchievementUnlock};
+//! Provides gamification routes: stats, XP, levels
+
+use crate::models::UserStats;
+use crate::prelude::*;
+
 use super::xp;
 
 pub fn router(path: &str) -> Router {
@@ -39,6 +44,7 @@ pub fn router(path: &str) -> Router {
         )
         .push(
             Router::with_path("<user_id>")
+            Router::with_path("{user_id}")
                 .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
                 .get(get_user_stats),
@@ -145,11 +151,17 @@ async fn record_game(depot: &mut Depot, json: JsonBody<RecordGameInput>) -> Json
 async fn get_my_stats(depot: &mut Depot) -> JsonResult<StatsResponse> {
     let user_id = depot.user_id();
     get_or_create_stats(user_id)
+/// Get current user's stats
+#[endpoint]
+async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
+    let user_id = depot.user_id();
+    get_or_create_stats(user_id, db).await
 }
 
 /// Get a user's stats by ID
 #[endpoint]
 async fn get_user_stats(req: &mut Request) -> JsonResult<StatsResponse> {
+async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> {
     let user_id: i32 = req.param("user_id").unwrap_or(0);
     if user_id == 0 {
         return Err(diesel::result::Error::NotFound.into());
@@ -335,4 +347,37 @@ async fn get_recent_achievements(depot: &mut Depot) -> JsonResult<Vec<RecentUnlo
     recent.truncate(20);
 
     json_ok(recent)
+}
+    get_or_create_stats(user_id, db).await
+}
+
+async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
+    let stats = db.transaction_write(move |conn| {
+        use crate::schema::user_stats::dsl;
+
+        let stats = dsl::user_stats
+            .filter(dsl::user_id.eq(user_id))
+            .first::<UserStats>(conn)
+            .optional()?;
+
+        match stats {
+            Some(s) => Ok(s),
+            None => {
+                // Verify user exists (will return NotFound error if not)
+                use crate::schema::users;
+                users::table
+                    .filter(users::id.eq(user_id))
+                    .first::<crate::models::User>(conn)?;
+
+                // Create default stats for user
+                let new_stats = UserStats::new(user_id);
+                diesel::insert_into(dsl::user_stats)
+                    .values(&new_stats)
+                    .execute(conn)?;
+                Ok(new_stats)
+            }
+        }
+    }).await?;
+
+    json_ok(StatsResponse::from(stats))
 }
