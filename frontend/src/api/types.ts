@@ -75,6 +75,24 @@ export interface UserStats {
 	best_win_streak: number;
 }
 
+// ==================== ACHIEVEMENTS ====================
+
+export interface AchievementWithProgress {
+	id: number;
+	code: string;
+	name: string;
+	description: string;
+	category: string;
+	bronze_threshold: number;
+	silver_threshold: number;
+	gold_threshold: number;
+	base_xp_reward: number;
+	current_progress: number;
+	bronze_unlocked: boolean;
+	silver_unlocked: boolean;
+	gold_unlocked: boolean;
+}
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {

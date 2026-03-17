@@ -9,6 +9,8 @@ import EditUserModal from './modals/EditUserModal';
 import { useState } from 'react';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
 import { useStats } from '../hooks/useStats';
+import { useAchievements } from '../hooks/useAchievements';
+import AchievementsModal from './modals/AchievementsModal';
 
 const REAUTH_THRESHOLD_MINUTES = 30;
 
@@ -26,6 +28,8 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
 	const { stats } = useStats();
+	const { achievements } = useAchievements();
+	const [showAchievements, setShowAchievements] = useState(false);
 
 	if (!user || !session) {
 		return (
@@ -246,6 +250,56 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 						No recent battles recorded.
 					</div>
 				</Card>
+
+				{/* Achievements preview */}
+				<Card>
+					<div className="flex items-center justify-between mb-3">
+						<div className="flex items-center gap-2">
+							<Trophy className="w-5 h-5 text-warning" aria-hidden="true" />
+							<h2 className="text-xl font-bold text-stone-50">Achievements</h2>
+						</div>
+						<button
+							onClick={() => setShowAchievements(true)}
+							className="text-sm text-stone-400 hover:text-stone-100 transition-colors"
+						>
+							View All →
+						</button>
+					</div>
+					{achievements ? (() => {
+						const unlockedTiers = achievements.reduce(
+							(sum, a) =>
+								sum +
+								(a.bronze_unlocked ? 1 : 0) +
+								(a.silver_unlocked ? 1 : 0) +
+								(a.gold_unlocked ? 1 : 0),
+							0,
+						);
+						const totalTiers = achievements.length * 3;
+						const pct = totalTiers > 0 ? Math.round((unlockedTiers / totalTiers) * 100) : 0;
+						return (
+							<>
+								<p className="text-sm text-stone-400 mb-2">
+									{unlockedTiers} / {totalTiers} tiers unlocked
+								</p>
+								<div
+									className="h-2 bg-stone-700 rounded-full overflow-hidden"
+									role="progressbar"
+									aria-valuenow={pct}
+									aria-valuemin={0}
+									aria-valuemax={100}
+									aria-label={`Achievements: ${pct}%`}
+								>
+									<div
+										className="h-full bg-gold rounded-full transition-all duration-500"
+										style={{ width: `${pct}%` }}
+									/>
+								</div>
+							</>
+						);
+					})() : (
+						<div className="h-2 bg-stone-700 rounded-full" />
+					)}
+				</Card>
 			</section>
 
 			{/* Modals */}
@@ -266,6 +320,10 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
+			)}
+
+			{showAchievements && (
+				<AchievementsModal onClose={() => setShowAchievements(false)} />
 			)}
 
 			{/*  */}

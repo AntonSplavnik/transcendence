@@ -8,6 +8,7 @@ import type {
 	SessionManagementPayload,
 	ChangePasswordPayload,
 	UserStats,
+	AchievementWithProgress,
 } from './types';
 
 // ==================== USER INFO ====================
@@ -134,9 +135,9 @@ export async function logoutSessions(
 	await apiClient.post('/user/logout-sessions', payload);
 }
 
-// ==================== STATS ====================
+// ==================== ACHIEVEMENTS ====================
 
-export async function getMyStats(): Promise<UserStats> {
-	const response = await apiClient.get<UserStats>('/stats/@me');
+export async function getMyAchievements(): Promise<AchievementWithProgress[]> {
+	const response = await apiClient.get<AchievementWithProgress[]>('/stats/achievements');
 	return response.data;
 }
