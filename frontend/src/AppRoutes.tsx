@@ -118,6 +118,7 @@ export default function AppRoutes() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const hideFooter = location.pathname === '/game';
+	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
@@ -164,7 +165,7 @@ export default function AppRoutes() {
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			{user && <FriendsDrawer />}
+			{user && !isGame && <FriendsDrawer />}
 			<Routes>
 				<Route
 					path="/landing"
