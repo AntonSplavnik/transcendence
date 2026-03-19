@@ -12,7 +12,6 @@ import {
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import '@babylonjs/materials'; // Required for SkyMaterial and other materials
-import * as CANNON from 'cannon-es'; // Required for physics
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { GameStateSnapshot, Vector3D } from '../../game/types';
@@ -21,8 +20,6 @@ import { measureModel } from '../../utils/measureModel';
 // Make BABYLON available globally for Inspector (must be extensible object)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).BABYLON = Object.assign({}, BabylonModule);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(window as any).CANNON = CANNON;
 
 // Import game assets
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
@@ -602,7 +599,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			},
 		);
 
-		// Enable Inspector with Ctrl+Shift+I (lazy-loaded from npm package)
+		// Enable Inspector with Ctrl+Shift+I
 		let inspectorLoaded = false;
 		window.addEventListener('keydown', async (event) => {
 			if (event.ctrlKey && event.shiftKey && event.key === 'I') {
