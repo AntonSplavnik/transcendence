@@ -34,6 +34,7 @@ function AutocompletePopup({ suggestions, activeIndex, onSelect }: AutocompleteP
 	if (suggestions.length === 0) return null;
 	return (
 		<div
+			id="chat-autocomplete-listbox"
 			role="listbox"
 			aria-label="Command suggestions"
 			className="absolute bottom-full left-0 w-full mb-1 bg-stone-800 border border-stone-700 rounded shadow-xl overflow-hidden animate-chat-enter"
@@ -248,6 +249,7 @@ export default function ChatInput({
 					maxLength={maxLength}
 					aria-label="Chat message"
 					aria-autocomplete="list"
+					aria-controls={autocompleteOpen ? 'chat-autocomplete-listbox' : undefined}
 					aria-expanded={autocompleteOpen}
 					className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-xs px-2 py-1.5 outline-none"
 				/>
