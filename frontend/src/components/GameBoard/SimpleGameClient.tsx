@@ -155,6 +155,55 @@ class AnimatedCharacter {
 	}
 }
 
+// Shared jump state machine for both local and remote characters.
+// Pass isJumping=true only for the local player (driven by input); remote
+// players use false — we can't distinguish a jump from a fall for them.
+// Returns the new JumpState. Grounded animations should only run when
+// the returned state is JumpState.GROUNDED.
+function tickJumpState(
+	character: AnimatedCharacter,
+	state: JumpState,
+	isGrounded: boolean,
+	isJumping: boolean,
+): JumpState {
+	// GROUNDED → JUMP_START (local player only)
+	if (state === JumpState.GROUNDED && !isGrounded && isJumping) {
+		character.playAnimation(AnimationNames.jumpStart, false);
+		return JumpState.JUMP_START;
+	}
+	// GROUNDED → AIRBORNE (fell off edge, or remote player left the ground)
+	if (state === JumpState.GROUNDED && !isGrounded) {
+		character.playAnimation(AnimationNames.jumpIdle, true);
+		return JumpState.AIRBORNE;
+	}
+	// JUMP_START → AIRBORNE (start animation finished)
+	if (state === JumpState.JUMP_START) {
+		const anim = character.animations.get(AnimationNames.jumpStart);
+		if (anim && !anim.isPlaying) {
+			character.playAnimation(AnimationNames.jumpIdle, true);
+			return JumpState.AIRBORNE;
+		}
+		return JumpState.JUMP_START;
+	}
+	// AIRBORNE: keep jump-idle playing
+	if (state === JumpState.AIRBORNE && !isGrounded) {
+		character.playAnimation(AnimationNames.jumpIdle, true);
+		return JumpState.AIRBORNE;
+	}
+	// AIRBORNE → LANDING
+	if (state === JumpState.AIRBORNE && isGrounded) {
+		character.playAnimation(AnimationNames.jumpLand, false);
+		return JumpState.LANDING;
+	}
+	// LANDING → GROUNDED (wait for animation to finish)
+	if (state === JumpState.LANDING) {
+		const anim = character.animations.get(AnimationNames.jumpLand);
+		if (anim && !anim.isPlaying) return JumpState.GROUNDED;
+		return JumpState.LANDING;
+	}
+	return state; // already GROUNDED
+}
+
 class GameClient {
 	private scene: Scene;
 	private localPlayerID: number;
@@ -166,9 +215,7 @@ class GameClient {
 	private camera: UniversalCamera;
 	private currentAnimState: string = 'idle';
 	private jumpState: JumpState = JumpState.GROUNDED;
-	// Track jump state for remote players
 	private remoteJumpStates: Map<number, JumpState> = new Map();
-	private remoteWasGrounded: Map<number, boolean> = new Map();
 
 	constructor(scene: Scene, localPlayerID: number, camera: UniversalCamera) {
 		this.scene = scene;
@@ -315,7 +362,6 @@ class GameClient {
 			this.characters.delete(playerID);
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
-			this.remoteWasGrounded.delete(playerID);
 		}
 	}
 
@@ -345,7 +391,6 @@ class GameClient {
 			this.characters.set(playerID, remoteChar);
 			// Initialize jump state for remote player
 			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
-			this.remoteWasGrounded.set(playerID, true);
 			remoteChar.playAnimation(AnimationNames.idle, true);
 		} catch (error) {
 			console.error(`Failed to load remote character ${playerID}:`, error);
@@ -359,153 +404,55 @@ class GameClient {
 		character: AnimatedCharacter,
 		charData: CharacterSnapshot,
 	): void {
-		const position = new Vector3(charData.position.x, charData.position.y, charData.position.z);
-		const velocity = charData.velocity;
-		const state = charData.state;
+		const isGrounded = charData.position.y <= 1.1;
+		const speed = Math.sqrt(
+			charData.velocity.x * charData.velocity.x + charData.velocity.z * charData.velocity.z,
+		);
 
-		// Get or initialize jump state for this player
-		let jumpState = this.remoteJumpStates.get(playerID) || JumpState.GROUNDED;
+		const jumpState = tickJumpState(
+			character,
+			this.remoteJumpStates.get(playerID) ?? JumpState.GROUNDED,
+			isGrounded,
+			false,
+		);
+		this.remoteJumpStates.set(playerID, jumpState);
+		if (jumpState !== JumpState.GROUNDED) return;
 
-		// Check if character is grounded based on Y position
-		const isGrounded = position.y <= 1.1;
-		const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-
-		// ===== JUMP STATE MACHINE (same logic as local player) =====
-
-		// TRANSITION: GROUNDED → AIRBORNE (became airborne)
-		if (jumpState === JumpState.GROUNDED && !isGrounded) {
-			// We can't distinguish between jump and fall for remote players, so just go to airborne
-			jumpState = JumpState.AIRBORNE;
-			character.playAnimation(AnimationNames.jumpIdle, true);
-			this.remoteWasGrounded.set(playerID, false);
-			this.remoteJumpStates.set(playerID, jumpState);
-			return;
-		}
-
-		// STATE: AIRBORNE (ensure jump idle is playing)
-		if (jumpState === JumpState.AIRBORNE && !isGrounded) {
-			character.playAnimation(AnimationNames.jumpIdle, true);
-			return;
-		}
-
-		// TRANSITION: AIRBORNE → LANDING (touched ground)
-		if (jumpState === JumpState.AIRBORNE && isGrounded) {
-			jumpState = JumpState.LANDING;
-			character.playAnimation(AnimationNames.jumpLand, false);
-			this.remoteWasGrounded.set(playerID, true);
-			this.remoteJumpStates.set(playerID, jumpState);
-			return;
-		}
-
-		// TRANSITION: LANDING → GROUNDED (landing animation finished)
-		if (jumpState === JumpState.LANDING) {
-			const landAnim = character.animations.get(AnimationNames.jumpLand);
-			if (landAnim && !landAnim.isPlaying) {
-				jumpState = JumpState.GROUNDED;
-				this.remoteJumpStates.set(playerID, jumpState);
-				// Fall through to ground animations
-			} else {
-				return; // Still playing landing animation
-			}
-		}
-
-		// ===== GROUNDED ANIMATIONS =====
-		if (jumpState === JumpState.GROUNDED) {
-			switch (state) {
-				case CharacterState.Attacking:
-					character.playAnimation(AnimationNames.attack, true);
-					break;
-				case CharacterState.Stunned:
-					character.playAnimation(AnimationNames.hit, false);
-					break;
-				case CharacterState.Dead:
-					character.playAnimation(AnimationNames.death, false);
-					break;
-				case CharacterState.Moving:
-					// Use run animation if speed > 10 (sprinting), walk otherwise
-					character.playAnimation(
-						speed > 10 ? AnimationNames.run : AnimationNames.walk,
-						true,
-					);
-					break;
-				case CharacterState.Idle:
-				default:
-					character.playAnimation(AnimationNames.idle, true);
-					break;
-			}
+		switch (charData.state) {
+			case CharacterState.Attacking:
+				character.playAnimation(AnimationNames.attack, true);
+				break;
+			case CharacterState.Stunned:
+				character.playAnimation(AnimationNames.hit, false);
+				break;
+			case CharacterState.Dead:
+				character.playAnimation(AnimationNames.death, false);
+				break;
+			case CharacterState.Moving:
+				character.playAnimation(speed > 10 ? AnimationNames.run : AnimationNames.walk, true);
+				break;
+			case CharacterState.Idle:
+			default:
+				character.playAnimation(AnimationNames.idle, true);
+				break;
 		}
 	}
 
-	// Jump animation state machine
 	updateLocalAnimation(input: InputState): void {
 		if (!this.localCharacter) return;
 
-		// Check ground state based on Y position (server authoritative)
 		const isGrounded = this.position.y <= 1.1;
 		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
-		// ===== STATE MACHINE =====
+		this.jumpState = tickJumpState(this.localCharacter, this.jumpState, isGrounded, input.isJumping);
+		if (this.jumpState !== JumpState.GROUNDED) return;
 
-		// TRANSITION: GROUNDED → JUMP_START (initiated jump)
-		if (this.jumpState === JumpState.GROUNDED && !isGrounded && input.isJumping) {
-			this.jumpState = JumpState.JUMP_START;
-			this.playAnimation('jumpStart', false);
-			return;
-		}
-
-		// TRANSITION: GROUNDED → AIRBORNE (fell off edge)
-		if (this.jumpState === JumpState.GROUNDED && !isGrounded && !input.isJumping) {
-			this.jumpState = JumpState.AIRBORNE;
-			this.playAnimation('jumpIdle', true);
-			return;
-		}
-
-		// TRANSITION: JUMP_START → AIRBORNE (start animation finished)
-		if (this.jumpState === JumpState.JUMP_START) {
-			const jumpStartAnim = this.localCharacter.animations.get(AnimationNames.jumpStart);
-			if (jumpStartAnim && !jumpStartAnim.isPlaying) {
-				this.jumpState = JumpState.AIRBORNE;
-				this.playAnimation('jumpIdle', true);
-			}
-			return; // Stay in jump sequence
-		}
-
-		// STATE: AIRBORNE (ensure jump idle is playing)
-		if (this.jumpState === JumpState.AIRBORNE && !isGrounded) {
-			this.playAnimation('jumpIdle', true);
-			return;
-		}
-
-		// TRANSITION: AIRBORNE → LANDING (touched ground)
-		if (this.jumpState === JumpState.AIRBORNE && isGrounded) {
-			this.jumpState = JumpState.LANDING;
-			this.playAnimation('jumpLand', false);
-			return;
-		}
-
-		// TRANSITION: LANDING → GROUNDED (landing animation finished)
-		if (this.jumpState === JumpState.LANDING) {
-			const landAnim = this.localCharacter.animations.get(AnimationNames.jumpLand);
-			if (landAnim && !landAnim.isPlaying) {
-				this.jumpState = JumpState.GROUNDED;
-				// Fall through to ground animations
-			} else {
-				return; // Still playing landing animation
-			}
-		}
-
-		// ===== GROUNDED ANIMATIONS =====
-		if (this.jumpState === JumpState.GROUNDED) {
-			if (input.isAttacking) {
-				this.playAnimation('attack', true);
-				return;
-			}
-
-			if (isMoving) {
-				this.playAnimation(input.isSprinting ? 'run' : 'walk');
-			} else {
-				this.playAnimation('idle');
-			}
+		if (input.isAttacking) {
+			this.playAnimation('attack', true);
+		} else if (isMoving) {
+			this.playAnimation(input.isSprinting ? 'run' : 'walk');
+		} else {
+			this.playAnimation('idle');
 		}
 	}
 }
