@@ -10,6 +10,7 @@ import {
 	Vector3,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
+import { ShowInspector } from "@babylonjs/inspector";
 
 export interface ModelPreviewProps {
 	/** Directory containing the model file (must end with /). */
@@ -74,6 +75,8 @@ export default function ModelPreview({
 		});
 
 		engine.runRenderLoop(() => scene.render());
+
+		ShowInspector(scene);
 
 		const handleResize = () => engine.resize();
 		window.addEventListener('resize', handleResize);
