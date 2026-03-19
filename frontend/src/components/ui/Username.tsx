@@ -46,20 +46,49 @@ function UsernameContextMenu({ userId, nickname, onClose }: ContextMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const isBlocked = preferences.blockedUsers.includes(userId);
 
+	// Auto-focus the first enabled menu item on mount.
+	useEffect(() => {
+		const menu = menuRef.current;
+		if (!menu) return;
+		const first = menu.querySelector<HTMLElement>('button[role="menuitem"]:not(:disabled)');
+		first?.focus();
+	}, []);
+
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
 			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
 				onClose();
 			}
 		}
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose();
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				onClose();
+				return;
+			}
+			// Focus trap: cycle Tab/Shift+Tab within the menu.
+			if (e.key === 'Tab') {
+				const menu = menuRef.current;
+				if (!menu) return;
+				const items = menu.querySelectorAll<HTMLElement>(
+					'button[role="menuitem"]:not(:disabled)',
+				);
+				if (items.length === 0) return;
+				const first = items[0];
+				const last = items[items.length - 1];
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
 		}
 		document.addEventListener('mousedown', handleClickOutside);
-		document.addEventListener('keydown', handleEscape);
+		document.addEventListener('keydown', handleKeyDown);
 		return () => {
 			document.removeEventListener('mousedown', handleClickOutside);
-			document.removeEventListener('keydown', handleEscape);
+			document.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [onClose]);
 
