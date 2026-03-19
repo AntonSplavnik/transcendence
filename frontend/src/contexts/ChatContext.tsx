@@ -289,13 +289,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 	// Ordered room IDs: Global → GameLobby → others by last message timestamp.
 	const orderedRoomIds = useMemo(() => {
+		const typeOrder = (t: string | null): number => {
+			if (t === 'Global') return 0;
+			if (t === 'GameLobby') return 1;
+			return 2;
+		};
 		return [...rooms.keys()].sort((a, b) => {
 			const ra = rooms.get(a)!;
 			const rb = rooms.get(b)!;
-			if (ra.chatType === 'Global') return -1;
-			if (rb.chatType === 'Global') return 1;
-			if (ra.chatType === 'GameLobby') return -1;
-			if (rb.chatType === 'GameLobby') return 1;
+			const orderDiff = typeOrder(ra.chatType) - typeOrder(rb.chatType);
+			if (orderDiff !== 0) return orderDiff;
 			const aLast = ra.messages[ra.messages.length - 1]?.created_at ?? '';
 			const bLast = rb.messages[rb.messages.length - 1]?.created_at ?? '';
 			return bLast.localeCompare(aLast);
@@ -312,7 +315,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const sendMessage = useCallback((roomId: string, text: string) => {
 		if (sendDisabledRef.current.has(roomId)) return;
 		const room = roomsRef.current.get(roomId);
-		if (!room?.send) return;
+		if (!room?.send || !room.connected) return;
 		room.send({ SendText: text });
 		const handle = setTimeout(() => {
 			sendDisabledRef.current.delete(roomId);
@@ -323,7 +326,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const sendTypingIndicator = useCallback((roomId: string) => {
 		if (typingSendCooldownsRef.current.has(roomId)) return;
 		const room = roomsRef.current.get(roomId);
-		if (!room?.send) return;
+		if (!room?.send || !room.connected) return;
 		room.send('IsTyping');
 		const handle = setTimeout(() => {
 			typingSendCooldownsRef.current.delete(roomId);
@@ -333,7 +336,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 	const sendReadReceipt = useCallback((roomId: string, messageId: string) => {
 		const room = roomsRef.current.get(roomId);
-		room?.send?.({ ReadText: messageId });
+		if (!room?.send || !room.connected) return;
+		room.send({ ReadText: messageId });
 	}, []);
 
 	return (

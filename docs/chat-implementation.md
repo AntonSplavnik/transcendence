@@ -96,7 +96,7 @@ actions to the shared reducer.
 ```typescript
 interface ChatContextType {
   rooms: Map<string, ChatRoomState>;
-  orderedRoomIds: string[];        // Global → Lobby → DMs by last activity
+  orderedRoomIds: string[];        // Global → Lobby → others by last activity
   activeRoomId: string | null;
   setActiveRoomId: (id: string | null) => void;
   sendMessage: (roomId: string, text: string) => void;
@@ -119,6 +119,10 @@ interface ChatContextType {
 | `errorClearRef` | 4s auto-dismiss for chatError | New error, unmount |
 | `sendDisabledRef` | 200ms per-room anti-double-send | Self-clearing timeout, unmount |
 | `roomsRef` | Latest rooms for stable callbacks | Synced via useEffect |
+
+**Send guards:** All three send helpers (`sendMessage`, `sendTypingIndicator`,
+`sendReadReceipt`) check both `room.send` and `room.connected` before calling.
+This prevents errors during the brief window between RESET and ROOM_CLOSED.
 
 ---
 
@@ -155,7 +159,7 @@ interface ChatContextType {
 | Variant | When sent |
 |---------|-----------|
 | `{ SendText: string }` | User presses Enter (after command check) |
-| `'IsTyping'` | User types (3s send cooldown) |
+| `'IsTyping'` | User types non-command text (3s send cooldown) |
 | `{ ReadText: string }` | Read pointer advances (Part 2 DM) |
 
 ---
@@ -267,9 +271,11 @@ Context menu items:
 | Concern | Mitigation |
 |---------|------------|
 | XSS | All content rendered as React text children — auto-escaped |
+| Oversized messages | Client-side render cap at 4096 chars + `break-all` overflow |
 | Command injection | `handleCommand` consumes ALL `/...` input |
 | localStorage tampering | `loadPreferences` try/catch with safe defaults |
 | Rate limiting | 200ms client send cooldown + server >8 msgs/5s |
+| Disconnected sends | All send helpers guard `room.connected` before calling `send` |
 | Blocked users | Client-side filter only (UX boundary, not security) |
 
 ---
@@ -289,3 +295,17 @@ Context menu items:
 The reducer and ServerMessage handler already handle all 15 variants — Part 2
 primarily adds REST calls and UI surfaces for features that are already wired
 in the stream protocol.
+
+---
+
+## Performance
+
+| Optimization | Location |
+|--------------|----------|
+| Stable send callbacks via `roomsRef` | `ChatContext.tsx` — `useCallback(fn, [])` |
+| Memoized `expandedItems` sort | `ChatMessageList.tsx` — `useMemo` on activeRoom/blockedUsers |
+| Memoized `orderedRoomIds` sort | `ChatContext.tsx` — `useMemo` on rooms |
+| Stable `onClose` for context menu | `Username.tsx` — `useCallback(() => setMenuOpen(false), [])` |
+| Collapsed feed capped at 7 items | `ChatMessageList.tsx` — `slice(-7)` |
+| `seenIdsRef` pre-populated on mount | `ChatMessageList.tsx` — prevents history flood |
+| Extracted `getDisplayKey`/`getDisplayTimestamp` | `ChatMessageList.tsx` — eliminates repeated ternaries |

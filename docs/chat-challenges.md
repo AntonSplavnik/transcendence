@@ -76,10 +76,12 @@ rooms change → check each message against seenIds
   → animation ends → remove from feedItems
 ```
 
-**Trade-off:** The `seenIdsRef` grows unboundedly over a long session (one
-entry per message ever received). In practice this is negligible — even 10,000
-string ULIDs is ~260KB. A production system could periodically prune IDs older
-than the oldest message in any room's current history.
+**Trade-off:** The `seenIdsRef` grows over a long session (one entry per
+message ever received). In practice this is negligible — even 10,000 string
+ULIDs is ~260KB, and the component unmounts on logout. The server caps rooms
+at 150 messages each, so with a handful of rooms the Set stays small between
+reconnects. Clearing it on reset was considered but would cause MsgLog
+re-deliveries to appear as "new" — the cure is worse than the disease.
 
 ---
 
@@ -107,8 +109,12 @@ case 'IS_TYPING':
 cloned inner collections. For the chat use case (low-frequency updates, small
 room count) this is negligible. But it means we can't use reference equality
 to skip renders on individual rooms — any action touching any room creates a
-new top-level Map, causing all consumers of `useChat()` to re-render. A future
-optimization could use a normalized store or per-room context slicing.
+new top-level Map, causing all consumers of `useChat()` to re-render.
+
+**Mitigations:** Expensive derived computations (`expandedItems`, `orderedRoomIds`)
+are wrapped in `useMemo` so they only recompute when their specific inputs change.
+Stable `useCallback` references prevent unnecessary re-renders in child components.
+A future optimization could use a normalized store or per-room context slicing.
 
 ---
 

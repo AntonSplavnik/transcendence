@@ -11,7 +11,7 @@
  * when the user has scrolled up. Typing indicator shown below the list.
  */
 
-import { forwardRef, useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import type { DisplayItem } from '../../chat/types';
 import ChatMessage from './ChatMessage';
@@ -22,6 +22,18 @@ function formatKillFeed(killerId: number, targetId: number, nicks: Map<number, s
 	const killer = nicks.get(killerId) ?? `#${killerId}`;
 	const target = nicks.get(targetId) ?? `#${targetId}`;
 	return `${killer} eliminated ${target}`;
+}
+
+function getDisplayTimestamp(item: DisplayItem): string {
+	if (item.kind === 'msg') return item.msg.created_at;
+	if (item.kind === 'server') return item.msg.created_at;
+	return item.event.timestamp;
+}
+
+function getDisplayKey(item: DisplayItem): string {
+	if (item.kind === 'msg') return item.msg.id;
+	if (item.kind === 'server') return item.msg.id;
+	return item.event.id;
 }
 
 function getRoomTag(chatType: string | null, name: string | null): string {
@@ -35,7 +47,6 @@ interface FeedItem {
 	id: string;
 	roomTag: string;
 	item: DisplayItem;
-	roomNicks: Map<number, string>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -92,7 +103,6 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 				newFeedItems.push({
 					id: msg.id,
 					roomTag,
-					roomNicks: room.nicks,
 					item: {
 						kind: 'msg',
 						msg,
@@ -116,7 +126,6 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 				newFeedItems.push({
 					id: msg.id,
 					roomTag,
-					roomNicks: room.nicks,
 					item: { kind: 'server', msg, text },
 				});
 			}
@@ -127,7 +136,6 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 				newFeedItems.push({
 					id: ev.id,
 					roomTag,
-					roomNicks: room.nicks,
 					item: { kind: 'system', event: ev },
 				});
 			}
@@ -143,6 +151,9 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 	}, [rooms, orderedRoomIds, preferences, collapsed, currentUserId]);
 
 	// ── Expanded: auto-scroll ────────────────────────────────────────────
+	// No dependency array — runs after every render intentionally.
+	// New messages, typing indicators, or layout shifts can all change scrollHeight.
+	// The isNearBottom guard ensures we only scroll when the user is already at the bottom.
 	const innerRef = scrollRef as React.RefObject<HTMLDivElement | null>;
 
 	useEffect(() => {
@@ -161,51 +172,36 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 		}
 	}
 
-	// ── Compute expanded display items ────────────────────────────────────
+	// ── Compute expanded display items (memoized) ───────────────────────
 	const activeRoom = activeRoomId ? rooms.get(activeRoomId) : null;
 
-	const expandedItems: DisplayItem[] = activeRoom
-		? [
-				...activeRoom.messages
-					.filter((msg) => !preferences.blockedUsers.includes(msg.sender_id))
-					.map(
-						(msg): DisplayItem => ({
-							kind: 'msg',
-							msg,
-							nickname: activeRoom.nicks.get(msg.sender_id) ?? `#${msg.sender_id}`,
-							isSelf: msg.sender_id === currentUserId,
-						}),
-					),
-				...activeRoom.serverMessages.map((msg): DisplayItem => {
-					let text = '(server event)';
-					if ('KillFeed' in msg.content) {
-						text = formatKillFeed(
-							msg.content.KillFeed.killer_id,
-							msg.content.KillFeed.target_id,
-							activeRoom.nicks,
-						);
-					}
-					return { kind: 'server', msg, text };
-				}),
-				...activeRoom.systemEvents.map(
-					(ev): DisplayItem => ({ kind: 'system', event: ev }),
+	const expandedItems = useMemo((): DisplayItem[] => {
+		if (!activeRoom) return [];
+		return [
+			...activeRoom.messages
+				.filter((msg) => !preferences.blockedUsers.includes(msg.sender_id))
+				.map(
+					(msg): DisplayItem => ({
+						kind: 'msg',
+						msg,
+						nickname: activeRoom.nicks.get(msg.sender_id) ?? `#${msg.sender_id}`,
+						isSelf: msg.sender_id === currentUserId,
+					}),
 				),
-			].sort((a, b) => {
-				const aTime =
-					a.kind === 'msg'
-						? a.msg.created_at
-						: a.kind === 'server'
-							? a.msg.created_at
-							: a.event.timestamp;
-				const bTime =
-					b.kind === 'msg'
-						? b.msg.created_at
-						: b.kind === 'server'
-							? b.msg.created_at
-							: b.event.timestamp;
-				return aTime.localeCompare(bTime);
-			})
-		: [];
+			...activeRoom.serverMessages.map((msg): DisplayItem => {
+				let text = '(server event)';
+				if ('KillFeed' in msg.content) {
+					text = formatKillFeed(
+						msg.content.KillFeed.killer_id,
+						msg.content.KillFeed.target_id,
+						activeRoom.nicks,
+					);
+				}
+				return { kind: 'server', msg, text };
+			}),
+			...activeRoom.systemEvents.map((ev): DisplayItem => ({ kind: 'system', event: ev })),
+		].sort((a, b) => getDisplayTimestamp(a).localeCompare(getDisplayTimestamp(b)));
+	}, [activeRoom, preferences.blockedUsers, currentUserId]);
 
 	// Typing indicator text.
 	const typingNicks: string[] = activeRoom
@@ -269,23 +265,15 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(functio
 				onScroll={handleScroll}
 				className="overflow-y-auto max-h-[50vh] flex flex-col gap-0.5 px-2 py-1 scrollbar-none"
 			>
-				{expandedItems.map((item, idx) => {
-					const key =
-						item.kind === 'msg'
-							? item.msg.id
-							: item.kind === 'server'
-								? item.msg.id
-								: item.event.id;
-					return (
-						<ChatMessage
-							key={key ?? idx}
-							item={item}
-							currentUserId={currentUserId}
-							onGamePage={onGamePage}
-							interactive={true}
-						/>
-					);
-				})}
+				{expandedItems.map((item) => (
+					<ChatMessage
+						key={getDisplayKey(item)}
+						item={item}
+						currentUserId={currentUserId}
+						onGamePage={onGamePage}
+						interactive={true}
+					/>
+				))}
 			</div>
 
 			{/* Typing indicator */}

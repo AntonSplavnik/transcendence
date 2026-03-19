@@ -6,7 +6,7 @@
  * For self (isSelf=true): always shows "You" in stone-400 with no menu.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 
 // ─── Color palette ────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ function UsernameContextMenu({ userId, nickname, onClose }: ContextMenuProps) {
 
 export default function Username({ userId, nickname, isSelf, interactive }: UsernameProps) {
 	const [menuOpen, setMenuOpen] = useState(false);
-	const containerRef = useRef<HTMLSpanElement>(null);
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 
 	if (isSelf) {
 		return <span className="text-stone-400">You</span>;
@@ -176,7 +176,7 @@ export default function Username({ userId, nickname, isSelf, interactive }: User
 	}
 
 	return (
-		<span ref={containerRef} className="relative inline-block">
+		<span className="relative inline-block">
 			<button
 				className={`${color} hover:underline cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit`}
 				onClick={() => setMenuOpen((prev) => !prev)}
@@ -187,11 +187,7 @@ export default function Username({ userId, nickname, isSelf, interactive }: User
 				{nickname}
 			</button>
 			{menuOpen && (
-				<UsernameContextMenu
-					userId={userId}
-					nickname={nickname}
-					onClose={() => setMenuOpen(false)}
-				/>
+				<UsernameContextMenu userId={userId} nickname={nickname} onClose={closeMenu} />
 			)}
 		</span>
 	);

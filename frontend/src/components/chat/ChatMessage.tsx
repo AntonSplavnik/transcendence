@@ -8,6 +8,9 @@
 import Username from '../ui/Username';
 import type { DisplayItem } from '../../chat/types';
 
+/** Defense-in-depth: cap rendered content even if server/wire allows more. */
+const MAX_RENDER_LENGTH = 4096;
+
 interface ChatMessageProps {
 	item: DisplayItem;
 	currentUserId: number;
@@ -47,6 +50,11 @@ export default function ChatMessage({
 	}
 
 	// kind === 'msg'
+	const content =
+		item.msg.content.length > MAX_RENDER_LENGTH
+			? item.msg.content.slice(0, MAX_RENDER_LENGTH) + '…'
+			: item.msg.content;
+
 	return (
 		<div className={`text-xs leading-tight ${shadowClass}`}>
 			{roomTag && <span className="text-stone-500 text-[10px] mr-1">{roomTag}</span>}
@@ -57,7 +65,7 @@ export default function ChatMessage({
 				interactive={interactive}
 			/>
 			<span className="text-stone-400 mx-0.5">:</span>
-			<span className="text-stone-200 break-words">{item.msg.content}</span>
+			<span className="text-stone-200 break-words break-all">{content}</span>
 		</div>
 	);
 }

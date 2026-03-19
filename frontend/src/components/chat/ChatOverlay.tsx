@@ -83,6 +83,7 @@ export default function ChatOverlay() {
 		: 'bg-stone-900';
 
 	// Render nothing when chat is globally hidden.
+	// NOTE: All hooks are called above this line — do not add hooks below.
 	if (!preferences.visible || !user) return null;
 
 	return (

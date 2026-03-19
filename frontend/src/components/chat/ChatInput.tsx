@@ -202,10 +202,11 @@ export default function ChatInput({
 	}
 
 	function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-		setValue(e.target.value);
+		const text = e.target.value;
+		setValue(text);
 		setAutocompleteIndex(0);
-		// Send typing indicator when user types (cooldown managed in context).
-		if (activeRoomId && e.target.value.length > 0) {
+		// Send typing indicator for normal text only — commands are local-only.
+		if (activeRoomId && text.length > 0 && !text.startsWith('/')) {
 			sendTypingIndicator(activeRoomId);
 		}
 	}
@@ -235,7 +236,7 @@ export default function ChatInput({
 			{/* Input row */}
 			<div className="relative flex items-center">
 				<input
-					ref={inputRef as React.RefObject<HTMLInputElement>}
+					ref={inputRef}
 					type="text"
 					value={value}
 					onChange={handleChange}

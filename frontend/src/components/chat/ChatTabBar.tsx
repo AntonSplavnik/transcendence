@@ -20,7 +20,7 @@ function truncateLabel(label: string, max = 7): string {
 }
 
 function getRoomLabel(
-	roomId: string,
+	_roomId: string,
 	room: {
 		chatType: string | null;
 		name: string | null;
@@ -29,7 +29,6 @@ function getRoomLabel(
 	},
 	currentUserId: number,
 ): string {
-	void roomId;
 	if (room.chatType === 'Global') return 'Global';
 	if (room.chatType === 'GameLobby') return room.name ?? 'Lobby';
 	if (room.chatType === 'Dm') {
