@@ -79,18 +79,29 @@ export default {
           to: { opacity: "1", transform: "translateY(0) scale(1)" },
         },
         "toast-slide-in": {
-          from: { opacity: "0", transform: "translateX(-100%)" },
+          from: { opacity: "0", transform: "translateX(100%)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
         "toast-slide-out": {
           from: { opacity: "1", transform: "translateX(0)" },
-          to: { opacity: "0", transform: "translateX(-100%)" },
+          to: { opacity: "0", transform: "translateX(100%)" },
+        },
+        "chat-fade-out": {
+          "0%":    { opacity: "1" },
+          "62.5%": { opacity: "1" },
+          "100%":  { opacity: "0" },
+        },
+        "chat-slide-up": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "dropdown-enter": "dropdown-enter 150ms ease-out",
         "toast-in": "toast-slide-in 200ms ease-out both",
         "toast-out": "toast-slide-out 200ms ease-in both",
+        "chat-fade":  "chat-fade-out 8s ease-out forwards",
+        "chat-enter": "chat-slide-up 100ms ease-out",
       },
     },
   },
