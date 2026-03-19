@@ -602,26 +602,18 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			},
 		);
 
-		// Enable Inspector with Ctrl+Shift+I (loaded from CDN)
+		// Enable Inspector with Ctrl+Shift+I (lazy-loaded from npm package)
 		let inspectorLoaded = false;
 		window.addEventListener('keydown', async (event) => {
 			if (event.ctrlKey && event.shiftKey && event.key === 'I') {
 				event.preventDefault();
-
+				if (!inspectorLoaded) {
+					await import('@babylonjs/inspector');
+					inspectorLoaded = true;
+				}
 				if (scene.debugLayer.isVisible()) {
 					scene.debugLayer.hide();
 				} else {
-					// Load inspector from CDN on first use
-					if (!inspectorLoaded) {
-						const script = document.createElement('script');
-						script.src =
-							'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js';
-						document.head.appendChild(script);
-						await new Promise((resolve) => {
-							script.onload = resolve;
-						});
-						inspectorLoaded = true;
-					}
 					await scene.debugLayer.show({
 						embedMode: false,
 						overlay: true,
