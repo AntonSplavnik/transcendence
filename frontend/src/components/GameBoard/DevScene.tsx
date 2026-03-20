@@ -9,7 +9,16 @@ import { measureModel } from '@/utils/measureModel';
 import { arenaScene, CAM_ALPHA, CAM_BETA, CAM_RADIUS, CAM_TARGET } from './BabylonCanvas';
 
 function serializeScene(scene: Scene) {
-	
+	const name = prompt('Save as:', 'forest');
+	if (!name) return;
+	const serialized = SceneSerializer.Serialize(scene);
+	const json = JSON.stringify(serialized, null, 2);
+	const blob = new Blob([json], { type: 'application/json' });
+	const a = document.createElement('a');
+	a.href = URL.createObjectURL(blob);
+	a.download = `${name}.babylon`;
+	a.click();
+	URL.revokeObjectURL(a.href);
 }
 
 export default function DevScene() {
@@ -39,6 +48,11 @@ export default function DevScene() {
 		// Enable Inspector with Ctrl+Shift+I
 		let inspectorLoaded = false;
 		const onKeyDown = async (event: KeyboardEvent) => {
+			if (event.ctrlKey && event.shiftKey && (event.key === 'S' || event.key === 's')) {
+				event.preventDefault();
+				console.log('serialize triggered');
+				serializeScene(scene);
+			}
 			if (event.ctrlKey && event.shiftKey && event.key === 'I') {
 				event.preventDefault();
 				if (!inspectorLoaded) {
