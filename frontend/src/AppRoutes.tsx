@@ -9,6 +9,7 @@ import LandingPage from './components/LandingPage';
 import LobbyOverlay from './components/LobbyOverlay';
 import LobbyPage from './components/LobbyPage';
 import DisplacedModal from './components/modals/DisplacedModal';
+import DevScene from './components/GameBoard/DevScene';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
@@ -259,7 +260,9 @@ export default function AppRoutes() {
 					}
 				/>
 
-				<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
+				<Route path="/dev" element={<DevScene />} />
+
+			<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
 				<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
 
 				<Route path="*" element={<Navigate to="/landing" replace />} />
