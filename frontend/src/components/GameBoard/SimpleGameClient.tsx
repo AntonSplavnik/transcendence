@@ -573,30 +573,56 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				if (keysPressed.has('d')) input.movementDirection.x = 1;
 				input.isJumping = keysPressed.has(' ');
 				input.isAttacking = keysPressed.has('e');
-				input.isSprinting = keysPressed.has('shift');
+				input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
 
+				// Update animations based on input
 				gameClient.updateLocalAnimation(input);
 			});
 
-			const TARGET_FRAME_MS = 1000 / 60;
+			// Track last movement direction so character keeps facing that way when idle
+			const lastLookDir = { x: 0, y: 0, z: 1 };
+
+			// Render loop — hard-capped at 60 fps.
+			//
+			// Babylon.js's engine.runRenderLoop() uses requestAnimationFrame, which
+			// runs at the display's native refresh rate (60, 120, 144 Hz, etc.).
+			// The game server produces snapshots at exactly 60 Hz, so rendering
+			// faster than 60 fps provides no visual benefit and wastes GPU.
+			//
+			// We skip frames until at least TARGET_FRAME_MS have elapsed, giving us
+			// a steady ~60 fps on any display without tearing or busy-waits.
+			// The server game loop runs at exactly 60 Hz and reads the latest input
+			// each tick.  Sending at the same rate ensures input lag is at most one
+			// server tick (~16.67 ms) instead of up to three ticks at 20 Hz (50 ms).
+			const TARGET_FRAME_MS = 1000 / 60; // ≈16.667 ms
+
 			let lastFrameTime = 0;
 
 			engine.runRenderLoop(() => {
 				const now = performance.now();
-				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
+
+				// Frame-rate cap: skip if not enough time has passed for a full frame.
+				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) {
+					return;
+				}
+				// Advance by one frame interval; clamp to `now` if more than 2 frames
+				// behind to avoid a catch-up burst after a pause.
 				lastFrameTime =
 					now - lastFrameTime > TARGET_FRAME_MS * 2 ? now : lastFrameTime + TARGET_FRAME_MS;
 
+				// Apply the latest snapshot from the server (consumed once per frame).
 				const snap = snapshotRef.current;
 				if (snap !== null) {
 					gameClient.processSnapshot(snap);
 					snapshotRef.current = null;
 				}
 
-				const lookDir =
-					input.movementDirection.x !== 0 || input.movementDirection.z !== 0
-						? input.movementDirection
-						: { x: 0, y: 0, z: 1 };
+				// Send input at 60 Hz — matches the server's game-loop tick rate.
+				if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+					lastLookDir.x = input.movementDirection.x;
+					lastLookDir.z = input.movementDirection.z;
+				}
+				const lookDir = lastLookDir;
 				onSendInput(
 					input.movementDirection,
 					lookDir,
