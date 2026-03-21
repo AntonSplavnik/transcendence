@@ -608,6 +608,9 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			gameClient.updateLocalAnimation(input);
 		});
 
+		// Track last movement direction so character keeps facing that way when idle
+		const lastLookDir = { x: 0, y: 0, z: 1 };
+
 		// Render loop — hard-capped at 60 fps.
 		//
 		// Babylon.js's engine.runRenderLoop() uses requestAnimationFrame, which
@@ -644,10 +647,11 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			}
 
 			// Send input at 60 Hz — matches the server's game-loop tick rate.
-			const lookDir =
-				input.movementDirection.x !== 0 || input.movementDirection.z !== 0
-					? input.movementDirection
-					: { x: 0, y: 0, z: 1 };
+			if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+				lastLookDir.x = input.movementDirection.x;
+				lastLookDir.z = input.movementDirection.z;
+			}
+			const lookDir = lastLookDir;
 			onSendInput(
 				input.movementDirection,
 				lookDir,
