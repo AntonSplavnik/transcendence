@@ -25,6 +25,8 @@ const ARENA_OFFSET = { x: 50, z: 50 };
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
+import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
+
 
 // ============ COPIED FROM simple_client.ts ============
 
@@ -131,7 +133,10 @@ class AnimatedCharacter {
 	playAnimation(name: string, loop: boolean = true): void {
 		if (this.currentAnimationName === name) return;
 		const anim = this.animations.get(name);
-		if (!anim) return;
+		if (!anim) {
+			console.warn(`[playAnimation] "${name}" not found. Available:`, [...this.animations.keys()]);
+			return;
+		}
 		if (this.currentAnimation) this.currentAnimation.stop();
 		anim.start(loop);
 		this.currentAnimation = anim;
@@ -213,7 +218,8 @@ class GameClient {
 
 	async initLocalPlayer(): Promise<void> {
 		this.localCharacter = new AnimatedCharacter(this.scene);
-		await this.localCharacter.loadModel(generalModel);
+		await this.localCharacter.loadModel(knightModel);
+		await this.localCharacter.loadAnimations(generalModel);
 		await this.localCharacter.loadAnimations(movementBasicAnims);
 		await this.localCharacter.loadAnimations(combatMeleeAnims);
 
@@ -356,7 +362,8 @@ class GameClient {
 		this.loadingCharacters.add(playerID);
 		const remoteChar = new AnimatedCharacter(this.scene);
 		try {
-			await remoteChar.loadModel(generalModel);
+			await remoteChar.loadModel(knightModel);
+			await remoteChar.loadAnimations(generalModel);
 			await remoteChar.loadAnimations(movementBasicAnims);
 			await remoteChar.loadAnimations(combatMeleeAnims);
 
