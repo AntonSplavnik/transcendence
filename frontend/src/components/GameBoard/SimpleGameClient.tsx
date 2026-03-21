@@ -18,7 +18,6 @@ declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
 // Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
-// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
 const ARENA_OFFSET = { x: 50, z: 50 };
 
 // Import game assets — Vite resolves these to hashed public URLs at build time
@@ -56,6 +55,12 @@ const CharacterState = {
 } as const;
 type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
+// Isometric camera: 35.264° elevation, 45° rotation, orthographic
+const ISO_CAM_DIST = 80; // distance from target (doesn't affect size in ortho, just clipping)
+const ISO_CAM_HEIGHT = ISO_CAM_DIST * 0.7071; // tan(35.264°) ≈ 0.7071
+const ISO_CAM_OFFSET = { x: ISO_CAM_DIST, y: ISO_CAM_HEIGHT, z: -ISO_CAM_DIST };
+const ISO_ORTHO_SIZE = 30; //  controls zoom level (80 would be full world in view)
+
 const AnimationNames = {
 	idle: 'Idle_A',
 	walk: 'Walking_B',
@@ -63,7 +68,7 @@ const AnimationNames = {
 	jumpStart: 'Jump_Start',
 	jumpIdle: 'Jump_Idle',
 	jumpLand: 'Jump_Land',
-	attack: 'Melee_2H_Attack_Spinning',
+	attack: 'Melee_1H_Attack_Slice_Horizontal',
 	hit: 'Hit_A',
 	death: 'Death_A',
 	spawn: 'Spawn_Air',
@@ -266,53 +271,50 @@ class GameClient {
 	}
 
 	// Legacy method - currently disabled (prediction disabled)
-	applyInput(input: InputState, deltaTime: number) {
-		const moveSpeed = 5.0;
 
-		if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
-			const cameraForward = this.camera.getTarget().subtract(this.camera.position);
-			cameraForward.y = 0;
-			cameraForward.normalize();
-			const cameraRight = BABYLON.Vector3.Cross(
-				BABYLON.Vector3.Up(),
-				cameraForward,
-			).normalize();
-			const worldMoveDir = cameraForward
-				.scale(input.movementDirection.z)
-				.add(cameraRight.scale(input.movementDirection.x));
-
-			if (worldMoveDir.length() > 0) {
-				worldMoveDir.normalize();
-				this.velocity.x = worldMoveDir.x * moveSpeed;
-				this.velocity.z = worldMoveDir.z * moveSpeed;
-			}
-		} else {
-			this.velocity.x = 0;
-			this.velocity.z = 0;
-		}
-
-		if (input.isJumping && this.position.y <= 1.1) {
-			this.velocity.y = 8.0;
-		}
-
-		if (this.position.y > 1.0) {
-			this.velocity.y -= 20.0 * deltaTime;
-		} else {
-			this.position.y = 1.0;
-			this.velocity.y = 0;
-		}
-
-		this.position.addInPlace(this.velocity.scale(deltaTime));
-		this.position.x = Math.max(-49, Math.min(49, this.position.x));
-		this.position.z = Math.max(-49, Math.min(49, this.position.z));
-
-		if (this.localCharacter) this.localCharacter.setPosition(this.position);
-		this.updateAnimation(input);
-
-		const cameraOffset = new BABYLON.Vector3(30, 60, -30);
-		this.camera.position = this.position.add(cameraOffset);
-		this.camera.setTarget(this.position);
-	}
+	// applyInput(input: InputState, deltaTime: number) {
+	// 	const moveSpeed = 5.0;
+	//
+	// 	if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+	// 		const cameraForward = this.camera.getTarget().subtract(this.camera.position);
+	// 		cameraForward.y = 0;
+	// 		cameraForward.normalize();
+	// 		const cameraRight = Vector3.Cross(Vector3.Up(), cameraForward).normalize();
+	// 		const worldMoveDir = cameraForward
+	// 			.scale(input.movementDirection.z)
+	// 			.add(cameraRight.scale(input.movementDirection.x));
+	//
+	// 		if (worldMoveDir.length() > 0) {
+	// 			worldMoveDir.normalize();
+	// 			this.velocity.x = worldMoveDir.x * moveSpeed;
+	// 			this.velocity.z = worldMoveDir.z * moveSpeed;
+	// 		}
+	// 	} else {
+	// 		this.velocity.x = 0;
+	// 		this.velocity.z = 0;
+	// 	}
+	//
+	// 	if (input.isJumping && this.position.y <= 1.1) {
+	// 		this.velocity.y = 8.0;
+	// 	}
+	//
+	// 	if (this.position.y > 1.0) {
+	// 		this.velocity.y -= 20.0 * deltaTime;
+	// 	} else {
+	// 		this.position.y = 1.0;
+	// 		this.velocity.y = 0;
+	// 	}
+	//
+	// 	this.position.addInPlace(this.velocity.scale(deltaTime));
+	// 	this.position.x = Math.max(-49, Math.min(49, this.position.x));
+	// 	this.position.z = Math.max(-49, Math.min(49, this.position.z));
+	//
+	// 	if (this.localCharacter) this.localCharacter.setPosition(this.position);
+	// 	this.updateAnimation(input);
+	//
+	// 	this.camera.position = this.position.add(ISO_CAM_OFFSET);
+	// 	this.camera.setTarget(this.position);
+	// }
 
 	processSnapshot(snapshot: GameStateSnapshot) {
 		const activePlayerIDs = new Set<number>();
@@ -332,8 +334,8 @@ class GameClient {
 					this.localCharacter.setRotation(char.yaw);
 				}
 
-				const cameraOffset = new BABYLON.Vector3(10, 15, -10);
-				this.camera.position = this.position.add(cameraOffset);
+				// Update camera to follow player
+				this.camera.position = new BABYLON.Vector3(this.position.x + ISO_CAM_OFFSET.x, this.position.y + ISO_CAM_OFFSET.y, this.position.z + ISO_CAM_OFFSET.z);
 				this.camera.setTarget(this.position);
 			} else {
 				const remoteChar = this.characters.get(char.player_id);
@@ -514,19 +516,18 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			const scene = new BABYLON.Scene(engine);
 			sceneInstance = scene;
 
-			const camera = new BABYLON.UniversalCamera(
-				'camera',
-				new BABYLON.Vector3(78, 33, 22),
-				scene,
-			);
-			camera.setTarget(new BABYLON.Vector3(50, 2, 50));
+			// True isometric camera: 35.264° elevation, 45° horizontal rotation, orthographic
+			const arenaCenter = new BABYLON.Vector3(50, 0, 50);
+			const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(arenaCenter.x + ISO_CAM_OFFSET.x, arenaCenter.y + ISO_CAM_OFFSET.y, arenaCenter.z + ISO_CAM_OFFSET.z), scene);
+			camera.setTarget(arenaCenter);
+			camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+			const aspect = engine.getRenderWidth() / engine.getRenderHeight();
+			camera.orthoLeft = -ISO_ORTHO_SIZE * aspect;
+			camera.orthoRight = ISO_ORTHO_SIZE * aspect;
+			camera.orthoTop = ISO_ORTHO_SIZE;
+			camera.orthoBottom = -ISO_ORTHO_SIZE;
 			camera.minZ = 0.1;
 			camera.maxZ = 500;
-
-			// const sun = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-2, -4, 3), scene);
-			// sun.intensity = 3;
-			// const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
-			// hemi.intensity = 0.6;
 
 			scene.onReadyObservable.addOnce(() => {
 				console.log(
@@ -604,13 +605,36 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
 			});
 
+			// Precomputed isometric directions (camera rotated 45° around Y)
+			// Key: bitmask WASD (W=8, A=4, S=2, D=1), Value: [worldX, worldZ] normalized
+			const S = 0.7071;
+			const isoDir: Record<number, [number, number]> = {
+				0:  [0, 0],           // no input
+				8:  [-S, S],          // W
+				2:  [S, -S],          // S
+				4:  [-S, -S],         // A
+				1:  [S, S],           // D
+				9:  [0, 1],           // W+D
+				12: [-1, 0],          // W+A
+				3:  [1, 0],           // S+D
+				6:  [0, -1],          // S+A
+				10: [0, 0],           // W+S (cancel)
+				5:  [0, 0],           // A+D (cancel)
+				15: [0, 0],           // all (cancel)
+				14: [-S, -S],         // W+A+S
+				13: [-S, S],          // W+A+D
+				11: [S, S],           // W+S+D
+				7:  [S, -S],          // A+S+D
+			};
 			scene.onBeforeRenderObservable.add(() => {
-				input.movementDirection.x = 0;
-				input.movementDirection.z = 0;
-				if (keysPressed.has('w')) input.movementDirection.z = 1;
-				if (keysPressed.has('s')) input.movementDirection.z = -1;
-				if (keysPressed.has('a')) input.movementDirection.x = -1;
-				if (keysPressed.has('d')) input.movementDirection.x = 1;
+				const bits =
+					(keysPressed.has('w') ? 8 : 0) |
+					(keysPressed.has('a') ? 4 : 0) |
+					(keysPressed.has('s') ? 2 : 0) |
+					(keysPressed.has('d') ? 1 : 0);
+				const dir = isoDir[bits] || [0, 0];
+				input.movementDirection.x = dir[0];
+				input.movementDirection.z = dir[1];
 				input.isJumping = keysPressed.has(' ');
 				input.isAttacking = keysPressed.has('e');
 				input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
@@ -676,7 +700,14 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				scene.render();
 			});
 
-			window.addEventListener('resize', () => engine.resize());
+			window.addEventListener('resize', () => {
+				engine.resize();
+				const a = engine.getRenderWidth() / engine.getRenderHeight();
+				camera.orthoLeft = -ISO_ORTHO_SIZE * a;
+				camera.orthoRight = ISO_ORTHO_SIZE * a;
+				camera.orthoTop = ISO_ORTHO_SIZE;
+				camera.orthoBottom = -ISO_ORTHO_SIZE;
+			});
 		})();
 
 		return () => {
