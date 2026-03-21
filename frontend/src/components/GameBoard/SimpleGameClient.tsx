@@ -496,6 +496,11 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 		let disposed = false;
 		let sceneInstance: Scene | null = null;
 
+		canvas.focus();
+		canvas.tabIndex = 1;
+		const onFocus = () => canvas.focus();
+		window.addEventListener('focus', onFocus);
+
 		(async () => {
 			const engine = new BABYLON.Engine(canvas, true);
 			engineRef.current = engine;
@@ -675,6 +680,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 		})();
 
 		return () => {
+			window.removeEventListener('focus', onFocus);
 			disposed = true;
 			engineRef.current?.stopRenderLoop();
 			sceneInstance?.dispose();
