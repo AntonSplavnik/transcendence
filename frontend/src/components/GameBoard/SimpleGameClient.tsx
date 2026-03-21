@@ -491,6 +491,11 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 		if (!canvasRef.current || !localPlayerId) return;
 
 		const canvas = canvasRef.current;
+		canvas.focus();
+		canvas.tabIndex = 1;
+		const onFocus = () => canvas.focus();
+		window.addEventListener('focus', onFocus);
+
 		const engine = new Engine(canvas, true);
 		const scene = new Scene(engine);
 		engineRef.current = engine;
@@ -666,6 +671,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 		window.addEventListener('resize', () => engine.resize());
 
 		return () => {
+			window.removeEventListener('focus', onFocus);
 			engine.stopRenderLoop();
 			scene.dispose();
 			engine.dispose();
