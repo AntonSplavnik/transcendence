@@ -39,6 +39,7 @@ impl mock::User<mock::Unregistered> {
             email: self.email.to_string(),
             password: self.password.to_string(),
             nickname: self.nickname,
+            tos: true,
         };
         let req = self.client.post("/api/auth/register").json(&body);
         self.client.send(req).await
