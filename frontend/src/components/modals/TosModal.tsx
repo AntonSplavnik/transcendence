@@ -5,16 +5,12 @@ import { FileText } from 'lucide-react';
 import { acceptTos } from '../../api/auth';
 import { Button, Modal } from '../ui';
 
-interface TosModalProps {
-	onAccepted: () => Promise<void>;
-}
-
 /**
  * Non-dismissible modal shown when the authenticated user has not accepted
  * the current Terms of Service.  The user must accept before they can use
  * any feature-level endpoint.
  */
-export default function TosModal({ onAccepted }: TosModalProps) {
+export default function TosModal() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -23,10 +19,9 @@ export default function TosModal({ onAccepted }: TosModalProps) {
 		setError(null);
 		try {
 			await acceptTos();
-			await onAccepted();
+			window.location.reload();
 		} catch {
 			setError('Failed to accept Terms of Service. Please try again.');
-		} finally {
 			setLoading(false);
 		}
 	};

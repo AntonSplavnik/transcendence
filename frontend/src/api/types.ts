@@ -8,7 +8,7 @@ export interface User {
 	totp_confirmed_at: string | null;
 	totp_enabled: boolean;
 	description: string;
-	tos: boolean;
+	tos_accepted_at: string | null;
 }
 
 export interface Session {
@@ -20,6 +20,10 @@ export interface Session {
 	login_expiry: string;
 	session_id: number;
 	user_id: number;
+}
+
+export interface TosInfo {
+	current_tos_timestamp: string;
 }
 
 // ==================== API RESPONSE TYPES ====================

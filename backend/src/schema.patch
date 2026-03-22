@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 17cfa01..6126532 100644
+index de9a24c..750190e 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,81 +1,81 @@
+@@ -1,88 +1,88 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -62,6 +62,14 @@ index 17cfa01..6126532 100644
 +        refreshed_at -> TimestamptzSqlite,
 +        last_used_at -> TimestamptzSqlite,
 +        last_authenticated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     tos_versions (key) {
+         key -> Text,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
      }
  }
  

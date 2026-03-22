@@ -6,6 +6,7 @@ use tracing_appender::non_blocking::WorkerGuard;
 
 use crate::{
     db::Db,
+    tos::CurrentTosTimestamp,
     utils::mock::{
         api_client::ApiClient,
         generators::{NickGenerator, UserGenerator},
@@ -38,6 +39,24 @@ impl Server {
         }
     }
 
+    /// Create a default test server with the given database and ToS timestamp.
+    pub fn default_with(db: Db, tos_timestamp: CurrentTosTimestamp) -> Self {
+        let router = crate::routers::rest_api(db.clone(), tos_timestamp);
+        Server {
+            host: "http://localhost".into(),
+            db,
+            logger: None,
+            service: Arc::new(Service::new(router)),
+            unique_nicks: Arc::new(Mutex::new(NickGenerator::new())),
+        }
+    }
+
+    /// Create a new server sharing this server's database but with a
+    /// different ToS timestamp. Useful for testing ToS version changes.
+    pub fn with_tos(&self, tos_timestamp: CurrentTosTimestamp) -> Self {
+        Self::default_with(self.db.clone(), tos_timestamp)
+    }
+
     pub fn client(&self) -> ApiClient {
         ApiClient::new(self)
     }
@@ -56,14 +75,7 @@ impl Server {
 impl Default for Server {
     fn default() -> Self {
         let db = Db::new_test().expect("Failed to create test database");
-        let router = crate::routers::rest_api(db.clone());
-        Server {
-            host: "http://localhost".into(),
-            db,
-            logger: None,
-            service: Arc::new(Service::new(router)),
-            unique_nicks: Arc::new(Mutex::new(NickGenerator::new())),
-        }
+        Self::default_with(db, CurrentTosTimestamp::now())
     }
 }
 

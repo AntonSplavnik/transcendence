@@ -84,13 +84,7 @@ async fn register(
         }
         input
     };
-    let tos_accepted_at = Some(chrono::Utc::now());
-    let new_user = NewUser::new(
-        email,
-        nickname,
-        util::hash_password(&password)?,
-        tos_accepted_at,
-    );
+    let new_user = NewUser::new(email, nickname, util::hash_password(&password)?);
     let (device_name, ip_address) = util::get_device_and_ip(req);
     let device_id = depot.device_id().to_owned();
     let token = SessionToken::generate();

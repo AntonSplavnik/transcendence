@@ -53,14 +53,12 @@ async fn accept_tos_updates_user_tos() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
-    // After registration with tos:true, the /me endpoint should already show tos:true.
-    // Call accept_tos to ensure it also works correctly.
     user.accept_tos().await;
 
     let info = user.me().await;
     assert!(
         info.user.tos_accepted_at.is_some(),
-        "tos should be accepted after calling accept-tos"
+        "tos_accepted_at should be set after calling accept-tos"
     );
 }
 
@@ -180,12 +178,12 @@ async fn register_with_tos_succeeds() {
     let info = user.me().await;
     assert!(
         info.user.tos_accepted_at.is_some(),
-        "user registered with tos:true should have tos accepted"
+        "user registered with tos:true should have tos_accepted_at set"
     );
 }
 
 #[tokio::test]
-async fn me_includes_tos_field() {
+async fn me_includes_tos_accepted_at_field() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
@@ -193,37 +191,28 @@ async fn me_includes_tos_field() {
     let body = res.take_string().await.unwrap();
 
     assert!(
-        body.contains("\"tos\""),
-        "GET /me response must include a tos field, got: {body}"
+        body.contains("\"tos_accepted_at\""),
+        "GET /me response must include a tos_accepted_at field, got: {body}"
     );
 }
 
 #[tokio::test]
-async fn me_tos_field_is_boolean_true_after_registration() {
+async fn me_tos_accepted_at_is_timestamp_after_registration() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
-    let mut res = user.try_me().await;
-    let body = res.take_string().await.unwrap();
+    let info = user.me().await;
+    let ts = info
+        .user
+        .tos_accepted_at
+        .expect("tos_accepted_at should be set after registration");
 
-    // The tos field should be serialized as a boolean, not a timestamp
+    // The timestamp should be recent (within the last 10 seconds)
+    let now = chrono::Utc::now();
+    let diff = now - ts;
     assert!(
-        body.contains("\"tos\":true"),
-        "tos field should be boolean true after registration with tos accepted, got: {body}"
-    );
-}
-
-#[tokio::test]
-async fn me_does_not_leak_tos_accepted_at_timestamp() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-
-    let mut res = user.try_me().await;
-    let body = res.take_string().await.unwrap();
-
-    assert!(
-        !body.contains("tos_accepted_at"),
-        "response must not leak tos_accepted_at timestamp, got: {body}"
+        diff.num_seconds() < 10,
+        "tos_accepted_at should be recent, got {ts}"
     );
 }
 
@@ -233,7 +222,6 @@ async fn tos_gated_endpoint_requires_tos() {
     let mut user = server.user().register().await;
 
     // After registration with tos:true, tos-gated endpoints should work.
-    // We test by hitting a tos-gated endpoint (description update).
     let body = serde_json::json!({ "description": "hello" });
     let req = user.client.put("/api/user/description").json(&body);
     let res = user.client.send(req).await;
@@ -242,5 +230,21 @@ async fn tos_gated_endpoint_requires_tos() {
         res.status_code,
         Some(StatusCode::OK),
         "tos-gated endpoint should succeed when user has accepted tos"
+    );
+}
+
+#[tokio::test]
+async fn current_tos_endpoint_returns_timestamp() {
+    let server = mock::Server::default();
+    let mut client = server.client();
+
+    let req = client.get("/api/tos");
+    let mut res = client.send(req).await;
+    assert_eq!(res.status_code, Some(StatusCode::OK));
+
+    let body = res.take_string().await.unwrap();
+    assert!(
+        body.contains("\"current_tos_timestamp\""),
+        "GET /api/tos should return current_tos_timestamp, got: {body}"
     );
 }

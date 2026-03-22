@@ -9,7 +9,7 @@ interface TermsOfServiceProps {
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
-	const { user, refreshUser } = useAuth();
+	const { user, hasAcceptedTos, tosLoaded } = useAuth();
 	const [accepting, setAccepting] = useState(false);
 	const [acceptError, setAcceptError] = useState<string | null>(null);
 
@@ -18,15 +18,14 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 		setAcceptError(null);
 		try {
 			await acceptTos();
-			await refreshUser();
+			window.location.reload();
 		} catch {
 			setAcceptError('Failed to accept Terms of Service. Please try again.');
-		} finally {
 			setAccepting(false);
 		}
 	};
 
-	const showAcceptButton = user && !user.tos;
+	const showAcceptButton = user && tosLoaded && !hasAcceptedTos;
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			<div className="flex items-center gap-4 mb-8">

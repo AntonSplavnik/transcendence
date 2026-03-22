@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
@@ -10,6 +10,14 @@ interface AuthContextType {
 	user: User | null;
 	session: Session | null;
 	authChecked: boolean;
+	/**
+	 * Whether the current user has accepted the current ToS version.
+	 * Returns `false` when the ToS timestamp has not been fetched yet.
+	 * Use `tosLoaded` to distinguish "not accepted" from "unknown".
+	 */
+	hasAcceptedTos: boolean;
+	/** Whether the server's ToS timestamp has been fetched successfully. */
+	tosLoaded: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
@@ -20,10 +28,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Derive whether the user has accepted the current ToS by comparing
+ * timestamps. Both are ISO-8601 strings so lexicographic comparison works.
+ */
+function deriveHasAcceptedTos(user: User | null, tosTimestamp: string | null): boolean {
+	if (!user || !user.tos_accepted_at || !tosTimestamp) return false;
+	return user.tos_accepted_at >= tosTimestamp;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [session, setSession] = useState<Session | null>(null);
 	const [authChecked, setAuthChecked] = useState(false);
+	const [tosTimestamp, setTosTimestamp] = useState<string | null>(null);
+
+	const hasAcceptedTos = useMemo(
+		() => deriveHasAcceptedTos(user, tosTimestamp),
+		[user, tosTimestamp],
+	);
 
 	const clearAuth = useCallback(() => {
 		console.log('🔒 Clearing authentication data');
@@ -52,6 +75,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setAuthFailureCallback(clearAuth);
 		return () => setAuthFailureCallback(null);
 	}, [clearAuth]);
+
+	// Fetch the current ToS timestamp from the server.
+	const fetchTosTimestamp = useCallback(async () => {
+		try {
+			const info = await authApi.getTosTimestamp();
+			setTosTimestamp(info.current_tos_timestamp);
+		} catch (err) {
+			console.error('Failed to fetch ToS timestamp:', err);
+		}
+	}, []);
+
+	// Fetch ToS timestamp when a user becomes available. No user means no need
+	// for the timestamp, and the backend is guaranteed to be reachable at this
+	// point (it just served the auth response).
+	useEffect(() => {
+		if (user) {
+			fetchTosTimestamp();
+		}
+	}, [user, fetchTosTimestamp]);
+
+	// Re-fetch ToS timestamp when the interceptor detects a TosNotAccepted error.
+	// This ensures the client has an up-to-date timestamp even if the ToS version
+	// was bumped after the page loaded.
+	useEffect(() => {
+		const onTosNotAccepted = () => {
+			fetchTosTimestamp();
+		};
+		window.addEventListener('tos-not-accepted', onTosNotAccepted);
+		return () => window.removeEventListener('tos-not-accepted', onTosNotAccepted);
+	}, [fetchTosTimestamp]);
 
 	// initial auth check on mount
 	useEffect(() => {
@@ -112,6 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				user,
 				session,
 				authChecked,
+				hasAcceptedTos,
+				tosLoaded: tosTimestamp !== null,
 				login,
 				register,
 				reauth,

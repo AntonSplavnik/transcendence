@@ -27,20 +27,28 @@ pub fn router(path: &str) -> Router {
                 .post(all_sessions)
                 .delete(delete_sessions),
         )
-        // ToS-gated: feature endpoints
-        .requires_tos_accepted()
-        .append(&mut vec![
-            Router::with_path("2fa")
-                .push(Router::with_path("start").post(two_fa_start))
-                .push(Router::with_path("confirm").post(two_fa_confirm))
-                .push(Router::with_path("disable").post(two_fa_disable)),
-            Router::with_path("description")
-                .user_rate_limit(&RateLimit::per_15_minutes(10))
-                .put(update_description),
-            Router::with_path("change-password")
-                .user_rate_limit(&RateLimit::per_15_minutes(10))
-                .post(change_pw),
-        ])
+        // ToS-gated: feature endpoints (separate sub-router so the hoop
+        // does not apply to the exempt routes above)
+        .push(
+            Router::new()
+                .requires_tos_accepted()
+                .push(
+                    Router::with_path("2fa")
+                        .push(Router::with_path("start").post(two_fa_start))
+                        .push(Router::with_path("confirm").post(two_fa_confirm))
+                        .push(Router::with_path("disable").post(two_fa_disable)),
+                )
+                .push(
+                    Router::with_path("description")
+                        .user_rate_limit(&RateLimit::per_15_minutes(10))
+                        .put(update_description),
+                )
+                .push(
+                    Router::with_path("change-password")
+                        .user_rate_limit(&RateLimit::per_15_minutes(10))
+                        .post(change_pw),
+                ),
+        )
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

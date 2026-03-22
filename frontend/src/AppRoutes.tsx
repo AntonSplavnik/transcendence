@@ -78,26 +78,37 @@ function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnecti
 	return <ConnectionStatusBanner state={state} />;
 }
 
-function RealtimeStatusOverlays() {
-	const { user, authChecked, refreshUser } = useAuth();
-	const { connectionState } = useStream();
+/**
+ * Show the ToS acceptance modal when an authenticated user has not accepted
+ * the current Terms of Service. Hidden on `/terms` where the inline accept
+ * button is available instead.
+ */
+function TosGate() {
+	const { user, authChecked, hasAcceptedTos, tosLoaded } = useAuth();
 	const location = useLocation();
+
+	if (!authChecked || !user || !tosLoaded || hasAcceptedTos) {
+		return null;
+	}
+	if (location.pathname === '/terms') {
+		return null;
+	}
+	return <TosModal />;
+}
+
+/**
+ * Connection status banners, displacement modal, and notification toasts.
+ * Only rendered for authenticated users who have accepted the current ToS
+ * (the stream is intentionally disconnected otherwise).
+ */
+function RealtimeStatusOverlays() {
+	const { user, authChecked, hasAcceptedTos } = useAuth();
+	const { connectionState } = useStream();
 	const [dismissedDisplacementState, setDismissedDisplacementState] =
 		useState<ConnectionState | null>(null);
 
-	// These overlays only make sense for authenticated users. On public pages
-	// the stream is intentionally disconnected, so showing a connection warning
-	// would be misleading noise rather than useful status information.
-	if (!authChecked || !user) {
+	if (!authChecked || !user || !hasAcceptedTos) {
 		return null;
-	}
-
-	// When ToS is not accepted, show the acceptance modal (except on /terms
-	// page where the inline accept button is available) and suppress all
-	// connection-related overlays since the stream is intentionally blocked.
-	if (!user.tos) {
-		const showTosModal = location.pathname !== '/terms';
-		return <>{showTosModal && <TosModal onAccepted={refreshUser} />}</>;
 	}
 
 	const shouldShowDisplacedModal =
@@ -171,6 +182,7 @@ export default function AppRoutes() {
 
 	return (
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
+			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			<Routes>

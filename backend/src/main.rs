@@ -26,6 +26,7 @@ mod tos;
 mod utils;
 mod validate;
 
+use db::Database as _;
 pub use error::ApiError;
 use tokio::sync::Notify;
 
@@ -86,8 +87,14 @@ async fn async_main() -> ExitCode {
     // Initialize database (reader pool + single writer, runs migrations)
     let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
 
-    let mut router =
-        routers::root(database).hoop(ForceHttps::new().https_port(config.listen_https_port));
+    // Load (or create) the current ToS version timestamp from the database.
+    let tos_timestamp = database
+        .write(|conn| tos::load_current_tos_timestamp(conn))
+        .await
+        .expect("Failed to initialize ToS version");
+
+    let mut router = routers::root(database, tos_timestamp)
+        .hoop(ForceHttps::new().https_port(config.listen_https_port));
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router).await;

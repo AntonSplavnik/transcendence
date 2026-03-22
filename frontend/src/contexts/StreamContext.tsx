@@ -31,7 +31,7 @@ const StreamContext = createContext<StreamContextType | undefined>(undefined);
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function StreamProvider({ children }: { children: ReactNode }) {
-	const { user } = useAuth();
+	const { user, hasAcceptedTos } = useAuth();
 
 	// Create the ConnectionManager once and keep it for the lifetime of the
 	// provider.  It is framework-agnostic, so we just hold a stable reference.
@@ -52,7 +52,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 
 	// Connect when authenticated, disconnect when not.
 	const connectIfAuth = useCallback(async () => {
-		if (!user || !user.tos) {
+		if (!user || !hasAcceptedTos) {
 			manager.disconnect();
 			return;
 		}
@@ -64,7 +64,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 			console.error('[StreamProvider] initial connect failed:', err);
 			// Reconnection is handled internally by the manager.
 		}
-	}, [user, manager]);
+	}, [user, hasAcceptedTos, manager]);
 
 	useEffect(() => {
 		connectIfAuth();
