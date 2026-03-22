@@ -71,3 +71,104 @@ impl RouterTosExt for Router {
         self.hoop(tos_hoop)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    #[test]
+    fn has_accepted_current_tos_none_returns_false() {
+        assert!(
+            !has_accepted_current_tos(None),
+            "None should indicate ToS not accepted"
+        );
+    }
+
+    #[test]
+    fn has_accepted_current_tos_before_current_returns_false() {
+        let before = *CURRENT_TOS - Duration::seconds(1);
+        assert!(
+            !has_accepted_current_tos(Some(before)),
+            "timestamp before CURRENT_TOS should be rejected"
+        );
+    }
+
+    #[test]
+    fn has_accepted_current_tos_equal_to_current_returns_true() {
+        assert!(
+            has_accepted_current_tos(Some(*CURRENT_TOS)),
+            "timestamp equal to CURRENT_TOS should be accepted"
+        );
+    }
+
+    #[test]
+    fn has_accepted_current_tos_after_current_returns_true() {
+        let after = *CURRENT_TOS + Duration::seconds(1);
+        assert!(
+            has_accepted_current_tos(Some(after)),
+            "timestamp after CURRENT_TOS should be accepted"
+        );
+    }
+
+    /// Helper struct that mirrors the `tos` field on `User` for serde round-trip tests.
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    struct TosWrapper {
+        #[serde(serialize_with = "serialize_tos", deserialize_with = "deserialize_tos")]
+        tos: Option<DateTime<Utc>>,
+    }
+
+    #[test]
+    fn serialize_tos_accepted_produces_true() {
+        let wrapper = TosWrapper {
+            tos: Some(*CURRENT_TOS),
+        };
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert!(
+            json.contains("true"),
+            "accepted tos should serialize to true, got: {json}"
+        );
+    }
+
+    #[test]
+    fn serialize_tos_not_accepted_produces_false() {
+        let wrapper = TosWrapper { tos: None };
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert!(
+            json.contains("false"),
+            "unaccepted tos should serialize to false, got: {json}"
+        );
+    }
+
+    #[test]
+    fn serialize_tos_old_timestamp_produces_false() {
+        let wrapper = TosWrapper {
+            tos: Some(DateTime::<Utc>::UNIX_EPOCH),
+        };
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert!(
+            json.contains("false"),
+            "tos accepted before CURRENT_TOS should serialize to false, got: {json}"
+        );
+    }
+
+    #[test]
+    fn deserialize_tos_true_round_trips() {
+        let json = r#"{"tos":true}"#;
+        let wrapper: TosWrapper = serde_json::from_str(json).unwrap();
+        assert!(
+            wrapper.tos.is_some(),
+            "deserializing true should produce Some"
+        );
+    }
+
+    #[test]
+    fn deserialize_tos_false_round_trips() {
+        let json = r#"{"tos":false}"#;
+        let wrapper: TosWrapper = serde_json::from_str(json).unwrap();
+        assert!(
+            wrapper.tos.is_none(),
+            "deserializing false should produce None"
+        );
+    }
+}
