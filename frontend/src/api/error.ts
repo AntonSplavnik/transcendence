@@ -81,7 +81,7 @@ function getMessageFromBrief(brief: string): string {
 		// Success messages
 		DidLogout: 'You have been logged out successfully.',
 	};
-	return briefMessages[brief] || `Authentication error: ${brief}`;
+	return briefMessages[brief] || brief;
 }
 
 /**

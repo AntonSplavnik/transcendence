@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { refreshJWT } from './auth';
-import { storeError, getErrorBrief } from './error';
+import { getErrorBrief, getErrorMessage, storeError } from './error';
 
 let authFailureCallback: (() => void) | null = null;
 export function setAuthFailureCallback(cb: (() => void) | null) {
@@ -39,6 +39,9 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		storeError(error, 'network_error');
 		return Promise.reject(error);
 	}
+
+	// Replace Axios's generic "Request failed with status code XXX" with the backend brief
+	error.message = getErrorMessage(error);
 
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
