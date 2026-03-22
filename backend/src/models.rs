@@ -195,6 +195,40 @@ impl AvatarSmall {
     }
 }
 
+diesel_i32_enum! {
+    #[serde(rename_all = "lowercase")]
+    pub enum FriendRequestStatus {
+        Pending = 0,
+        Accepted = 1,
+    }
+}
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::friend_requests)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct FriendRequest {
+    pub id: i32,
+    pub sender_id: i32,
+    pub receiver_id: i32,
+    pub status: FriendRequestStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl NewFriendRequest {
+    pub fn new(sender_id: i32, receiver_id: i32) -> Self {
+        let now = chrono::Utc::now();
+        Self {
+            sender_id,
+            receiver_id,
+            status: FriendRequestStatus::Pending,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+}
+
 /// Notification Database model for offline notifications
 #[derive(Insertable)]
 #[apply(NewInsertable!)]

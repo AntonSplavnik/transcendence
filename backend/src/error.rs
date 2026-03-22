@@ -7,6 +7,32 @@ use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
 use crate::stream::StreamApiError;
 
+#[derive(Error, Debug, strum::IntoStaticStr)]
+pub enum FriendError {
+    #[error("cannot send friend request to yourself")]
+    SelfRequest,
+    #[error("friend request already exists")]
+    DuplicateRequest,
+    #[error("already friends with this user")]
+    AlreadyFriends,
+    #[error("friend request not found")]
+    RequestNotFound,
+    #[error("friend request is no longer pending")]
+    RequestNotPending,
+    #[error("not authorized to perform this action")]
+    NotAuthorized,
+    #[error("user not found")]
+    UserNotFound,
+    #[error("not friends with this user")]
+    NotFriends,
+    #[error("too many pending friend requests")]
+    TooManyPending,
+    #[error("friend list is full")]
+    FriendListFull,
+    #[error("invalid parameter: {0}")]
+    InvalidParam(String),
+}
+
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum ApiError {
@@ -20,6 +46,7 @@ pub enum ApiError {
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
+    Friend(#[from] FriendError),
 }
 
 impl Scribe for ApiError {
@@ -123,6 +150,23 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
+            Self::Friend(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    FriendError::SelfRequest
+                    | FriendError::DuplicateRequest
+                    | FriendError::AlreadyFriends
+                    | FriendError::TooManyPending
+                    | FriendError::FriendListFull
+                    | FriendError::InvalidParam(_) => StatusError::bad_request().brief(variant),
+                    FriendError::RequestNotFound | FriendError::NotFriends => {
+                        StatusError::not_found().brief(variant)
+                    }
+                    FriendError::RequestNotPending => StatusError::conflict().brief(variant),
+                    FriendError::NotAuthorized => StatusError::forbidden().brief(variant),
+                    FriendError::UserNotFound => StatusError::not_found().brief(variant),
+                }
+            }
         };
 
         res.render(status_error);
@@ -134,6 +178,7 @@ impl EndpointOutRegister for ApiError {
         let responses = [
             (StatusCode::BAD_REQUEST, "Bad request or validation error"),
             (StatusCode::NOT_FOUND, "Resource not found"),
+            (StatusCode::FORBIDDEN, "Forbidden"),
             (StatusCode::CONFLICT, "Resource already exists"),
             (StatusCode::UNAUTHORIZED, "Unauthorized"),
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),

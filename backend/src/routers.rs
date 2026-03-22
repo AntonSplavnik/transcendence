@@ -27,6 +27,7 @@ pub fn rest_api(database: Db) -> Router {
             crate::auth::user_router("user"),
             users::router("users"),
             crate::avatar::router("avatar"),
+            crate::friends::router("friends"),
             crate::stream::router("stream"),
         ]);
 

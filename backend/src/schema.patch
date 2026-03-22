@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 115aa40..9094fb5 100644
+index 41b5d2f..3fdee30 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,68 +1,68 @@
+@@ -1,79 +1,79 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -19,6 +19,19 @@ index 115aa40..9094fb5 100644
          user_id -> Integer,
          data -> Binary,
 -        updated_at -> Timestamp,
++        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     friend_requests (id) {
+         id -> Integer,
+         sender_id -> Integer,
+         receiver_id -> Integer,
+         status -> Integer,
+-        created_at -> Timestamp,
+-        updated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
 +        updated_at -> TimestamptzSqlite,
      }
  }

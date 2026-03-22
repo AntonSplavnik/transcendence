@@ -14,6 +14,7 @@ mod avatar;
 mod config;
 pub mod db;
 mod error;
+mod friends;
 mod models;
 mod notifications;
 mod prelude;
