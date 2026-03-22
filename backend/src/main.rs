@@ -22,6 +22,7 @@ mod routers;
 mod schema;
 #[allow(dead_code)]
 mod stream;
+mod tos;
 mod utils;
 mod validate;
 

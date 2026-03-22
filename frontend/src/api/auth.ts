@@ -32,11 +32,13 @@ export async function register(
 	nickname: string,
 	email: string,
 	password: string,
+	tos: boolean,
 ): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/register', {
 		nickname,
 		email,
 		password,
+		tos,
 	});
 	return response.data;
 }
@@ -66,6 +68,15 @@ export async function refreshJWT(): Promise<Session> {
  * @param mfa_code - Optional 2FA code (required if 2FA is enabled)
  * @returns User session info on successful reauth
  */
+/**
+ * Accept the current Terms of Service and receive a fresh JWT.
+ * @returns Updated session info with new JWT containing tos claim
+ */
+export async function acceptTos(): Promise<Session> {
+	const response = await apiClient.post<Session>('/auth/session-management/accept-tos');
+	return response.data;
+}
+
 export async function reauth(password: string, mfa_code?: string): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/session-management/reauth', {
 		password,

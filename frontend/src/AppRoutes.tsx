@@ -8,6 +8,7 @@ import GameBoard from './components/GameBoard';
 import Home from './components/Home';
 import LandingPage from './components/LandingPage';
 import DisplacedModal from './components/modals/DisplacedModal';
+import TosModal from './components/modals/TosModal';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
@@ -78,8 +79,9 @@ function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnecti
 }
 
 function RealtimeStatusOverlays() {
-	const { user, authChecked } = useAuth();
+	const { user, authChecked, refreshUser } = useAuth();
 	const { connectionState } = useStream();
+	const location = useLocation();
 	const [dismissedDisplacementState, setDismissedDisplacementState] =
 		useState<ConnectionState | null>(null);
 
@@ -88,6 +90,14 @@ function RealtimeStatusOverlays() {
 	// would be misleading noise rather than useful status information.
 	if (!authChecked || !user) {
 		return null;
+	}
+
+	// When ToS is not accepted, show the acceptance modal (except on /terms
+	// page where the inline accept button is available) and suppress all
+	// connection-related overlays since the stream is intentionally blocked.
+	if (!user.tos) {
+		const showTosModal = location.pathname !== '/terms';
+		return <>{showTosModal && <TosModal onAccepted={refreshUser} />}</>;
 	}
 
 	const shouldShowDisplacedModal =

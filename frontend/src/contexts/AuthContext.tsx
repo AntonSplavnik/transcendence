@@ -11,7 +11,7 @@ interface AuthContextType {
 	session: Session | null;
 	authChecked: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
-	register: (nickname: string, email: string, password: string) => Promise<void>;
+	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
 	logout: () => Promise<void>;
 	clearAuth: () => void;
@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	};
 
 	// Register handler
-	const register = async (nickname: string, email: string, password: string) => {
-		const data: AuthResponse = await authApi.register(nickname, email, password);
+	const register = async (nickname: string, email: string, password: string, tos: boolean) => {
+		const data: AuthResponse = await authApi.register(nickname, email, password, tos);
 		setAuthData(data);
 	};
 

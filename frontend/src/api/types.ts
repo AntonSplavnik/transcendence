@@ -8,6 +8,7 @@ export interface User {
 	totp_confirmed_at: string | null;
 	totp_enabled: boolean;
 	description: string;
+	tos: boolean;
 }
 
 export interface Session {

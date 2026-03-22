@@ -43,6 +43,15 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	// Replace Axios's generic "Request failed with status code XXX" with the backend brief
 	error.message = getErrorMessage(error);
 
+	// Handle 403 Forbidden — ToS not accepted
+	if (error.response.status === 403) {
+		const brief = getErrorBrief(error);
+		if (brief === 'TosNotAccepted') {
+			window.dispatchEvent(new Event('tos-not-accepted'));
+			return Promise.reject(error);
+		}
+	}
+
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);

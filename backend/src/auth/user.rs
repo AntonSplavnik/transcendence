@@ -16,8 +16,20 @@ pub fn router(path: &str) -> Router {
         .oapi_tag("user")
         .requires_user_login()
         .user_rate_limit(&RateLimit::per_minute(15))
+        // ToS-exempt: minimal functionality always available
+        .push(Router::with_path("me").get(get_me))
+        .push(Router::with_path("logout").post(logout))
+        .push(Router::with_path("logout-sessions").post(logout_sessions))
+        .push(Router::with_path("logout-other-sessions").post(logout_other_sessions))
+        .push(Router::with_path("session").get(current_session))
+        .push(
+            Router::with_path("sessions")
+                .post(all_sessions)
+                .delete(delete_sessions),
+        )
+        // ToS-gated: feature endpoints
+        .requires_tos_accepted()
         .append(&mut vec![
-            Router::with_path("me").get(get_me),
             Router::with_path("2fa")
                 .push(Router::with_path("start").post(two_fa_start))
                 .push(Router::with_path("confirm").post(two_fa_confirm))
@@ -28,13 +40,6 @@ pub fn router(path: &str) -> Router {
             Router::with_path("change-password")
                 .user_rate_limit(&RateLimit::per_15_minutes(10))
                 .post(change_pw),
-            Router::with_path("logout").post(logout),
-            Router::with_path("logout-sessions").post(logout_sessions),
-            Router::with_path("logout-other-sessions").post(logout_other_sessions),
-            Router::with_path("session").get(current_session),
-            Router::with_path("sessions")
-                .post(all_sessions)
-                .delete(delete_sessions),
         ])
 }
 

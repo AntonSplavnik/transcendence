@@ -52,7 +52,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
 
 	// Connect when authenticated, disconnect when not.
 	const connectIfAuth = useCallback(async () => {
-		if (!user) {
+		if (!user || !user.tos) {
 			manager.disconnect();
 			return;
 		}

@@ -45,10 +45,17 @@ pub struct User {
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub description: String,
+    #[serde(rename = "tos", serialize_with = "crate::tos::serialize_tos")]
+    pub tos_accepted_at: Option<DateTime<Utc>>,
 }
 
 impl NewUser {
-    pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
+    pub fn new(
+        email: String,
+        nickname: Nickname,
+        password_hash: String,
+        tos_accepted_at: Option<DateTime<Utc>>,
+    ) -> Self {
         NewUser {
             email,
             nickname,
@@ -58,6 +65,7 @@ impl NewUser {
             password_hash,
             created_at: chrono::Utc::now(),
             description: String::new(),
+            tos_accepted_at,
         }
     }
 }

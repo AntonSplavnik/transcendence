@@ -12,7 +12,7 @@ use crate::prelude::*;
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("users")
-        .push(Router::new().requires_user_login().append(&mut vec![
+        .push(Router::new().requires_user_login().requires_tos_accepted().append(&mut vec![
                 Router::with_path("by-id")
                     .user_rate_limit(&RateLimit::per_5_minutes(200))
                     .post(get_users_by_id),

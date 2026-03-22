@@ -72,6 +72,7 @@ diesel::table! {
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
         description -> Text,
+        tos_accepted_at -> Nullable<TimestamptzSqlite>,
     }
 }
 
