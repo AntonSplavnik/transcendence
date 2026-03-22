@@ -25,6 +25,7 @@ import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
 import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
+import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1handed.glb';
 
 
 // ============ COPIED FROM simple_client.ts ============
@@ -135,6 +136,23 @@ class AnimatedCharacter {
 		});
 	}
 
+	async attachToBone(assetUrl: string, boneName: string): Promise<void> {
+		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		if (!this.skeleton) return;
+		const bone = this.skeleton.bones.find((b: any) => b.name === boneName);
+		if (!bone) return;
+		const parentMesh = this.meshes.find((m) => m.skeleton === this.skeleton) ||
+			this.meshes[0];
+		result.meshes.forEach((mesh) => {
+			if (mesh.name === '__root__') return;
+			mesh.attachToBone(bone, parentMesh);
+			// how sword is positioned in hand
+			mesh.position.set(0,0,0);
+			mesh.rotation.set(0,0,0);
+			mesh.scaling.set(1,1,1);
+		});
+	}
+
 	playAnimation(name: string, loop: boolean = true): void {
 		if (this.currentAnimationName === name) return;
 		const anim = this.animations.get(name);
@@ -227,6 +245,7 @@ class GameClient {
 		await this.localCharacter.loadAnimations(generalModel);
 		await this.localCharacter.loadAnimations(movementBasicAnims);
 		await this.localCharacter.loadAnimations(combatMeleeAnims);
+		await this.localCharacter.attachToBone(swordModel, 'handslot.r');
 
 		this.localCharacter.rootNode.scaling.setAll(0.8);
 		this.localCharacter.setPosition(this.position);
@@ -379,6 +398,7 @@ class GameClient {
 			await remoteChar.loadAnimations(generalModel);
 			await remoteChar.loadAnimations(movementBasicAnims);
 			await remoteChar.loadAnimations(combatMeleeAnims);
+			await remoteChar.attachToBone(swordModel, 'handslot.r');
 
 			remoteChar.rootNode.scaling.setAll(0.8);
 
