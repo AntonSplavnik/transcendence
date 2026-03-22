@@ -45,11 +45,8 @@ pub struct User {
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub description: String,
-    #[serde(
-        rename = "tos",
-        serialize_with = "crate::tos::serialize_tos",
-        deserialize_with = "crate::tos::deserialize_tos"
-    )]
+    #[serde(rename = "tos", serialize_with = "crate::tos::serialize_tos")]
+    #[cfg_attr(test, serde(deserialize_with = "crate::tos::deserialize_tos"))]
     pub tos_accepted_at: Option<DateTime<Utc>>,
 }
 

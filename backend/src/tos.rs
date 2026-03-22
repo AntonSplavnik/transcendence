@@ -25,15 +25,25 @@ pub fn serialize_tos<S: serde::Serializer>(
     serializer.serialize_bool(has_accepted_current_tos(*tos_accepted_at))
 }
 
-/// Serde `deserialize_with` helper: deserializes a boolean back into
-/// `Option<DateTime<Utc>>`. This is needed because `serialize_tos` collapses
-/// the timestamp to a boolean in JSON, so round-tripping (e.g. in tests) must
-/// accept `true`/`false` as well.
+/// Test-only deserializer for the `tos` field.
+///
+/// `serialize_tos` collapses `Option<DateTime<Utc>>` to a boolean in JSON.
+/// When tests round-trip API responses through `serde_json`, this counterpart
+/// converts `true` → `Some(UNIX_EPOCH)` and `false` → `None`.
+///
+/// The exact timestamp is irrelevant — `UNIX_EPOCH` is a clear sentinel that
+/// signals "deserialized from boolean, not a real acceptance timestamp".
+/// This is intentionally **not** compiled into production builds.
+#[cfg(test)]
 pub fn deserialize_tos<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<DateTime<Utc>>, D::Error> {
     let accepted = bool::deserialize(deserializer)?;
-    Ok(if accepted { Some(Utc::now()) } else { None })
+    Ok(if accepted {
+        Some(DateTime::<Utc>::UNIX_EPOCH)
+    } else {
+        None
+    })
 }
 
 /// Hoop that checks whether the authenticated user has accepted the current ToS.

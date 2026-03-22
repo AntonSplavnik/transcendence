@@ -286,6 +286,7 @@ async fn register_nickname_exact_min_length_accepted() {
         "email": &*user.email,
         "password": &*user.password,
         "nickname": "abc",       // exactly 3 chars
+        "tos": true,
     });
     let req = user.client.post("/api/auth/register").json(&body);
     let res = user.client.send(req).await;
@@ -305,6 +306,7 @@ async fn register_nickname_exact_max_length_accepted() {
         "email": &*user.email,
         "password": &*user.password,
         "nickname": "a".repeat(16),  // exactly 16 chars
+        "tos": true,
     });
     let req = user.client.post("/api/auth/register").json(&body);
     let res = user.client.send(req).await;
@@ -343,6 +345,7 @@ async fn register_nickname_with_underscores_and_hyphens_accepted() {
         "email": &*user.email,
         "password": &*user.password,
         "nickname": "my_nick-name",
+        "tos": true,
     });
     let req = user.client.post("/api/auth/register").json(&body);
     let res = user.client.send(req).await;
