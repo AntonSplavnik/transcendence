@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 interface AvatarUrls {
 	small: string | undefined;
 	large: string | undefined;
+	refreshKey: number;
 }
 
 export function useAvatarUrls() {
-	const [urls, setUrls] = useState<AvatarUrls>({ small: undefined, large: undefined });
+	const [urls, setUrls] = useState<AvatarUrls>({ small: undefined, large: undefined, refreshKey: 0 });
 
 	useEffect(() => {
 		const { small, large } = urls;
@@ -17,8 +18,26 @@ export function useAvatarUrls() {
 	}, [urls]);
 
 	const setAvatarUrls = (small: string | null, large: string | null) => {
-		setUrls({ small: small ?? undefined, large: large ?? undefined });
+		setUrls((current) => ({
+			small: small ?? undefined,
+			large: large ?? undefined,
+			refreshKey: current.refreshKey,
+		}));
 	};
 
-	return { avatarSmallUrl: urls.small, avatarLargeUrl: urls.large, setAvatarUrls };
+	const refreshAvatarUrls = () => {
+		setUrls((current) => ({
+			small: undefined,
+			large: undefined,
+			refreshKey: current.refreshKey + 1,
+		}));
+	};
+
+	return {
+		avatarSmallUrl: urls.small,
+		avatarLargeUrl: urls.large,
+		avatarRefreshKey: urls.refreshKey,
+		setAvatarUrls,
+		refreshAvatarUrls,
+	};
 }

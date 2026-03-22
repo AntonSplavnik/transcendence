@@ -22,7 +22,8 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
-	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
+	const { avatarSmallUrl, avatarLargeUrl, avatarRefreshKey, setAvatarUrls, refreshAvatarUrls } =
+		useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
 
 	if (!user || !session) {
@@ -67,6 +68,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 						userId={user.id}
 						size="small"
 						src={avatarSmallUrl}
+						refreshKey={avatarRefreshKey}
 						className="w-20 h-20"
 					/>
 					<div>
@@ -171,6 +173,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 							userId={user.id}
 							size="large"
 							src={avatarLargeUrl}
+							refreshKey={avatarRefreshKey}
 							className="w-28 h-28 rounded-lg"
 						/>
 					</div>
@@ -200,6 +203,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 					description={description}
 					onClose={() => setShowEditProfile(false)}
 					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
+					onAvatarRefreshRequested={() => refreshAvatarUrls()}
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}

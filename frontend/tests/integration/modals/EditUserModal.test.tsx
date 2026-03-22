@@ -13,6 +13,7 @@ vi.mock('../../../src/utils/avatarConverter', () => ({
 describe('EditUserModal', () => {
 	const mockOnClose = vi.fn();
 	const mockOnAvatarChanged = vi.fn();
+	const mockOnAvatarRefreshRequested = vi.fn();
 	const mockOnDescriptionChanged = vi.fn();
 	const mockUser = createMockUser();
 
@@ -39,6 +40,7 @@ describe('EditUserModal', () => {
 			description={description}
 			onClose={mockOnClose}
 			onAvatarChanged={mockOnAvatarChanged}
+			onAvatarRefreshRequested={mockOnAvatarRefreshRequested}
 			onDescriptionChanged={mockOnDescriptionChanged}
 		/>
 	);
@@ -179,7 +181,7 @@ describe('EditUserModal', () => {
 
 	// --- Avatar delete ---
 
-	it('refreshes avatar URLs on successful delete after Save', async () => {
+	it('requests avatar refetch on successful delete after Save', async () => {
 		server.use(
 			http.delete('/api/avatar', () => new HttpResponse(null, { status: 204 })),
 		);
@@ -188,11 +190,8 @@ describe('EditUserModal', () => {
 		await user.click(screen.getByText('x delete'));
 		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
-			expect(mockOnAvatarChanged).toHaveBeenCalledTimes(1);
-			expect(mockOnAvatarChanged).toHaveBeenCalledWith(
-				expect.stringMatching(new RegExp(`^/api/avatar/${mockUser.id}/small\\?ts=\\d+$`)),
-				expect.stringMatching(new RegExp(`^/api/avatar/${mockUser.id}/large\\?ts=\\d+$`)),
-			);
+			expect(mockOnAvatarChanged).toHaveBeenCalledWith(null, null);
+			expect(mockOnAvatarRefreshRequested).toHaveBeenCalledTimes(1);
 			expect(mockOnClose).toHaveBeenCalled();
 		});
 	});

@@ -15,6 +15,7 @@ interface EditProfileProps {
 	description: string;
 	onClose: () => void;
 	onAvatarChanged: (smallUrl: string | null, largeUrl: string | null) => void;
+	onAvatarRefreshRequested: () => void;
 	onDescriptionChanged: (description: string) => void;
 }
 
@@ -23,6 +24,7 @@ export default function EditUserModal({
 	description,
 	onClose,
 	onAvatarChanged,
+	onAvatarRefreshRequested,
 	onDescriptionChanged,
 }: EditProfileProps) {
 	const [loading, setLoading] = useState(false);
@@ -101,12 +103,10 @@ export default function EditUserModal({
 				avatarCallback = () => onAvatarChanged(smallUrl, largeUrl);
 			} else if (pendingDelete) {
 				await deleteAvatar();
-				const cacheBust = Date.now();
-				avatarCallback = () =>
-					onAvatarChanged(
-						`/api/avatar/${user.id}/small?ts=${cacheBust}`,
-						`/api/avatar/${user.id}/large?ts=${cacheBust}`,
-					);
+				avatarCallback = () => {
+					onAvatarChanged(null, null);
+					onAvatarRefreshRequested();
+				};
 			}
 
 			if (descriptionChanged) {

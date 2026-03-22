@@ -6,6 +6,7 @@ interface AvatarDisplayProps {
 	userId: number;
 	size: 'large' | 'small';
 	src?: string | null;
+	refreshKey?: number;
 	className?: string;
 	alt?: string;
 }
@@ -14,6 +15,7 @@ export default function AvatarDisplay({
 	userId,
 	size,
 	src,
+	refreshKey = 0,
 	className = '',
 	alt = 'User avatar',
 }: AvatarDisplayProps) {
@@ -44,7 +46,7 @@ export default function AvatarDisplay({
 			cancelled = true;
 			if (url) URL.revokeObjectURL(url);
 		};
-	}, [userId, size, src]);
+	}, [userId, size, src, refreshKey]);
 
 	const displayUrl = src !== undefined ? src : avatarUrl;
 

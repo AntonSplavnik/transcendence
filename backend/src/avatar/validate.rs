@@ -2,7 +2,7 @@
 //!
 //! Validates that uploaded images meet all requirements:
 //! - Valid AVIF format (verified by decoding)
-//! - Maximum file size (30kb for large, configurable)
+//! - Maximum file size (30kb for large, 12kb for small)
 //! - Correct dimensions (450x450 for large, 200x200 for small)
 //! - No transparency/alpha channel
 //! - Still image only (no animation)
