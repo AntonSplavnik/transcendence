@@ -25,6 +25,17 @@ pub fn serialize_tos<S: serde::Serializer>(
     serializer.serialize_bool(has_accepted_current_tos(*tos_accepted_at))
 }
 
+/// Serde `deserialize_with` helper: deserializes a boolean back into
+/// `Option<DateTime<Utc>>`. This is needed because `serialize_tos` collapses
+/// the timestamp to a boolean in JSON, so round-tripping (e.g. in tests) must
+/// accept `true`/`false` as well.
+pub fn deserialize_tos<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error> {
+    let accepted = bool::deserialize(deserializer)?;
+    Ok(if accepted { Some(Utc::now()) } else { None })
+}
+
 /// Hoop that checks whether the authenticated user has accepted the current ToS.
 ///
 /// Reads the `tos` claim from the JWT (stored in the depot by `access_hoop`).
