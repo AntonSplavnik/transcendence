@@ -76,7 +76,10 @@ async fn register(
         input.validate()?;
         if !input.tos {
             let mut errors = validator::ValidationErrors::new();
-            errors.add("tos", validator::ValidationError::new("Terms of Service must be accepted"));
+            errors.add(
+                "tos",
+                validator::ValidationError::new("Terms of Service must be accepted"),
+            );
             return Err(ApiError::Validation(errors));
         }
         input
