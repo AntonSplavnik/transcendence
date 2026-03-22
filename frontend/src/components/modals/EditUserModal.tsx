@@ -101,7 +101,12 @@ export default function EditUserModal({
 				avatarCallback = () => onAvatarChanged(smallUrl, largeUrl);
 			} else if (pendingDelete) {
 				await deleteAvatar();
-				avatarCallback = () => onAvatarChanged(null, null);
+				const cacheBust = Date.now();
+				avatarCallback = () =>
+					onAvatarChanged(
+						`/api/avatar/${user.id}/small?ts=${cacheBust}`,
+						`/api/avatar/${user.id}/large?ts=${cacheBust}`,
+					);
 			}
 
 			if (descriptionChanged) {

@@ -179,7 +179,7 @@ describe('EditUserModal', () => {
 
 	// --- Avatar delete ---
 
-	it('calls onAvatarChanged(null, null) on successful delete after Save', async () => {
+	it('refreshes avatar URLs on successful delete after Save', async () => {
 		server.use(
 			http.delete('/api/avatar', () => new HttpResponse(null, { status: 204 })),
 		);
@@ -188,7 +188,11 @@ describe('EditUserModal', () => {
 		await user.click(screen.getByText('x delete'));
 		await user.click(screen.getByText('Save'));
 		await waitFor(() => {
-			expect(mockOnAvatarChanged).toHaveBeenCalledWith(null, null);
+			expect(mockOnAvatarChanged).toHaveBeenCalledTimes(1);
+			expect(mockOnAvatarChanged).toHaveBeenCalledWith(
+				expect.stringMatching(new RegExp(`^/api/avatar/${mockUser.id}/small\\?ts=\\d+$`)),
+				expect.stringMatching(new RegExp(`^/api/avatar/${mockUser.id}/large\\?ts=\\d+$`)),
+			);
 			expect(mockOnClose).toHaveBeenCalled();
 		});
 	});

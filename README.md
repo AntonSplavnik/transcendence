@@ -245,7 +245,7 @@ SQLite was chosen because:
 | Column | Type | Notes |
 |--------|------|-------|
 | `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
-| `data` | BLOB | AVIF image at 450x450 px, max 20 KB |
+| `data` | BLOB | AVIF image at 450x450 px, max 30 KB |
 | `updated_at` | TIMESTAMP | |
 
 ### `avatars_small`
@@ -253,7 +253,7 @@ SQLite was chosen because:
 | Column | Type | Notes |
 |--------|------|-------|
 | `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
-| `data` | BLOB | AVIF image at 200x200 px, max 8 KB; LRU-cached in memory |
+| `data` | BLOB | AVIF image at 200x200 px, max 12 KB; LRU-cached in memory |
 | `updated_at` | TIMESTAMP | |
 
 ### `notifications`

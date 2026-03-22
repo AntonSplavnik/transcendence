@@ -2,7 +2,7 @@
 //!
 //! Validates that uploaded images meet all requirements:
 //! - Valid AVIF format (verified by decoding)
-//! - Maximum file size (20kb for large, configurable)
+//! - Maximum file size (30kb for large, configurable)
 //! - Correct dimensions (450x450 for large, 200x200 for small)
 //! - No transparency/alpha channel
 //! - Still image only (no animation)
@@ -13,11 +13,11 @@ use image::{
 };
 use thiserror::Error;
 
-/// Maximum file size for large avatars (20kb)
-pub const MAX_SIZE_LARGE: usize = 20 * 1024;
+/// Maximum file size for large avatars (30kb)
+pub const MAX_SIZE_LARGE: usize = 30 * 1024;
 
-/// Maximum file size for small avatars (8kb)
-pub const MAX_SIZE_SMALL: usize = 8 * 1024;
+/// Maximum file size for small avatars (12kb)
+pub const MAX_SIZE_SMALL: usize = 12 * 1024;
 
 /// Expected dimensions for large avatars
 pub const DIMENSIONS_LARGE: (u32, u32) = (450, 450);
@@ -55,12 +55,12 @@ pub enum AvatarValidationError {
     NotFound,
 }
 
-/// Validate a large avatar image (450x450, max 20kb)
+/// Validate a large avatar image (450x450, max 30kb)
 pub fn validate_large(data: &[u8]) -> Result<(), AvatarValidationError> {
     validate_avatar(data, MAX_SIZE_LARGE, DIMENSIONS_LARGE)
 }
 
-/// Validate a small avatar image (200x200, max 8kb)
+/// Validate a small avatar image (200x200, max 12kb)
 pub fn validate_small(data: &[u8]) -> Result<(), AvatarValidationError> {
     validate_avatar(data, MAX_SIZE_SMALL, DIMENSIONS_SMALL)
 }
@@ -167,6 +167,16 @@ mod tests {
     fn test_file_too_large() {
         let data = vec![0u8; MAX_SIZE_LARGE + 1];
         let result = validate_large(&data);
+        assert!(matches!(
+            result,
+            Err(AvatarValidationError::FileTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    fn test_file_too_large_small() {
+        let data = vec![0u8; MAX_SIZE_SMALL + 1];
+        let result = validate_small(&data);
         assert!(matches!(
             result,
             Err(AvatarValidationError::FileTooLarge { .. })

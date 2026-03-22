@@ -5,8 +5,8 @@
  * Uses @jsquash/avif for encoding and @jsquash/resize for resizing.
  *
  * Produces two variants:
- * - Large: 450x450px, max 20KB
- * - Small: 200x200px, max 8KB
+ * - Large: 450x450px, max 30KB
+ * - Small: 200x200px, max 12KB
  */
 
 import encode from '@jsquash/avif/encode';
@@ -15,8 +15,8 @@ import resize from '@jsquash/resize';
 const LARGE_SIZE = 450;
 const SMALL_SIZE = 200;
 const AVIF_QUALITY = 60;
-const MAX_LARGE_BYTES = 20 * 1024;
-const MAX_SMALL_BYTES = 8 * 1024;
+const MAX_LARGE_BYTES = 30 * 1024;
+const MAX_SMALL_BYTES = 12 * 1024;
 const MAX_INPUT_DIMENSION = 8192;
 
 export interface AvatarVariants {
