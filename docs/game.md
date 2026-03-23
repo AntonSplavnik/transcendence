@@ -18,5 +18,6 @@ Use the online Sandbox & Editor: <https://sandbox.babylonjs.com/> and <https://e
 
 to get glb models from gltf files, you can use npm:
 go into the folder where you have the gltf file and run:
-```npx @gltf-transform/cli copy sword_1handed.gltf sword_1handed.glb
+```
+npx @gltf-transform/cli copy sword_1handed.gltf sword_1handed.glb
 ```
