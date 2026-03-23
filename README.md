@@ -330,7 +330,7 @@ SQLite was chosen because:
 | Privacy Policy | asplavnic | Accessible from footer; covers data collection, cookies, and user rights. |
 | Terms of Service | asplavnic | Accessible from footer; covers acceptable use and account rules. |
 | Sound system | drongier | Sounds for ingame elements such as footsteps. |
-| WCAG 2.1 AA accessibility | lmeubrin/drongier | Full keyboard navigation (Dropdown arrow keys, Modal focus trap), skip link, reduced-motion support, ARIA landmark regions, descriptive labels on all interactive elements. The 3D game canvas carries a descriptive text alternative under WCAG SC 1.1.1 (sensory experience exemption). See [`docs/accessibility-compliance.md`](docs/accessibility-compliance.md). |
+| WCAG 2.1 AA accessibility | lmeubrin/drongier | Full keyboard navigation (Dropdown arrow keys, Modal focus trap), skip link, reduced-motion support, ARIA landmark regions, descriptive labels on all interactive elements. The 3D game canvas carries a descriptive text alternative under WCAG SC 1.1.1 (sensory experience exemption). |
 
 ---
 
@@ -498,8 +498,6 @@ All non-game UI conforms to WCAG 2.1 Level AA, providing full screen reader supp
 - **Focus management:** Modal auto-focuses the first element (respecting `autoFocus` on inputs), stores the previously focused element, and restores it on close. Focus is never lost after any interactive action.
 - **Game canvas:** `aria-label="Real-time 3D multiplayer arena game — requires visual interaction"` on the Babylon.js canvas satisfies WCAG SC 1.1.1 for the sensory experience exception.
 
-**Full compliance documentation:** [`docs/accessibility-compliance.md`](docs/accessibility-compliance.md)
-
 ---
 
 ## Individual Contributions
@@ -583,7 +581,6 @@ All non-game UI conforms to WCAG 2.1 Level AA, providing full screen reader supp
 | Frontend | [docs/frontend.md](docs/frontend.md) | Frontend stack, design system, auth flow, JWT refresh |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
-| Accessibility compliance | [docs/accessibility-compliance.md](docs/accessibility-compliance.md) | WCAG 2.1 AA compliance plan, gap analysis, implementation checklist |
 | TODO | [docs/todo.md](docs/todo.md) | What still needs to be done before evaluation |
 
 ### AI usage
