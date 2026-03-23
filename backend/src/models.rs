@@ -46,6 +46,13 @@ pub struct User {
     pub created_at: DateTime<Utc>,
     pub description: String,
     pub tos_accepted_at: Option<DateTime<Utc>>,
+    pub email_confirmed_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub email_confirmation_token_hash: Option<Vec<u8>>,
+    #[serde(skip)]
+    pub email_confirmation_token_expires_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub email_confirmation_token_email: Option<String>,
 }
 
 impl NewUser {
@@ -61,6 +68,10 @@ impl NewUser {
             created_at: now,
             description: String::new(),
             tos_accepted_at: Some(now),
+            email_confirmed_at: None,
+            email_confirmation_token_hash: None,
+            email_confirmation_token_expires_at: None,
+            email_confirmation_token_email: None,
         }
     }
 }

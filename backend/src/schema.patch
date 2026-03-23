@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index de9a24c..750190e 100644
+index b584efd..33c5f73 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,88 +1,88 @@
+@@ -1,91 +1,91 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -99,10 +99,15 @@ index de9a24c..750190e 100644
 +        created_at -> TimestamptzSqlite,
          description -> Text,
 -        tos_accepted_at -> Nullable<Timestamp>,
+-        email_confirmed_at -> Nullable<Timestamp>,
 +        tos_accepted_at -> Nullable<TimestamptzSqlite>,
++        email_confirmed_at -> Nullable<TimestamptzSqlite>,
+         email_confirmation_token_hash -> Nullable<Binary>,
+-        email_confirmation_token_expires_at -> Nullable<Timestamp>,
++        email_confirmation_token_expires_at -> Nullable<TimestamptzSqlite>,
+         email_confirmation_token_email -> Nullable<Text>,
      }
  }
  
  diesel::joinable!(avatars_large -> users (user_id));
  diesel::joinable!(avatars_small -> users (user_id));
- diesel::joinable!(notifications -> users (user_id));

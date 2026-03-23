@@ -46,11 +46,31 @@ pub struct ServerConfig {
     #[serde(default = "default_listen_https_port")]
     pub listen_https_port: u16,
     pub domain: Option<String>,
+    #[serde(default = "default_acme_cache_dir")]
+    pub acme_cache_dir: String,
     pub database_url: String,
     pub log: LogConfig,
     pub tls: Option<TlsConfig>,
     #[serde(default = "default_serve_dir")]
     pub serve_dir: String,
+    #[serde(default)]
+    pub email: EmailConfig,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct EmailConfig {
+    #[serde(default = "default_smtp_host")]
+    pub smtp_host: String,
+    #[serde(default = "default_smtp_port")]
+    pub smtp_port: u16,
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    #[serde(default)]
+    pub smtp_tls: bool,
+    #[serde(default = "default_from_address")]
+    pub from_address: String,
+    #[serde(default = "default_base_url")]
+    pub base_url: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -71,6 +91,40 @@ fn default_listen_https_port() -> u16 {
     8443
 }
 
+fn default_acme_cache_dir() -> String {
+    "./acme".into()
+}
+
 fn default_serve_dir() -> String {
     "/www".into()
+}
+
+fn default_smtp_host() -> String {
+    "mailpit".into()
+}
+
+fn default_smtp_port() -> u16 {
+    1025
+}
+
+fn default_from_address() -> String {
+    "noreply@transcendence.local".into()
+}
+
+fn default_base_url() -> String {
+    "https://localhost:8443".into()
+}
+
+impl Default for EmailConfig {
+    fn default() -> Self {
+        Self {
+            smtp_host: default_smtp_host(),
+            smtp_port: default_smtp_port(),
+            smtp_username: None,
+            smtp_password: None,
+            smtp_tls: false,
+            from_address: default_from_address(),
+            base_url: default_base_url(),
+        }
+    }
 }
