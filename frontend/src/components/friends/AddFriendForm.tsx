@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import { sendFriendRequest } from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
+import { validateNickname } from '../../utils/validation';
 
 interface AddFriendFormProps {
 	isOpen: boolean;
@@ -22,7 +23,8 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 		}
 	}, [isOpen]);
 
-	const canSend = nickname.trim().length > 0 && !isSending;
+	const nicknameError = nickname.trim().length > 0 ? validateNickname(nickname.trim()) : null;
+	const canSend = nickname.trim().length > 0 && !nicknameError && !isSending;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
