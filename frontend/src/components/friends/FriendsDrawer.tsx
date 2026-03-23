@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Users, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
 import AddFriendForm from './AddFriendForm';
@@ -23,9 +23,12 @@ export default function FriendsDrawer() {
 		handleRemove,
 	} = useFriends();
 
-	// Escape key closes drawer
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+	// Focus close button when drawer opens, escape key closes drawer
 	useEffect(() => {
 		if (!isOpen) return;
+		closeButtonRef.current?.focus();
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') toggleDrawer();
 		};
@@ -66,6 +69,7 @@ export default function FriendsDrawer() {
 						Friends
 					</h2>
 					<button
+						ref={closeButtonRef}
 						onClick={toggleDrawer}
 						className="text-stone-400 hover:text-stone-100 text-xl leading-none p-1 rounded hover:bg-stone-700/50 transition-colors"
 						aria-label="Close friends panel"
