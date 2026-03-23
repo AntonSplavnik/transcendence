@@ -10,17 +10,16 @@ import {
 	Vector3,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
-import { ShowInspector } from "@babylonjs/inspector";
+import type { CharacterConfig } from '@/game/characterConfigs';
+import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 
 export interface ModelPreviewProps {
-	/** Directory containing the model file (must end with /). */
-	modelDir: string;
-	/** Filename of the .glb/.gltf model. */
-	modelFile: string;
-	/** Background colour as a hex string (e.g. "#582880"). Defaults to accent-purple. */
+	/** Vite-imported model URL. */
+	modelUrl: string;
+	/** When provided, loads the full character with equipment and plays idle animation. */
+	characterConfig?: CharacterConfig;
+	/** Background colour as a hex string (e.g. "#582880"). */
 	bgColor?: string;
-	/** Uniform scale applied to the loaded model. Defaults to 1.2. */
-	scale?: number;
 	/** Rotation speed in radians per frame. 0 to disable. Defaults to 0.008. */
 	rotationSpeed?: number;
 }
@@ -34,21 +33,18 @@ function hexToColor4(hex: string): Color4 {
 }
 
 export default function ModelPreview({
-	modelDir,
-	modelFile,
+	modelUrl,
+	characterConfig,
 	bgColor = '#582880',
-	scale = 0.6,
 	rotationSpeed = 0.008,
 }: ModelPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const engineRef = useRef<Engine | null>(null);
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
 		const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-		engineRef.current = engine;
 		const scene = new Scene(engine);
 
 		scene.clearColor = hexToColor4(bgColor);
@@ -60,23 +56,38 @@ export default function ModelPreview({
 		const light = new HemisphericLight('light', new Vector3(0.3, 1, 0.5), scene);
 		light.intensity = 1.2;
 
-		SceneLoader.ImportMeshAsync(null, modelDir, modelFile, scene).then((result) => {
-			const root = new TransformNode('modelRoot', scene);
-			result.meshes.forEach((mesh) => {
-				if (!mesh.parent) mesh.parent = root;
-			});
-			root.scaling.setAll(scale);
+		if (characterConfig) {
+			// Full character preview: weapons + idle animation
+			const char = new AnimatedCharacter(scene);
+			loadCharacter(char, characterConfig).then(() => {
+				// Scale the root down for preview — in-game config.scale (3) is too large
+				char.rootNode.scaling.setAll(0.6);
+				char.playAnimation(characterConfig.idleAnimation, true);
 
-			if (rotationSpeed !== 0) {
-				scene.onBeforeRenderObservable.add(() => {
-					root.rotation.y += rotationSpeed;
+				if (rotationSpeed !== 0) {
+					scene.onBeforeRenderObservable.add(() => {
+						char.rootNode.rotation.y += rotationSpeed;
+					});
+				}
+			});
+		} else {
+			// Simple static fallback
+			SceneLoader.ImportMeshAsync('', '', modelUrl, scene).then((result) => {
+				const root = new TransformNode('modelRoot', scene);
+				result.meshes.forEach((mesh) => {
+					if (!mesh.parent) mesh.parent = root;
 				});
-			}
-		});
+				root.scaling.setAll(1);
+
+				if (rotationSpeed !== 0) {
+					scene.onBeforeRenderObservable.add(() => {
+						root.rotation.y += rotationSpeed;
+					});
+				}
+			});
+		}
 
 		engine.runRenderLoop(() => scene.render());
-
-		ShowInspector(scene);
 
 		const handleResize = () => engine.resize();
 		window.addEventListener('resize', handleResize);
@@ -88,7 +99,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelDir, modelFile, bgColor, scale, rotationSpeed]);
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return (
 		<canvas
