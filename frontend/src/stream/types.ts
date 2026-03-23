@@ -242,6 +242,7 @@ export interface LobbyPlayerInfo {
 	user_id: number;
 	nickname: string;
 	ready: boolean;
+	character_class: string;
 }
 
 /**

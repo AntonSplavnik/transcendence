@@ -106,6 +106,12 @@ export interface GameContextType {
 	 */
 	snapshotRef: RefObject<GameStateSnapshot | null>;
 	/**
+	 * Ref mapping player_id → character_class string (e.g. "Knight", "Rogue").
+	 * Populated when `PlayerJoined` arrives; cleared when the game stream closes.
+	 * Read by the Babylon render loop to pick the correct remote character model.
+	 */
+	characterClassesRef: RefObject<Map<number, string>>;
+	/**
 	 * Send a player input frame to the server.
 	 * No-op when the game is not active or the send callback is not set.
 	 */
@@ -132,6 +138,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 	// High-frequency snapshot — stored as a ref, NOT in React state.
 	const snapshotRef = useRef<GameStateSnapshot | null>(null);
+
+	// Character class map — keyed by player_id, populated from PlayerJoined messages.
+	const characterClassesRef = useRef<Map<number, string>>(new Map());
 
 	// Send callback captured from the bidi factory.  Cleared in onClose.
 	const sendRef = useRef<((msg: GameClientMessage) => void) | null>(null);
@@ -201,10 +210,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 					}
 					if (msg.type === 'PlayerJoined') {
 						console.debug(
-							'[Game] PlayerJoined player_id=%d name=%s',
+							'[Game] PlayerJoined player_id=%d name=%s class=%s',
 							msg.player_id,
 							msg.name,
+							msg.character_class,
 						);
+						characterClassesRef.current.set(msg.player_id, msg.character_class);
 						dispatch({
 							type: 'PLAYER_JOINED',
 							player_id: msg.player_id,
@@ -226,6 +237,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 					console.debug('[Game] stream closed, dispatching CLOSE');
 					sendRef.current = null;
 					snapshotRef.current = null;
+					characterClassesRef.current.clear();
 					dispatch({ type: 'CLOSE' });
 					// Navigate back to lobby if still in one, otherwise home.
 					if (lobbyStateRef.current.status === 'active') {
@@ -279,7 +291,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<GameContext.Provider value={{ gameState, snapshotRef, sendInput }}>
+		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, sendInput }}>
 			{children}
 		</GameContext.Provider>
 	);

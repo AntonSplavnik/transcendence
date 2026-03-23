@@ -37,7 +37,7 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { leaveLobby, setReadyApi, updateLobbySettings } from '../api/lobby';
+import { leaveLobby, setCharacterApi, setReadyApi, updateLobbySettings } from '../api/lobby';
 import type {
 	LobbyInfo,
 	LobbyServerMessage,
@@ -175,6 +175,8 @@ export interface LobbyContextType {
 	lobbyState: LobbyState;
 	/** Toggle the local player's ready state. */
 	setReady(ready: boolean): Promise<void>;
+	/** Set character class for the current player. */
+	setCharacter(characterClass: string): Promise<void>;
 	/** Partially update lobby settings (host only, private lobbies only). */
 	updateSettings(patch: Partial<LobbySettings>): Promise<void>;
 	/**
@@ -346,6 +348,13 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 		await setReadyApi(state.lobbyId, ready);
 	}, []);
 
+	const setCharacter = useCallback(async (characterClass: string) => {
+		const state = lobbyStateRef.current;
+		if (state.status !== 'active') return;
+		console.debug('[Lobby] setCharacter(%s)', characterClass);
+		await setCharacterApi(state.lobbyId, characterClass);
+	}, []);
+
 	const updateSettings = useCallback(async (patch: Partial<LobbySettings>) => {
 		const state = lobbyStateRef.current;
 		if (state.status !== 'active') return;
@@ -378,7 +387,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	return (
-		<LobbyContext.Provider value={{ lobbyState, setReady, updateSettings, leave }}>
+		<LobbyContext.Provider value={{ lobbyState, setReady, setCharacter, updateSettings, leave }}>
 			{children}
 		</LobbyContext.Provider>
 	);
