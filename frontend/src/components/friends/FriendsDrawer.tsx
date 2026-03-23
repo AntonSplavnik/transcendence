@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Users, X, Circle, UserMinus, Check, Clock } from 'lucide-react';
+import { Users, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
 import AddFriendForm from './AddFriendForm';
 import Username from '../ui/Username';
@@ -64,10 +64,10 @@ export default function FriendsDrawer() {
 					</h2>
 					<button
 						onClick={toggleDrawer}
-						className="text-stone-400 hover:text-stone-200 transition-colors"
+						className="text-stone-400 hover:text-stone-100 text-xl leading-none p-1 rounded hover:bg-stone-700/50 transition-colors"
 						aria-label="Close friends panel"
 					>
-						<X className="w-5 h-5" />
+						×
 					</button>
 				</div>
 
@@ -115,7 +115,7 @@ export default function FriendsDrawer() {
 													title="Reject"
 													aria-label={`Reject friend request from ${req.sender.nickname}`}
 												>
-													<X className="w-4 h-4" />
+													×
 												</button>
 											</li>
 										))}
@@ -149,7 +149,7 @@ export default function FriendsDrawer() {
 													title="Cancel request"
 													aria-label={`Cancel friend request to ${req.receiver.nickname}`}
 												>
-													<X className="w-4 h-4" />
+													×
 												</button>
 											</li>
 										))}
