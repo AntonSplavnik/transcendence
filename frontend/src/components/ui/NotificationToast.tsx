@@ -26,14 +26,47 @@ const SLIDE_OUT_MS = 200;
 
 interface NotificationCardProps {
 	toast: ToastNotification;
-	/** Whether the toast has an onClick action. */
+	/**
+	 * Whether the toast has an onClick action (and the card is interactive).
+	 * When true the card renders two explicit buttons: dismiss (left) + action (right).
+	 * When false the whole card is inert — the parent wrapper is the button.
+	 */
 	actionable: boolean;
-	/** Fires the toast's click action (if present). */
+	/** Fires the toast's click action. Only used when actionable=true. */
 	onAction?: (e: MouseEvent) => void;
+	/** Dismisses the toast. Only used when actionable=true (inner dismiss button). */
+	onDismiss?: () => void;
 }
 
-function NotificationCard({ toast, actionable, onAction }: NotificationCardProps) {
+function NotificationCard({ toast, actionable, onAction, onDismiss }: NotificationCardProps) {
 	const { notification } = toast;
+
+	const bellIcon = (
+		<svg
+			className="w-5 h-5 mt-0.5 text-gold shrink-0"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke="currentColor"
+			strokeWidth={2}
+			aria-hidden="true"
+		>
+			<path
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+			/>
+		</svg>
+	);
+
+	const textContent = (
+		<div className="flex-1 min-w-0">
+			<p className="text-sm font-medium text-stone-100 truncate">{toast.displayText}</p>
+			<p className="text-xs text-stone-400 mt-0.5">
+				{new Date(notification.created_at).toLocaleTimeString()}
+			</p>
+		</div>
+	);
+
 	return (
 		<div
 			className={`bg-stone-800 border rounded-lg shadow-xl select-none
@@ -42,33 +75,28 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 				}`}
 		>
 			<div className="flex items-center gap-3 w-full h-full">
-				{/* Left section: bell + text (clicking here always dismisses) */}
-				<div className="flex items-start gap-3 flex-1 min-w-0 pl-5">
-					<svg
-						className="w-5 h-5 mt-0.5 text-gold shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						strokeWidth={2}
-						aria-hidden="true"
+				{/*
+				 * Left section: bell + text.
+				 * For actionable cards this becomes an explicit dismiss button so there
+				 * are no nested interactive controls inside the parent role="group".
+				 */}
+				{actionable ? (
+					<button
+						className="flex items-start gap-3 flex-1 min-w-0 pl-5 h-full text-left"
+						onClick={onDismiss}
+						aria-label={`Dismiss: ${toast.displayText}`}
 					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-						/>
-					</svg>
-					<div className="flex-1 min-w-0">
-						<p className="text-sm font-medium text-stone-100 truncate">
-							{toast.displayText}
-						</p>
-						<p className="text-xs text-stone-400 mt-0.5">
-							{new Date(notification.created_at).toLocaleTimeString()}
-						</p>
+						{bellIcon}
+						{textContent}
+					</button>
+				) : (
+					<div className="flex items-start gap-3 flex-1 min-w-0 pl-5">
+						{bellIcon}
+						{textContent}
 					</div>
-				</div>
+				)}
 
-				{/* Right action zone: fires onClick without dismissing the card body click */}
+				{/* Right action zone: navigate to the related resource. */}
 				{actionable && (
 					<button
 						onClick={onAction}
@@ -209,6 +237,11 @@ export default function NotificationToast() {
 					isStackMode,
 				);
 
+				// Actionable: toast has an onClick and this card slot is interactive.
+				// These cards render two explicit buttons inside a group wrapper so there
+				// are no nested interactive controls (WCAG 4.1.2).
+				const hasAction = interactive && toast.onClick != null;
+
 				return (
 					<div
 						key={toast.id}
@@ -222,9 +255,11 @@ export default function NotificationToast() {
 							transformOrigin: 'bottom left',
 							transition: 'bottom 200ms ease, transform 200ms ease',
 						}}
-						onClick={interactive ? () => animateDismiss(toast) : undefined}
+						// Non-actionable interactive cards: the whole wrapper is the dismiss button.
+						// Actionable cards: buttons are inside NotificationCard; wrapper is a group.
+						onClick={interactive && !hasAction ? () => animateDismiss(toast) : undefined}
 						onKeyDown={
-							interactive
+							interactive && !hasAction
 								? (e) => {
 										if (e.key === 'Enter' || e.key === ' ') {
 											e.preventDefault();
@@ -233,19 +268,22 @@ export default function NotificationToast() {
 									}
 								: undefined
 						}
-						role={interactive ? 'button' : undefined}
-						tabIndex={interactive ? 0 : undefined}
-						aria-label={interactive ? `Dismiss: ${toast.displayText}` : undefined}
+						role={!interactive ? undefined : hasAction ? 'group' : 'button'}
+						tabIndex={interactive && !hasAction ? 0 : undefined}
+						aria-label={
+							!interactive
+								? undefined
+								: hasAction
+									? toast.displayText
+									: `Dismiss: ${toast.displayText}`
+						}
 					>
 						<div role="status" aria-live="polite">
 							<NotificationCard
 								toast={toast}
-								actionable={interactive && toast.onClick != null}
-								onAction={
-									interactive && toast.onClick
-										? (e) => handleAction(e, toast)
-										: undefined
-								}
+								actionable={hasAction}
+								onAction={hasAction ? (e) => handleAction(e, toast) : undefined}
+								onDismiss={hasAction ? () => animateDismiss(toast) : undefined}
 							/>
 						</div>
 					</div>
