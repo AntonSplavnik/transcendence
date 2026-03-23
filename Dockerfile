@@ -35,7 +35,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsqlite3-0 libdav1d7 libzstd1 ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --shell /bin/false app
+RUN echo 'app:x:1000:1000::/home/app:/bin/false' >> /etc/passwd \
+    && echo 'app:x:1000:' >> /etc/group \
+    && mkdir -p /home/app \
+    && chown 1000:1000 /home/app
 WORKDIR /app
 
 COPY --from=backend /transcendence-backend ./transcendence-backend
