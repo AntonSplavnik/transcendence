@@ -271,7 +271,11 @@ async fn send_confirmation_stores_token_and_email_snapshot_in_db() {
 
     // Verify DB state
     let uid = user.user_id();
-    let (tok_hash, tok_expires, tok_email): (Option<Vec<u8>>, Option<chrono::DateTime<chrono::Utc>>, Option<String>) = server
+    let (tok_hash, tok_expires, tok_email): (
+        Option<Vec<u8>>,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<String>,
+    ) = server
         .db
         .read(move |conn| {
             use crate::schema::users::dsl::*;

@@ -1,5 +1,5 @@
-mod smtp;
 pub mod confirm;
+mod smtp;
 
 pub use confirm::EmailConfirmationError;
 pub use smtp::SmtpEmailSender;
@@ -45,7 +45,6 @@ pub enum EmailError {
     #[error("failed to build email: {0}")]
     Build(#[from] lettre::error::Error),
 }
-
 
 // ── Trait ─────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 mod auth;
 mod avatar;
+#[cfg_attr(test, allow(dead_code))]
 mod config;
 pub mod db;
 pub mod email;
@@ -48,8 +49,8 @@ fn main() -> std::process::ExitCode {
 
 #[cfg(not(test))]
 async fn async_main() -> std::process::ExitCode {
-    use std::process::ExitCode;
     use salvo::prelude::*;
+    use std::process::ExitCode;
     let _ = dotenvy::dotenv();
     crate::config::init();
     let config = crate::config::get();
@@ -93,8 +94,8 @@ async fn async_main() -> std::process::ExitCode {
     let mailer: email::Mailer =
         email::SmtpEmailSender::new(&config.email).expect("Failed to initialize email sender");
 
-    let mut router =
-        routers::root(database, tos_timestamp, mailer).hoop(ForceHttps::new().https_port(config.listen_https_port));
+    let mut router = routers::root(database, tos_timestamp, mailer)
+        .hoop(ForceHttps::new().https_port(config.listen_https_port));
 
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;

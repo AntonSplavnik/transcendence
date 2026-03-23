@@ -6,9 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    email::Mailer, notifications::NotificationManager, notifications::NotificationManager,
-    prelude::*, prelude::*, stream::StreamManager, stream::StreamManager, tos::CurrentTosTimestamp,
-    utils::NickCache, utils::NickCache,
+    email::Mailer, notifications::NotificationManager, prelude::*, stream::StreamManager,
+    tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -60,6 +59,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub fn root(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer) -> Router {
     let api_routes = rest_api(database, tos_timestamp, mailer);
     #[cfg(debug_assertions)]
