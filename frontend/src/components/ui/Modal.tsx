@@ -46,7 +46,8 @@ export default function Modal({
 
 	// Store previous focus and restore it on unmount
 	useEffect(() => {
-		previousFocusRef.current = document.activeElement as HTMLElement;
+		const active = document.activeElement;
+		if (active instanceof HTMLElement) previousFocusRef.current = active;
 
 		// Only move focus if nothing inside the modal already has focus
 		// (autoFocus on an input will have already run before this effect)
