@@ -182,7 +182,7 @@ export function DropdownItem({
 				</span>
 			)}
 			<span className="flex-1">{children}</span>
-			{suffix && <span className="flex-shrink-0 text-xs text-stone-400">{suffix}</span>}
+			{suffix && <span className="flex-shrink-0 text-xs text-stone-300">{suffix}</span>}
 		</button>
 	);
 }

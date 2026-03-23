@@ -200,7 +200,7 @@ export default function EditUserModal({
 						<p
 							id="description-count"
 							aria-live="polite"
-							className="text-xs text-stone-500"
+							className="text-xs text-stone-300"
 						>
 							{[...descriptionValue].length}/50
 						</p>

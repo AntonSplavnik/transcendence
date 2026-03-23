@@ -127,7 +127,7 @@ export default function Modal({
 					{closable && (
 						<button
 							onClick={onClose}
-							className="text-stone-400 hover:text-stone-100 text-xl leading-none p-1 rounded hover:bg-stone-700/50 transition-colors"
+							className="text-stone-300 hover:text-stone-100 text-xl leading-none p-1 rounded hover:bg-stone-700/50 transition-colors"
 							aria-label="Close dialog"
 						>
 							×

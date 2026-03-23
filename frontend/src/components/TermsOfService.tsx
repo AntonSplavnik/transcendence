@@ -35,7 +35,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 			<div className="flex items-center gap-4 mb-8">
 				<button
 					onClick={onBack}
-					className="text-stone-400 hover:text-gold-400 transition-colors"
+					className="text-stone-350 hover:text-gold-400 transition-colors"
 					aria-label="Go back"
 				>
 					<ArrowLeft size={24} />

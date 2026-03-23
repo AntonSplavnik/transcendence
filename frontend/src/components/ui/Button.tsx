@@ -19,7 +19,7 @@ const sizeStyles = {
 
 const variantStyles = {
 	primary:
-		'bg-gold-400 hover:bg-gold-500 text-gold-50 border-b-4 border-b-gold-800 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(224,160,48,0.2)] hover:shadow-[0_0_20px_rgba(224,160,48,0.35)]',
+		'bg-gold-400 hover:bg-gold-500 text-stone-900 border-b-4 border-b-gold-800 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(224,160,48,0.2)] hover:shadow-[0_0_20px_rgba(224,160,48,0.35)]',
 	secondary:
 		'bg-stone-700 hover:bg-stone-600 text-stone-100 border-b-4 border-b-stone-900 active:border-b-0 active:translate-y-1',
 	danger: 'bg-danger hover:bg-danger/90 text-white border-b-4 border-b-danger-dark active:border-b-0 active:translate-y-1 hover:shadow-[0_0_12px_rgba(200,32,48,0.25)]',
@@ -55,7 +55,7 @@ export default function Button({
 			{...props}
 		>
 			{loading && (
-				<LoadingSpinner size="sm" color={variant === 'primary' ? 'white' : 'stone'} />
+				<LoadingSpinner size="sm" color={variant === 'primary' ? 'dark' : 'stone'} />
 			)}
 			{!loading && icon && iconPosition === 'left' && icon}
 			{loading && loadingText ? loadingText : children}

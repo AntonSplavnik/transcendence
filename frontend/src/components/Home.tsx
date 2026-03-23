@@ -75,7 +75,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 						<h1>Player Dashboard</h1>
 						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
 						{description && (
-							<p className="text-stone-400 text-sm italic">{description}</p>
+							<p className="text-stone-350 text-sm italic">{description}</p>
 						)}
 					</div>
 				</div>
@@ -93,7 +93,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 					{/* User info header */}
 					<div className="px-4 py-3 border-b border-stone-700">
 						<p className="text-sm font-medium text-stone-100">{user.nickname}</p>
-						<p className="text-xs text-stone-400 truncate">{user.email}</p>
+						<p className="text-xs text-stone-300 truncate">{user.email}</p>
 					</div>
 
 					<DropdownItem
@@ -167,14 +167,14 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 							<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
 							<div className="space-y-2 text-sm">
 								<p className="text-stone-300">
-									<span className="text-stone-400">Email:</span> {user.email}
+									<span className="text-stone-300">Email:</span> {user.email}
 								</p>
 								<p className="text-stone-300">
-									<span className="text-stone-400">Member since:</span>{' '}
+									<span className="text-stone-300">Member since:</span>{' '}
 									{new Date(user.created_at).toLocaleDateString()}
 								</p>
 								<p className="text-stone-300">
-									<span className="text-stone-400">2FA:</span>{' '}
+									<span className="text-stone-300">2FA:</span>{' '}
 									{user.totp_enabled ? (
 										<Badge variant="success" dot>
 											Enabled
@@ -198,7 +198,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 				<Card>
 					<h2 className="text-xl font-bold mb-2 text-stone-50">Recent History</h2>
-					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-400 text-sm italic">
+					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-350 text-sm italic">
 						No recent battles recorded.
 					</div>
 				</Card>

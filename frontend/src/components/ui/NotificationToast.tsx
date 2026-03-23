@@ -61,7 +61,7 @@ function NotificationCard({ toast, actionable, onAction, onDismiss }: Notificati
 	const textContent = (
 		<div className="flex-1 min-w-0">
 			<p className="text-sm font-medium text-stone-100 truncate">{toast.displayText}</p>
-			<p className="text-xs text-stone-400 mt-0.5">
+			<p className="text-xs text-stone-300 mt-0.5">
 				{new Date(notification.created_at).toLocaleTimeString()}
 			</p>
 		</div>

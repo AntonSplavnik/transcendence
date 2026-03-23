@@ -264,7 +264,7 @@ export default function AppRoutes() {
 			{!hideFooter && (
 				<footer
 					role="contentinfo"
-					className="relative z-10 py-1 text-center text-xs text-stone-500"
+					className="relative z-10 py-1 text-center text-xs text-stone-350"
 				>
 					<Link
 						to="/privacy"

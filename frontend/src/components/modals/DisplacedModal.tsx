@@ -37,7 +37,7 @@ export default function DisplacedModal({ onDismiss }: DisplacedModalProps) {
 				Your account was logged in from another location (a different tab, browser, or
 				device). Only one active connection per account is allowed.
 			</p>
-			<p className="text-stone-400 text-sm mt-3">
+			<p className="text-stone-300 text-sm mt-3">
 				You can dismiss this and continue browsing, but realtime features (notifications,
 				live game updates) will be unavailable until you reconnect.
 			</p>

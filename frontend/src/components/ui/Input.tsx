@@ -92,7 +92,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 				</p>
 			)}
 			{hint && !error && (
-				<p id={hintId} className="text-stone-400 text-xs mt-1.5">
+				<p id={hintId} className="text-stone-300 text-xs mt-1.5">
 					{hint}
 				</p>
 			)}

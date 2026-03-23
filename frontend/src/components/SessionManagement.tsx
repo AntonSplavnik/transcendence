@@ -90,7 +90,7 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 							</Badge>
 						)}
 					</div>
-					<div className="grid gap-2 text-xs text-stone-400 sm:grid-cols-2">
+					<div className="grid gap-2 text-xs text-stone-300 sm:grid-cols-2">
 						<span>
 							Created:{' '}
 							<span className="text-stone-300">{formatDate(session.created_at)}</span>
@@ -622,7 +622,7 @@ export default function SessionManagement({ onBack, onLogout }: SessionManagemen
 						{unlocked && (
 							<button
 								onClick={handleRefresh}
-								className="p-2 rounded-lg hover:bg-stone-800 transition-colors text-stone-400 hover:text-stone-100"
+								className="p-2 rounded-lg hover:bg-stone-800 transition-colors text-stone-300 hover:text-stone-100"
 								aria-label="Refresh sessions"
 							>
 								<RefreshCw className="w-4 h-4" />
@@ -633,7 +633,7 @@ export default function SessionManagement({ onBack, onLogout }: SessionManagemen
 					{!unlocked ? (
 						/* ---- Locked state: password gate ---- */
 						<div className="space-y-4">
-							<p className="text-sm text-stone-400">
+							<p className="text-sm text-stone-300">
 								Enter your password to view and manage all active sessions.
 							</p>
 							{sessionsError && (
@@ -702,7 +702,7 @@ export default function SessionManagement({ onBack, onLogout }: SessionManagemen
 							)}
 
 							{allSessions.length === 0 ? (
-								<p className="text-sm text-stone-400 text-center py-4">
+								<p className="text-sm text-stone-300 text-center py-4">
 									No sessions found.
 								</p>
 							) : (

@@ -127,10 +127,10 @@ export default function AuthPage({
 			return <span className="text-xs font-medium text-danger-light">{nicknameError}</span>;
 		}
 		const style = isCheckingNickname
-			? 'text-stone-400'
+			? 'text-stone-300'
 			: nicknameValidation.includes('❌')
 				? 'text-danger-light'
-				: 'text-stone-400';
+				: 'text-stone-300';
 		return (
 			<span className={`text-xs font-medium ${style}`}>
 				{isCheckingNickname ? 'Checking...' : nicknameValidation}
@@ -282,7 +282,7 @@ export default function AuthPage({
 					<button
 						type="button"
 						onClick={onBack}
-						className="text-stone-400 hover:text-stone-100 text-sm transition-colors"
+						className="text-stone-300 hover:text-stone-100 text-sm transition-colors"
 						aria-label="Go back to main menu"
 					>
 						← Back to Menu
