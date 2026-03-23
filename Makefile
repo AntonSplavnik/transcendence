@@ -76,6 +76,7 @@ setup:
 			-subj "/CN=localhost" \
 			-addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1,IP:0.0.0.0" \
 			2>/dev/null; \
+		chmod 644 backend/certs/key.pem backend/certs/cert.pem; \
 		echo "✅ Generated self-signed TLS certificate in backend/certs/."; \
 		if command -v certutil >/dev/null 2>&1; then \
 			mkdir -p $$HOME/.pki/nssdb; \
