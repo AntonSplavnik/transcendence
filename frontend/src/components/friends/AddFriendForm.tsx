@@ -71,6 +71,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 			</div>
 			{message && (
 				<p
+					role={message.type === 'error' ? 'alert' : 'status'}
 					className={`text-xs mt-1 ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
 				>
 					{message.text}

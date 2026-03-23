@@ -53,6 +53,9 @@ export default function FriendsDrawer() {
 
 			{/* Panel */}
 			<div
+				role="dialog"
+				aria-label="Friends panel"
+				aria-modal="false"
 				className={`fixed top-0 right-0 h-full w-80 bg-stone-800 border-l border-stone-700 z-40 flex flex-col transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
 				inert={!isOpen || undefined}
 			>
@@ -75,7 +78,11 @@ export default function FriendsDrawer() {
 				<div className="flex-1 overflow-y-auto p-3 space-y-4">
 					<AddFriendForm isOpen={isOpen} onRequestSent={fetchAll} />
 
-					{error && <p className="text-xs text-red-400">{error}</p>}
+					{error && (
+						<p role="alert" className="text-xs text-red-400">
+							{error}
+						</p>
+					)}
 
 					{loading ? (
 						<p className="text-stone-400 text-sm text-center py-4">Loading...</p>
