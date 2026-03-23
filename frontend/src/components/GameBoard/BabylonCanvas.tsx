@@ -19,5 +19,11 @@ export default function SceneComponent() {
 		}
 	}, []);
 
-	return <canvas ref={canvasRef} style={{ width: '100%', height: '400px' }} />;
+	return (
+		<canvas
+			ref={canvasRef}
+			style={{ width: '100%', height: '400px' }}
+			aria-label="Real-time 3D multiplayer arena game — requires visual interaction"
+		/>
+	);
 }
