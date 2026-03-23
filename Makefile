@@ -47,41 +47,40 @@ setup:
 		echo "✅ Created backend/.env from example."; \
 	fi
 	@if [ ! -f backend/certs/cert.pem ]; then \
-		if ! command -v mkcert >/dev/null 2>&1; then \
-			echo "❌ mkcert is required but not installed."; \
-			echo "   Install it: https://github.com/FiloSottile/mkcert"; \
-			exit 1; \
-		fi; \
 		mkdir -p backend/certs; \
-		mkcert -install > /dev/null 2>&1; \
-		mkcert -key-file backend/certs/key.pem -cert-file backend/certs/cert.pem \
-			ip6-localhost ip6-loopback localhost 127.0.0.1 0.0.0.0 "::1" "::" > /dev/null 2>&1; \
-		echo "✅ Generated mkcert TLS certificate in backend/certs/."; \
+		openssl req -x509 -newkey rsa:2048 -nodes \
+			-keyout backend/certs/key.pem \
+			-out backend/certs/cert.pem \
+			-days 825 \
+			-subj "/CN=localhost" \
+			-addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1,IP:0.0.0.0" \
+			2>/dev/null; \
+		echo "✅ Generated self-signed TLS certificate in backend/certs/."; \
+		if command -v certutil >/dev/null 2>&1; then \
+			mkdir -p $$HOME/.pki/nssdb; \
+			if [ ! -f $$HOME/.pki/nssdb/cert9.db ]; then \
+				certutil -d sql:$$HOME/.pki/nssdb -N -f /dev/null 2>/dev/null; \
+			fi; \
+			certutil -d sql:$$HOME/.pki/nssdb -D -n "transcendence-dev" -f /dev/null 2>/dev/null || true; \
+			certutil -d sql:$$HOME/.pki/nssdb -A -n "transcendence-dev" -t "CT,," \
+				-i backend/certs/cert.pem -f /dev/null 2>/dev/null; \
+			echo "✅ Certificate registered in user NSS store (Chrome/Firefox will trust it)."; \
+		else \
+			echo "⚠️  certutil not found — install libnss3-tools for browser trust."; \
+			echo "   Until then, browsers will show an untrusted certificate warning."; \
+		fi; \
 	fi
 
 check-cert:
 	@if [ ! -f backend/certs/cert.pem ]; then \
 		echo "⚠️  WARNING: No certificate found at backend/certs/cert.pem. Run 'make setup'."; \
-		exit 0; \
-	fi; \
-	IS_MKCERT=$$(openssl x509 -in backend/certs/cert.pem -noout -issuer 2>/dev/null | grep -ci "mkcert"); \
-	if [ "$$IS_MKCERT" -eq 0 ]; then \
-		echo "⚠️  WARNING: backend/certs/cert.pem is not a mkcert certificate."; \
-		echo "   Browsers will not trust it. Run: rm backend/certs/cert.pem && make setup"; \
 	else \
-		TRUSTED=0; \
-		case "$$(uname)" in \
-			Linux) \
-				certutil -d sql:$$HOME/.pki/nssdb -L 2>/dev/null | grep -qi "mkcert" && TRUSTED=1 ;; \
-			Darwin) \
-				security find-certificate -a -c "mkcert" /Library/Keychains/System.keychain 2>/dev/null \
-					| grep -q "mkcert" && TRUSTED=1 ;; \
-		esac; \
-		if [ "$$TRUSTED" -eq 0 ]; then \
-			echo "⚠️  WARNING: mkcert CA is not installed in the system trust store."; \
-			echo "   Browsers will not trust the certificate. Run: mkcert -install"; \
+		openssl x509 -in backend/certs/cert.pem -noout -text 2>/dev/null | grep -E "Subject:|Not After" | sed 's/^[[:space:]]*/   /'; \
+		TRUSTED=$$(certutil -d sql:$$HOME/.pki/nssdb -L 2>/dev/null | grep -c "transcendence-dev" || echo 0); \
+		if [ "$$TRUSTED" -gt 0 ]; then \
+			echo "✅ Certificate present and trusted in user NSS store."; \
 		else \
-			echo "✅ Certificate is a valid mkcert certificate and the CA is trusted."; \
+			echo "✅ Certificate present (not in NSS store — run 'make setup' to register it)."; \
 		fi; \
 	fi
 
