@@ -5,6 +5,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
+import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from './ui';
 import { Badge, Button, Card, CharacterPicker, Input } from './ui';
 
@@ -109,7 +110,14 @@ export default function LobbyPage() {
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
-	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice | null>(null);
+	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice>(
+		() => (localStorage.getItem('selectedCharacter') as CharacterChoice) ?? DEFAULT_CHARACTER,
+	);
+
+	const handleCharacterChange = (char: CharacterChoice) => {
+		setSelectedCharacter(char);
+		localStorage.setItem('selectedCharacter', char);
+	};
 
 	// Countdown timer — primitive dep avoids interval reset on unrelated updates.
 	const countdownMs =
@@ -341,7 +349,7 @@ export default function LobbyPage() {
 
 				{/* Character selection */}
 				{isPlayer && !gameActive && (
-					<CharacterPicker value={selectedCharacter} onChange={setSelectedCharacter} />
+					<CharacterPicker value={selectedCharacter} onChange={handleCharacterChange} />
 				)}
 
 				{/* Actions */}
@@ -351,9 +359,7 @@ export default function LobbyPage() {
 							variant={myPlayer.ready ? 'secondary' : 'primary'}
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
-							disabled={!selectedCharacter}
 							fullWidth
-							title={!selectedCharacter ? 'Choose a champion first' : undefined}
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>

@@ -1,8 +1,6 @@
 // Simple game client - uses window.BABYLON and window.TOOLKIT
 // set by the toolkit scripts loaded in index.html
 import type {
-	AbstractMesh,
-	AnimationGroup,
 	Engine,
 	Scene,
 	TransformNode,
@@ -13,21 +11,15 @@ import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { GameStateSnapshot, Vector3D } from '../../game/types';
+import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
+import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import type { CharacterConfig } from '@/game/characterConfigs';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
 // Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
 const ARENA_OFFSET = { x: 50, z: 50 };
-
-// Import game assets — Vite resolves these to hashed public URLs at build time
-import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
-import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
-import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
-import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
-import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1handed.glb';
-import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
-
 
 // ============ COPIED FROM simple_client.ts ============
 
@@ -84,104 +76,6 @@ const JumpState = {
 } as const;
 type JumpState = (typeof JumpState)[keyof typeof JumpState];
 
-class AnimatedCharacter {
-	public rootNode: TransformNode;
-	public meshes: AbstractMesh[] = [];
-	public animations: Map<string, AnimationGroup> = new Map();
-	private currentAnimation: AnimationGroup | null = null;
-	private currentAnimationName: string = '';
-	private scene: Scene;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private skeleton: any = null;
-
-	constructor(scene: Scene) {
-		this.scene = scene;
-		this.rootNode = new BABYLON.TransformNode('character_root', scene);
-	}
-
-	async loadModel(assetUrl: string): Promise<void> {
-		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
-		result.meshes.forEach((mesh) => {
-			if (!mesh.parent) mesh.parent = this.rootNode;
-			this.meshes.push(mesh);
-		});
-		result.animationGroups.forEach((anim) => {
-			this.animations.set(anim.name, anim);
-			anim.stop();
-		});
-		if (result.skeletons && result.skeletons.length > 0) {
-			this.skeleton = result.skeletons[0];
-		}
-	}
-
-	async loadAnimations(assetUrl: string): Promise<void> {
-		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
-		if (!this.skeleton) return;
-
-		result.animationGroups.forEach((anim) => {
-			anim.targetedAnimations.forEach((ta) => {
-				const targetName = ta.target?.name;
-				if (targetName) {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					const mainBone = this.skeleton.bones.find((b: any) => b.name === targetName);
-					if (mainBone) ta.target = mainBone.getTransformNode() || mainBone;
-				}
-			});
-			this.animations.set(anim.name, anim);
-			anim.stop();
-		});
-
-		result.meshes.forEach((mesh) => {
-			mesh.isVisible = false;
-			mesh.setEnabled(false);
-		});
-	}
-
-	async attachToBone(assetUrl: string, boneName: string, position?: Vector3): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
-		if (!this.skeleton) return;
-		const bone = this.skeleton.bones.find((b: any) => b.name === boneName);
-		if (!bone) return;
-		const parentMesh = this.meshes.find((m) => m.skeleton === this.skeleton) ||
-			this.meshes[0];
-		result.meshes.forEach((mesh) => {
-			if (mesh.name === '__root__') return;
-			mesh.attachToBone(bone, parentMesh);
-			// how prop is positioned on bone
-			position? mesh.position.copyFrom(position) : mesh.position.set(0,0,0);
-			mesh.rotation.set(0,0,0);
-			mesh.scaling.set(1,1,1);
-		});
-	}
-
-	playAnimation(name: string, loop: boolean = true): void {
-		if (this.currentAnimationName === name) return;
-		const anim = this.animations.get(name);
-		if (!anim) {
-			console.warn(`[playAnimation] "${name}" not found. Available:`, [...this.animations.keys()]);
-			return;
-		}
-		if (this.currentAnimation) this.currentAnimation.stop();
-		anim.start(loop);
-		this.currentAnimation = anim;
-		this.currentAnimationName = name;
-	}
-
-	setPosition(pos: Vector3): void {
-		this.rootNode.position.copyFrom(pos);
-	}
-
-	setRotation(yaw: number): void {
-		this.rootNode.rotation.y = yaw;
-	}
-
-	dispose(): void {
-		this.animations.forEach((anim) => anim.stop());
-		this.meshes.forEach((mesh) => mesh.dispose());
-		this.rootNode.dispose();
-	}
-}
-
 // Shared jump state machine for both local and remote characters.
 function tickJumpState(
 	character: AnimatedCharacter,
@@ -233,23 +127,24 @@ class GameClient {
 	private currentAnimState: string = 'idle';
 	private jumpState: JumpState = JumpState.GROUNDED;
 	private remoteJumpStates: Map<number, JumpState> = new Map();
+	private characterConfig: CharacterConfig;
 
-	constructor(scene: Scene, localPlayerID: number, camera: UniversalCamera) {
+	constructor(
+		scene: Scene,
+		localPlayerID: number,
+		camera: UniversalCamera,
+		characterConfig: CharacterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
+	) {
 		this.scene = scene;
 		this.localPlayerID = localPlayerID;
 		this.camera = camera;
+		this.characterConfig = characterConfig;
 	}
 
 	async initLocalPlayer(): Promise<void> {
 		this.localCharacter = new AnimatedCharacter(this.scene);
-		await this.localCharacter.loadModel(knightModel);
-		await this.localCharacter.loadAnimations(generalModel);
-		await this.localCharacter.loadAnimations(movementBasicAnims);
-		await this.localCharacter.loadAnimations(combatMeleeAnims);
-		await this.localCharacter.attachToBone(swordModel, 'handslot.r');
-		await this.localCharacter.attachToBone(shieldModel, 'handslot.l');
+		await loadCharacter(this.localCharacter, this.characterConfig);
 
-		this.localCharacter.rootNode.scaling.setAll(0.8);
 		this.localCharacter.setPosition(this.position);
 		this.localCharacter.playAnimation('Spawn_Air', false);
 		setTimeout(() => {
@@ -266,76 +161,6 @@ class GameClient {
 			this.currentAnimState = state;
 		}
 	}
-
-	// Legacy method - kept for applyInput (currently disabled)
-	private updateAnimation(input: InputState): void {
-		if (!this.localCharacter) return;
-		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
-		const speed = Math.sqrt(
-			this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z,
-		);
-
-		if (input.isAttacking) {
-			this.playAnimation('attack', false);
-			return;
-		}
-
-		if (isMoving) {
-			this.playAnimation(speed > 3.0 ? 'run' : 'walk');
-			if (this.velocity.x !== 0 || this.velocity.z !== 0) {
-				const targetRotation = Math.atan2(this.velocity.x, this.velocity.z);
-				this.localCharacter.setRotation(targetRotation);
-			}
-		} else {
-			this.playAnimation('idle');
-		}
-	}
-
-	// Legacy method - currently disabled (prediction disabled)
-
-	// applyInput(input: InputState, deltaTime: number) {
-	// 	const moveSpeed = 5.0;
-	//
-	// 	if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
-	// 		const cameraForward = this.camera.getTarget().subtract(this.camera.position);
-	// 		cameraForward.y = 0;
-	// 		cameraForward.normalize();
-	// 		const cameraRight = Vector3.Cross(Vector3.Up(), cameraForward).normalize();
-	// 		const worldMoveDir = cameraForward
-	// 			.scale(input.movementDirection.z)
-	// 			.add(cameraRight.scale(input.movementDirection.x));
-	//
-	// 		if (worldMoveDir.length() > 0) {
-	// 			worldMoveDir.normalize();
-	// 			this.velocity.x = worldMoveDir.x * moveSpeed;
-	// 			this.velocity.z = worldMoveDir.z * moveSpeed;
-	// 		}
-	// 	} else {
-	// 		this.velocity.x = 0;
-	// 		this.velocity.z = 0;
-	// 	}
-	//
-	// 	if (input.isJumping && this.position.y <= 1.1) {
-	// 		this.velocity.y = 8.0;
-	// 	}
-	//
-	// 	if (this.position.y > 1.0) {
-	// 		this.velocity.y -= 20.0 * deltaTime;
-	// 	} else {
-	// 		this.position.y = 1.0;
-	// 		this.velocity.y = 0;
-	// 	}
-	//
-	// 	this.position.addInPlace(this.velocity.scale(deltaTime));
-	// 	this.position.x = Math.max(-49, Math.min(49, this.position.x));
-	// 	this.position.z = Math.max(-49, Math.min(49, this.position.z));
-	//
-	// 	if (this.localCharacter) this.localCharacter.setPosition(this.position);
-	// 	this.updateAnimation(input);
-	//
-	// 	this.camera.position = this.position.add(ISO_CAM_OFFSET);
-	// 	this.camera.setTarget(this.position);
-	// }
 
 	processSnapshot(snapshot: GameStateSnapshot) {
 		const activePlayerIDs = new Set<number>();
@@ -396,14 +221,7 @@ class GameClient {
 		this.loadingCharacters.add(playerID);
 		const remoteChar = new AnimatedCharacter(this.scene);
 		try {
-			await remoteChar.loadModel(knightModel);
-			await remoteChar.loadAnimations(generalModel);
-			await remoteChar.loadAnimations(movementBasicAnims);
-			await remoteChar.loadAnimations(combatMeleeAnims);
-			await remoteChar.attachToBone(swordModel, 'handslot.r');
-			await remoteChar.attachToBone(shieldModel, 'handslot.l');
-
-			remoteChar.rootNode.scaling.setAll(0.8);
+			await loadCharacter(remoteChar, CHARACTER_CONFIGS[DEFAULT_CHARACTER]);
 
 			if (playerID === this.localPlayerID) {
 				remoteChar.dispose();
@@ -507,9 +325,10 @@ interface Props {
 		sprinting: boolean,
 	) => void;
 	localPlayerId: number;
+	characterConfig?: CharacterConfig;
 }
 
-export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayerId }: Props) {
+export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayerId, characterConfig }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const gameClientRef = useRef<GameClient | null>(null);
 	const engineRef = useRef<Engine | null>(null);
@@ -592,9 +411,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				if (event.ctrlKey && event.shiftKey && event.key === 'I') {
 					event.preventDefault();
 					if (!inspectorLoaded) {
-						await BABYLON.Tools.LoadScriptAsync(
-							'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js',
-						);
+						await import('@babylonjs/inspector');
 						inspectorLoaded = true;
 					}
 					if (scene.debugLayer.isVisible()) {
@@ -609,7 +426,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				}
 			});
 
-			const gameClient = new GameClient(scene, localPlayerId, camera);
+			const gameClient = new GameClient(scene, localPlayerId, camera, characterConfig);
 			gameClientRef.current = gameClient;
 			gameClient
 				.initLocalPlayer()
