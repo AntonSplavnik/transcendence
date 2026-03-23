@@ -9,6 +9,7 @@ export interface User {
 	totp_enabled: boolean;
 	description: string;
 	tos_accepted_at: string | null;
+	email_confirmed_at: string | null;
 }
 
 export interface Session {

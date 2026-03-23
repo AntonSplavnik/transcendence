@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
+import { setAuthFailureCallback, setTosNotAcceptedCallback } from '../api/client';
+import type { AuthResponse, Session, User } from '../api/types';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
-import { setAuthFailureCallback, setTosNotAcceptedCallback } from '../api/client';
-import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
 	user: User | null;
@@ -28,6 +28,7 @@ interface AuthContextType {
 	 * prompt before we know whether acceptance is actually needed.
 	 */
 	tosLoaded: boolean;
+	isEmailConfirmed: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
@@ -204,6 +205,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setAuthData(data);
 	};
 
+	const isEmailConfirmed = user?.email_confirmed_at != null;
+
 	return (
 		<AuthContext.Provider
 			value={{
@@ -213,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				hasAcceptedTos,
 				tosLoaded: tosTimestamp !== null || tosRequired,
 				acceptTos,
+				isEmailConfirmed,
 				login,
 				register,
 				reauth,
