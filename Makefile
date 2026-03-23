@@ -120,9 +120,18 @@ chrome-dev:
 		echo "⚠️  No Chrome/Chromium binary found in PATH."; \
 		exit 1; \
 	fi; \
+	SPKI_FLAG=""; \
+	if ! command -v certutil >/dev/null 2>&1; then \
+		SPKI=$$(openssl x509 -in backend/certs/cert.pem -noout -pubkey 2>/dev/null \
+			| openssl pkey -pubin -outform der 2>/dev/null \
+			| openssl dgst -sha256 -binary 2>/dev/null \
+			| base64); \
+		SPKI_FLAG="--ignore-certificate-errors-spki-list=$$SPKI"; \
+	fi; \
 	$$CHROME_BIN \
 		--user-data-dir="/tmp/chrome-dev-wt" \
 		--webtransport-developer-mode \
+		$$SPKI_FLAG \
 		--no-first-run \
 		--no-default-browser-check \
 		--disable-default-apps \
