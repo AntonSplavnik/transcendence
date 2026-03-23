@@ -9,7 +9,11 @@ pub enum GameServerMessage {
     Snapshot(GameStateSnapshot),
 
     /// Player successfully joined the game
-    PlayerJoined { player_id: u32, name: String, character_class: CharacterClass },
+    PlayerJoined {
+        player_id: u32,
+        name: String,
+        character_class: CharacterClass,
+    },
 
     /// Another player left the game
     PlayerLeft { player_id: u32 },
