@@ -57,9 +57,12 @@ export default function ModelPreview({
 		light.intensity = 1.2;
 
 		if (characterConfig) {
-			// Full character preview: weapons + idle animation
+			// Full character preview: weapons + idle animation.
+			// Only load the first animation set (General) — it contains the idle animation.
+			// Skipping MovementBasic + CombatMelee cuts GLB fetches from 3 to 1.
+			const previewConfig = { ...characterConfig, animationSets: [characterConfig.animationSets[0]] };
 			const char = new AnimatedCharacter(scene);
-			loadCharacter(char, characterConfig).then(() => {
+			loadCharacter(char, previewConfig).then(() => {
 				// Scale the root down for preview — in-game config.scale (3) is too large
 				char.rootNode.scaling.setAll(0.6);
 				char.playAnimation(characterConfig.idleAnimation, true);
