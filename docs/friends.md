@@ -4,6 +4,8 @@
 
 Friends are managed through REST API endpoints. Friend lifecycle actions emit events through the existing notification system (e.g. `FriendRequestReceived`, `FriendRequestAccepted`), following the standard notification delivery mechanisms used elsewhere in the application.
 
+The frontend renders a slide-in drawer (FriendsDrawer) with real-time updates via the notification stream.
+
 ## Endpoints
 
 All endpoints require JWT authentication (`.requires_user_login()`) and are rate-limited.
@@ -50,6 +52,11 @@ CREATE UNIQUE INDEX idx_friend_requests_unique_pair
 - `0` / `"pending"`: Active request awaiting response
 - `1` / `"accepted"`: Friendship established (row kept for relationship tracking)
 
+### Limits
+- Max 50 pending outgoing requests per user
+- Max 100 accepted friends per user
+- List endpoints return at most 100 results
+
 ### Notifications
 Each action sends a notification to the other user via `NotificationManager`:
 
@@ -78,9 +85,61 @@ Errors use `strum::IntoStaticStr` to send variant names as briefs.
 | `DuplicateRequest` | 400  | Pending request already exists         |
 | `AlreadyFriends`   | 400  | Already friends with this user         |
 | `TooManyPending`   | 400  | Too many pending outgoing requests     |
+| `FriendListFull`   | 400  | User has reached the 100-friend limit  |
 | `InvalidParam`     | 400  | Missing or malformed request parameter |
 | `RequestNotFound`  | 404  | Request ID does not exist              |
 | `UserNotFound`     | 404  | Target user does not exist             |
 | `NotFriends`       | 404  | Cannot remove — not friends            |
 | `NotAuthorized`    | 403  | Not allowed to modify this request     |
 | `RequestNotPending`| 409  | Request was already processed          |
+
+## Frontend
+
+### Components
+
+| File | Purpose |
+|------|---------|
+| `src/components/friends/FriendsDrawer.tsx` | Slide-in panel with friends list, incoming/outgoing requests, and action buttons |
+| `src/components/friends/AddFriendForm.tsx` | Nickname input with client-side validation (`validateNickname`) to send requests |
+| `src/contexts/FriendsContext.tsx` | State management: fetches data, handles actions, listens for notifications |
+| `src/api/friends.ts` | API client functions for all friend endpoints |
+
+### State management (FriendsContext)
+
+- **Drawer toggle**: opens/closes the panel; fetches all data on open via `Promise.all()`
+- **Action handlers**: `handleAccept`, `handleReject`, `handleCancel`, `handleRemove` — each guarded by `actionInProgress` to prevent concurrent mutations
+- **Notification refresh**: listens for friend-related notifications from `NotificationContext` and auto-refreshes lists
+- **Window event**: listens for `"open-friends-drawer"` custom event (dispatched by notification toast clicks)
+
+### Provider nesting
+
+```
+AuthProvider > StreamProvider > NotificationProvider > FriendsProvider > AppRoutes
+```
+
+FriendsDrawer renders only when the user is authenticated and not on the game route.
+
+### Accessibility (WCAG 2.1 AA)
+
+- Drawer: `role="dialog"`, `aria-label`, `inert` when closed (prevents tab-in)
+- All action buttons have `aria-label` (e.g. "Accept friend request from Alice")
+- Error messages use `role="alert"`, success messages use `role="status"`
+- Escape key closes the drawer
+- Toggle button has `aria-expanded`
+
+### Validation
+
+Client-side validation via `validateNickname()` (aligned with backend rules):
+- 3–16 characters
+- No leading/trailing whitespace
+- Alphanumeric + underscore/hyphen only
+
+### Test coverage
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `tests/integration/friends/AddFriendForm.test.tsx` | 10 | ~96% |
+| `tests/integration/friends/FriendsDrawer.test.tsx` | 17 | ~100% |
+| `tests/integration/friends/FriendsContext.test.tsx` | 14 | ~87% |
+
+Tests use MSW handlers (in `tests/helpers/msw-handlers.ts`) and mock `NotificationContext` to avoid the StreamProvider dependency.
