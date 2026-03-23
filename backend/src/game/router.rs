@@ -3,6 +3,7 @@ use ulid::Ulid;
 use crate::models::nickname::Nickname;
 use crate::prelude::*;
 
+use super::ffi::CharacterClass;
 use super::lobby::{LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::manager::{GameError, GameManagerDepotExt as _};
 
@@ -19,6 +20,7 @@ pub fn router(path: impl Into<String>) -> Router {
                 .push(Router::with_path("{id}/spectate").post(spectate_lobby))
                 .push(Router::with_path("{id}/leave").post(leave))
                 .push(Router::with_path("{id}/ready").post(set_ready))
+                .push(Router::with_path("{id}/character").post(set_character))
                 .push(Router::with_path("{id}/settings").patch(update_settings)),
         )
 }
@@ -37,6 +39,11 @@ struct CreateLobbyResponse {
 #[derive(Debug, Deserialize, ToSchema)]
 struct SetReadyRequest {
     ready: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+struct SetCharacterRequest {
+    character_class: CharacterClass,
 }
 
 /// Create a new lobby and join it as the host.
@@ -121,6 +128,21 @@ async fn set_ready(
     depot
         .game_manager()
         .set_ready(user_id, id, req.into_inner().ready)?;
+    json_ok(())
+}
+
+/// Set character class for the current player in the specified lobby.
+#[endpoint]
+async fn set_character(
+    id: PathParam<Ulid>,
+    req: JsonBody<SetCharacterRequest>,
+    depot: &mut Depot,
+) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    depot
+        .game_manager()
+        .set_character(user_id, id, req.into_inner().character_class)?;
     json_ok(())
 }
 
