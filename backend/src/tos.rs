@@ -126,8 +126,9 @@ pub fn has_accepted_current_tos(
 // ── Unauthenticated endpoint ─────────────────────────────────────────────
 
 #[derive(Debug, Serialize, ToSchema)]
-struct TosInfo {
-    current_tos_timestamp: DateTime<Utc>,
+#[cfg_attr(test, derive(serde::Deserialize))]
+pub(crate) struct TosInfo {
+    pub current_tos_timestamp: DateTime<Utc>,
 }
 
 /// Returns the current ToS version timestamp.
@@ -227,6 +228,61 @@ mod tests {
         assert!(
             has_accepted_current_tos(Some(after), ts),
             "timestamp after current ToS should be accepted"
+        );
+    }
+
+    #[test]
+    fn current_tos_timestamp_truncates_to_seconds() {
+        let ts_with_nanos = DateTime::from_timestamp(1_700_000_000, 123_456_789).unwrap();
+        let tos_ts = CurrentTosTimestamp::from_utc(ts_with_nanos);
+        assert_eq!(
+            tos_ts.timestamp().timestamp_subsec_nanos(),
+            0,
+            "CurrentTosTimestamp must truncate sub-second precision"
+        );
+        assert_eq!(
+            tos_ts.timestamp().timestamp(),
+            1_700_000_000,
+            "second-precision unix timestamp must be preserved"
+        );
+    }
+
+    #[test]
+    fn current_tos_timestamp_now_truncates() {
+        let tos_ts = CurrentTosTimestamp::now();
+        assert_eq!(
+            tos_ts.timestamp().timestamp_subsec_nanos(),
+            0,
+            "CurrentTosTimestamp::now() must truncate sub-second precision"
+        );
+    }
+
+    #[test]
+    fn tos_version_key_is_date_format() {
+        let key = TosVersion::V2026_02_25.key();
+        // Must be YYYY-MM-DD format
+        assert_eq!(key.len(), 10, "ToS key must be 10 chars (YYYY-MM-DD)");
+        assert_eq!(&key[4..5], "-", "ToS key must have hyphen at position 4");
+        assert_eq!(&key[7..8], "-", "ToS key must have hyphen at position 7");
+    }
+
+    #[test]
+    fn has_accepted_far_future_returns_true() {
+        let tos_ts = DateTime::from_timestamp(1_000_000_000, 0).unwrap();
+        let accepted = DateTime::from_timestamp(2_000_000_000, 0).unwrap();
+        assert!(
+            has_accepted_current_tos(Some(accepted), tos_ts),
+            "acceptance far in the future should pass"
+        );
+    }
+
+    #[test]
+    fn has_accepted_far_past_returns_false() {
+        let tos_ts = DateTime::from_timestamp(2_000_000_000, 0).unwrap();
+        let accepted = DateTime::from_timestamp(1_000_000_000, 0).unwrap();
+        assert!(
+            !has_accepted_current_tos(Some(accepted), tos_ts),
+            "acceptance far in the past should fail"
         );
     }
 }

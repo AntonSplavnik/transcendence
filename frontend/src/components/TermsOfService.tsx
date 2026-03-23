@@ -18,6 +18,8 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 		setAcceptError(null);
 		try {
 			await acceptTos();
+			// Full reload to clear any stale state from API requests that
+			// failed due to missing ToS acceptance (e.g. avatars, streams).
 			window.location.reload();
 		} catch {
 			setAcceptError('Failed to accept Terms of Service. Please try again.');

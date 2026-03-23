@@ -78,7 +78,9 @@ async fn register(
             let mut errors = validator::ValidationErrors::new();
             errors.add(
                 "tos",
-                validator::ValidationError::new("Terms of Service must be accepted"),
+                validator::ValidationError::new("accepted").with_message(
+                    std::borrow::Cow::Borrowed("Terms of Service must be accepted"),
+                ),
             );
             return Err(ApiError::Validation(errors));
         }

@@ -30,11 +30,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
  * Derive whether the user has accepted the current ToS by comparing
- * timestamps. Both are ISO-8601 strings so lexicographic comparison works.
+ * parsed timestamps. String comparison is unreliable across ISO-8601
+ * variants (fractional seconds, `Z` vs `+00:00`), so we compare epoch ms.
  */
 function deriveHasAcceptedTos(user: User | null, tosTimestamp: string | null): boolean {
 	if (!user || !user.tos_accepted_at || !tosTimestamp) return false;
-	return user.tos_accepted_at >= tosTimestamp;
+	return new Date(user.tos_accepted_at).getTime() >= new Date(tosTimestamp).getTime();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		console.log('🔒 Clearing authentication data');
 		setUser(null);
 		setSession(null);
+		setTosTimestamp(null);
 	}, []);
 
 	const setAuthData = (data: AuthResponse) => {

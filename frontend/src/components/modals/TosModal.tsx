@@ -19,6 +19,8 @@ export default function TosModal() {
 		setError(null);
 		try {
 			await acceptTos();
+			// Full reload to clear any stale state from API requests that
+			// failed due to missing ToS acceptance (e.g. avatars, streams).
 			window.location.reload();
 		} catch {
 			setError('Failed to accept Terms of Service. Please try again.');
