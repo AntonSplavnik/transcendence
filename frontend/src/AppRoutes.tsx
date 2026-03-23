@@ -79,9 +79,15 @@ function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnecti
 }
 
 /**
- * Show the ToS acceptance modal when an authenticated user has not accepted
- * the current Terms of Service. Hidden on `/terms` where the inline accept
- * button is available instead.
+ * Show the non-dismissible ToS acceptance modal when an authenticated user
+ * has not accepted the current Terms of Service.
+ *
+ * Waits for `tosLoaded` to avoid flashing the modal before we know whether
+ * acceptance is actually needed. `tosLoaded` becomes true either when the
+ * /api/tos timestamp is fetched OR when the backend returns 403 TosNotAccepted
+ * on any gated endpoint (see AuthContext for details).
+ *
+ * Hidden on `/terms` where the full ToS page has its own inline accept button.
  */
 function TosGate() {
 	const { user, authChecked, hasAcceptedTos, tosLoaded } = useAuth();
@@ -90,6 +96,8 @@ function TosGate() {
 	if (!authChecked || !user || !tosLoaded || hasAcceptedTos) {
 		return null;
 	}
+	// On /terms the TermsOfService component shows its own accept button,
+	// so we skip the modal to avoid double UI.
 	if (location.pathname === '/terms') {
 		return null;
 	}

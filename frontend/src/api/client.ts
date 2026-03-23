@@ -43,7 +43,11 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	// Replace Axios's generic "Request failed with status code XXX" with the backend brief
 	error.message = getErrorMessage(error);
 
-	// Handle 403 Forbidden — ToS not accepted
+	// Handle 403 Forbidden — ToS not accepted.
+	// Emit a window event so AuthContext can activate the ToS gate UI
+	// without a direct dependency on this interceptor. This is the
+	// authoritative signal that the backend requires ToS acceptance —
+	// AuthContext uses it as a fallback when the /api/tos fetch fails.
 	if (error.response.status === 403) {
 		const brief = getErrorBrief(error);
 		if (brief === 'TosNotAccepted') {

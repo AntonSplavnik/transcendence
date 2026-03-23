@@ -12,11 +12,21 @@ interface AuthContextType {
 	authChecked: boolean;
 	/**
 	 * Whether the current user has accepted the current ToS version.
-	 * Returns `false` when the ToS timestamp has not been fetched yet.
-	 * Use `tosLoaded` to distinguish "not accepted" from "unknown".
+	 * Derived by comparing the user's `tos_accepted_at` against the server's
+	 * current ToS timestamp. Forced to `false` when the backend has explicitly
+	 * rejected a request with 403 `TosNotAccepted` (see `tosRequired` below).
 	 */
 	hasAcceptedTos: boolean;
-	/** Whether the server's ToS timestamp has been fetched successfully. */
+	/**
+	 * Whether we have enough information to make a ToS acceptance decision.
+	 * True when either:
+	 * - The `/api/tos` timestamp was fetched successfully, OR
+	 * - The backend responded with 403 `TosNotAccepted` on any gated endpoint
+	 *   (so we know acceptance is needed even if the timestamp fetch failed).
+	 *
+	 * Consumers gate ToS UI on this to avoid flickering a "please accept"
+	 * prompt before we know whether acceptance is actually needed.
+	 */
 	tosLoaded: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
@@ -42,11 +52,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [session, setSession] = useState<Session | null>(null);
 	const [authChecked, setAuthChecked] = useState(false);
+	// ── ToS acceptance state ───────────────────────────────────────────
+	//
+	// Two independent signals determine whether to show the ToS gate:
+	//
+	// 1. `tosTimestamp` — fetched from GET /api/tos after login. Compared
+	//    against the user's `tos_accepted_at` to derive `hasAcceptedTos`.
+	//    This is the happy path.
+	//
+	// 2. `tosRequired` — set to `true` when any API call returns
+	//    403 TosNotAccepted (via the `tos-not-accepted` window event from
+	//    the axios interceptor in client.ts). This is the fallback: if the
+	//    /api/tos fetch fails (network error, server error), `tosTimestamp`
+	//    stays null, but `tosRequired` still lets us show the gate as soon
+	//    as the backend actually rejects a request.
+	//
+	// Together they feed the two context values consumers care about:
+	//   tosLoaded      = tosTimestamp !== null || tosRequired
+	//   hasAcceptedTos = tosRequired ? false : <timestamp comparison>
 	const [tosTimestamp, setTosTimestamp] = useState<string | null>(null);
+	const [tosRequired, setTosRequired] = useState(false);
 
 	const hasAcceptedTos = useMemo(
-		() => deriveHasAcceptedTos(user, tosTimestamp),
-		[user, tosTimestamp],
+		() => (tosRequired ? false : deriveHasAcceptedTos(user, tosTimestamp)),
+		[user, tosTimestamp, tosRequired],
 	);
 
 	const clearAuth = useCallback(() => {
@@ -54,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setUser(null);
 		setSession(null);
 		setTosTimestamp(null);
+		setTosRequired(false);
 	}, []);
 
 	const setAuthData = (data: AuthResponse) => {
@@ -97,11 +127,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	}, [user, fetchTosTimestamp]);
 
-	// Re-fetch ToS timestamp when the interceptor detects a TosNotAccepted error.
-	// This ensures the client has an up-to-date timestamp even if the ToS version
-	// was bumped after the page loaded.
+	// Listen for 403 TosNotAccepted from the axios interceptor (client.ts).
+	// Two things happen:
+	// 1. `tosRequired = true` — immediately enables the ToS gate UI even if
+	//    the /api/tos fetch never succeeded (see state comment above).
+	// 2. Re-fetch the timestamp — so that `deriveHasAcceptedTos` can do a
+	//    proper comparison once the user accepts and the page reloads.
 	useEffect(() => {
 		const onTosNotAccepted = () => {
+			setTosRequired(true);
 			fetchTosTimestamp();
 		};
 		window.addEventListener('tos-not-accepted', onTosNotAccepted);
@@ -168,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				session,
 				authChecked,
 				hasAcceptedTos,
-				tosLoaded: tosTimestamp !== null,
+				tosLoaded: tosTimestamp !== null || tosRequired,
 				login,
 				register,
 				reauth,

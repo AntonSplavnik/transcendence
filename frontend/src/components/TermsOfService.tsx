@@ -27,6 +27,9 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 		}
 	};
 
+	// Show the sticky accept bar for logged-in users who haven't accepted yet.
+	// Gated on `tosLoaded` so the button doesn't appear before we know whether
+	// acceptance is needed (see AuthContext for how tosLoaded is derived).
 	const showAcceptButton = user && tosLoaded && !hasAcceptedTos;
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
