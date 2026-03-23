@@ -151,7 +151,7 @@ export default function AuthPage({
 	};
 
 	return (
-		<div className="flex items-center justify-center flex-grow p-4">
+		<main className="flex items-center justify-center flex-grow p-4">
 			<Card accent="gold" className="w-full max-w-md">
 				<div className="text-center mb-8">
 					<Swords size={48} className="mx-auto text-gold-400 mb-2" aria-hidden="true" />
@@ -298,6 +298,6 @@ export default function AuthPage({
 					onCancel={handleMfaCancel}
 				/>
 			)}
-		</div>
+		</main>
 	);
 }

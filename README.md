@@ -486,6 +486,7 @@ In a competitive gaming platform, account security matters. This module gives us
 _Accessibility and Internationalization Major (2 pts) — by lmeubrin_
 
 All non-game UI conforms to WCAG 2.1 Level AA, providing full screen reader support, keyboard navigation, and assistive technology compatibility. The 3D game canvas is a real-time visual-spatial sensory experience and falls under the WCAG SC 1.1.1 sensory experience exemption; it carries a descriptive `aria-label` identifying its nature.
+This has been tested manually by just tabbing through the interface and using a screen reader (e.g. NVDA) to verify that all interactive elements are announced properly and that the user can navigate and operate the UI without a mouse. Automated tools like Lighthouse can also be used for an initial audit (Ctrl+Shift+I → Lighthouse → Accessibility).
 
 **What was implemented:**
 

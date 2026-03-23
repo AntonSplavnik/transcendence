@@ -257,7 +257,9 @@ export default function NotificationToast() {
 						}}
 						// Non-actionable interactive cards: the whole wrapper is the dismiss button.
 						// Actionable cards: buttons are inside NotificationCard; wrapper is a group.
-						onClick={interactive && !hasAction ? () => animateDismiss(toast) : undefined}
+						onClick={
+							interactive && !hasAction ? () => animateDismiss(toast) : undefined
+						}
 						onKeyDown={
 							interactive && !hasAction
 								? (e) => {
