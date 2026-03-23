@@ -19,12 +19,14 @@ WORKDIR /build
 COPY backend/ ./
 
 ARG CARGO_PROFILE=debug
+ARG CARGO_INCREMENTAL=1
+ARG RUSTFLAGS=
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     if [ "$CARGO_PROFILE" = "release" ]; then \
-        cargo build --release; \
+        CARGO_INCREMENTAL=$CARGO_INCREMENTAL RUSTFLAGS="$RUSTFLAGS" cargo build --release; \
     else \
-        cargo build; \
+        CARGO_INCREMENTAL=$CARGO_INCREMENTAL RUSTFLAGS="$RUSTFLAGS" cargo build; \
     fi && \
     cp target/${CARGO_PROFILE}/transcendence-backend /transcendence-backend
 
