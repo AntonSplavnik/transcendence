@@ -48,6 +48,7 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 				setError('Too many requests. Please wait before trying again.');
 			} else if (isAxiosError(err) && getErrorBrief(err) === 'AlreadyConfirmed') {
 				setConfirmed(true);
+				await refreshUser();
 			} else {
 				setError(getErrorMessage(err, 'Failed to send confirmation email'));
 			}

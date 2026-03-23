@@ -197,6 +197,15 @@ h1{color:#ef4444;margin-bottom:.5rem}</style></head>
 <body><div class="card"><h1>Confirmation Failed</h1><p>This confirmation link is invalid or has expired. Please request a new one.</p></div></body>
 </html>"#;
 
+const CONFIRM_SERVER_ERROR_HTML: &str = r#"<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Confirmation Failed</title>
+<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
+.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
+h1{color:#ef4444;margin-bottom:.5rem}</style></head>
+<body><div class="card"><h1>Something Went Wrong</h1><p>An unexpected error occurred. Please try again later.</p></div></body>
+</html>"#;
+
 // ── Router / Endpoints ───────────────────────────────────────────────────
 
 pub fn router(path: &str) -> Router {
@@ -238,9 +247,13 @@ async fn confirm(token: QueryParam<String, false>, res: &mut Response, db: Db) {
         Ok(()) => {
             res.render(salvo::writing::Text::Html(CONFIRMED_HTML));
         }
-        Err(_) => {
+        Err(ApiError::EmailConfirmation(EmailConfirmationError::InvalidToken)) => {
             res.status_code(StatusCode::BAD_REQUEST);
             res.render(salvo::writing::Text::Html(CONFIRM_ERROR_HTML));
+        }
+        Err(_) => {
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(salvo::writing::Text::Html(CONFIRM_SERVER_ERROR_HTML));
         }
     }
 }

@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libsqlite3-0 libdav1d7 libzstd1 ca-certificates \
+        libsqlite3-0 libdav1d7 libzstd1 ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --shell /bin/false app
@@ -43,8 +43,9 @@ COPY --from=frontend /build/dist /www
 
 RUN mkdir -p data acme && chown -R app:app /app
 
-USER app
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8080 8443/tcp 8443/udp
 
-ENTRYPOINT ["./transcendence-backend"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
