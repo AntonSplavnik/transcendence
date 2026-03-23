@@ -20,18 +20,18 @@ lean: setup
 	@echo "🏗️  Building sequentially (space-optimised)..."
 	@echo "  [1/3] Building frontend stage..."
 	@docker build --target frontend .
-	@docker builder prune -f --all >/dev/null
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
 	@echo "  [2/3] Building backend stage..."
 	@docker build --target backend \
 		--build-arg CARGO_INCREMENTAL=0 \
 		--build-arg "RUSTFLAGS=-C debuginfo=0" \
 		.
-	@docker builder prune -f --all >/dev/null
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
 	@echo "  [3/3] Assembling final image..."
 	@$(COMPOSE) build \
 		--build-arg CARGO_INCREMENTAL=0 \
 		--build-arg "RUSTFLAGS=-C debuginfo=0"
-	@docker builder prune -f --all >/dev/null
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
 	@echo "🚀 Starting containers..."
 	@$(COMPOSE) up
 
