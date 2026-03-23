@@ -57,7 +57,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 						}}
 						placeholder="Add by nickname..."
 						aria-label="Friend's nickname"
-						className="w-full bg-stone-900 border border-stone-700 rounded px-3 py-1.5 text-sm text-stone-100 focus:outline-none focus:border-primary"
+						className="w-full bg-stone-900 border border-stone-700 rounded px-3 py-1.5 text-sm text-stone-100 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
 					/>
 				</div>
 				<button

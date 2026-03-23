@@ -95,7 +95,7 @@ export default function FriendsDrawer() {
 							{/* Incoming Requests */}
 							{incoming.length > 0 && (
 								<section>
-									<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Incoming Requests
 										<span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-primary text-primary-text">
 											{incoming.length}
@@ -137,7 +137,7 @@ export default function FriendsDrawer() {
 							{/* Outgoing Requests */}
 							{outgoing.length > 0 && (
 								<section>
-									<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Pending Requests
 										<span className="ml-1.5 text-stone-500 font-normal normal-case tracking-normal">
 											({outgoing.length})
@@ -170,7 +170,7 @@ export default function FriendsDrawer() {
 
 							{/* Friends List */}
 							<section>
-								<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+								<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 									Friends ({friends.length})
 								</h3>
 								{friends.length === 0 ? (
@@ -183,7 +183,7 @@ export default function FriendsDrawer() {
 											<li key={friend.id}>
 												<div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50">
 													<Circle
-														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
+														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-400 text-stone-400'}`}
 													/>
 													<span className="text-sm truncate flex-1">
 														<Username
