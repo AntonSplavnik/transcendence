@@ -73,11 +73,7 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 	}, [user.email_confirmed_at]);
 
 	return (
-		<Modal
-			onClose={onClose}
-			title="Email Confirmation"
-			icon={<Mail className="w-6 h-6" />}
-		>
+		<Modal onClose={onClose} title="Email Confirmation" icon={<Mail className="w-6 h-6" />}>
 			{confirmed ? (
 				<div className="space-y-4">
 					<Alert variant="success">
@@ -91,19 +87,14 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 			) : (
 				<div className="space-y-4">
 					{error && (
-						<Alert
-							variant="error"
-							dismissable
-							onDismiss={() => setError(null)}
-						>
+						<Alert variant="error" dismissable onDismiss={() => setError(null)}>
 							{error}
 						</Alert>
 					)}
 
 					<p className="text-sm text-stone-300">
 						Confirming your email address helps secure your account and enables
-						important notifications. A confirmation link will be sent to your
-						email.
+						important notifications. A confirmation link will be sent to your email.
 					</p>
 
 					<div className="p-3 bg-stone-900 rounded-lg border border-stone-700/40">
@@ -112,13 +103,17 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 					</div>
 
 					<div className="flex items-center gap-2">
-						<Badge variant="warning" size="sm">Unconfirmed</Badge>
+						<Badge variant="warning" size="sm">
+							Unconfirmed
+						</Badge>
 						<button
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition-colors disabled:opacity-50"
 						>
-							<RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+							<RefreshCw
+								className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`}
+							/>
 							Refresh status
 						</button>
 					</div>
@@ -130,9 +125,7 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 						disabled={cooldown > 0}
 						fullWidth
 					>
-						{cooldown > 0
-							? `Resend in ${cooldown}s`
-							: 'Send Confirmation Email'}
+						{cooldown > 0 ? `Resend in ${cooldown}s` : 'Send Confirmation Email'}
 					</Button>
 				</div>
 			)}

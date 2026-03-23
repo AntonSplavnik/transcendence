@@ -126,9 +126,13 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 						onClick={() => setShowEmailConfirmation(true)}
 						suffix={
 							isEmailConfirmed ? (
-								<Badge variant="success" size="sm">Confirmed</Badge>
+								<Badge variant="success" size="sm">
+									Confirmed
+								</Badge>
 							) : (
-								<Badge variant="warning" size="sm">Unconfirmed</Badge>
+								<Badge variant="warning" size="sm">
+									Unconfirmed
+								</Badge>
 							)
 						}
 					>
