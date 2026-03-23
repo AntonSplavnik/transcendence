@@ -128,17 +128,20 @@ class GameClient {
 	private jumpState: JumpState = JumpState.GROUNDED;
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private characterConfig: CharacterConfig;
+	private characterClassesRef: RefObject<Map<number, string>>;
 
 	constructor(
 		scene: Scene,
 		localPlayerID: number,
 		camera: UniversalCamera,
 		characterConfig: CharacterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
+		characterClassesRef: RefObject<Map<number, string>> = { current: new Map() },
 	) {
 		this.scene = scene;
 		this.localPlayerID = localPlayerID;
 		this.camera = camera;
 		this.characterConfig = characterConfig;
+		this.characterClassesRef = characterClassesRef;
 	}
 
 	async initLocalPlayer(): Promise<void> {
@@ -221,7 +224,11 @@ class GameClient {
 		this.loadingCharacters.add(playerID);
 		const remoteChar = new AnimatedCharacter(this.scene);
 		try {
-			await loadCharacter(remoteChar, CHARACTER_CONFIGS[DEFAULT_CHARACTER]);
+			const cls = this.characterClassesRef.current?.get(playerID);
+			const config =
+				(cls && CHARACTER_CONFIGS[cls as keyof typeof CHARACTER_CONFIGS]) ??
+				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
+			await loadCharacter(remoteChar, config);
 
 			if (playerID === this.localPlayerID) {
 				remoteChar.dispose();
@@ -317,6 +324,8 @@ class GameClient {
 interface Props {
 	/** Ref to the latest GameStateSnapshot. Read in the Babylon render loop — NOT React state. */
 	snapshotRef: RefObject<GameStateSnapshot | null>;
+	/** Ref mapping player_id → character_class string. Populated from PlayerJoined messages. */
+	characterClassesRef: RefObject<Map<number, string>>;
 	onSendInput: (
 		movement: Vector3D,
 		lookDirection: Vector3D,
@@ -328,7 +337,7 @@ interface Props {
 	characterConfig?: CharacterConfig;
 }
 
-export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayerId, characterConfig }: Props) {
+export default function SimpleGameClient({ snapshotRef, characterClassesRef, onSendInput, localPlayerId, characterConfig }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const gameClientRef = useRef<GameClient | null>(null);
 	const engineRef = useRef<Engine | null>(null);
@@ -426,7 +435,7 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				}
 			});
 
-			const gameClient = new GameClient(scene, localPlayerId, camera, characterConfig);
+			const gameClient = new GameClient(scene, localPlayerId, camera, characterConfig, characterClassesRef);
 			gameClientRef.current = gameClient;
 			gameClient
 				.initLocalPlayer()
