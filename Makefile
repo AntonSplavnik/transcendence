@@ -115,9 +115,8 @@ chrome-dev:
 # ── Database management ───────────────────────────────────────
 
 reset-db:
-	@echo "🧹 Resetting database volume..."
-	@$(COMPOSE) down
-	@docker volume rm $$(docker volume ls -q --filter "name=db-data") 2>/dev/null || true
+	@echo "🧹 Resetting database volumes for this project..."
+	@$(COMPOSE) down -v
 
 # ── Code quality ──────────────────────────────────────────────
 
