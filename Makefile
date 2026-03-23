@@ -3,7 +3,7 @@ COMPOSE = docker compose
 # URL opened by Chrome dev instance (override: make dev CHROME_URL=…)
 CHROME_URL ?= https://localhost:8443
 
-.PHONY: all dev build \
+.PHONY: all lean dev build \
         docker-down docker-clean \
         setup check-cert chrome-dev reset-db \
         install-prek prek-update prek clean
@@ -13,6 +13,22 @@ CHROME_URL ?= https://localhost:8443
 all: setup
 	@echo "🚀 Building and starting Docker containers..."
 	@$(COMPOSE) up --build
+
+# ── Lean: sequential build for space-constrained environments ─
+
+lean: setup
+	@echo "🏗️  Building sequentially (space-optimised)..."
+	@echo "  [1/3] Building frontend stage..."
+	@docker build --target frontend .
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
+	@echo "  [2/3] Building backend stage..."
+	@docker build --target backend .
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
+	@echo "  [3/3] Assembling final image..."
+	@$(COMPOSE) build
+	@docker builder prune -f --filter type=exec.cachemount >/dev/null
+	@echo "🚀 Starting containers..."
+	@$(COMPOSE) up
 
 # ── Dev: Docker background + local Vite hot reload ────────────
 
