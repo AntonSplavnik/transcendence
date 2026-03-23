@@ -26,7 +26,12 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 		setOpen(false);
 	}, []);
 
+	// Tracks whether the menu was closed via Tab so focus is NOT restored to the
+	// trigger — Tab should let focus proceed naturally to the next element.
+	const closedByTabRef = useRef(false);
+
 	// Focus management: open → focus first item; close → restore focus to trigger
+	// (unless the menu was closed by Tab, in which case the browser handles it).
 	useEffect(() => {
 		if (!open) return;
 
@@ -35,9 +40,11 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 
 		// Capture ref value so cleanup uses the same node even if ref changes
 		const trigger = triggerRef.current;
-		// Cleanup runs when open transitions false: returns focus to trigger
 		return () => {
-			trigger?.focus();
+			if (!closedByTabRef.current) {
+				trigger?.focus();
+			}
+			closedByTabRef.current = false;
 		};
 	}, [open]);
 
@@ -50,9 +57,10 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 				return;
 			}
 
-			// Tab closes menu and returns focus to trigger (then continues naturally)
+			// Tab closes the menu and lets focus proceed to the next element naturally.
+			// No preventDefault — the browser moves focus; we just close the menu.
 			if (e.key === 'Tab') {
-				e.preventDefault();
+				closedByTabRef.current = true;
 				close();
 				return;
 			}
