@@ -1,0 +1,18 @@
+serve_dir = "/www"
+
+[log]
+format = "compact"
+filter_level = "info"
+
+# ACME automatically provisions TLS certificates via Let's Encrypt.
+# Do NOT set [tls] when using a domain — ACME handles it.
+domain = "yourdomain.com"
+
+[email]
+smtp_host = "email-smtp.eu-west-1.amazonaws.com"
+smtp_port = 587
+smtp_tls = true
+smtp_username = "AKIA..."
+smtp_password = "..."
+from_address = "noreply@yourdomain.com"
+base_url = "https://yourdomain.com"

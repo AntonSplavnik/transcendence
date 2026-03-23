@@ -1,56 +1,57 @@
-BACKEND_BIN = backend/target/release/transcendence-backend
-DB_FILE = backend/data/diesel.sqlite
-ENV_EXAMPLE = backend/.env.example
-ENV_FILE = backend/.env
+COMPOSE = docker compose
 
 # URL opened by Chrome dev instance (override: make dev CHROME_URL=…)
 CHROME_URL ?= https://localhost:8443
 
-# Source discovery (finds all relevant files to watch for changes)
-FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
-               frontend/package.json frontend/vite.config.ts frontend/index.html
-BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f 2>/dev/null) \
-              backend/Cargo.toml backend/Cargo.lock
+.PHONY: all dev build \
+        docker-down docker-clean \
+        setup check-cert chrome-dev reset-db \
+        install-prek prek-update prek clean
 
-.PHONY: all dev run-opt run setup check-cert chrome-dev reset-db create-db install-prek prek-update prek clean
+# ── Default: Docker build + run (foreground) ──────────────────
 
-all: run
+all: setup
+	@echo "🚀 Building and starting Docker containers..."
+	@$(COMPOSE) up --build
 
-# 'run' depends on the frontend build output and the DB
-run: frontend/dist/index.html setup create-db
-	@echo "🚀 Running development build..."
-	@cd backend && cargo run
+# ── Dev: Docker background + local Vite hot reload ────────────
 
-run-opt: $(BACKEND_BIN) setup create-db
-	@echo "🚀 Starting optimized backend..."
-	@cd backend && ../$(BACKEND_BIN)
-
-build: $(BACKEND_BIN) frontend/dist/index.html
-
-$(BACKEND_BIN): $(BACKEND_SRC)
-	@echo "📦 Building backend (release)..."
-	@cd backend && cargo build --release
-
-frontend/dist/index.html: $(FRONTEND_SRC)
-	@echo "🎨 Building frontend..."
-	@cd frontend && npm install && npm run build
-	@touch frontend/dist/index.html # Update timestamp to ensure Make knows it's done
-
-# --------------------------
-
-dev: setup create-db
+dev: setup
 	@echo "🛠️ Starting development environment..."
+	@$(COMPOSE) up --build -d
 	@$(MAKE) chrome-dev CHROME_URL=http://localhost:5173 &
-	@cd frontend && npm install && VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev & \
-		cd backend && cargo run
+	@trap '$(COMPOSE) down' INT TERM EXIT; \
+	cd frontend && npm install && \
+		VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev
+
+# ── Local build (for cargo check, cargo test, prek) ──────────
+
+build:
+	@cd frontend && npm install && npm run build
+	@cd backend && cargo build
+
+# ── Docker management ─────────────────────────────────────────
+
+docker-down:
+	@$(COMPOSE) down
+
+docker-clean:
+	@$(COMPOSE) down -v --rmi local
+
+# ── Environment setup ─────────────────────────────────────────
 
 setup:
 	@echo "⚙️  Setting up environment..."
-	@if [ ! -f $(ENV_FILE) ]; then \
-		cp $(ENV_EXAMPLE) $(ENV_FILE); \
-		echo "✅ Created $(ENV_FILE) from example."; \
+	@if [ ! -f backend/.env ]; then \
+		cp backend/.env.example backend/.env; \
+		echo "✅ Created backend/.env from example."; \
 	fi
 	@if [ ! -f backend/certs/cert.pem ]; then \
+		if ! command -v mkcert >/dev/null 2>&1; then \
+			echo "❌ mkcert is required but not installed."; \
+			echo "   Install it: https://github.com/FiloSottile/mkcert"; \
+			exit 1; \
+		fi; \
 		mkdir -p backend/certs; \
 		mkcert -install > /dev/null 2>&1; \
 		mkcert -key-file backend/certs/key.pem -cert-file backend/certs/cert.pem \
@@ -84,6 +85,8 @@ check-cert:
 		fi; \
 	fi
 
+# ── Chrome dev instance ──────────────────────────────────────
+
 chrome-dev:
 	@echo "🌐 Launching Chrome dev instance (WebTransport enabled)..."; \
 	CHROME_BIN=""; \
@@ -106,18 +109,17 @@ chrome-dev:
 		--disable-translate \
 		--disable-sync \
 		--password-store=basic \
-		"$(CHROME_URL)" >/dev/null 2>&1 &
+		"$(CHROME_URL)" \
+		"http://localhost:8025" >/dev/null 2>&1 &
 
-create-db:
-	@if [ ! -f $(DB_FILE) ]; then \
-		$(MAKE) reset-db; \
-	fi
+# ── Database management ───────────────────────────────────────
 
 reset-db:
-	@echo "🧹 Resetting database..."
-	@mkdir -p backend/data
-	@rm -f $(DB_FILE)*
-	@sqlite3 $(DB_FILE) 'VACUUM;'
+	@echo "🧹 Resetting database volume..."
+	@$(COMPOSE) down
+	@docker volume rm $$(docker volume ls -q --filter "name=db-data") 2>/dev/null || true
+
+# ── Code quality ──────────────────────────────────────────────
 
 install-prek:
 	@curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.2/prek-installer.sh | sh
@@ -131,10 +133,13 @@ prek-update:
 prek:
 	@prek run --all-files --stage manual
 
+# ── Cleanup ───────────────────────────────────────────────────
+
 clean:
 	@echo "🗑️  Cleaning build artifacts..."
 	@rm -rf frontend/dist
 	@rm -rf frontend/node_modules
 	@rm -rf /tmp/chrome-dev-wt
 	@cd backend && cargo clean
+	@$(COMPOSE) down -v --rmi local 2>/dev/null || true
 	@echo "✨ Workspace cleaned."
