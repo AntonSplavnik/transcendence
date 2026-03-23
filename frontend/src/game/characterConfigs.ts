@@ -7,8 +7,8 @@ import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1
 import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
 import daggerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.glb';
 
-export type CharacterChoice = 'knight' | 'rogue';
-export const DEFAULT_CHARACTER: CharacterChoice = 'knight';
+export type CharacterChoice = 'Knight' | 'Rogue';
+export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
 
 export interface EquipmentSlot {
 	model: string;
@@ -27,7 +27,7 @@ export interface CharacterConfig {
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
-	knight: {
+	Knight: {
 		label: 'Knight',
 		model: knightModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
@@ -39,7 +39,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		previewBgColor: '#18a880',
 		idleAnimation: 'Idle_A',
 	},
-	rogue: {
+	Rogue: {
 		label: 'Rogue',
 		model: rogueModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],

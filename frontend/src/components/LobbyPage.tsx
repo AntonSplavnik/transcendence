@@ -100,7 +100,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LobbyPage() {
-	const { lobbyState, setReady, updateSettings, leave } = useLobby();
+	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
 
 	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -117,7 +117,15 @@ export default function LobbyPage() {
 	const handleCharacterChange = (char: CharacterChoice) => {
 		setSelectedCharacter(char);
 		localStorage.setItem('selectedCharacter', char);
+		void setCharacter(char);
 	};
+
+	// Restore stored character preference to server once on mount (when a player).
+	useEffect(() => {
+		if (lobbyState.status !== 'active' || lobbyState.gameActive) return;
+		if (user && !lobbyState.players.has(user.id)) return; // spectator
+		void setCharacter(selectedCharacter);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Countdown timer — primitive dep avoids interval reset on unrelated updates.
 	const countdownMs =
