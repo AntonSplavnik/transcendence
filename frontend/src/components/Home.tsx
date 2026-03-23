@@ -85,7 +85,7 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 					trigger={
 						<span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-100 transition-colors border border-stone-600">
 							<UserIcon className="w-5 h-5" aria-hidden="true" />
-							<span className="hidden sm:inline">{user.nickname}</span>
+							<span className="sr-only sm:not-sr-only">{user.nickname}</span>
 							<ChevronDown className="w-4 h-4" aria-hidden="true" />
 						</span>
 					}
