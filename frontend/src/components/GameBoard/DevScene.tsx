@@ -1,8 +1,15 @@
 import { AbstractMesh, ArcRotateCamera, Engine, GizmoManager, ImportMeshAsync, Quaternion, Scene, SceneSerializer, Vector3 } from '@babylonjs/core';
+import { GLTFLoader } from '@babylonjs/loaders/glTF/2.0';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { measureModel } from '@/utils/measureModel';
 import { arenaScene, CAM_ALPHA, CAM_BETA, CAM_RADIUS, CAM_TARGET } from './BabylonCanvas';
+
+// Register no-op handlers for CVTOOLS extensions (BabylonJS Unity Toolkit).
+// This satisfies Babylon's extensionsRequired check without needing the full toolkit.
+for (const name of ['CVTOOLS_babylon_mesh', 'CVTOOLS_left_handed', 'CVTOOLS_unity_metadata']) {
+	GLTFLoader.RegisterExtension(name, () => ({ name, enabled: true, dispose() {} }));
+}
 
 // All gltf/glb under assets — lazy loaded, only fetched when spawned
 const modelGlob = import.meta.glob<string>(
@@ -29,6 +36,25 @@ function targetHeight(name: string): number {
 const scaleCache = new Map<string, number>();
 
 let spawnCounter = 0;
+
+// Scenes in public/scenes — each entry is [label, rootUrl, filename]
+const PUBLIC_SCENES: [string, string, string][] = [
+	['Forest', '/scenes/Forest/', 'Forest.gltf'],
+];
+
+async function loadPublicScene(rootUrl: string, filename: string, scene: Scene) {
+	try {
+		const result = await ImportMeshAsync(rootUrl + filename, scene);
+		// CVTOOLS_left_handed is a no-op so Babylon applies its right→left-handed Z-flip,
+		// inverting normals on Unity-exported geometry. Disabling backface culling keeps
+		// all surfaces visible despite the inverted winding on the terrain.
+		result.meshes.forEach((mesh) => {
+			if (mesh.material) mesh.material.backFaceCulling = false;
+		});
+	} catch (e) {
+		console.error('[DevScene] failed to load scene:', e);
+	}
+}
 
 async function spawnModel(path: string, scene: Scene) {
 	const loader = modelGlob[path];
@@ -251,7 +277,22 @@ export default function DevScene() {
 							borderRadius: 4, padding: '4px 8px', fontSize: 12, outline: 'none',
 						}}
 					/>
-					<div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ color: '#555', fontSize: 10 }}>SCENES</div>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+						{PUBLIC_SCENES.map(([label, rootUrl, filename]) => (
+							<button
+								key={rootUrl + filename}
+								onClick={() => sceneRef.current && loadPublicScene(rootUrl, filename, sceneRef.current)}
+								style={{
+									background: '#2a2a2a', color: '#ccc', border: '1px solid #444',
+									borderRadius: 4, padding: '3px 7px', cursor: 'pointer', fontSize: 11,
+								}}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+					<div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{[...grouped.entries()].map(([group, paths]) => (
 							<div key={group}>
 								<div style={{ color: '#555', fontSize: 10, marginBottom: 4 }}>{group.toUpperCase()}</div>
