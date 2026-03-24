@@ -46,6 +46,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
 		equipment: [
 			{ model: daggerModel, bone: 'handslot.r', rotation: [0, 3.14, 0] },
+			{ model: daggerModel, bone: 'handslot.l' },
 		],
 		scale: 3,
 		previewBgColor: '#582880',
