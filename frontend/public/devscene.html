@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>DevScene</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+		#cvs { width: 100%; height: 100%; display: block; }
+	</style>
+</head>
+<body>
+	<canvas id="cvs"></canvas>
+
+	<script src="/scenes/Export/scripts/babylon.min.js"></script>
+	<script src="/scenes/Export/scripts/babylon.gltf.min.js"></script>
+	<script src="/scenes/Export/scripts/babylon.gui.min.js"></script>
+	<script src="/scenes/Export/scripts/babylon.materials.min.js"></script>
+	<script src="/scenes/Export/scripts/babylon.addons.min.js"></script>
+	<script src="/scenes/Export/scripts/havokphysics_umd.js"></script>
+	<script src="/scenes/Export/scripts/babylon.toolkit.js"></script>
+
+	<script>
+		var canvas = document.getElementById('cvs');
+		var engine = null;
+		var scene  = null;
+
+		var params    = new URLSearchParams(window.location.search);
+		var sceneName = params.get('scene') || 'Forest.gltf';
+		var sceneRoot = params.get('root')  || '/scenes/Export/scenes/';
+
+		async function init() {
+			if (typeof HavokPhysics !== 'undefined') {
+				globalThis.HK = await HavokPhysics();
+			}
+
+			engine = new BABYLON.Engine(canvas, true, {
+				premultipliedAlpha: false,
+				stencil: true,
+				doNotHandleContextLost: true,
+			});
+
+			// Point KTX2 / basis decoder WASM files to the export scripts folder
+			// (matches what engine.html does before InitializeRuntime)
+			if (BABYLON.KhronosTextureContainer2 && BABYLON.KhronosTextureContainer2.URLConfig) {
+				var s = '/scenes/Export/scripts/';
+				BABYLON.KhronosTextureContainer2.URLConfig.jsDecoderModule       = s + 'babylon.ktx2decoder.js';
+				BABYLON.KhronosTextureContainer2.URLConfig.jsMSCTranscoder       = s + 'msc_basis_transcoder.js';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmMSCTranscoder     = s + 'msc_basis_transcoder.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmZSTDDecoder       = s + 'zstddec.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToASTC       = s + 'uastc_astc.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToBC7        = s + 'uastc_bc7.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToRGBA_UNORM = s + 'uastc_rgba32_unorm.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToRGBA_SRGB  = s + 'uastc_rgba32_srgb.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToR8_UNORM   = s + 'uastc_r8_unorm.wasm';
+				BABYLON.KhronosTextureContainer2.URLConfig.wasmUASTCToRG8_UNORM  = s + 'uastc_rg8_unorm.wasm';
+			}
+
+			await TOOLKIT.SceneManager.InitializeRuntime(engine);
+
+			BABYLON.SceneLoader.Load(sceneRoot, sceneName, engine,
+				function(newScene) {
+					scene = newScene;
+					scene.executeWhenReady(function() {
+						// Add a free camera if the scene has none
+						if (!scene.cameras || scene.cameras.length === 0) {
+							var cam = new BABYLON.ArcRotateCamera('devCam', -Math.PI / 2, Math.PI / 3, 50, BABYLON.Vector3.Zero(), scene);
+							cam.attachControl(canvas, true);
+						}
+						// Simple render loop — no toolkit gating needed for dev tool
+						engine.runRenderLoop(function() { scene.render(); });
+					});
+				},
+				null,
+				function(s, message, exception) {
+					console.error('[DevScene] load error:', exception || message);
+				}
+			);
+
+			window.addEventListener('resize', function() { engine.resize(); });
+
+			// Ctrl+Shift+I — Babylon Inspector (loaded on demand)
+			window.addEventListener('keydown', async function(e) {
+				if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+					e.preventDefault();
+					if (!window._inspectorLoaded) {
+						await BABYLON.Tools.LoadScriptAsync('https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js');
+						window._inspectorLoaded = true;
+					}
+					if (scene.debugLayer.isVisible()) {
+						scene.debugLayer.hide();
+					} else {
+						scene.debugLayer.show({ embedMode: false, overlay: true });
+					}
+				}
+			});
+		}
+
+		init().catch(function(e) { console.error('[DevScene] init error:', e); });
+	</script>
+</body>
+</html>

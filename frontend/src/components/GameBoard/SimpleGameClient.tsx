@@ -1,27 +1,27 @@
-// Simple game client - adapted from simple_client.ts with minimal React wrapper
-import * as BabylonModule from '@babylonjs/core';
-import {
+// Simple game client - uses window.BABYLON and window.TOOLKIT
+// set by the toolkit scripts loaded in index.html
+import type {
 	AbstractMesh,
 	AnimationGroup,
 	Engine,
 	Scene,
-	SceneLoader,
 	TransformNode,
 	UniversalCamera,
 	Vector3,
 } from '@babylonjs/core';
-import '@babylonjs/loaders/glTF';
-import '@babylonjs/materials'; // Required for SkyMaterial and other materials
+import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { GameStateSnapshot, Vector3D } from '../../game/types';
-import { measureModel } from '../../utils/measureModel';
 
-// Make BABYLON available globally for Inspector (must be extensible object)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(window as any).BABYLON = Object.assign({}, BabylonModule);
+declare const BABYLON: typeof BabylonType;
+declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
-// Import game assets
+// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
+// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
+const ARENA_OFFSET = { x: 50, z: 50 };
+
+// Import game assets — Vite resolves these to hashed public URLs at build time
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
@@ -68,10 +68,10 @@ const AnimationNames = {
 };
 
 const JumpState = {
-	GROUNDED: 'grounded', // On ground, normal animations
-	JUMP_START: 'jump_start', // Playing jump start animation
-	AIRBORNE: 'airborne', // In air, playing jump idle loop
-	LANDING: 'landing', // Playing landing animation
+	GROUNDED: 'grounded',
+	JUMP_START: 'jump_start',
+	AIRBORNE: 'airborne',
+	LANDING: 'landing',
 } as const;
 type JumpState = (typeof JumpState)[keyof typeof JumpState];
 
@@ -83,15 +83,15 @@ class AnimatedCharacter {
 	private currentAnimationName: string = '';
 	private scene: Scene;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private skeleton: any = null; // Store this character's skeleton
+	private skeleton: any = null;
 
 	constructor(scene: Scene) {
 		this.scene = scene;
-		this.rootNode = new TransformNode('character_root', scene);
+		this.rootNode = new BABYLON.TransformNode('character_root', scene);
 	}
 
 	async loadModel(assetUrl: string): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
 		result.meshes.forEach((mesh) => {
 			if (!mesh.parent) mesh.parent = this.rootNode;
 			this.meshes.push(mesh);
@@ -100,15 +100,13 @@ class AnimatedCharacter {
 			this.animations.set(anim.name, anim);
 			anim.stop();
 		});
-		// Store this character's skeleton
 		if (result.skeletons && result.skeletons.length > 0) {
 			this.skeleton = result.skeletons[0];
 		}
 	}
 
 	async loadAnimations(assetUrl: string): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
-		// Use THIS character's skeleton, not scene.skeletons[0]!
+		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
 		if (!this.skeleton) return;
 
 		result.animationGroups.forEach((anim) => {
@@ -156,27 +154,20 @@ class AnimatedCharacter {
 }
 
 // Shared jump state machine for both local and remote characters.
-// Pass isJumping=true only for the local player (driven by input); remote
-// players use false — we can't distinguish a jump from a fall for them.
-// Returns the new JumpState. Grounded animations should only run when
-// the returned state is JumpState.GROUNDED.
 function tickJumpState(
 	character: AnimatedCharacter,
 	state: JumpState,
 	isGrounded: boolean,
 	isJumping: boolean,
 ): JumpState {
-	// GROUNDED → JUMP_START (local player only)
 	if (state === JumpState.GROUNDED && !isGrounded && isJumping) {
 		character.playAnimation(AnimationNames.jumpStart, false);
 		return JumpState.JUMP_START;
 	}
-	// GROUNDED → AIRBORNE (fell off edge, or remote player left the ground)
 	if (state === JumpState.GROUNDED && !isGrounded) {
 		character.playAnimation(AnimationNames.jumpIdle, true);
 		return JumpState.AIRBORNE;
 	}
-	// JUMP_START → AIRBORNE (start animation finished)
 	if (state === JumpState.JUMP_START) {
 		const anim = character.animations.get(AnimationNames.jumpStart);
 		if (anim && !anim.isPlaying) {
@@ -185,23 +176,20 @@ function tickJumpState(
 		}
 		return JumpState.JUMP_START;
 	}
-	// AIRBORNE: keep jump-idle playing
 	if (state === JumpState.AIRBORNE && !isGrounded) {
 		character.playAnimation(AnimationNames.jumpIdle, true);
 		return JumpState.AIRBORNE;
 	}
-	// AIRBORNE → LANDING
 	if (state === JumpState.AIRBORNE && isGrounded) {
 		character.playAnimation(AnimationNames.jumpLand, false);
 		return JumpState.LANDING;
 	}
-	// LANDING → GROUNDED (wait for animation to finish)
 	if (state === JumpState.LANDING) {
 		const anim = character.animations.get(AnimationNames.jumpLand);
 		if (anim && !anim.isPlaying) return JumpState.GROUNDED;
 		return JumpState.LANDING;
 	}
-	return state; // already GROUNDED
+	return state;
 }
 
 class GameClient {
@@ -210,8 +198,8 @@ class GameClient {
 	private characters: Map<number, AnimatedCharacter> = new Map();
 	private loadingCharacters: Set<number> = new Set();
 	private localCharacter: AnimatedCharacter | null = null;
-	private position: Vector3 = new Vector3(0, 1, 0);
-	private velocity: Vector3 = new Vector3(0, 0, 0);
+	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
+	private velocity: Vector3 = new BABYLON.Vector3(0, 0, 0);
 	private camera: UniversalCamera;
 	private currentAnimState: string = 'idle';
 	private jumpState: JumpState = JumpState.GROUNDED;
@@ -229,9 +217,7 @@ class GameClient {
 		await this.localCharacter.loadAnimations(movementBasicAnims);
 		await this.localCharacter.loadAnimations(combatMeleeAnims);
 
-		// Scale character up 3x to make it more visible
-		this.localCharacter.rootNode.scaling.setAll(3);
-
+		this.localCharacter.rootNode.scaling.setAll(0.8);
 		this.localCharacter.setPosition(this.position);
 		this.localCharacter.playAnimation('Spawn_Air', false);
 		setTimeout(() => {
@@ -281,7 +267,7 @@ class GameClient {
 			const cameraForward = this.camera.getTarget().subtract(this.camera.position);
 			cameraForward.y = 0;
 			cameraForward.normalize();
-			const cameraRight = Vector3.Cross(Vector3.Up(), cameraForward).normalize();
+			const cameraRight = BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), cameraForward).normalize();
 			const worldMoveDir = cameraForward
 				.scale(input.movementDirection.z)
 				.add(cameraRight.scale(input.movementDirection.x));
@@ -314,7 +300,7 @@ class GameClient {
 		if (this.localCharacter) this.localCharacter.setPosition(this.position);
 		this.updateAnimation(input);
 
-		const cameraOffset = new Vector3(30, 60, -30);
+		const cameraOffset = new BABYLON.Vector3(30, 60, -30);
 		this.camera.position = this.position.add(cameraOffset);
 		this.camera.setTarget(this.position);
 	}
@@ -326,16 +312,14 @@ class GameClient {
 			activePlayerIDs.add(char.player_id);
 
 			if (char.player_id === this.localPlayerID) {
-				// PREDICTION DISABLED - Always use server position
-				const serverPos = new Vector3(char.position.x, char.position.y, char.position.z);
+				const serverPos = new BABYLON.Vector3(char.position.x - ARENA_OFFSET.x, char.position.y, char.position.z - ARENA_OFFSET.z);
 				this.position.copyFrom(serverPos);
 				if (this.localCharacter) {
 					this.localCharacter.setPosition(this.position);
-					this.localCharacter.setRotation(char.yaw); // Use server rotation
+					this.localCharacter.setRotation(char.yaw);
 				}
 
-				// Update camera to follow player (adjusted for scaled characters)
-				const cameraOffset = new Vector3(30, 40, -30);
+				const cameraOffset = new BABYLON.Vector3(10, 15, -10);
 				this.camera.position = this.position.add(cameraOffset);
 				this.camera.setTarget(this.position);
 			} else {
@@ -343,7 +327,7 @@ class GameClient {
 				if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
 					this.createRemoteCharacter(char.player_id, char);
 				} else if (remoteChar) {
-					const pos = new Vector3(char.position.x, char.position.y, char.position.z);
+					const pos = new BABYLON.Vector3(char.position.x - ARENA_OFFSET.x, char.position.y, char.position.z - ARENA_OFFSET.z);
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
 					this.updateRemoteAnimation(char.player_id, remoteChar, char);
@@ -376,8 +360,7 @@ class GameClient {
 			await remoteChar.loadAnimations(movementBasicAnims);
 			await remoteChar.loadAnimations(combatMeleeAnims);
 
-			// Scale character up 3x to make it more visible
-			remoteChar.rootNode.scaling.setAll(3);
+			remoteChar.rootNode.scaling.setAll(0.8);
 
 			if (playerID === this.localPlayerID) {
 				remoteChar.dispose();
@@ -385,11 +368,10 @@ class GameClient {
 				return;
 			}
 			remoteChar.setPosition(
-				new Vector3(charData.position.x, charData.position.y, charData.position.z),
+				new BABYLON.Vector3(charData.position.x - ARENA_OFFSET.x, charData.position.y, charData.position.z - ARENA_OFFSET.z),
 			);
 			remoteChar.setRotation(charData.yaw);
 			this.characters.set(playerID, remoteChar);
-			// Initialize jump state for remote player
 			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
 			remoteChar.playAnimation(AnimationNames.idle, true);
 		} catch (error) {
@@ -477,189 +459,160 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 	const gameClientRef = useRef<GameClient | null>(null);
 	const engineRef = useRef<Engine | null>(null);
 
-	// Initialize once — snapshotRef and onSendInput are stable refs/callbacks,
-	// intentionally omitted from deps to avoid re-mounting the Babylon scene.
-
 	useEffect(() => {
 		if (!canvasRef.current || !localPlayerId) return;
 
 		const canvas = canvasRef.current;
-		const engine = new Engine(canvas, true);
-		const scene = new Scene(engine);
-		engineRef.current = engine;
+		let disposed = false;
+		let sceneInstance: Scene | null = null;
 
-		// Measure character model to understand original scale
-		measureModel(generalModel).then((dims) => {
-			console.log('📏 === CHARACTER MODEL MEASUREMENTS ===');
-			console.log(`   Height: ${dims.height.toFixed(3)} units (original scale)`);
-			console.log(`   Width:  ${dims.width.toFixed(3)} units`);
-			console.log(`   Depth:  ${dims.depth.toFixed(3)} units`);
-			console.log(`   `);
-			console.log(`   For 1.75m tall human (standard):`);
-			console.log(`   Scale factor needed: ${(1.75 / dims.height).toFixed(2)}x`);
-			console.log('📏 ====================================');
-		});
+		(async () => {
+			const engine = new BABYLON.Engine(canvas, true);
+			engineRef.current = engine;
 
-		// Setup camera - FIXED: Look at arena center (50, 0, 50)
-		// Adjusted closer for better view of scaled-up characters
-		const camera = new UniversalCamera('camera', new Vector3(80, 60, 20), scene);
-		camera.setTarget(new Vector3(50, 0, 50));
-		camera.minZ = 0.1;
-		camera.maxZ = 500;
+			await TOOLKIT.SceneManager.InitializeRuntime(engine);
+			if (disposed) { engine.dispose(); return; }
 
-		// Load arena scene from Babylon.js Editor
-		// The scene file references binary mesh data in the "example" folder
-		SceneLoader.Append(
-			'/scenes/',
-			'arena.babylon',
-			scene,
-			(loadedScene) => {
-				console.log('Arena scene loaded!');
-				console.log('Loaded meshes:', loadedScene.meshes.length);
+			const scene = new BABYLON.Scene(engine);
+			sceneInstance = scene;
 
-				// The editor scene is huge (spread over ~2000 units), but our game arena is 100x100
-				// We need to scale it down and position it correctly
-				const SCALE_FACTOR = 0.05; // Scale down to 5% of original size
-				const ROTATION_Y = Math.PI / 1.5; // Rotate 90 degrees (adjust as needed: Math.PI = 180°, Math.PI/2 = 90°, etc.)
+			const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(78, 33, 22), scene);
+			camera.setTarget(new BABYLON.Vector3(50, 2, 50));
+			camera.minZ = 0.1;
+			camera.maxZ = 500;
 
-				// Create a root transform node for the entire scene
-				const sceneRoot = new TransformNode('sceneRoot', scene);
-				sceneRoot.position = new Vector3(50, 0, 50); // Center at game coordinates
-				sceneRoot.scaling.setAll(SCALE_FACTOR);
-				sceneRoot.rotation.y = ROTATION_Y; // Rotate the scene
+			// const sun = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-2, -4, 3), scene);
+			// sun.intensity = 3;
+			// const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+			// hemi.intensity = 0.6;
 
-				// Parent all root meshes to the scene root
-				loadedScene.meshes.forEach((mesh) => {
-					if (mesh.name !== '__root__' && !mesh.parent) {
-						mesh.parent = sceneRoot;
+			scene.onReadyObservable.addOnce(() => {
+				console.log('[Scene] cameras:', scene.cameras.map(c => `${c.name} (${c.getClassName()})`));
+				scene.activeCamera = camera;
+			});
+
+			// Press F to toggle between game camera and Unity "Main Camera.Rig"
+			window.addEventListener('keydown', (event) => {
+				if (event.key === 'f' || event.key === 'F') {
+					const unityCam = scene.getCameraByName('Main Camera.Rig');
+					if (!unityCam) return;
+					if (scene.activeCamera === camera) {
+						scene.activeCamera = unityCam;
+						console.log('[Camera] switched to Unity camera');
+					} else {
+						scene.activeCamera = camera;
+						console.log('[Camera] switched to game camera');
 					}
-				});
-
-				console.log(`Scene scaled to ${SCALE_FACTOR * 100}% and centered at (50, 0, 50)`);
-
-				// Keep using game camera (not camera from the editor)
-				loadedScene.activeCamera = camera;
-			},
-			undefined,
-			(_s, message, exception) => {
-				console.error('Failed to load arena scene:', message, exception);
-			},
-		);
-
-		// Enable Inspector with Ctrl+Shift+I
-		let inspectorLoaded = false;
-		window.addEventListener('keydown', async (event) => {
-			if (event.ctrlKey && event.shiftKey && event.key === 'I') {
-				event.preventDefault();
-				if (!inspectorLoaded) {
-					await import('@babylonjs/inspector');
-					inspectorLoaded = true;
 				}
-				if (scene.debugLayer.isVisible()) {
-					scene.debugLayer.hide();
-				} else {
-					await scene.debugLayer.show({
-						embedMode: false,
-						overlay: true,
-						globalRoot: document.body,
-					});
-				}
-			}
-		});
+			});
 
-		// Game client
-		const gameClient = new GameClient(scene, localPlayerId, camera);
-		gameClientRef.current = gameClient;
-		gameClient.initLocalPlayer();
-
-		// Input
-		const input: InputState = {
-			movementDirection: { x: 0, y: 0, z: 0 },
-			isAttacking: false,
-			isJumping: false,
-			isSprinting: false,
-		};
-		const keysPressed = new Set<string>();
-
-		scene.onKeyboardObservable.add((kbInfo) => {
-			if (kbInfo.type === 1) keysPressed.add(kbInfo.event.key.toLowerCase());
-			else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
-		});
-
-		scene.onBeforeRenderObservable.add(() => {
-			input.movementDirection.x = 0;
-			input.movementDirection.z = 0;
-			if (keysPressed.has('w')) input.movementDirection.z = 1;
-			if (keysPressed.has('s')) input.movementDirection.z = -1;
-			if (keysPressed.has('a')) input.movementDirection.x = -1;
-			if (keysPressed.has('d')) input.movementDirection.x = 1;
-			input.isJumping = keysPressed.has(' ');
-			input.isAttacking = keysPressed.has('e');
-			input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
-
-			// Update animations based on input
-			gameClient.updateLocalAnimation(input);
-		});
-
-		// Render loop — hard-capped at 60 fps.
-		//
-		// Babylon.js's engine.runRenderLoop() uses requestAnimationFrame, which
-		// runs at the display's native refresh rate (60, 120, 144 Hz, etc.).
-		// The game server produces snapshots at exactly 60 Hz, so rendering
-		// faster than 60 fps provides no visual benefit and wastes GPU.
-		//
-		// We skip frames until at least TARGET_FRAME_MS have elapsed, giving us
-		// a steady ~60 fps on any display without tearing or busy-waits.
-		// The server game loop runs at exactly 60 Hz and reads the latest input
-		// each tick.  Sending at the same rate ensures input lag is at most one
-		// server tick (~16.67 ms) instead of up to three ticks at 20 Hz (50 ms).
-		const TARGET_FRAME_MS = 1000 / 60; // ≈16.667 ms
-
-		let lastFrameTime = 0;
-
-		engine.runRenderLoop(() => {
-			const now = performance.now();
-
-			// Frame-rate cap: skip if not enough time has passed for a full frame.
-			if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) {
-				return;
-			}
-			// Advance by one frame interval; clamp to `now` if more than 2 frames
-			// behind to avoid a catch-up burst after a pause.
-			lastFrameTime =
-				now - lastFrameTime > TARGET_FRAME_MS * 2 ? now : lastFrameTime + TARGET_FRAME_MS;
-
-			// Apply the latest snapshot from the server (consumed once per frame).
-			const snap = snapshotRef.current;
-			if (snap !== null) {
-				gameClient.processSnapshot(snap);
-				snapshotRef.current = null;
-			}
-
-			// Send input at 60 Hz — matches the server's game-loop tick rate.
-			const lookDir =
-				input.movementDirection.x !== 0 || input.movementDirection.z !== 0
-					? input.movementDirection
-					: { x: 0, y: 0, z: 1 };
-			onSendInput(
-				input.movementDirection,
-				lookDir,
-				input.isAttacking,
-				input.isJumping,
-				input.isSprinting,
+			BABYLON.SceneLoader.Append(
+				'/scenes/Export/scenes/',
+				'Forest.gltf',
+				scene,
+				undefined,
+				undefined,
+				(_s, message, exception) => {
+					console.error('Failed to load Forest scene:', message, exception);
+				},
 			);
 
-			scene.render();
-		});
+			// Enable Inspector with Ctrl+Shift+I
+			let inspectorLoaded = false;
+			window.addEventListener('keydown', async (event) => {
+				if (event.ctrlKey && event.shiftKey && event.key === 'I') {
+					event.preventDefault();
+					if (!inspectorLoaded) {
+						await BABYLON.Tools.LoadScriptAsync(
+							'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js',
+						);
+						inspectorLoaded = true;
+					}
+					if (scene.debugLayer.isVisible()) {
+						scene.debugLayer.hide();
+					} else {
+						await scene.debugLayer.show({
+							embedMode: false,
+							overlay: true,
+							globalRoot: document.body,
+						});
+					}
+				}
+			});
 
-		window.addEventListener('resize', () => engine.resize());
+			const gameClient = new GameClient(scene, localPlayerId, camera);
+			gameClientRef.current = gameClient;
+			gameClient.initLocalPlayer().catch((e) => console.error('[GameClient] Failed to load local player:', e));
+
+			const input: InputState = {
+				movementDirection: { x: 0, y: 0, z: 0 },
+				isAttacking: false,
+				isJumping: false,
+				isSprinting: false,
+			};
+			const keysPressed = new Set<string>();
+
+			scene.onKeyboardObservable.add((kbInfo) => {
+				if (kbInfo.type === 1) keysPressed.add(kbInfo.event.key.toLowerCase());
+				else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
+			});
+
+			scene.onBeforeRenderObservable.add(() => {
+				input.movementDirection.x = 0;
+				input.movementDirection.z = 0;
+				if (keysPressed.has('w')) input.movementDirection.z = 1;
+				if (keysPressed.has('s')) input.movementDirection.z = -1;
+				if (keysPressed.has('a')) input.movementDirection.x = -1;
+				if (keysPressed.has('d')) input.movementDirection.x = 1;
+				input.isJumping = keysPressed.has(' ');
+				input.isAttacking = keysPressed.has('e');
+				input.isSprinting = keysPressed.has('shift');
+
+				gameClient.updateLocalAnimation(input);
+			});
+
+			const TARGET_FRAME_MS = 1000 / 60;
+			let lastFrameTime = 0;
+
+			engine.runRenderLoop(() => {
+				const now = performance.now();
+				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
+				lastFrameTime =
+					now - lastFrameTime > TARGET_FRAME_MS * 2 ? now : lastFrameTime + TARGET_FRAME_MS;
+
+				const snap = snapshotRef.current;
+				if (snap !== null) {
+					gameClient.processSnapshot(snap);
+					snapshotRef.current = null;
+				}
+
+				const lookDir =
+					input.movementDirection.x !== 0 || input.movementDirection.z !== 0
+						? input.movementDirection
+						: { x: 0, y: 0, z: 1 };
+				onSendInput(
+					input.movementDirection,
+					lookDir,
+					input.isAttacking,
+					input.isJumping,
+					input.isSprinting,
+				);
+
+				scene.render();
+			});
+
+			window.addEventListener('resize', () => engine.resize());
+		})();
 
 		return () => {
-			engine.stopRenderLoop();
-			scene.dispose();
-			engine.dispose();
+			disposed = true;
+			engineRef.current?.stopRenderLoop();
+			sceneInstance?.dispose();
+			engineRef.current?.dispose();
+			engineRef.current = null;
 		};
 	}, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }
+
