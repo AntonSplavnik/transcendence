@@ -276,6 +276,7 @@ mod unit_tests {
             password_hash: String::new(),
             created_at: chrono::Utc::now(),
             description: String::new(),
+            tos_accepted_at: None,
             email_confirmed_at: None,
             email_confirmation_token_hash: None,
             email_confirmation_token_expires_at: None,

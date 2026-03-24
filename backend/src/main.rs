@@ -1,6 +1,5 @@
 mod auth;
 mod avatar;
-#[cfg_attr(test, allow(dead_code))]
 mod config;
 pub mod db;
 pub mod email;
@@ -17,13 +16,13 @@ mod tos;
 mod utils;
 mod validate;
 
-use db::Database as _;
 pub use error::ApiError;
 use tokio::sync::Notify;
 
+use crate::{db::Database as _, email::Mailer};
+
 pub static ON_SHUTDOWN: Notify = Notify::const_new();
 
-#[cfg(not(test))]
 fn main() -> std::process::ExitCode {
     use std::sync::atomic::{AtomicUsize, Ordering};
     rustls::crypto::aws_lc_rs::default_provider()
@@ -47,7 +46,6 @@ fn main() -> std::process::ExitCode {
         .block_on(async_main());
 }
 
-#[cfg(not(test))]
 async fn async_main() -> std::process::ExitCode {
     use salvo::prelude::*;
     use std::process::ExitCode;
@@ -91,8 +89,11 @@ async fn async_main() -> std::process::ExitCode {
         .expect("Failed to initialize ToS version");
 
     // Initialize email sender (SMTP → Mailpit in dev, AWS SES in prod)
-    let mailer: email::Mailer =
-        email::SmtpEmailSender::new(&config.email).expect("Failed to initialize email sender");
+    #[cfg(not(test))]
+    let mailer: Mailer = Mailer::new(&config.email).expect("Failed to initialize email sender");
+
+    #[cfg(test)]
+    let mailer = Mailer::new();
 
     let mut router = routers::root(database, tos_timestamp, mailer)
         .hoop(ForceHttps::new().https_port(config.listen_https_port));
@@ -111,7 +112,6 @@ async fn async_main() -> std::process::ExitCode {
     ExitCode::SUCCESS
 }
 
-#[cfg(not(test))]
 async fn setup_acceptor_socket(
     cfg: &crate::config::ServerConfig,
     tls: &crate::config::TlsConfig,
@@ -135,7 +135,6 @@ async fn setup_acceptor_socket(
     acceptor
 }
 
-#[cfg(not(test))]
 async fn setup_acme_acceptor_socket(
     cfg: &crate::config::ServerConfig,
     domain: &String,
@@ -157,7 +156,6 @@ async fn setup_acme_acceptor_socket(
 }
 
 // generic helper to enable using different acceptor types
-#[cfg(not(test))]
 async fn run_server<A>(acceptor: A, router: salvo::Router)
 where
     A: salvo::conn::Acceptor + Send,
@@ -171,7 +169,6 @@ where
     server.serve(service).await;
 }
 
-#[cfg(not(test))]
 async fn shutdown_signal(handle: salvo::server::ServerHandle) {
     use std::time::Duration;
     use tokio::signal;

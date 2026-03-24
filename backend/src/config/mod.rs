@@ -53,6 +53,7 @@ pub struct ServerConfig {
     pub tls: Option<TlsConfig>,
     #[serde(default = "default_serve_dir")]
     pub serve_dir: String,
+    #[cfg_attr(test, allow(dead_code))]
     #[serde(default)]
     pub email: EmailConfig,
 }
