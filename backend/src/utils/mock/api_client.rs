@@ -24,6 +24,17 @@ impl ApiClient {
         }
     }
 
+    /// Create a new client connected to a different server but carrying
+    /// over all cookies and headers. Useful for testing against a server
+    /// with a different ToS timestamp (same DB).
+    pub fn rebind(&self, server: &Server) -> ApiClient {
+        ApiClient {
+            server: server.clone(),
+            headers: self.headers.clone(),
+            cookies: self.cookies.clone(),
+        }
+    }
+
     /// Create a new client connected to the same server but without any
     /// cookies or custom headers — i.e. an unauthenticated twin.
     pub fn unauthenticated(&self) -> ApiClient {

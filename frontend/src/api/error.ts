@@ -78,6 +78,9 @@ function getMessageFromBrief(brief: string): string {
 		TwoFactorRequired: 'Two-factor authentication code is required.',
 		TwoFactorInvalid: 'Invalid two-factor authentication code.',
 
+		// ToS errors
+		TosNotAccepted: 'Please accept the Terms of Service to continue.',
+
 		// Success messages
 		DidLogout: 'You have been logged out successfully.',
 	};

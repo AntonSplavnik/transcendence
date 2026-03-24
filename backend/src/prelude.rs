@@ -11,6 +11,7 @@ pub use crate::db::{self, Database, Db, DbConn, DbError, DepotDatabaseExt as _};
 pub use crate::error::ApiError;
 pub use crate::notifications::NotificationManagerDepotExt as _;
 pub use crate::stream::StreamManagerDepotExt as _;
+pub use crate::tos::{DepotTosExt as _, RouterTosExt as _};
 pub use crate::utils::limiter::{RateLimit, RouterRateLimitExt as _};
 pub use crate::utils::nick_cache::NicknameCache;
 pub use crate::utils::nick_cache::NicknameCacheDepotExt as _;
