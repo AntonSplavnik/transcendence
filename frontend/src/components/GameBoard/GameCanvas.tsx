@@ -181,11 +181,10 @@ function setupSpectatorCamera(
 	canvas: HTMLCanvasElement,
 	camera: UniversalCamera,
 	engine: Engine,
-): () => void {
+): { cleanup: () => void; getOrtho: () => number } {
 	const cleanups: (() => void)[] = [];
-
-	const SPECTATOR_ORTHO = 55;
-	let ortho = SPECTATOR_ORTHO;
+	const INITIAL_ORTHO = 55;
+	let ortho = INITIAL_ORTHO;
 	const MIN_ORTHO = 15;
 	const MAX_ORTHO = 80;
 
@@ -207,45 +206,6 @@ function setupSpectatorCamera(
 	canvas.addEventListener('wheel', onWheel, { passive: false });
 	cleanups.push(() => canvas.removeEventListener('wheel', onWheel));
 
-	// Click-drag to pan
-	let panning = false;
-	let px = 0;
-	let py = 0;
-	const onDown = (e: PointerEvent) => {
-		panning = true;
-		px = e.clientX;
-		py = e.clientY;
-		canvas.setPointerCapture(e.pointerId);
-	};
-	const onMove = (e: PointerEvent) => {
-		if (!panning) return;
-		const dx = e.clientX - px;
-		const dy = e.clientY - py;
-		px = e.clientX;
-		py = e.clientY;
-		const s = (ortho / SPECTATOR_ORTHO) * 0.15;
-		const R = 0.7071;
-		camera.position.x += (-dx * R + dy * R) * s;
-		camera.position.z += (-dx * R - dy * R) * s;
-		camera.setTarget(
-			camera.position.subtract(
-				new BABYLON.Vector3(ISO_CAM_OFFSET.x, ISO_CAM_OFFSET.y, ISO_CAM_OFFSET.z),
-			),
-		);
-	};
-	const onUp = (e: PointerEvent) => {
-		panning = false;
-		canvas.releasePointerCapture(e.pointerId);
-	};
-	canvas.addEventListener('pointerdown', onDown);
-	canvas.addEventListener('pointermove', onMove);
-	canvas.addEventListener('pointerup', onUp);
-	cleanups.push(() => {
-		canvas.removeEventListener('pointerdown', onDown);
-		canvas.removeEventListener('pointermove', onMove);
-		canvas.removeEventListener('pointerup', onUp);
-	});
-
 	// Resize: engine + spectator ortho recalculation
 	const onResize = () => {
 		engine.resize();
@@ -254,7 +214,10 @@ function setupSpectatorCamera(
 	window.addEventListener('resize', onResize);
 	cleanups.push(() => window.removeEventListener('resize', onResize));
 
-	return () => { for (const fn of cleanups) fn(); };
+	return {
+		cleanup: () => { for (const fn of cleanups) fn(); },
+		getOrtho: () => ortho,
+	};
 }
 
 // ── React component ─────────────────────────────────────────────────
@@ -387,7 +350,11 @@ export default function GameCanvas({
 				});
 			} else {
 				// ── Spectator-only setup ───────────────────────────────
-				cleanupSpectator = setupSpectatorCamera(canvas, camera, engine);
+				const spectator = setupSpectatorCamera(canvas, camera, engine);
+				cleanupSpectator = spectator.cleanup;
+
+				// Reuse WASD input for camera panning (same isometric directions)
+				const { input } = setupInput(scene);
 
 				const TARGET_FRAME_MS = 1000 / 60;
 				let lastFrameTime = 0;
@@ -407,6 +374,20 @@ export default function GameCanvas({
 					if (snap !== null) {
 						gameClient.processSnapshot(snap);
 						snapshotRef.current = null;
+					}
+
+					// WASD pans camera (same isometric directions as player movement)
+					const dx = input.movementDirection.x;
+					const dz = input.movementDirection.z;
+					if (dx !== 0 || dz !== 0) {
+						const panSpeed = (input.isSprinting ? 1.2 : 0.5) * (spectator.getOrtho() / 30);
+						camera.position.x += dx * panSpeed;
+						camera.position.z += dz * panSpeed;
+						camera.setTarget(
+							camera.position.subtract(
+								new BABYLON.Vector3(ISO_CAM_OFFSET.x, ISO_CAM_OFFSET.y, ISO_CAM_OFFSET.z),
+							),
+						);
 					}
 
 					scene.render();
