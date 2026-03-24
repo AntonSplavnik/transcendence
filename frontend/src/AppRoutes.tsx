@@ -259,7 +259,7 @@ export default function AppRoutes() {
 					}
 				/>
 
-				<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
+			<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
 				<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
 
 				<Route path="*" element={<Navigate to="/landing" replace />} />
