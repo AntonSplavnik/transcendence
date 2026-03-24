@@ -56,7 +56,7 @@ export class AnimatedCharacter {
 		});
 	}
 
-	async attachToBone(assetUrl: string, boneName: string, position?: Vector3): Promise<void> {
+	async attachToBone(assetUrl: string, boneName: string, position?: Vector3, rotation?: Vector3): Promise<void> {
 		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
 		if (!this.skeleton) return;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,8 +66,9 @@ export class AnimatedCharacter {
 		result.meshes.forEach((mesh) => {
 			if (mesh.name === '__root__') return;
 			mesh.attachToBone(bone, parentMesh);
+			mesh.rotationQuaternion = null; // glTF sets quaternion which overrides .rotation
 			position ? mesh.position.copyFrom(position) : mesh.position.set(0, 0, 0);
-			mesh.rotation.set(0, 0, 0);
+			rotation ? mesh.rotation.copyFrom(rotation) : mesh.rotation.set(0, 0, 0);
 			mesh.scaling.set(1, 1, 1);
 		});
 	}
@@ -112,7 +113,10 @@ export async function loadCharacter(
 		const pos = slot.position
 			? new Vector3(slot.position[0], slot.position[1], slot.position[2])
 			: undefined;
-		await char.attachToBone(slot.model, slot.bone, pos);
+		const rot = slot.rotation
+			? new Vector3(slot.rotation[0], slot.rotation[1], slot.rotation[2])
+			: undefined;
+		await char.attachToBone(slot.model, slot.bone, pos, rot);
 	}
 	char.rootNode.scaling.setAll(config.scale);
 }

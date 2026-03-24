@@ -14,6 +14,7 @@ export interface EquipmentSlot {
 	model: string;
 	bone: string;
 	position?: [number, number, number]; // bone-local XYZ offset
+	rotation?: [number, number, number]; // bone-local XYZ rotation (radians)
 }
 
 export interface CharacterConfig {
@@ -44,7 +45,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		model: rogueModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
 		equipment: [
-			{ model: daggerModel, bone: 'handslot.r' },
+			{ model: daggerModel, bone: 'handslot.r', rotation: [0, 3.14, 0] },
 		],
 		scale: 3,
 		previewBgColor: '#582880',
