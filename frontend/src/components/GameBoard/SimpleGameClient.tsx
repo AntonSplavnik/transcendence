@@ -388,68 +388,30 @@ export default function SimpleGameClient({
 			camera.minZ = 0.1;
 			camera.maxZ = 500;
 
-			// ── Spectator camera: wider view + pan/zoom ──────────────────
-			// All event-driven (zero per-frame cost). Collected for cleanup.
+			// ── Spectator camera: wider view + scroll-zoom ──────────────
+			// WASD panning is handled in the render loop (reuses the existing
+			// input/isoDir infrastructure — same directions, applied to camera).
+			let spectatorOrtho = ISO_ORTHO_SIZE;
 			if (isSpectator) {
-				const SPECTATOR_ORTHO = 55;
-				camera.orthoLeft = -SPECTATOR_ORTHO * aspect;
-				camera.orthoRight = SPECTATOR_ORTHO * aspect;
-				camera.orthoTop = SPECTATOR_ORTHO;
-				camera.orthoBottom = -SPECTATOR_ORTHO;
+				spectatorOrtho = 55;
+				camera.orthoLeft = -spectatorOrtho * aspect;
+				camera.orthoRight = spectatorOrtho * aspect;
+				camera.orthoTop = spectatorOrtho;
+				camera.orthoBottom = -spectatorOrtho;
 
-				let ortho = SPECTATOR_ORTHO;
 				const MIN_ORTHO = 15;
 				const MAX_ORTHO = 80;
-
-				const applyOrtho = () => {
-					const a = engine.getRenderWidth() / engine.getRenderHeight();
-					camera.orthoLeft = -ortho * a;
-					camera.orthoRight = ortho * a;
-					camera.orthoTop = ortho;
-					camera.orthoBottom = -ortho;
-				};
-
 				const onWheel = (e: WheelEvent) => {
 					e.preventDefault();
-					ortho = Math.max(MIN_ORTHO, Math.min(MAX_ORTHO, ortho + Math.sign(e.deltaY) * 3));
-					applyOrtho();
+					spectatorOrtho = Math.max(MIN_ORTHO, Math.min(MAX_ORTHO, spectatorOrtho + Math.sign(e.deltaY) * 3));
+					const a = engine.getRenderWidth() / engine.getRenderHeight();
+					camera.orthoLeft = -spectatorOrtho * a;
+					camera.orthoRight = spectatorOrtho * a;
+					camera.orthoTop = spectatorOrtho;
+					camera.orthoBottom = -spectatorOrtho;
 				};
 				canvas.addEventListener('wheel', onWheel, { passive: false });
 				spectatorCleanup.push(() => canvas.removeEventListener('wheel', onWheel));
-
-				let panning = false;
-				let px = 0;
-				let py = 0;
-				const onDown = (e: PointerEvent) => {
-					panning = true;
-					px = e.clientX;
-					py = e.clientY;
-					canvas.setPointerCapture(e.pointerId);
-				};
-				const onMove = (e: PointerEvent) => {
-					if (!panning) return;
-					const dx = e.clientX - px;
-					const dy = e.clientY - py;
-					px = e.clientX;
-					py = e.clientY;
-					const s = (ortho / SPECTATOR_ORTHO) * 0.15;
-					const R = 0.7071;
-					camera.position.x += (-dx * R + dy * R) * s;
-					camera.position.z += (-dx * R - dy * R) * s;
-					camera.setTarget(camera.position.subtract(ISO_CAM_OFFSET));
-				};
-				const onUp = (e: PointerEvent) => {
-					panning = false;
-					canvas.releasePointerCapture(e.pointerId);
-				};
-				canvas.addEventListener('pointerdown', onDown);
-				canvas.addEventListener('pointermove', onMove);
-				canvas.addEventListener('pointerup', onUp);
-				spectatorCleanup.push(() => {
-					canvas.removeEventListener('pointerdown', onDown);
-					canvas.removeEventListener('pointermove', onMove);
-					canvas.removeEventListener('pointerup', onUp);
-				});
 			}
 
 			scene.onReadyObservable.addOnce(() => {
@@ -639,19 +601,31 @@ export default function SimpleGameClient({
 					snapshotRef.current = null;
 				}
 
-				// Send input at 60 Hz — matches the server's game-loop tick rate.
-				if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
-					lastLookDir.x = input.movementDirection.x;
-					lastLookDir.z = input.movementDirection.z;
+				if (isSpectator) {
+					// WASD pans camera (same isometric directions as player movement)
+					const dx = input.movementDirection.x;
+					const dz = input.movementDirection.z;
+					if (dx !== 0 || dz !== 0) {
+						const panSpeed = (input.isSprinting ? 1.2 : 0.5) * (spectatorOrtho / 30);
+						camera.position.x += dx * panSpeed;
+						camera.position.z += dz * panSpeed;
+						camera.setTarget(camera.position.subtract(ISO_CAM_OFFSET));
+					}
+				} else {
+					// Send input at 60 Hz — matches the server's game-loop tick rate.
+					if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+						lastLookDir.x = input.movementDirection.x;
+						lastLookDir.z = input.movementDirection.z;
+					}
+					const lookDir = lastLookDir;
+					onSendInput(
+						input.movementDirection,
+						lookDir,
+						input.isAttacking,
+						input.isJumping,
+						input.isSprinting,
+					);
 				}
-				const lookDir = lastLookDir;
-				onSendInput(
-					input.movementDirection,
-					lookDir,
-					input.isAttacking,
-					input.isJumping,
-					input.isSprinting,
-				);
 
 				scene.render();
 			});
