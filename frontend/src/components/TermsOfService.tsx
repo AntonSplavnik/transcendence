@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ScrollText } from 'lucide-react';
-import { acceptTos } from '../api/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { Button, Card } from './ui';
 
@@ -9,7 +9,8 @@ interface TermsOfServiceProps {
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
-	const { user, hasAcceptedTos, tosLoaded } = useAuth();
+	const { user, hasAcceptedTos, tosLoaded, acceptTos } = useAuth();
+	const navigate = useNavigate();
 	const [accepting, setAccepting] = useState(false);
 	const [acceptError, setAcceptError] = useState<string | null>(null);
 
@@ -18,11 +19,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 		setAcceptError(null);
 		try {
 			await acceptTos();
-			// Navigate back to the previous page and reload to clear any stale state
-			// from API requests that failed due to missing ToS acceptance.
-			window.history.back();
-			// Wait for navigation to complete before reloading
-			setTimeout(() => window.location.reload(), 100);
+			navigate('/home', { replace: true });
 		} catch {
 			setAcceptError('Failed to accept Terms of Service. Please try again.');
 			setAccepting(false);

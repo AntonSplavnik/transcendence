@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import * as authApi from '../api/auth';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';
-import { setAuthFailureCallback } from '../api/client';
+import { setAuthFailureCallback, setTosNotAcceptedCallback } from '../api/client';
 import type { User, Session, AuthResponse } from '../api/types';
 
 interface AuthContextType {
@@ -31,6 +31,7 @@ interface AuthContextType {
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
+	acceptTos: () => Promise<void>;
 	logout: () => Promise<void>;
 	clearAuth: () => void;
 	refreshUser: () => Promise<void>;
@@ -61,11 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	//    This is the happy path.
 	//
 	// 2. `tosRequired` — set to `true` when any API call returns
-	//    403 TosNotAccepted (via the `tos-not-accepted` window event from
-	//    the axios interceptor in client.ts). This is the fallback: if the
-	//    /api/tos fetch fails (network error, server error), `tosTimestamp`
-	//    stays null, but `tosRequired` still lets us show the gate as soon
-	//    as the backend actually rejects a request.
+	//    403 TosNotAccepted (via the callback registered with
+	//    `setTosNotAcceptedCallback` in client.ts). This is the fallback:
+	//    if the /api/tos fetch fails (network error, server error),
+	//    `tosTimestamp` stays null, but `tosRequired` still lets us show
+	//    the gate as soon as the backend actually rejects a request.
 	//
 	// Together they feed the two context values consumers care about:
 	//   tosLoaded      = tosTimestamp !== null || tosRequired
@@ -127,19 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	}, [user, fetchTosTimestamp]);
 
-	// Listen for 403 TosNotAccepted from the axios interceptor (client.ts).
-	// Two things happen:
+	// Register callback for 403 TosNotAccepted from the axios interceptor
+	// (client.ts). Two things happen when the callback fires:
 	// 1. `tosRequired = true` — immediately enables the ToS gate UI even if
 	//    the /api/tos fetch never succeeded (see state comment above).
 	// 2. Re-fetch the timestamp — so that `deriveHasAcceptedTos` can do a
 	//    proper comparison once the user accepts and the page reloads.
 	useEffect(() => {
-		const onTosNotAccepted = () => {
+		setTosNotAcceptedCallback(() => {
 			setTosRequired(true);
 			fetchTosTimestamp();
-		};
-		window.addEventListener('tos-not-accepted', onTosNotAccepted);
-		return () => window.removeEventListener('tos-not-accepted', onTosNotAccepted);
+		});
+		return () => setTosNotAcceptedCallback(null);
 	}, [fetchTosTimestamp]);
 
 	// initial auth check on mount
@@ -189,6 +189,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	};
 
+	// Accept the current ToS: call the API, clear the forced-false flag,
+	// and refresh user data so `hasAcceptedTos` derives to true.
+	const acceptTos = useCallback(async (): Promise<void> => {
+		await authApi.acceptTos();
+		setTosRequired(false);
+		const data = await userApi.getMe();
+		setAuthData(data);
+	}, []);
+
 	// Refresh user data from server
 	const refreshUser = async (): Promise<void> => {
 		const data = await userApi.getMe();
@@ -203,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				authChecked,
 				hasAcceptedTos,
 				tosLoaded: tosTimestamp !== null || tosRequired,
+				acceptTos,
 				login,
 				register,
 				reauth,

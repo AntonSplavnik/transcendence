@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 
-import { acceptTos } from '../../api/auth';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button, Modal } from '../ui';
 
 /**
@@ -11,6 +11,8 @@ import { Button, Modal } from '../ui';
  * any feature-level endpoint.
  */
 export default function TosModal() {
+	const { acceptTos } = useAuth();
+	const navigate = useNavigate();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -19,9 +21,7 @@ export default function TosModal() {
 		setError(null);
 		try {
 			await acceptTos();
-			// Full reload to clear any stale state from API requests that
-			// failed due to missing ToS acceptance (e.g. avatars, streams).
-			window.location.reload();
+			navigate('/home', { replace: true });
 		} catch {
 			setError('Failed to accept Terms of Service. Please try again.');
 			setLoading(false);

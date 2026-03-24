@@ -8,6 +8,11 @@ export function setAuthFailureCallback(cb: (() => void) | null) {
 	authFailureCallback = cb;
 }
 
+let tosNotAcceptedCallback: (() => void) | null = null;
+export function setTosNotAcceptedCallback(cb: (() => void) | null) {
+	tosNotAcceptedCallback = cb;
+}
+
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
 }
@@ -44,14 +49,13 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	error.message = getErrorMessage(error);
 
 	// Handle 403 Forbidden — ToS not accepted.
-	// Emit a window event so AuthContext can activate the ToS gate UI
-	// without a direct dependency on this interceptor. This is the
-	// authoritative signal that the backend requires ToS acceptance —
-	// AuthContext uses it as a fallback when the /api/tos fetch fails.
+	// Notify AuthContext via callback so it can activate the ToS gate UI.
+	// This is the authoritative signal that the backend requires ToS
+	// acceptance — AuthContext uses it as a fallback when /api/tos fails.
 	if (error.response.status === 403) {
 		const brief = getErrorBrief(error);
 		if (brief === 'TosNotAccepted') {
-			window.dispatchEvent(new Event('tos-not-accepted'));
+			tosNotAcceptedCallback?.();
 			return Promise.reject(error);
 		}
 	}

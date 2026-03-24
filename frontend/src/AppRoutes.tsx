@@ -141,7 +141,7 @@ function RealtimeStatusOverlays() {
 }
 
 export default function AppRoutes() {
-	const { logout, authChecked } = useAuth();
+	const { user, logout, authChecked } = useAuth();
 	const { connectionManager } = useStream();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -193,7 +193,11 @@ export default function AppRoutes() {
 			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			<Routes>
+			{/* Key on tos_accepted_at so the entire route tree remounts after
+			   ToS acceptance. Components that failed to fetch data (403
+			   TosNotAccepted) hold stale error state — a remount gives them
+			   a fresh start without requiring a full page reload. */}
+			<Routes key={user?.tos_accepted_at ?? 'pending'}>
 				<Route
 					path="/landing"
 					element={
