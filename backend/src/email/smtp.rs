@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use lettre::message::Mailbox;
 use lettre::message::header::ContentType;
@@ -58,17 +59,34 @@ impl SmtpEmailSender {
 }
 
 impl EmailSender for SmtpEmailSender {
-    async fn send(&self, to: &str, email: TransactionalEmail) -> Result<(), EmailError> {
-        let (subject, body) = email.render(&self.inner.base_url);
+    async fn send(
+        &self,
+        user: &crate::models::User,
+        email: TransactionalEmail,
+    ) -> Result<(), EmailError> {
+        // All variants except EmailConfirmation require a confirmed email
+        if !matches!(email, TransactionalEmail::EmailConfirmation { .. })
+            && user.email_confirmed_at.is_none()
+        {
+            return Err(EmailError::UnconfirmedEmail);
+        }
+
+        let (subject, body) = email.render(&self.inner.base_url, user);
 
         let message = Message::builder()
             .from(self.inner.from.clone())
-            .to(to.parse()?)
+            .to(user.email.parse()?)
             .subject(subject)
             .header(ContentType::TEXT_PLAIN)
             .body(body)?;
 
-        self.inner.transport.send(message).await?;
+        tokio::time::timeout(Duration::from_secs(10), async {
+            self.inner.transport.send(message).await?;
+            Ok::<(), EmailError>(())
+        })
+        .await
+        .map_err(|_| EmailError::Timeout)??;
+
         Ok(())
     }
 }

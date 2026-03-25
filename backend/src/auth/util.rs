@@ -166,9 +166,16 @@ pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
     (device, ip)
 }
 
-static RANDOM_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
-    hash_password("dummy password").expect("Failed to generate dummy password hash")
-});
+pub fn random_password_hash() -> String {
+    let rndm: [u8; 1024] = rand::random();
+    let salt = SaltString::generate(&mut OsRng);
+    ARGON2
+        .hash_password(&rndm, &salt)
+        .expect("Failed to generate dummy password hash")
+        .to_string()
+}
+
+static RANDOM_PASSWORD_HASH: LazyLock<String> = LazyLock::new(random_password_hash);
 
 static ARGON2: LazyLock<Argon2<'static>> = LazyLock::new(Argon2::default);
 
@@ -183,6 +190,11 @@ pub fn verify_password(
         Some(_) => res,
         None => Err(password_hash::Error::Password), // when no hash (user does not exist), always return Error::Password
     }
+}
+
+pub(crate) fn delete_auth_cookies(res: &mut salvo::Response) {
+    res.remove_cookie(super::SESSION_COOKIE_NAME);
+    res.remove_cookie(super::JWT_COOKIE_NAME);
 }
 
 pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {

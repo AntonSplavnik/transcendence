@@ -3,12 +3,14 @@ use std::{sync::LazyLock, time::Duration};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+pub mod delete_account;
+pub mod export_data;
 mod hoops;
 mod router;
 pub mod session_token;
 mod two_factor;
 mod user;
-mod util;
+pub(crate) mod util;
 
 pub use hoops::{AuthError, DepotAuthExt, RouterAuthExt, device_id_inserter_hoop};
 pub use router::router;

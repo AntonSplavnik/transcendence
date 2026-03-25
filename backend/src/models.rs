@@ -259,3 +259,21 @@ pub struct OfflineNotification {
 }
 
 // construct and use NewOfflineNotification (which omits the id field) for insertion
+
+#[derive(Queryable, Selectable, Insertable, Debug)]
+#[diesel(table_name = crate::schema::account_deletion_requests)]
+pub struct AccountDeletionRequest {
+    pub user_id: i32,
+    pub token: Vec<u8>,
+    pub confirm_token: Option<Vec<u8>>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Queryable, Selectable, Insertable, Debug)]
+#[diesel(table_name = crate::schema::data_export_requests)]
+pub struct DataExportRequest {
+    pub user_id: i32,
+    pub token: Vec<u8>,
+    pub confirm_token: Option<Vec<u8>>,
+    pub expires_at: DateTime<Utc>,
+}

@@ -99,6 +99,25 @@ pub trait Database: Send + Sync + Clone + 'static {
         R: Send + 'static;
 }
 
+// ── User lookup extension ─────────────────────────────────────────────────
+
+#[allow(async_fn_in_trait)]
+pub trait DatabaseUserExt {
+    async fn get_user(&self, user_id: i32) -> Result<crate::models::User, crate::ApiError>;
+}
+
+impl DatabaseUserExt for Db {
+    async fn get_user(&self, user_id: i32) -> Result<crate::models::User, crate::ApiError> {
+        Ok(self
+            .read(move |conn| {
+                use crate::schema::users::dsl::*;
+                use diesel::{QueryDsl, RunQueryDsl};
+                users.find(user_id).first::<crate::models::User>(conn)
+            })
+            .await??)
+    }
+}
+
 // ── Handler extraction ─────────────────────────────────────────────────────
 
 impl<'ex> Extractible<'ex> for Db {

@@ -1,9 +1,18 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index b584efd..33c5f73 100644
+index 0f3a639..325ef5a 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,91 +1,91 @@
- // @generated automatically by Diesel CLI.
+@@ -2,108 +2,108 @@
+ 
+ diesel::table! {
+     account_deletion_requests (user_id) {
+         user_id -> Integer,
+         token -> Binary,
+         confirm_token -> Nullable<Binary>,
+-        expires_at -> Timestamp,
++        expires_at -> TimestamptzSqlite,
+     }
+ }
  
  diesel::table! {
      avatars_large (user_id) {
@@ -20,6 +29,16 @@ index b584efd..33c5f73 100644
          data -> Binary,
 -        updated_at -> Timestamp,
 +        updated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     data_export_requests (user_id) {
+         user_id -> Integer,
+         token -> Binary,
+         confirm_token -> Nullable<Binary>,
+-        expires_at -> Timestamp,
++        expires_at -> TimestamptzSqlite,
      }
  }
  
@@ -109,5 +128,5 @@ index b584efd..33c5f73 100644
      }
  }
  
+ diesel::joinable!(account_deletion_requests -> users (user_id));
  diesel::joinable!(avatars_large -> users (user_id));
- diesel::joinable!(avatars_small -> users (user_id));

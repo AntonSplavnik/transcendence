@@ -38,9 +38,20 @@ impl MockEmailSender {
 }
 
 impl EmailSender for MockEmailSender {
-    async fn send(&self, to: &str, email: TransactionalEmail) -> Result<(), EmailError> {
+    async fn send(
+        &self,
+        user: &crate::models::User,
+        email: TransactionalEmail,
+    ) -> Result<(), EmailError> {
+        // Mirror the SMTP implementation: reject unconfirmed email for non-confirmation variants
+        if !matches!(email, TransactionalEmail::EmailConfirmation { .. })
+            && user.email_confirmed_at.is_none()
+        {
+            return Err(EmailError::UnconfirmedEmail);
+        }
+
         self.sent.lock().push(SentEmail {
-            to: to.to_owned(),
+            to: user.email.clone(),
             email,
         });
         Ok(())

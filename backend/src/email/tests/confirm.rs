@@ -17,6 +17,7 @@ fn extract_token_from_mock(server: &mock::Server) -> String {
         TransactionalEmail::EmailConfirmation {
             confirmation_token, ..
         } => confirmation_token.clone(),
+        _ => panic!("expected EmailConfirmation variant"),
     }
 }
 

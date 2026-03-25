@@ -16,6 +16,8 @@ pub trait NicknameCache: Sync + Send + Clone {
     fn try_get(&self, user_id: i32, conn: &mut DbConn) -> Option<Nickname>;
     /// i.e. to add newly registered user to the cache, before that user is ever requested.
     fn add(&self, user_id: i32, nickname: Nickname);
+    /// Remove a user's cached nickname (e.g. after account deletion).
+    fn invalidate(&self, user_id: i32);
 
     fn get(&self, user_id: i32, conn: &mut DbConn) -> Nickname {
         self.try_get(user_id, conn)
@@ -96,6 +98,11 @@ impl NicknameCache for NickLruMapCache {
     fn add(&self, user_id: i32, nickname: Nickname) {
         self.0.insert(user_id, nickname);
     }
+
+    #[inline]
+    fn invalidate(&self, user_id: i32) {
+        self.0.remove(&user_id);
+    }
 }
 
 /// A [`NicknameCache`] backed by a time-to-idle (TTI) eviction policy.
@@ -161,6 +168,11 @@ impl NicknameCache for NickTTICache {
     #[inline]
     fn add(&self, user_id: i32, nickname: Nickname) {
         self.0.insert(user_id, nickname);
+    }
+
+    #[inline]
+    fn invalidate(&self, user_id: i32) {
+        self.0.invalidate(&user_id);
     }
 }
 
