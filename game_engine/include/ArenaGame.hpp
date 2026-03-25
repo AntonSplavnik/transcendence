@@ -269,7 +269,7 @@ inline void ArenaGame::registerHit(PlayerID attackerID, PlayerID victimID, float
 inline void ArenaGame::initializeSpawnPositions(int numPlayers) {
     // Arena is centered at (0, 0, 0): positions range from -ARENA_WIDTH/2 to ARENA_WIDTH/2.
     // Divide the full circle equally among the given number of players.
-    const float radius = GameConfig::ARENA_WIDTH * 0.15f;  // 15% of arena width (~15 units)
+    const float radius = GameConfig::ARENA_WIDTH * 0.35f;  // 35% of arena width (~17.5 units)
     const int numSpawns = numPlayers > 0 ? numPlayers : GameConfig::MAX_PLAYERS;
     const float angleStep = 2.0f * 3.14159265359f / numSpawns;
 
