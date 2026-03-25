@@ -107,6 +107,7 @@ use crate::utils::adaptive_buffer::BufferParams;
 pub fn router(path: impl Into<String>) -> Router {
     Router::with_path(path)
         .requires_user_login()
+        .requires_tos_accepted()
         .oapi_tag("stream")
         .push(
             Router::with_path("bind")

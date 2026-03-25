@@ -8,6 +8,7 @@ import GameBoard from './components/GameBoard';
 import Home from './components/Home';
 import LandingPage from './components/LandingPage';
 import DisplacedModal from './components/modals/DisplacedModal';
+import TosModal from './components/modals/TosModal';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
@@ -78,16 +79,44 @@ function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnecti
 	return <ConnectionStatusBanner state={state} />;
 }
 
+/**
+ * Show the non-dismissible ToS acceptance modal when an authenticated user
+ * has not accepted the current Terms of Service.
+ *
+ * Waits for `tosLoaded` to avoid flashing the modal before we know whether
+ * acceptance is actually needed. `tosLoaded` becomes true either when the
+ * /api/tos timestamp is fetched OR when the backend returns 403 TosNotAccepted
+ * on any gated endpoint (see AuthContext for details).
+ *
+ * Hidden on `/terms` where the full ToS page has its own inline accept button.
+ */
+function TosGate() {
+	const { user, authChecked, hasAcceptedTos, tosLoaded } = useAuth();
+	const location = useLocation();
+
+	if (!authChecked || !user || !tosLoaded || hasAcceptedTos) {
+		return null;
+	}
+	// On /terms the TermsOfService component shows its own accept button,
+	// so we skip the modal to avoid double UI.
+	if (location.pathname === '/terms') {
+		return null;
+	}
+	return <TosModal />;
+}
+
+/**
+ * Connection status banners, displacement modal, and notification toasts.
+ * Only rendered for authenticated users who have accepted the current ToS
+ * (the stream is intentionally disconnected otherwise).
+ */
 function RealtimeStatusOverlays() {
-	const { user, authChecked } = useAuth();
+	const { user, authChecked, hasAcceptedTos } = useAuth();
 	const { connectionState } = useStream();
 	const [dismissedDisplacementState, setDismissedDisplacementState] =
 		useState<ConnectionState | null>(null);
 
-	// These overlays only make sense for authenticated users. On public pages
-	// the stream is intentionally disconnected, so showing a connection warning
-	// would be misleading noise rather than useful status information.
-	if (!authChecked || !user) {
+	if (!authChecked || !user || !hasAcceptedTos) {
 		return null;
 	}
 
@@ -118,6 +147,7 @@ export default function AppRoutes() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const hideFooter = location.pathname === '/game';
+	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
@@ -162,10 +192,15 @@ export default function AppRoutes() {
 
 	return (
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
+			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			{user && <FriendsDrawer />}
-			<Routes>
+			{user && !isGame && <FriendsDrawer />}
+			{/* Key on tos_accepted_at so the entire route tree remounts after
+			   ToS acceptance. Components that failed to fetch data (403
+			   TosNotAccepted) hold stale error state — a remount gives them
+			   a fresh start without requiring a full page reload. */}
+			<Routes key={user?.tos_accepted_at ?? 'pending'}>
 				<Route
 					path="/landing"
 					element={

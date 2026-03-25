@@ -170,6 +170,9 @@ describe('AuthPage', () => {
 			await user.type(screen.getByPlaceholderText('you@kingdom.com'), 'new@example.com');
 			await user.type(screen.getByPlaceholderText('••••••••'), 'password123');
 
+			// Accept ToS
+			await user.click(screen.getByRole('checkbox'));
+
 			// Wait for nickname validation
 			await waitFor(() => {
 				expect(screen.getByText('✅')).toBeInTheDocument();
@@ -229,6 +232,9 @@ describe('AuthPage', () => {
 			await user.type(screen.getByPlaceholderText('Sir_Woodalot'), 'taken');
 			await user.type(screen.getByPlaceholderText('you@kingdom.com'), 'new@example.com');
 			await user.type(screen.getByPlaceholderText('••••••••'), 'password123');
+
+			// Accept ToS so the button is enabled
+			await user.click(screen.getByRole('checkbox'));
 
 			// Wait for validation to show taken
 			await waitFor(() => {

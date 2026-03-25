@@ -6,7 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    notifications::NotificationManager, prelude::*, stream::StreamManager, utils::NickCache,
+    notifications::NotificationManager, prelude::*, stream::StreamManager,
+    tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -14,7 +15,7 @@ pub mod users;
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api(database: Db) -> Router {
+pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
     let api_routes = Router::with_path("api")
         .hoop(affix_state::inject(NickCache::new(
             crate::utils::NICK_CACHE_TTI,
@@ -29,6 +30,10 @@ pub fn rest_api(database: Db) -> Router {
             crate::avatar::router("avatar"),
             crate::friends::router("friends"),
             crate::stream::router("stream"),
+            Router::with_path("tos")
+                .oapi_tag("tos")
+                .ip_rate_limit(&RateLimit::per_minute(30))
+                .get(crate::tos::current_tos),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -45,14 +50,15 @@ pub fn rest_api(database: Db) -> Router {
 
     Router::new()
         .hoop(affix_state::inject(database))
+        .hoop(affix_state::inject(tos_timestamp))
         .hoop(affix_state::inject(stream_manager))
         .hoop(affix_state::inject(NotificationManager::new()))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root(database: Db) -> Router {
-    let api_routes = rest_api(database);
+pub fn root(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
+    let api_routes = rest_api(database, tos_timestamp);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
     let router = Router::new().push(api_routes).push(

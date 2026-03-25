@@ -74,6 +74,8 @@ struct JwtClaims {
     pub jti: session_token::SessionTokenHashTruncated,
     pub exp: usize,
     pub iat: usize,
+    /// `tos_accepted_at` as a unix timestamp, or `None` if never accepted.
+    pub tos: Option<i64>,
 }
 
 impl Session {

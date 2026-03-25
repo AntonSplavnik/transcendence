@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import { sendFriendRequest } from '../../api/friends';
 import { getErrorMessage } from '../../api/error';
+import { validateNickname } from '../../utils/validation';
 
 interface AddFriendFormProps {
 	isOpen: boolean;
@@ -22,7 +23,8 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 		}
 	}, [isOpen]);
 
-	const canSend = nickname.trim().length > 0 && !isSending;
+	const nicknameError = nickname.trim().length > 0 ? validateNickname(nickname.trim()) : null;
+	const canSend = nickname.trim().length > 0 && !nicknameError && !isSending;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -55,7 +57,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 						}}
 						placeholder="Add by nickname..."
 						aria-label="Friend's nickname"
-						className="w-full bg-stone-900 border border-stone-700 rounded px-3 py-1.5 text-sm text-stone-100 focus:outline-none focus:border-primary"
+						className="w-full bg-stone-900 border border-stone-700 rounded px-3 py-1.5 text-sm text-stone-100 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
 					/>
 				</div>
 				<button
@@ -69,6 +71,7 @@ export default function AddFriendForm({ isOpen, onRequestSent }: AddFriendFormPr
 			</div>
 			{message && (
 				<p
+					role={message.type === 'error' ? 'alert' : 'status'}
 					className={`text-xs mt-1 ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
 				>
 					{message.text}

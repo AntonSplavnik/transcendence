@@ -216,6 +216,7 @@ export default function Username({
 		<span className="relative inline-block">
 			<button
 				ref={buttonRef}
+				type="button"
 				className={`${color} hover:underline cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit`}
 				onClick={handleClick}
 				aria-label={`Options for ${nickname}`}

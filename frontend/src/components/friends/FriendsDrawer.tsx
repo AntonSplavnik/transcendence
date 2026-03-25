@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Users, X, Circle, UserMinus, Check, Clock } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Users, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
 import type { PublicUser } from '../../api/types';
 import AddFriendForm from './AddFriendForm';
@@ -26,9 +26,12 @@ export default function FriendsDrawer() {
 		handleRemove,
 	} = useFriends();
 
-	// Escape key closes drawer
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+	// Focus close button when drawer opens, escape key closes drawer
 	useEffect(() => {
 		if (!isOpen) return;
+		closeButtonRef.current?.focus();
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') toggleDrawer();
 		};
@@ -56,7 +59,11 @@ export default function FriendsDrawer() {
 
 			{/* Panel */}
 			<div
+				role="dialog"
+				aria-label="Friends panel"
+				aria-modal="false"
 				className={`fixed top-0 right-0 h-full w-80 bg-stone-800 border-l border-stone-700 z-40 flex flex-col transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+				inert={!isOpen || undefined}
 			>
 				{/* Header */}
 				<div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
@@ -65,11 +72,12 @@ export default function FriendsDrawer() {
 						Friends
 					</h2>
 					<button
+						ref={closeButtonRef}
 						onClick={toggleDrawer}
-						className="text-stone-400 hover:text-stone-200 transition-colors"
+						className="text-stone-400 hover:text-stone-100 text-xl leading-none p-1 rounded hover:bg-stone-700/50 transition-colors"
 						aria-label="Close friends panel"
 					>
-						<X className="w-5 h-5" />
+						×
 					</button>
 				</div>
 
@@ -77,7 +85,11 @@ export default function FriendsDrawer() {
 				<div className="flex-1 overflow-y-auto p-3 space-y-4">
 					<AddFriendForm isOpen={isOpen} onRequestSent={fetchAll} />
 
-					{error && <p className="text-xs text-red-400">{error}</p>}
+					{error && (
+						<p role="alert" className="text-xs text-red-400">
+							{error}
+						</p>
+					)}
 
 					{loading ? (
 						<p className="text-stone-400 text-sm text-center py-4">Loading...</p>
@@ -86,7 +98,7 @@ export default function FriendsDrawer() {
 							{/* Incoming Requests */}
 							{incoming.length > 0 && (
 								<section>
-									<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Incoming Requests
 										<span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-primary text-primary-text">
 											{incoming.length}
@@ -98,8 +110,14 @@ export default function FriendsDrawer() {
 												key={req.id}
 												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50"
 											>
-												<span className="text-sm text-stone-100 truncate flex-1">
-													{req.sender.nickname}
+												<span className="text-sm truncate flex-1">
+													<Username
+														userId={req.sender.id}
+														nickname={req.sender.nickname}
+														isSelf={false}
+														interactive={true}
+														colored={false}
+													/>
 												</span>
 												<button
 													onClick={() => handleAccept(req.id)}
@@ -117,7 +135,7 @@ export default function FriendsDrawer() {
 													title="Reject"
 													aria-label={`Reject friend request from ${req.sender.nickname}`}
 												>
-													<X className="w-4 h-4" />
+													×
 												</button>
 											</li>
 										))}
@@ -128,7 +146,7 @@ export default function FriendsDrawer() {
 							{/* Outgoing Requests */}
 							{outgoing.length > 0 && (
 								<section>
-									<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Pending Requests
 										<span className="ml-1.5 text-stone-500 font-normal normal-case tracking-normal">
 											({outgoing.length})
@@ -141,8 +159,14 @@ export default function FriendsDrawer() {
 												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50 opacity-70"
 											>
 												<Clock className="w-2.5 h-2.5 flex-shrink-0 text-stone-500" />
-												<span className="text-sm text-stone-100 truncate flex-1">
-													{req.receiver.nickname}
+												<span className="text-sm truncate flex-1">
+													<Username
+														userId={req.receiver.id}
+														nickname={req.receiver.nickname}
+														isSelf={false}
+														interactive={true}
+														colored={false}
+													/>
 												</span>
 												<button
 													onClick={() => handleCancel(req.id)}
@@ -151,7 +175,7 @@ export default function FriendsDrawer() {
 													title="Cancel request"
 													aria-label={`Cancel friend request to ${req.receiver.nickname}`}
 												>
-													<X className="w-4 h-4" />
+													×
 												</button>
 											</li>
 										))}
@@ -161,7 +185,7 @@ export default function FriendsDrawer() {
 
 							{/* Friends List */}
 							<section>
-								<h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">
+								<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 									Friends ({friends.length})
 								</h3>
 								{friends.length === 0 ? (
@@ -174,7 +198,7 @@ export default function FriendsDrawer() {
 											<li key={friend.id}>
 												<div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50">
 													<Circle
-														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-500 text-stone-500'}`}
+														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-400 text-stone-400'}`}
 													/>
 													<span className="text-sm truncate flex-1">
 														<Username
