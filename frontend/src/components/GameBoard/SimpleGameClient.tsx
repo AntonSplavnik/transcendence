@@ -267,7 +267,10 @@ class GameClient {
 			const cameraForward = this.camera.getTarget().subtract(this.camera.position);
 			cameraForward.y = 0;
 			cameraForward.normalize();
-			const cameraRight = BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), cameraForward).normalize();
+			const cameraRight = BABYLON.Vector3.Cross(
+				BABYLON.Vector3.Up(),
+				cameraForward,
+			).normalize();
 			const worldMoveDir = cameraForward
 				.scale(input.movementDirection.z)
 				.add(cameraRight.scale(input.movementDirection.x));
@@ -312,7 +315,11 @@ class GameClient {
 			activePlayerIDs.add(char.player_id);
 
 			if (char.player_id === this.localPlayerID) {
-				const serverPos = new BABYLON.Vector3(char.position.x - ARENA_OFFSET.x, char.position.y, char.position.z - ARENA_OFFSET.z);
+				const serverPos = new BABYLON.Vector3(
+					char.position.x - ARENA_OFFSET.x,
+					char.position.y,
+					char.position.z - ARENA_OFFSET.z,
+				);
 				this.position.copyFrom(serverPos);
 				if (this.localCharacter) {
 					this.localCharacter.setPosition(this.position);
@@ -327,7 +334,11 @@ class GameClient {
 				if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
 					this.createRemoteCharacter(char.player_id, char);
 				} else if (remoteChar) {
-					const pos = new BABYLON.Vector3(char.position.x - ARENA_OFFSET.x, char.position.y, char.position.z - ARENA_OFFSET.z);
+					const pos = new BABYLON.Vector3(
+						char.position.x - ARENA_OFFSET.x,
+						char.position.y,
+						char.position.z - ARENA_OFFSET.z,
+					);
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
 					this.updateRemoteAnimation(char.player_id, remoteChar, char);
@@ -368,7 +379,11 @@ class GameClient {
 				return;
 			}
 			remoteChar.setPosition(
-				new BABYLON.Vector3(charData.position.x - ARENA_OFFSET.x, charData.position.y, charData.position.z - ARENA_OFFSET.z),
+				new BABYLON.Vector3(
+					charData.position.x - ARENA_OFFSET.x,
+					charData.position.y,
+					charData.position.z - ARENA_OFFSET.z,
+				),
 			);
 			remoteChar.setRotation(charData.yaw);
 			this.characters.set(playerID, remoteChar);
@@ -411,7 +426,10 @@ class GameClient {
 				character.playAnimation(AnimationNames.death, false);
 				break;
 			case CharacterState.Moving:
-				character.playAnimation(speed > 10 ? AnimationNames.run : AnimationNames.walk, true);
+				character.playAnimation(
+					speed > 10 ? AnimationNames.run : AnimationNames.walk,
+					true,
+				);
 				break;
 			case CharacterState.Idle:
 			default:
@@ -426,7 +444,12 @@ class GameClient {
 		const isGrounded = this.position.y <= 1.1;
 		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
-		this.jumpState = tickJumpState(this.localCharacter, this.jumpState, isGrounded, input.isJumping);
+		this.jumpState = tickJumpState(
+			this.localCharacter,
+			this.jumpState,
+			isGrounded,
+			input.isJumping,
+		);
 		if (this.jumpState !== JumpState.GROUNDED) return;
 
 		if (input.isAttacking) {
@@ -471,12 +494,19 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			engineRef.current = engine;
 
 			await TOOLKIT.SceneManager.InitializeRuntime(engine);
-			if (disposed) { engine.dispose(); return; }
+			if (disposed) {
+				engine.dispose();
+				return;
+			}
 
 			const scene = new BABYLON.Scene(engine);
 			sceneInstance = scene;
 
-			const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(78, 33, 22), scene);
+			const camera = new BABYLON.UniversalCamera(
+				'camera',
+				new BABYLON.Vector3(78, 33, 22),
+				scene,
+			);
 			camera.setTarget(new BABYLON.Vector3(50, 2, 50));
 			camera.minZ = 0.1;
 			camera.maxZ = 500;
@@ -487,7 +517,10 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 			// hemi.intensity = 0.6;
 
 			scene.onReadyObservable.addOnce(() => {
-				console.log('[Scene] cameras:', scene.cameras.map(c => `${c.name} (${c.getClassName()})`));
+				console.log(
+					'[Scene] cameras:',
+					scene.cameras.map((c) => `${c.name} (${c.getClassName()})`),
+				);
 				scene.activeCamera = camera;
 			});
 
@@ -542,7 +575,9 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 
 			const gameClient = new GameClient(scene, localPlayerId, camera);
 			gameClientRef.current = gameClient;
-			gameClient.initLocalPlayer().catch((e) => console.error('[GameClient] Failed to load local player:', e));
+			gameClient
+				.initLocalPlayer()
+				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
 
 			const input: InputState = {
 				movementDirection: { x: 0, y: 0, z: 0 },
@@ -578,7 +613,9 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 				const now = performance.now();
 				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
 				lastFrameTime =
-					now - lastFrameTime > TARGET_FRAME_MS * 2 ? now : lastFrameTime + TARGET_FRAME_MS;
+					now - lastFrameTime > TARGET_FRAME_MS * 2
+						? now
+						: lastFrameTime + TARGET_FRAME_MS;
 
 				const snap = snapshotRef.current;
 				if (snap !== null) {
@@ -615,4 +652,3 @@ export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayer
 
 	return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }
-
