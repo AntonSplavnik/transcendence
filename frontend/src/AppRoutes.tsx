@@ -196,7 +196,6 @@ export default function AppRoutes() {
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
 			{user && !isGame && <FriendsDrawer />}
-			<Routes>
 			{/* Key on tos_accepted_at so the entire route tree remounts after
 			   ToS acceptance. Components that failed to fetch data (403
 			   TosNotAccepted) hold stale error state — a remount gives them
