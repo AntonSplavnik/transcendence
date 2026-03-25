@@ -18,7 +18,7 @@ interface CreateLobbyModalProps {
  */
 export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 	const [name, setName] = useState('');
-	const [gamemode, setGamemode] = useState('default');
+	const [gamemode, _setGamemode] = useState('default');
 	const [isPublic, setIsPublic] = useState(true);
 	const [isCreating, setIsCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);

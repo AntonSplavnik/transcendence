@@ -67,8 +67,8 @@ export class AnimatedCharacter {
 			if (mesh.name === '__root__') return;
 			mesh.attachToBone(bone, parentMesh);
 			mesh.rotationQuaternion = null; // glTF sets quaternion which overrides .rotation
-			position ? mesh.position.copyFrom(position) : mesh.position.set(0, 0, 0);
-			rotation ? mesh.rotation.copyFrom(rotation) : mesh.rotation.set(0, 0, 0);
+			if (position) mesh.position.copyFrom(position); else mesh.position.set(0, 0, 0);
+			if (rotation) mesh.rotation.copyFrom(rotation); else mesh.rotation.set(0, 0, 0);
 			mesh.scaling.set(1, 1, 1);
 		});
 	}

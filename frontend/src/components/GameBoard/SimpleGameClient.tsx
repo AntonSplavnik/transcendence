@@ -3,7 +3,6 @@
 import type {
 	Engine,
 	Scene,
-	TransformNode,
 	UniversalCamera,
 	Vector3,
 } from '@babylonjs/core';
@@ -226,7 +225,7 @@ class GameClient {
 		try {
 			const cls = this.characterClassesRef.current?.get(playerID);
 			const config =
-				(cls && CHARACTER_CONFIGS[cls as keyof typeof CHARACTER_CONFIGS]) ??
+				(cls ? CHARACTER_CONFIGS[cls as keyof typeof CHARACTER_CONFIGS] : undefined) ??
 				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 			await loadCharacter(remoteChar, config);
 

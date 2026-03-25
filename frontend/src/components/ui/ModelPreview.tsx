@@ -102,7 +102,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed]);  
 
 	return (
 		<canvas
