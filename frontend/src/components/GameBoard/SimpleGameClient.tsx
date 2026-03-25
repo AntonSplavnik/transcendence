@@ -116,7 +116,6 @@ class GameClient {
 	private loadingCharacters: Set<number> = new Set();
 	private localCharacter: AnimatedCharacter | null = null;
 	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
-	private velocity: Vector3 = new BABYLON.Vector3(0, 0, 0);
 	private camera: UniversalCamera;
 	private currentAnimState: string = 'idle';
 	private jumpState: JumpState = JumpState.GROUNDED;
