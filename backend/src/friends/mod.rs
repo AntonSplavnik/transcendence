@@ -21,6 +21,7 @@ pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("friends")
         .requires_user_login()
+        .requires_tos_accepted()
         .push(
             Router::with_path("request")
                 .user_rate_limit(&RateLimit::per_minute(30))

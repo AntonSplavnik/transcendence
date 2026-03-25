@@ -46,7 +46,7 @@ export default function ErrorBanner({
 	return (
 		<div
 			className={`
-        fixed top-4 left-1/2 -translate-x-1/2 z-50
+        fixed top-4 left-1/2 -translate-x-1/2 z-[60]
         ${styles.bg} border
         px-5 py-3 rounded-lg shadow-lg max-w-md
         shadow-[0_4px_16px_rgba(0,0,0,0.3)]

@@ -52,6 +52,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    tos_versions (key) {
+        key -> Text,
+        created_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     two_fa_recovery_codes (id) {
         id -> Integer,
         user_id -> Integer,
@@ -72,6 +79,7 @@ diesel::table! {
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
         description -> Text,
+        tos_accepted_at -> Nullable<TimestamptzSqlite>,
     }
 }
 
@@ -87,6 +95,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     friend_requests,
     notifications,
     sessions,
+    tos_versions,
     two_fa_recovery_codes,
     users,
 );

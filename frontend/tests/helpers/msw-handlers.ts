@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { createMockAuthResponse, createMockSession, createMockUser } from '../fixtures/users';
 import { createMockApiError } from '../fixtures/errors';
-import type { AuthResponse, TwoFactorStartResponse, TwoFactorConfirmResponse } from '../../src/api/types';
+import type { AuthResponse, TosInfo, TwoFactorStartResponse, TwoFactorConfirmResponse } from '../../src/api/types';
 
 // Default mock responses
 const defaultUser = createMockUser();
@@ -58,6 +58,15 @@ export const handlers = [
 		}
 
 		return HttpResponse.json(defaultAuthResponse);
+	}),
+
+	// ToS endpoints
+	http.get('/api/tos', () => {
+		return HttpResponse.json({ current_tos_timestamp: '2025-01-01T00:00:00Z' } satisfies TosInfo);
+	}),
+
+	http.post('/api/auth/session-management/accept-tos', () => {
+		return HttpResponse.json(defaultSession);
 	}),
 
 	// User endpoints

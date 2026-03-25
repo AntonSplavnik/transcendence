@@ -45,10 +45,12 @@ pub struct User {
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub description: String,
+    pub tos_accepted_at: Option<DateTime<Utc>>,
 }
 
 impl NewUser {
     pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
+        let now = chrono::Utc::now();
         NewUser {
             email,
             nickname,
@@ -56,8 +58,9 @@ impl NewUser {
             totp_secret_enc: None,
             totp_confirmed_at: None,
             password_hash,
-            created_at: chrono::Utc::now(),
+            created_at: now,
             description: String::new(),
+            tos_accepted_at: Some(now),
         }
     }
 }
