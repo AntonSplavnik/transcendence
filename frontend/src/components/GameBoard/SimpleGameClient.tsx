@@ -392,30 +392,26 @@ export default function SimpleGameClient({
 				scene.activeCamera = camera;
 			});
 
-			// Press F to toggle between game camera and Unity "Main Camera.Rig"
-			window.addEventListener('keydown', (event) => {
-				if (event.key === 'f' || event.key === 'F') {
-					const unityCam = scene.getCameraByName('Main Camera.Rig');
-					if (!unityCam) return;
-					if (scene.activeCamera === camera) {
-						scene.activeCamera = unityCam;
-						console.log('[Camera] switched to Unity camera');
-					} else {
-						scene.activeCamera = camera;
-						console.log('[Camera] switched to game camera');
-					}
-				}
-			});
-
 			// Load the forest scene. The gltf is already centred at origin — no offset needed.
 			// Use Append (not ImportMeshAsync) to avoid triggering Babylon's embedded-camera
-			// activation. The onSuccess callback re-asserts our camera as a safety net.
+			// activation. The onSuccess callback re-asserts our camera as a safety net and
+			// adds a large ground plane to hide the backdrop past the terrain edges.
 			BABYLON.SceneLoader.Append(
 				'/scenes/Export/scenes/',
 				'Forest.gltf',
 				scene,
 				() => {
 					scene.activeCamera = camera;
+					// Extend ground far beyond the playable area so the backdrop is never
+					// visible when a player approaches the terrain edge (±25 units).
+					const bgGround = BABYLON.MeshBuilder.CreateGround(
+						'bg-ground', { width: 1000, height: 1000 }, scene,
+					);
+					bgGround.position.y = -0.01;
+					const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
+					bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
+					bgMat.specularColor = BABYLON.Color3.Black();
+					bgGround.material = bgMat;
 				},
 				undefined,
 				(_s, message, exception) => {

@@ -195,8 +195,8 @@ enum class CharacterState : uint8_t {
 
 struct GameConfig {
     // Arena dimensions (3D space)
-    static constexpr float ARENA_WIDTH = 100.0f;   // X axis
-    static constexpr float ARENA_LENGTH = 100.0f;  // Z axis
+    static constexpr float ARENA_WIDTH = 50.0f;    // X axis (visual terrain is 50×50, centred at origin)
+    static constexpr float ARENA_LENGTH = 50.0f;  // Z axis
     static constexpr float ARENA_HEIGHT = 20.0f;   // Y axis (ceiling)
 
     // Character properties
