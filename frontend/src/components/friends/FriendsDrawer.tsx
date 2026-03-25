@@ -107,8 +107,14 @@ export default function FriendsDrawer() {
 												key={req.id}
 												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50"
 											>
-												<span className="text-sm text-stone-100 truncate flex-1">
-													{req.sender.nickname}
+												<span className="text-sm truncate flex-1">
+													<Username
+														userId={req.sender.id}
+														nickname={req.sender.nickname}
+														isSelf={false}
+														interactive={true}
+														colored={false}
+													/>
 												</span>
 												<button
 													onClick={() => handleAccept(req.id)}
@@ -150,8 +156,14 @@ export default function FriendsDrawer() {
 												className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50 opacity-70"
 											>
 												<Clock className="w-2.5 h-2.5 flex-shrink-0 text-stone-500" />
-												<span className="text-sm text-stone-100 truncate flex-1">
-													{req.receiver.nickname}
+												<span className="text-sm truncate flex-1">
+													<Username
+														userId={req.receiver.id}
+														nickname={req.receiver.nickname}
+														isSelf={false}
+														interactive={true}
+														colored={false}
+													/>
 												</span>
 												<button
 													onClick={() => handleCancel(req.id)}
