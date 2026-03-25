@@ -14,6 +14,7 @@ import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
 import ConnectionStatusBanner from './components/ui/ConnectionStatusBanner';
 import ErrorBanner from './components/ui/ErrorBanner';
+import FriendsDrawer from './components/friends/FriendsDrawer';
 import Layout from './components/ui/Layout';
 import NotificationToast from './components/ui/NotificationToast';
 import { useStream } from './contexts/StreamContext';
@@ -146,6 +147,7 @@ export default function AppRoutes() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const hideFooter = location.pathname === '/game';
+	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
@@ -193,6 +195,7 @@ export default function AppRoutes() {
 			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
+			{user && !isGame && <FriendsDrawer />}
 			{/* Key on tos_accepted_at so the entire route tree remounts after
 			   ToS acceptance. Components that failed to fetch data (403
 			   TosNotAccepted) hold stale error state — a remount gives them

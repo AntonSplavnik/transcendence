@@ -63,6 +63,23 @@ export interface ChangePasswordPayload {
 	keep_other_sessions_logged_in: boolean;
 }
 
+// ==================== FRIENDS ====================
+
+export interface PublicUser {
+	id: number;
+	nickname: string;
+	created_at: string;
+	online: boolean;
+}
+
+export interface FriendRequestResponse {
+	id: number;
+	sender: PublicUser;
+	receiver: PublicUser;
+	created_at: string;
+	updated_at: string;
+}
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {

@@ -61,6 +61,10 @@ vi.mock('../../../src/contexts/NotificationContext', () => ({
 	})),
 }));
 
+vi.mock('../../../src/components/friends/FriendsDrawer', () => ({
+	default: () => null,
+}));
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 describe('ToS acceptance flow', () => {

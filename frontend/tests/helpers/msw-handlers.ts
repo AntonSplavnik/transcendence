@@ -136,6 +136,52 @@ export const handlers = [
 		return HttpResponse.json([defaultSession]);
 	}),
 
+	// Friends endpoints
+	http.get('/api/friends', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.get('/api/friends/requests/incoming', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.get('/api/friends/requests/outgoing', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.post('/api/friends/request', async ({ request }) => {
+		const body = (await request.json()) as { nickname: string };
+		return HttpResponse.json({
+			id: 100,
+			sender: { id: 1, nickname: 'TestUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			receiver: { id: 2, nickname: body.nickname, created_at: '2024-01-01T00:00:00Z', online: false },
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		});
+	}),
+
+	http.post('/api/friends/accept/:id', () => {
+		return HttpResponse.json({
+			id: 1,
+			sender: { id: 2, nickname: 'FriendUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			receiver: { id: 1, nickname: 'TestUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		});
+	}),
+
+	http.post('/api/friends/reject/:id', () => {
+		return new HttpResponse(null, { status: 204 });
+	}),
+
+	http.delete('/api/friends/request/:id', () => {
+		return new HttpResponse(null, { status: 204 });
+	}),
+
+	http.delete('/api/friends/remove/:id', () => {
+		return new HttpResponse(null, { status: 204 });
+	}),
+
 	// Users endpoints (public)
 	http.post('/api/users/nickname-exists', async ({ request }) => {
 		const nickname = await request.text();
