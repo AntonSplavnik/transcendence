@@ -60,7 +60,10 @@ export default function ModelPreview({
 			// Full character preview: weapons + idle animation.
 			// Only load the first animation set (General) — it contains the idle animation.
 			// Skipping MovementBasic + CombatMelee cuts GLB fetches from 3 to 1.
-			const previewConfig = { ...characterConfig, animationSets: [characterConfig.animationSets[0]] };
+			const previewConfig = {
+				...characterConfig,
+				animationSets: [characterConfig.animationSets[0]],
+			};
 			const char = new AnimatedCharacter(scene);
 			loadCharacter(char, previewConfig).then(() => {
 				// Scale the root down for preview — in-game config.scale (3) is too large
@@ -102,12 +105,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed]);  
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed]);
 
-	return (
-		<canvas
-			ref={canvasRef}
-			style={{ width: '100%', height: '100%', display: 'block' }}
-		/>
-	);
+	return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }

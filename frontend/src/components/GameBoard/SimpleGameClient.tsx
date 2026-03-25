@@ -1,11 +1,6 @@
 // Simple game client - uses window.BABYLON and window.TOOLKIT
 // set by the toolkit scripts loaded in index.html
-import type {
-	Engine,
-	Scene,
-	UniversalCamera,
-	Vector3,
-} from '@babylonjs/core';
+import type { Engine, Scene, UniversalCamera, Vector3 } from '@babylonjs/core';
 import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
@@ -183,7 +178,11 @@ class GameClient {
 				}
 
 				// Update camera to follow player
-				this.camera.position = new BABYLON.Vector3(this.position.x + ISO_CAM_OFFSET.x, this.position.y + ISO_CAM_OFFSET.y, this.position.z + ISO_CAM_OFFSET.z);
+				this.camera.position = new BABYLON.Vector3(
+					this.position.x + ISO_CAM_OFFSET.x,
+					this.position.y + ISO_CAM_OFFSET.y,
+					this.position.z + ISO_CAM_OFFSET.z,
+				);
 				this.camera.setTarget(this.position);
 			} else {
 				const remoteChar = this.characters.get(char.player_id);
@@ -336,7 +335,13 @@ interface Props {
 	characterConfig?: CharacterConfig;
 }
 
-export default function SimpleGameClient({ snapshotRef, characterClassesRef, onSendInput, localPlayerId, characterConfig }: Props) {
+export default function SimpleGameClient({
+	snapshotRef,
+	characterClassesRef,
+	onSendInput,
+	localPlayerId,
+	characterConfig,
+}: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const gameClientRef = useRef<GameClient | null>(null);
 	const engineRef = useRef<Engine | null>(null);
@@ -368,7 +373,15 @@ export default function SimpleGameClient({ snapshotRef, characterClassesRef, onS
 
 			// True isometric camera: 35.264° elevation, 45° horizontal rotation, orthographic
 			const arenaCenter = new BABYLON.Vector3(50, 0, 50);
-			const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(arenaCenter.x + ISO_CAM_OFFSET.x, arenaCenter.y + ISO_CAM_OFFSET.y, arenaCenter.z + ISO_CAM_OFFSET.z), scene);
+			const camera = new BABYLON.UniversalCamera(
+				'camera',
+				new BABYLON.Vector3(
+					arenaCenter.x + ISO_CAM_OFFSET.x,
+					arenaCenter.y + ISO_CAM_OFFSET.y,
+					arenaCenter.z + ISO_CAM_OFFSET.z,
+				),
+				scene,
+			);
 			camera.setTarget(arenaCenter);
 			camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
 			const aspect = engine.getRenderWidth() / engine.getRenderHeight();
@@ -434,7 +447,13 @@ export default function SimpleGameClient({ snapshotRef, characterClassesRef, onS
 				}
 			});
 
-			const gameClient = new GameClient(scene, localPlayerId, camera, characterConfig, characterClassesRef);
+			const gameClient = new GameClient(
+				scene,
+				localPlayerId,
+				camera,
+				characterConfig,
+				characterClassesRef,
+			);
 			gameClientRef.current = gameClient;
 			gameClient
 				.initLocalPlayer()
@@ -457,22 +476,22 @@ export default function SimpleGameClient({ snapshotRef, characterClassesRef, onS
 			// Key: bitmask WASD (W=8, A=4, S=2, D=1), Value: [worldX, worldZ] normalized
 			const S = 0.7071;
 			const isoDir: Record<number, [number, number]> = {
-				0:  [0, 0],           // no input
-				8:  [-S, S],          // W
-				2:  [S, -S],          // S
-				4:  [-S, -S],         // A
-				1:  [S, S],           // D
-				9:  [0, 1],           // W+D
-				12: [-1, 0],          // W+A
-				3:  [1, 0],           // S+D
-				6:  [0, -1],          // S+A
-				10: [0, 0],           // W+S (cancel)
-				5:  [0, 0],           // A+D (cancel)
-				15: [0, 0],           // all (cancel)
-				14: [-S, -S],         // W+A+S
-				13: [-S, S],          // W+A+D
-				11: [S, S],           // W+S+D
-				7:  [S, -S],          // A+S+D
+				0: [0, 0], // no input
+				8: [-S, S], // W
+				2: [S, -S], // S
+				4: [-S, -S], // A
+				1: [S, S], // D
+				9: [0, 1], // W+D
+				12: [-1, 0], // W+A
+				3: [1, 0], // S+D
+				6: [0, -1], // S+A
+				10: [0, 0], // W+S (cancel)
+				5: [0, 0], // A+D (cancel)
+				15: [0, 0], // all (cancel)
+				14: [-S, -S], // W+A+S
+				13: [-S, S], // W+A+D
+				11: [S, S], // W+S+D
+				7: [S, -S], // A+S+D
 			};
 			scene.onBeforeRenderObservable.add(() => {
 				const bits =

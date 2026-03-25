@@ -10,7 +10,10 @@ export interface CharacterPickerProps {
 }
 
 export default function CharacterPicker({ value, onChange }: CharacterPickerProps) {
-	const characters = Object.entries(CHARACTER_CONFIGS) as [CharacterChoice, typeof CHARACTER_CONFIGS[CharacterChoice]][];
+	const characters = Object.entries(CHARACTER_CONFIGS) as [
+		CharacterChoice,
+		(typeof CHARACTER_CONFIGS)[CharacterChoice],
+	][];
 
 	return (
 		<section aria-label="Character selection" className="mb-4">
@@ -26,9 +29,10 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 						aria-pressed={value === id}
 						className={`
 							flex-1 flex flex-col items-center gap-1.5 rounded-lg p-2 transition-all duration-200 cursor-pointer border-2 bg-stone-900/60
-							${value === id
-								? 'border-gold-400 shadow-[0_0_16px_2px_rgba(217,119,6,0.35)]'
-								: 'border-stone-700 hover:border-stone-500'
+							${
+								value === id
+									? 'border-gold-400 shadow-[0_0_16px_2px_rgba(217,119,6,0.35)]'
+									: 'border-stone-700 hover:border-stone-500'
 							}
 						`}
 						onClick={() => onChange(id)}
@@ -40,9 +44,11 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 								bgColor={cfg.previewBgColor}
 							/>
 						</div>
-						<span className={`text-sm font-semibold tracking-wide transition-colors duration-200 ${
-							value === id ? 'text-gold-400' : 'text-stone-400'
-						}`}>
+						<span
+							className={`text-sm font-semibold tracking-wide transition-colors duration-200 ${
+								value === id ? 'text-gold-400' : 'text-stone-400'
+							}`}
+						>
 							{cfg.label}
 						</span>
 					</button>

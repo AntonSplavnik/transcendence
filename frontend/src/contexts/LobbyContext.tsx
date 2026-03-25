@@ -387,7 +387,9 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	return (
-		<LobbyContext.Provider value={{ lobbyState, setReady, setCharacter, updateSettings, leave }}>
+		<LobbyContext.Provider
+			value={{ lobbyState, setReady, setCharacter, updateSettings, leave }}
+		>
 			{children}
 		</LobbyContext.Provider>
 	);

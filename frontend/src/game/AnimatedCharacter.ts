@@ -56,7 +56,12 @@ export class AnimatedCharacter {
 		});
 	}
 
-	async attachToBone(assetUrl: string, boneName: string, position?: Vector3, rotation?: Vector3): Promise<void> {
+	async attachToBone(
+		assetUrl: string,
+		boneName: string,
+		position?: Vector3,
+		rotation?: Vector3,
+	): Promise<void> {
 		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
 		if (!this.skeleton) return;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,8 +72,10 @@ export class AnimatedCharacter {
 			if (mesh.name === '__root__') return;
 			mesh.attachToBone(bone, parentMesh);
 			mesh.rotationQuaternion = null; // glTF sets quaternion which overrides .rotation
-			if (position) mesh.position.copyFrom(position); else mesh.position.set(0, 0, 0);
-			if (rotation) mesh.rotation.copyFrom(rotation); else mesh.rotation.set(0, 0, 0);
+			if (position) mesh.position.copyFrom(position);
+			else mesh.position.set(0, 0, 0);
+			if (rotation) mesh.rotation.copyFrom(rotation);
+			else mesh.rotation.set(0, 0, 0);
 			mesh.scaling.set(1, 1, 1);
 		});
 	}
@@ -77,7 +84,9 @@ export class AnimatedCharacter {
 		if (this.currentAnimationName === name) return;
 		const anim = this.animations.get(name);
 		if (!anim) {
-			console.warn(`[playAnimation] "${name}" not found. Available:`, [...this.animations.keys()]);
+			console.warn(`[playAnimation] "${name}" not found. Available:`, [
+				...this.animations.keys(),
+			]);
 			return;
 		}
 		if (this.currentAnimation) this.currentAnimation.stop();

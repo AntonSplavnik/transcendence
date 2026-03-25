@@ -37,7 +37,8 @@ export default function GameBoard() {
 	}
 
 	const storedChar = localStorage.getItem('selectedCharacter') as CharacterChoice | null;
-	const characterConfig = CHARACTER_CONFIGS[storedChar ?? DEFAULT_CHARACTER] ?? CHARACTER_CONFIGS[DEFAULT_CHARACTER];
+	const characterConfig =
+		CHARACTER_CONFIGS[storedChar ?? DEFAULT_CHARACTER] ?? CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 
 	return (
 		<SimpleGameClient

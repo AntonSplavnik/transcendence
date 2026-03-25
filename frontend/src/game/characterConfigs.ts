@@ -19,12 +19,12 @@ export interface EquipmentSlot {
 
 export interface CharacterConfig {
 	label: string;
-	model: string;           // character skin GLB (Vite URL)
+	model: string; // character skin GLB (Vite URL)
 	animationSets: string[]; // animation GLBs loaded in order
 	equipment: EquipmentSlot[];
-	scale: number;           // rootNode.scaling.setAll(scale) in-game
+	scale: number; // rootNode.scaling.setAll(scale) in-game
 	previewBgColor: string;
-	idleAnimation: string;   // animation name to play in preview
+	idleAnimation: string; // animation name to play in preview
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
@@ -34,7 +34,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
 		equipment: [
 			{ model: swordModel, bone: 'handslot.r' },
-			{ model: shieldModel, bone: 'handslot.l', position: [0, 0, 0.2]},
+			{ model: shieldModel, bone: 'handslot.l', position: [0, 0, 0.2] },
 		],
 		scale: 1,
 		previewBgColor: '#18a880',
