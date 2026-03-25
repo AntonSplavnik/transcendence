@@ -118,9 +118,7 @@ impl TransactionalEmail {
     ) -> (&'static str, String) {
         let nickname: &str = user.nickname.as_ref();
         match self {
-            Self::EmailConfirmation {
-                confirmation_token,
-            } => (
+            Self::EmailConfirmation { confirmation_token } => (
                 "Confirm your email",
                 format!(
                     "Hi {nickname},\n\n\

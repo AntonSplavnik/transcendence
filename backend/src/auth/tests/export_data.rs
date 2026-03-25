@@ -34,10 +34,7 @@ impl mock::User<mock::Registered> {
     }
 
     /// Initiate export with a specific password.
-    pub async fn try_initiate_export_with_password(
-        &mut self,
-        password: &str,
-    ) -> salvo::Response {
+    pub async fn try_initiate_export_with_password(&mut self, password: &str) -> salvo::Response {
         let body = PasswordInput {
             password: password.to_string(),
             mfa_code: None,
@@ -134,11 +131,10 @@ async fn initiate_export_unauthenticated_rejected() {
     let mut user = server.user().register().await;
 
     user.assert_requires_auth(|c| {
-        c.post("/api/user/export-my-data")
-            .json(&PasswordInput {
-                password: "irrelevant".to_string(),
-                mfa_code: None,
-            })
+        c.post("/api/user/export-my-data").json(&PasswordInput {
+            password: "irrelevant".to_string(),
+            mfa_code: None,
+        })
     })
     .await;
 }
@@ -557,10 +553,7 @@ async fn execute_export_notification_email_skipped_for_unconfirmed() {
     assert!(
         !emails
             .iter()
-            .any(|e| matches!(
-                e.email,
-                crate::email::TransactionalEmail::DataExported
-            )),
+            .any(|e| matches!(e.email, crate::email::TransactionalEmail::DataExported)),
         "unconfirmed email user should not receive notification"
     );
 }
@@ -651,8 +644,9 @@ async fn confirm_export_invalid_token_returns_error_html() {
 
     // Valid base64url but no matching DB row.
     let fake_token = base64url.encode([0u8; 32]);
-    let req = client
-        .get(format!("/api/gdpr/confirm-data-export?user_id=999&token={fake_token}"));
+    let req = client.get(format!(
+        "/api/gdpr/confirm-data-export?user_id=999&token={fake_token}"
+    ));
     let res = client.send(req).await;
     assert_eq!(
         res.status_code,

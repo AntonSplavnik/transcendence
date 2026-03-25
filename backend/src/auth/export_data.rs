@@ -173,10 +173,8 @@ pub async fn export_my_data(
                 }
 
                 // Delete the export request row
-                diesel::delete(
-                    der::data_export_requests.filter(der::user_id.eq(user_id)),
-                )
-                .execute(conn)?;
+                diesel::delete(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                    .execute(conn)?;
 
                 // Gather all user data
                 use crate::schema::avatars_large::dsl as al;
@@ -264,10 +262,8 @@ pub async fn export_my_data(
                             created_at: notif.created_at,
                         })
                         .collect(),
-                    avatar_large_base64: avatar_large
-                        .map(|a| base64std.encode(&a.data)),
-                    avatar_small_base64: avatar_small
-                        .map(|a| base64std.encode(&a.data)),
+                    avatar_large_base64: avatar_large.map(|a| base64std.encode(&a.data)),
+                    avatar_small_base64: avatar_small.map(|a| base64std.encode(&a.data)),
                 };
 
                 Ok::<_, ApiError>((export, user))
@@ -319,10 +315,8 @@ pub async fn export_my_data(
                         return Ok::<_, ApiError>((req.token, req.confirm_token, req.expires_at));
                     }
                     // Expired — delete it
-                    diesel::delete(
-                        der::data_export_requests.filter(der::user_id.eq(user_id)),
-                    )
-                    .execute(conn)?;
+                    diesel::delete(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                        .execute(conn)?;
                 }
 
                 // Generate new tokens
@@ -376,11 +370,9 @@ pub async fn export_my_data(
                 let _ = db
                     .write(move |conn| {
                         use crate::schema::data_export_requests::dsl as der;
-                        diesel::update(
-                            der::data_export_requests.filter(der::user_id.eq(user_id)),
-                        )
-                        .set(der::confirm_token.eq(None::<Vec<u8>>))
-                        .execute(conn)
+                        diesel::update(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                            .set(der::confirm_token.eq(None::<Vec<u8>>))
+                            .execute(conn)
                     })
                     .await;
             }
@@ -451,11 +443,10 @@ pub async fn confirm_data_export(
             // Clear confirm_token. Safe to filter only by user_id here because
             // user_id is the PK (at most one row) and we hold the exclusive
             // writer connection, so no concurrent mutation can race.
-            let updated = diesel::update(
-                der::data_export_requests.filter(der::user_id.eq(user_id)),
-            )
-            .set(der::confirm_token.eq(None::<Vec<u8>>))
-            .execute(conn);
+            let updated =
+                diesel::update(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                    .set(der::confirm_token.eq(None::<Vec<u8>>))
+                    .execute(conn);
 
             updated.is_ok()
         })

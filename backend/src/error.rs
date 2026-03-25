@@ -172,8 +172,7 @@ impl Scribe for ApiError {
                 }
                 EmailError::Timeout => {
                     tracing::error!("email send timed out");
-                    StatusError::internal_server_error()
-                        .brief("email delivery timed out")
+                    StatusError::internal_server_error().brief("email delivery timed out")
                 }
                 err => {
                     tracing::error!(error = ?err, "email send failed");
@@ -185,9 +184,7 @@ impl Scribe for ApiError {
                 match err {
                     GdprError::InvalidToken => StatusError::bad_request().brief(variant),
                     GdprError::TokenExpired => StatusError::gone().brief(variant),
-                    GdprError::EmailConfirmationPending => {
-                        StatusError::forbidden().brief(variant)
-                    }
+                    GdprError::EmailConfirmationPending => StatusError::forbidden().brief(variant),
                     GdprError::AlreadyDeleted => StatusError::conflict().brief(variant),
                 }
             }

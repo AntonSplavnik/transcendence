@@ -37,10 +37,7 @@ impl mock::User<mock::Registered> {
     }
 
     /// Initiate deletion with a specific password (for wrong-password tests).
-    pub async fn try_initiate_deletion_with_password(
-        &mut self,
-        password: &str,
-    ) -> salvo::Response {
+    pub async fn try_initiate_deletion_with_password(&mut self, password: &str) -> salvo::Response {
         let body = PasswordInput {
             password: password.to_string(),
             mfa_code: None,
@@ -279,14 +276,11 @@ async fn execute_deletion_unauthenticated_rejected() {
     let resp = user.initiate_deletion().await;
 
     user.assert_requires_auth(|c| {
-        c.delete(format!(
-            "/api/user/delete-my-account?token={}",
-            resp.token
-        ))
-        .json(&PasswordInput {
-            password: "irrelevant".to_string(),
-            mfa_code: None,
-        })
+        c.delete(format!("/api/user/delete-my-account?token={}", resp.token))
+            .json(&PasswordInput {
+                password: "irrelevant".to_string(),
+                mfa_code: None,
+            })
     })
     .await;
 }
@@ -447,11 +441,9 @@ async fn execute_deletion_email_confirmation_pending_rejected() {
         .write(move |conn| {
             use crate::schema::account_deletion_requests::dsl as adr;
             use diesel::prelude::*;
-            diesel::update(
-                adr::account_deletion_requests.filter(adr::user_id.eq(user_id)),
-            )
-            .set(adr::confirm_token.eq(Some(fct)))
-            .execute(conn)
+            diesel::update(adr::account_deletion_requests.filter(adr::user_id.eq(user_id)))
+                .set(adr::confirm_token.eq(Some(fct)))
+                .execute(conn)
         })
         .await
         .unwrap()
@@ -517,7 +509,10 @@ async fn execute_deletion_anonymizes_user() {
         format!("deleted[{user_id}]"),
         "nickname must be anonymized"
     );
-    assert!(db_user.description.is_empty(), "description must be cleared");
+    assert!(
+        db_user.description.is_empty(),
+        "description must be cleared"
+    );
     assert!(!db_user.totp_enabled, "totp must be disabled");
     assert!(
         db_user.totp_secret_enc.is_none(),
@@ -640,10 +635,7 @@ async fn execute_deletion_sends_notification_email() {
     assert!(
         emails
             .iter()
-            .any(|e| matches!(
-                e.email,
-                crate::email::TransactionalEmail::AccountDeleted
-            )),
+            .any(|e| matches!(e.email, crate::email::TransactionalEmail::AccountDeleted)),
         "should send AccountDeleted notification email"
     );
 }
@@ -716,8 +708,9 @@ async fn confirm_deletion_invalid_token_returns_error_html() {
 
     // Valid base64url but no matching DB row.
     let fake_token = base64url.encode([0u8; 32]);
-    let req = client
-        .get(format!("/api/gdpr/confirm-account-deletion?user_id=999&token={fake_token}"));
+    let req = client.get(format!(
+        "/api/gdpr/confirm-account-deletion?user_id=999&token={fake_token}"
+    ));
     let res = client.send(req).await;
     assert_eq!(
         res.status_code,
@@ -862,10 +855,7 @@ async fn initiate_deletion_on_deleted_account_rejected() {
         .read(move |conn| {
             use crate::schema::users::dsl::*;
             use diesel::prelude::*;
-            users
-                .find(user_id)
-                .select(email)
-                .first::<String>(conn)
+            users.find(user_id).select(email).first::<String>(conn)
         })
         .await
         .unwrap()
