@@ -53,7 +53,7 @@ type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 const ISO_CAM_DIST = 80; // distance from target (doesn't affect size in ortho, just clipping)
 const ISO_CAM_HEIGHT = ISO_CAM_DIST * 0.7071; // tan(35.264°) ≈ 0.7071
 const ISO_CAM_OFFSET = { x: ISO_CAM_DIST, y: ISO_CAM_HEIGHT, z: -ISO_CAM_DIST };
-const ISO_ORTHO_SIZE = 30; //  controls zoom level (80 would be full world in view)
+const ISO_ORTHO_SIZE = 10; //  controls zoom level (80 would be full world in view)
 
 const AnimationNames = {
 	idle: 'Idle_A',
