@@ -91,7 +91,11 @@ export function arenaScene(scene: Scene, _camera: ArcRotateCamera) {
 	floor.receiveShadows = true;
 
 	// Circular clearing
-	const clearing = CreateCylinder('clearing', { diameter: CLEAR_RADIUS * 2, height: 0.02, tessellation: 48 }, scene);
+	const clearing = CreateCylinder(
+		'clearing',
+		{ diameter: CLEAR_RADIUS * 2, height: 0.02, tessellation: 48 },
+		scene,
+	);
 	clearing.position.y = ARENA_Y + 0.01;
 	const clearingMat = new StandardMaterial('clearingMat', scene);
 	clearingMat.diffuseColor = new Color3(0.6, 0.5, 0.4);
@@ -103,7 +107,7 @@ export function arenaScene(scene: Scene, _camera: ArcRotateCamera) {
 
 	// Post-processing (uncomment to enable)
 	const pipeline = new DefaultRenderingPipeline('pipeline', true, scene, [_camera]);
-	pipeline.samples = 4;        // MSAA 4x — re-enables AA lost when pipeline renders to texture
+	pipeline.samples = 4; // MSAA 4x — re-enables AA lost when pipeline renders to texture
 	pipeline.fxaaEnabled = true; // FXAA on top for extra edge smoothness
 	pipeline.bloomEnabled = true;
 	pipeline.bloomThreshold = 0.1;
@@ -142,27 +146,54 @@ export function arenaScene(scene: Scene, _camera: ArcRotateCamera) {
 	ring(CLEAR_RADIUS + 1.5, 10).forEach(({ x, z }) => {
 		const jx = (rng() - 0.5) * 1.5;
 		const jz = (rng() - 0.5) * 1.5;
-		spawn(bushes[Math.floor(rng() * bushes.length)], scene, shadows, x + jx, z + jz, 1.2 + rng() * 0.6, rng);
+		spawn(
+			bushes[Math.floor(rng() * bushes.length)],
+			scene,
+			shadows,
+			x + jx,
+			z + jz,
+			1.2 + rng() * 0.6,
+			rng,
+		);
 	});
 
 	const spawnTree = (x: number, z: number, variation = 0.5) => {
 		const jx = (rng() - 0.5) * 1.5;
 		const jz = (rng() - 0.5) * 1.5;
 		const entry = trees[Math.floor(rng() * trees.length)];
-		spawn(entry.model, scene, shadows, x + jx, z + jz, entry.baseScale * (0.75 + rng() * variation), rng);
+		spawn(
+			entry.model,
+			scene,
+			shadows,
+			x + jx,
+			z + jz,
+			entry.baseScale * (0.75 + rng() * variation),
+			rng,
+		);
 	};
 
 	const spawnFiller = (x: number, z: number) => {
 		const jx = (rng() - 0.5) * 1.5;
 		const jz = (rng() - 0.5) * 1.5;
 		const isRock = rng() > 0.4;
-		const model = isRock ? rocks[Math.floor(rng() * rocks.length)] : bushes[Math.floor(rng() * bushes.length)];
-		spawn(model, scene, shadows, x + jx, z + jz, isRock ? 1.0 + rng() * 1.2 : 1.0 + rng() * 0.8, rng);
+		const model = isRock
+			? rocks[Math.floor(rng() * rocks.length)]
+			: bushes[Math.floor(rng() * bushes.length)];
+		spawn(
+			model,
+			scene,
+			shadows,
+			x + jx,
+			z + jz,
+			isRock ? 1.0 + rng() * 1.2 : 1.0 + rng() * 0.8,
+			rng,
+		);
 	};
 
 	// Ring 1 (r≈16) — front arc gets rocks/bushes, back gets trees
 	ring(16, 8).forEach(({ x, z, angle }) => {
-		inFrontArc(angle) ? spawnFiller(x, z) : spawnTree(x, z);
+		if (inFrontArc(angle)) spawnFiller(x, z);
+		else spawnTree(x, z);
 	});
 
 	// Gap 1 (r≈19) — rocks and bushes throughout (low, don't block view)
@@ -170,7 +201,8 @@ export function arenaScene(scene: Scene, _camera: ArcRotateCamera) {
 
 	// Ring 2 (r≈22)
 	ring(22, 11, Math.PI / 16).forEach(({ x, z, angle }) => {
-		inFrontArc(angle) ? spawnFiller(x, z) : spawnTree(x, z);
+		if (inFrontArc(angle)) spawnFiller(x, z);
+		else spawnTree(x, z);
 	});
 
 	// Gap 2 (r≈26)
@@ -178,11 +210,13 @@ export function arenaScene(scene: Scene, _camera: ArcRotateCamera) {
 
 	// Ring 3 (r≈29)
 	ring(29, 14, Math.PI / 20).forEach(({ x, z, angle }) => {
-		inFrontArc(angle) ? spawnFiller(x, z) : spawnTree(x, z);
+		if (inFrontArc(angle)) spawnFiller(x, z);
+		else spawnTree(x, z);
 	});
 
 	// Ring 4 — edge, front arc still kept low
 	ring(34, 18, Math.PI / 26).forEach(({ x, z, angle }) => {
-		inFrontArc(angle) ? spawnFiller(x, z) : spawnTree(x, z, 0.6);
+		if (inFrontArc(angle)) spawnFiller(x, z);
+		else spawnTree(x, z, 0.6);
 	});
 }
