@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Users, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
 import type { PublicUser } from '../../api/types';
