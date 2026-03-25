@@ -19,15 +19,15 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 			<div className="space-y-4">
 				{/* Avatar + status */}
 				<div className="flex items-center gap-4">
-					<AvatarDisplay userId={user.id} size="large" className="w-24 h-24 rounded-lg" />
+					<AvatarDisplay userId={user.id} size="large" className="w-24 h-24 rounded-lg" aria-label={`${user.nickname}'s avatar`} />
 					<div className="space-y-2">
 						{user.online ? (
 							<Badge variant="success" dot>
-								Online
+								<span aria-live="polite">Online</span>
 							</Badge>
 						) : (
 							<Badge variant="neutral" dot>
-								Offline
+								<span aria-live="polite">Offline</span>
 							</Badge>
 						)}
 						<p className="text-xs text-stone-400">
