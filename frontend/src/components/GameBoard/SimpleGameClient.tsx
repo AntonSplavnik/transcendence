@@ -412,7 +412,34 @@ export default function SimpleGameClient({
 					bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
 					bgMat.specularColor = BABYLON.Color3.Black();
 					bgGround.material = bgMat;
-				},
+
+					// --- Arena boundary walls ---
+					// Inner face at ±25 (terrain edge); wall centre at ±(25 + WALL_T/2) so
+					// the wall sits fully outside the playable area.
+					// N/S walls are wider by WALL_T on each side to close the corners.
+					const TERRAIN_EDGE = 25.0;
+					const WALL_H = 1.2;
+					const WALL_T = 0.8;
+					const WALL_POS = TERRAIN_EDGE + WALL_T / 2; // 25.4
+					const WALL_SPAN = TERRAIN_EDGE * 2 + WALL_T * 2; // 51.6 — closes corners
+					const wallMat = new BABYLON.StandardMaterial('wall-mat', scene);
+					wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.25, 0.15);
+					wallMat.specularColor = BABYLON.Color3.Black();
+
+					const wallDefs = [
+						['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
+						['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
+						['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
+						['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+					] as const;
+
+					for (const [name, w, h, d, x, y, z] of wallDefs) {
+						const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+						wall.position.set(x, y, z);
+						wall.material = wallMat;
+					}
+
+					},
 				undefined,
 				(_s, message, exception) => {
 					console.error('Failed to load Forest scene:', message, exception);
