@@ -101,8 +101,14 @@ pub trait Database: Send + Sync + Clone + 'static {
 
 // ── User lookup extension ─────────────────────────────────────────────────
 
+/// Convenience extension for fetching a [`User`](crate::models::User) by ID.
+///
+/// Uses explicit `Result<..., crate::ApiError>` (not `AppResult`) to avoid
+/// circular imports between `db/mod.rs` and `prelude.rs`.
 #[allow(async_fn_in_trait)]
 pub trait DatabaseUserExt {
+    /// Fetch a user by primary key. Returns `ApiError::DatabaseQuery(NotFound)`
+    /// if the user does not exist.
     async fn get_user(&self, user_id: i32) -> Result<crate::models::User, crate::ApiError>;
 }
 

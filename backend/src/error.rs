@@ -170,6 +170,11 @@ impl Scribe for ApiError {
                 EmailError::UnconfirmedEmail => {
                     StatusError::forbidden().brief("email is not confirmed")
                 }
+                EmailError::Timeout => {
+                    tracing::error!("email send timed out");
+                    StatusError::internal_server_error()
+                        .brief("email delivery timed out")
+                }
                 err => {
                     tracing::error!(error = ?err, "email send failed");
                     StatusError::internal_server_error()

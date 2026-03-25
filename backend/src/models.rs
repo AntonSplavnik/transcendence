@@ -260,20 +260,32 @@ pub struct OfflineNotification {
 
 // construct and use NewOfflineNotification (which omits the id field) for insertion
 
+/// A pending account deletion request (GDPR right to erasure).
+///
+/// `user_id` is the PK (one request per user), so `NewInsertable!` is not
+/// used (no auto-increment `id`). `AsChangeset` is not derived because
+/// nullable column updates use inline `.set(column.eq(None::<T>))`.
 #[derive(Queryable, Selectable, Insertable, Debug)]
 #[diesel(table_name = crate::schema::account_deletion_requests)]
 pub struct AccountDeletionRequest {
     pub user_id: i32,
     pub token: Vec<u8>,
+    /// `Some` while email confirmation is pending; set to `None` after the
+    /// user clicks the confirmation link (or if the email could not be sent).
     pub confirm_token: Option<Vec<u8>>,
     pub expires_at: DateTime<Utc>,
 }
 
+/// A pending data export request (GDPR right of access).
+///
+/// Same schema and lifecycle as [`AccountDeletionRequest`].
 #[derive(Queryable, Selectable, Insertable, Debug)]
 #[diesel(table_name = crate::schema::data_export_requests)]
 pub struct DataExportRequest {
     pub user_id: i32,
     pub token: Vec<u8>,
+    /// `Some` while email confirmation is pending; set to `None` after the
+    /// user clicks the confirmation link (or if the email could not be sent).
     pub confirm_token: Option<Vec<u8>>,
     pub expires_at: DateTime<Utc>,
 }

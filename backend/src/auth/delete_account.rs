@@ -34,11 +34,16 @@ h1{color:#ef4444;margin-bottom:.5rem}</style></head>
 
 // ── Response types ────────────────────────────────────────────────────────
 
-#[derive(Serialize, ToSchema)]
-struct InitiateResponse {
-    token: String,
-    email_confirmation_required: bool,
-    expires_at: chrono::DateTime<Utc>,
+/// Response returned when a GDPR deletion request is initiated.
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct InitiateResponse {
+    /// Base64url-encoded 32-byte token. Pass back as a query param to execute.
+    pub token: String,
+    /// When `true`, the user must click the email confirmation link before the
+    /// token can be used to execute the deletion. `false` if the user's email
+    /// is unconfirmed or the confirmation email could not be sent.
+    pub email_confirmation_required: bool,
+    pub expires_at: chrono::DateTime<Utc>,
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────
@@ -248,6 +253,8 @@ pub async fn delete_my_account(
 
         let mailer = depot.mailer().clone();
         let email_confirmed = user.email_confirmed_at.is_some();
+        // Pseudo-anonymization sets email to "deleted[{id}]". No real email
+        // can match this prefix because registration validates email format.
         let is_deleted = user.email.starts_with("deleted[");
 
         let (token_bytes, confirm_token_bytes_opt, expires_at) = db
@@ -351,12 +358,12 @@ pub async fn delete_my_account(
 /// Confirm account deletion via email link (returns HTML page).
 #[endpoint]
 pub async fn confirm_account_deletion(
-    user_id_param: QueryParam<i32, false>,
+    user_id: QueryParam<i32, false>,
     token: QueryParam<String, false>,
     res: &mut Response,
     db: Db,
 ) {
-    let (user_id, token_str) = match (user_id_param.into_inner(), token.into_inner()) {
+    let (user_id, token_str) = match (user_id.into_inner(), token.into_inner()) {
         (Some(uid), Some(tok)) => (uid, tok),
         _ => {
             res.status_code(StatusCode::BAD_REQUEST);
@@ -398,7 +405,9 @@ pub async fn confirm_account_deletion(
                 return false;
             }
 
-            // Clear confirm_token
+            // Clear confirm_token. Safe to filter only by user_id here because
+            // user_id is the PK (at most one row) and we hold the exclusive
+            // writer connection, so no concurrent mutation can race.
             let updated =
                 diesel::update(adr::account_deletion_requests.filter(adr::user_id.eq(user_id)))
                     .set(adr::confirm_token.eq(None::<Vec<u8>>))

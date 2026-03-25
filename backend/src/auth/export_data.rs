@@ -39,67 +39,76 @@ h1{color:#ef4444;margin-bottom:.5rem}</style></head>
 
 // ── Response types ────────────────────────────────────────────────────────
 
-#[derive(Serialize, ToSchema)]
-struct InitiateResponse {
-    token: String,
-    email_confirmation_required: bool,
-    expires_at: DateTime<Utc>,
+/// Response returned when a GDPR data export request is initiated.
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct InitiateResponse {
+    /// Base64url-encoded 32-byte token. Pass back as a query param to execute.
+    pub token: String,
+    /// When `true`, the user must click the email confirmation link before the
+    /// token can be used to execute the export. `false` if the user's email
+    /// is unconfirmed or the confirmation email could not be sent.
+    pub email_confirmation_required: bool,
+    pub expires_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, ToSchema)]
-pub struct DataExport {
-    exported_at: DateTime<Utc>,
-    user: ExportUser,
-    sessions: Vec<ExportSession>,
-    friend_requests: Vec<ExportFriendRequest>,
-    notifications: Vec<ExportNotification>,
-    avatar_large_base64: Option<String>,
-    avatar_small_base64: Option<String>,
+/// Complete GDPR data export payload (Article 20 right of access).
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct DataExport {
+    pub exported_at: DateTime<Utc>,
+    pub user: ExportUser,
+    pub sessions: Vec<ExportSession>,
+    pub friend_requests: Vec<ExportFriendRequest>,
+    pub notifications: Vec<ExportNotification>,
+    pub avatar_large_base64: Option<String>,
+    pub avatar_small_base64: Option<String>,
 }
 
-#[derive(Serialize, ToSchema)]
-struct ExportUser {
-    id: i32,
-    email: String,
-    nickname: String,
-    totp_enabled: bool,
-    totp_confirmed_at: Option<DateTime<Utc>>,
-    created_at: DateTime<Utc>,
-    description: String,
-    tos_accepted_at: Option<DateTime<Utc>>,
-    email_confirmed_at: Option<DateTime<Utc>>,
+/// User profile data for export. Security-sensitive fields (`password_hash`,
+/// `totp_secret_enc`, `email_confirmation_token_hash`,
+/// `email_confirmation_token_expires_at`) are intentionally excluded.
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ExportUser {
+    pub id: i32,
+    pub email: String,
+    pub nickname: String,
+    pub totp_enabled: bool,
+    pub totp_confirmed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub description: String,
+    pub tos_accepted_at: Option<DateTime<Utc>>,
+    pub email_confirmed_at: Option<DateTime<Utc>>,
     /// Pending email change (from email_confirmation_token_email)
-    pending_email_change: Option<String>,
+    pub pending_email_change: Option<String>,
 }
 
-#[derive(Serialize, ToSchema)]
-struct ExportSession {
-    id: i32,
-    user_id: i32,
-    device_id: String,
-    device_name: Option<String>,
-    ip_address: Option<String>,
-    created_at: DateTime<Utc>,
-    refreshed_at: DateTime<Utc>,
-    last_used_at: DateTime<Utc>,
-    last_authenticated_at: DateTime<Utc>,
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ExportSession {
+    pub id: i32,
+    pub user_id: i32,
+    pub device_id: String,
+    pub device_name: Option<String>,
+    pub ip_address: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub refreshed_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    pub last_authenticated_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, ToSchema)]
-struct ExportFriendRequest {
-    id: i32,
-    sender_id: i32,
-    receiver_id: i32,
-    status: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ExportFriendRequest {
+    pub id: i32,
+    pub sender_id: i32,
+    pub receiver_id: i32,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, ToSchema)]
-struct ExportNotification {
-    id: i32,
-    payload: NotificationPayload,
-    created_at: DateTime<Utc>,
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ExportNotification {
+    pub id: i32,
+    pub payload: NotificationPayload,
+    pub created_at: DateTime<Utc>,
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────
@@ -392,12 +401,12 @@ pub async fn export_my_data(
 /// Confirm data export request via email link (returns HTML page).
 #[endpoint]
 pub async fn confirm_data_export(
-    user_id_param: QueryParam<i32, false>,
+    user_id: QueryParam<i32, false>,
     token: QueryParam<String, false>,
     res: &mut Response,
     db: Db,
 ) {
-    let (user_id, token_str) = match (user_id_param.into_inner(), token.into_inner()) {
+    let (user_id, token_str) = match (user_id.into_inner(), token.into_inner()) {
         (Some(uid), Some(tok)) => (uid, tok),
         _ => {
             res.status_code(StatusCode::BAD_REQUEST);
@@ -439,7 +448,9 @@ pub async fn confirm_data_export(
                 return false;
             }
 
-            // Clear confirm_token
+            // Clear confirm_token. Safe to filter only by user_id here because
+            // user_id is the PK (at most one row) and we hold the exclusive
+            // writer connection, so no concurrent mutation can race.
             let updated = diesel::update(
                 der::data_export_requests.filter(der::user_id.eq(user_id)),
             )
