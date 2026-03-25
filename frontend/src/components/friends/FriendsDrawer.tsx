@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Users, Circle, UserMinus, Check, Clock } from 'lucide-react';
 import { useFriends } from '../../contexts/FriendsContext';
+import type { PublicUser } from '../../api/types';
 import AddFriendForm from './AddFriendForm';
 import Username from '../ui/Username';
+import PublicProfileModal from '../modals/PublicProfileModal';
 
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 
 export default function FriendsDrawer() {
+	const [profileFriend, setProfileFriend] = useState<PublicUser | null>(null);
 	const {
 		isOpen,
 		toggleDrawer,
@@ -205,6 +208,9 @@ export default function FriendsDrawer() {
 															interactive={true}
 															colored={false}
 															isFriend={true}
+															onShowProfile={() =>
+																setProfileFriend(friend)
+															}
 														/>
 													</span>
 													<button
@@ -226,6 +232,9 @@ export default function FriendsDrawer() {
 					)}
 				</div>
 			</div>
+			{profileFriend && (
+				<PublicProfileModal user={profileFriend} onClose={() => setProfileFriend(null)} />
+			)}
 		</>
 	);
 }
