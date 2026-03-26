@@ -5,7 +5,9 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
-import { Badge, Button, Card, Input } from './ui';
+import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import type { CharacterChoice } from './ui';
+import { Badge, Button, Card, CharacterPicker, Input } from './ui';
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
 
@@ -17,7 +19,7 @@ interface SettingsFormProps {
 
 function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	const [name, setName] = useState(settings.name);
-	const [gamemode, setGamemode] = useState(settings.gamemode);
+	const [gamemode, _setGamemode] = useState(settings.gamemode);
 	// Settings only shown for private lobbies; user may promote to public (one-way).
 	const [makePublic, setMakePublic] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -63,12 +65,6 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				onChange={(e) => setName(e.target.value)}
 				maxLength={32}
 			/>
-			<Input
-				label="Gamemode"
-				value={gamemode}
-				onChange={(e) => setGamemode(e.target.value)}
-				maxLength={32}
-			/>
 			<label className="flex items-start gap-3 cursor-pointer select-none group">
 				<input
 					type="checkbox"
@@ -104,7 +100,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LobbyPage() {
-	const { lobbyState, setReady, updateSettings, leave } = useLobby();
+	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
 
 	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -114,6 +110,22 @@ export default function LobbyPage() {
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
+	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice>(
+		() => (localStorage.getItem('selectedCharacter') as CharacterChoice) ?? DEFAULT_CHARACTER,
+	);
+
+	const handleCharacterChange = (char: CharacterChoice) => {
+		setSelectedCharacter(char);
+		localStorage.setItem('selectedCharacter', char);
+		void setCharacter(char);
+	};
+
+	// Restore stored character preference to server once on mount (when a player).
+	useEffect(() => {
+		if (lobbyState.status !== 'active' || lobbyState.gameActive) return;
+		if (user && !lobbyState.players.has(user.id)) return; // spectator
+		void setCharacter(selectedCharacter);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Countdown timer — primitive dep avoids interval reset on unrelated updates.
 	const countdownMs =
@@ -341,6 +353,11 @@ export default function LobbyPage() {
 					<p className="mb-4 text-sm text-stone-400">
 						{spectators.size} spectator{spectators.size !== 1 ? 's' : ''} watching
 					</p>
+				)}
+
+				{/* Character selection */}
+				{isPlayer && !gameActive && (
+					<CharacterPicker value={selectedCharacter} onChange={handleCharacterChange} />
 				)}
 
 				{/* Actions */}

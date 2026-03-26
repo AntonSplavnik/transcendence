@@ -13,3 +13,11 @@ Opening the Babylon Editor (local) If you want the full Editor locally:
 Or
 
 Use the online Sandbox & Editor: <https://sandbox.babylonjs.com/> and <https://editor.babylonjs.com/> — great for prototyping and viewing .babylon/.gltf models.
+
+## models
+
+to get glb models from gltf files, you can use npm:
+go into the folder where you have the gltf file and run:
+```
+npx @gltf-transform/cli copy sword_1handed.gltf sword_1handed.glb
+```

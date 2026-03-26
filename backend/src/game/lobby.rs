@@ -12,6 +12,7 @@ use ulid::Ulid;
 
 use tracing::debug;
 
+use super::ffi::CharacterClass;
 use super::game::Game;
 use super::lobby_messages::LobbyServerMessage;
 use super::messages::GameServerMessage;
@@ -42,6 +43,7 @@ pub struct LobbySettingsPatch {
 pub struct PlayerState {
     pub ready: bool,
     pub nickname: Nickname,
+    pub character_class: CharacterClass,
 }
 
 pub enum CountdownState {
@@ -80,6 +82,7 @@ pub struct LobbyPlayerInfo {
     pub user_id: i32,
     pub nickname: Nickname,
     pub ready: bool,
+    pub character_class: CharacterClass,
 }
 
 pub struct Lobby {
@@ -193,6 +196,7 @@ impl Lobby {
                     user_id,
                     nickname: state.nickname.clone(),
                     ready: state.ready,
+                    character_class: state.character_class.clone(),
                 })
                 .collect(),
             game_active: self.game_active,
@@ -229,6 +233,7 @@ impl Lobby {
             PlayerState {
                 ready: false,
                 nickname: nickname.clone(),
+                character_class: CharacterClass::default(),
             },
         );
 
@@ -286,6 +291,15 @@ impl Lobby {
 
         self.lobby_streams
             .broadcast(&LobbyServerMessage::SpectatorLeft { user_id });
+    }
+
+    /// Set character class for a player. Returns `false` if `user_id` is not a player.
+    pub fn set_character(&mut self, user_id: i32, character_class: CharacterClass) -> bool {
+        let Some(state) = self.players.get_mut(&user_id) else {
+            return false;
+        };
+        state.character_class = character_class;
+        true
     }
 
     /// Toggle ready state for a player. Returns `false` if `user_id` is not a player.
@@ -475,11 +489,11 @@ impl Lobby {
             });
     }
 
-    /// Returns `(user_id, nickname)` pairs for all players.
-    pub fn player_nicknames(&self) -> impl Iterator<Item = (i32, Nickname)> + '_ {
+    /// Returns `(user_id, nickname, character_class)` tuples for all players.
+    pub fn player_data(&self) -> impl Iterator<Item = (i32, Nickname, CharacterClass)> + '_ {
         self.players
             .iter()
-            .map(|(&uid, state)| (uid, state.nickname.clone()))
+            .map(|(&uid, state)| (uid, state.nickname.clone(), state.character_class.clone()))
     }
 
     /// Returns the spectator user IDs.

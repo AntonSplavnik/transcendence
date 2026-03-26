@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
+import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import type { CharacterChoice } from '@/game/characterConfigs';
 import SimpleGameClient from './GameBoard/SimpleGameClient';
 
 /**
@@ -20,7 +22,7 @@ import SimpleGameClient from './GameBoard/SimpleGameClient';
  * a direct URL visit.
  */
 export default function GameBoard() {
-	const { gameState, snapshotRef, sendInput } = useGame();
+	const { gameState, snapshotRef, characterClassesRef, sendInput } = useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
 
@@ -34,11 +36,17 @@ export default function GameBoard() {
 		return <Navigate to={isSpectator ? '/lobby' : '/home'} replace />;
 	}
 
+	const storedChar = localStorage.getItem('selectedCharacter') as CharacterChoice | null;
+	const characterConfig =
+		CHARACTER_CONFIGS[storedChar ?? DEFAULT_CHARACTER] ?? CHARACTER_CONFIGS[DEFAULT_CHARACTER];
+
 	return (
 		<SimpleGameClient
 			snapshotRef={snapshotRef}
+			characterClassesRef={characterClassesRef}
 			onSendInput={sendInput}
 			localPlayerId={user.id}
+			characterConfig={characterConfig}
 		/>
 	);
 }

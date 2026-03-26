@@ -1,4 +1,4 @@
-use super::ffi::{GameStateSnapshot, Vector3D};
+use super::ffi::{CharacterClass, GameStateSnapshot, Vector3D};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent FROM server TO client over the game stream
@@ -9,7 +9,7 @@ pub enum GameServerMessage {
     Snapshot(GameStateSnapshot),
 
     /// Player successfully joined the game
-    PlayerJoined { player_id: u32, name: String },
+    PlayerJoined { player_id: u32, name: String, character_class: CharacterClass },
 
     /// Another player left the game
     PlayerLeft { player_id: u32 },
