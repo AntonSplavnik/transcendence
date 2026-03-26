@@ -29,8 +29,7 @@ export default function GameBoard() {
 		return <Navigate to="/home" replace />;
 	}
 
-	const isSpectator =
-		lobbyState.status === 'active' && !lobbyState.players.has(user.id);
+	const isSpectator = lobbyState.status === 'active' && !lobbyState.players.has(user.id);
 
 	const storedChar = localStorage.getItem('selectedCharacter') as CharacterChoice | null;
 	const characterConfig =

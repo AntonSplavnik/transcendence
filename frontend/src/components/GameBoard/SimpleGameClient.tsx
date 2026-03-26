@@ -403,7 +403,10 @@ export default function SimpleGameClient({
 				const MAX_ORTHO = 80;
 				const onWheel = (e: WheelEvent) => {
 					e.preventDefault();
-					spectatorOrtho = Math.max(MIN_ORTHO, Math.min(MAX_ORTHO, spectatorOrtho + Math.sign(e.deltaY) * 3));
+					spectatorOrtho = Math.max(
+						MIN_ORTHO,
+						Math.min(MAX_ORTHO, spectatorOrtho + Math.sign(e.deltaY) * 3),
+					);
 					const a = engine.getRenderWidth() / engine.getRenderHeight();
 					camera.orthoLeft = -spectatorOrtho * a;
 					camera.orthoRight = spectatorOrtho * a;
@@ -435,7 +438,9 @@ export default function SimpleGameClient({
 					// Extend ground far beyond the playable area so the backdrop is never
 					// visible when a player approaches the terrain edge (±25 units).
 					const bgGround = BABYLON.MeshBuilder.CreateGround(
-						'bg-ground', { width: 1000, height: 1000 }, scene,
+						'bg-ground',
+						{ width: 1000, height: 1000 },
+						scene,
 					);
 					bgGround.position.y = -0.01;
 					const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
@@ -457,19 +462,22 @@ export default function SimpleGameClient({
 					wallMat.specularColor = BABYLON.Color3.Black();
 
 					const wallDefs = [
-						['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-						['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-						['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-						['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+						['wall-n', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, WALL_POS],
+						['wall-s', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, -WALL_POS],
+						['wall-e', WALL_T, WALL_H, WALL_SPAN, WALL_POS, WALL_H / 2, 0],
+						['wall-w', WALL_T, WALL_H, WALL_SPAN, -WALL_POS, WALL_H / 2, 0],
 					] as const;
 
 					for (const [name, w, h, d, x, y, z] of wallDefs) {
-						const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+						const wall = BABYLON.MeshBuilder.CreateBox(
+							name,
+							{ width: w, height: h, depth: d },
+							scene,
+						);
 						wall.position.set(x, y, z);
 						wall.material = wallMat;
 					}
-
-					},
+				},
 				undefined,
 				(_s, message, exception) => {
 					console.error('Failed to load Forest scene:', message, exception);
