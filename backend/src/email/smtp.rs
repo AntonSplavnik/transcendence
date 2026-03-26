@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use lettre::message::Mailbox;
+use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
@@ -61,6 +62,7 @@ impl EmailSender for SmtpEmailSender {
             .from(self.inner.from.clone())
             .to(to.parse()?)
             .subject(subject)
+            .header(ContentType::TEXT_PLAIN)
             .body(body)?;
 
         self.inner.transport.send(message).await?;

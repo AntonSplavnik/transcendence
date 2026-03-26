@@ -212,8 +212,8 @@ pub fn router(path: &str) -> Router {
     Router::with_path(path).oapi_tag("email").append(&mut vec![
         Router::with_path("send-confirmation")
             .requires_user_login()
-            .user_rate_limit(&RateLimit::per_minute(1))
-            .user_rate_limit(&RateLimit::per_day(5))
+            .user_rate_limit(&RateLimit::per_minute(2))
+            .user_rate_limit(&RateLimit::per_day(10))
             .post(send_confirmation),
         Router::with_path("confirm")
             .ip_rate_limit(&RateLimit::per_minute(10))
