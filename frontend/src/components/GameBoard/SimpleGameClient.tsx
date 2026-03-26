@@ -12,9 +12,6 @@ import type { CharacterConfig } from '@/game/characterConfigs';
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
-// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
-const ARENA_OFFSET = { x: 50, z: 50 };
-
 // ============ COPIED FROM simple_client.ts ============
 
 interface CharacterSnapshot {
@@ -166,9 +163,9 @@ class GameClient {
 
 			if (char.player_id === this.localPlayerID) {
 				const serverPos = new BABYLON.Vector3(
-					char.position.x - ARENA_OFFSET.x,
+					char.position.x,
 					char.position.y,
-					char.position.z - ARENA_OFFSET.z,
+					char.position.z,
 				);
 				this.position.copyFrom(serverPos);
 				if (this.localCharacter) {
@@ -189,9 +186,9 @@ class GameClient {
 					this.createRemoteCharacter(char.player_id, char);
 				} else if (remoteChar) {
 					const pos = new BABYLON.Vector3(
-						char.position.x - ARENA_OFFSET.x,
+						char.position.x,
 						char.position.y,
-						char.position.z - ARENA_OFFSET.z,
+						char.position.z,
 					);
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
@@ -233,11 +230,7 @@ class GameClient {
 				return;
 			}
 			remoteChar.setPosition(
-				new BABYLON.Vector3(
-					charData.position.x - ARENA_OFFSET.x,
-					charData.position.y,
-					charData.position.z - ARENA_OFFSET.z,
-				),
+				new BABYLON.Vector3(charData.position.x, charData.position.y, charData.position.z),
 			);
 			remoteChar.setRotation(charData.yaw);
 			this.characters.set(playerID, remoteChar);
@@ -371,7 +364,7 @@ export default function SimpleGameClient({
 			sceneInstance = scene;
 
 			// True isometric camera: 35.264° elevation, 45° horizontal rotation, orthographic
-			const arenaCenter = new BABYLON.Vector3(50, 0, 50);
+			const arenaCenter = new BABYLON.Vector3(0, 0, 0);
 			const camera = new BABYLON.UniversalCamera(
 				'camera',
 				new BABYLON.Vector3(
@@ -414,11 +407,16 @@ export default function SimpleGameClient({
 				}
 			});
 
+			// Load the forest scene. The gltf is already centred at origin — no offset needed.
+			// Use Append (not ImportMeshAsync) to avoid triggering Babylon's embedded-camera
+			// activation. The onSuccess callback re-asserts our camera as a safety net.
 			BABYLON.SceneLoader.Append(
 				'/scenes/Export/scenes/',
 				'Forest.gltf',
 				scene,
-				undefined,
+				() => {
+					scene.activeCamera = camera;
+				},
 				undefined,
 				(_s, message, exception) => {
 					console.error('Failed to load Forest scene:', message, exception);
