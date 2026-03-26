@@ -19,10 +19,10 @@ const sizeStyles = {
 
 const variantStyles = {
 	primary:
-		'bg-gold-400 hover:bg-gold-500 text-stone-900 border-b-4 border-b-gold-800 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(224,160,48,0.2)] hover:shadow-[0_0_20px_rgba(224,160,48,0.35)]',
+		'bg-gold-400 hover:bg-gold-500 text-stone-900 shadow-[0_4px_0_#7a4820,0_0_12px_rgba(224,160,48,0.2)] hover:shadow-[0_4px_0_#7a4820,0_0_20px_rgba(224,160,48,0.35)] active:shadow-[0_0px_0_#7a4820,0_0_12px_rgba(224,160,48,0.2)]',
 	secondary:
-		'bg-stone-700 hover:bg-stone-600 text-stone-100 border-b-4 border-b-stone-900 active:border-b-0 active:translate-y-1',
-	danger: 'bg-danger hover:bg-danger/90 text-white border-b-4 border-b-danger-dark active:border-b-0 active:translate-y-1 hover:shadow-[0_0_12px_rgba(200,32,48,0.25)]',
+		'bg-stone-700 hover:bg-stone-600 text-stone-100 shadow-[0_4px_0_#1a1a1e] active:shadow-[0_0px_0_#1a1a1e]',
+	danger: 'bg-danger hover:bg-danger/90 text-white shadow-[0_4px_0_#8a1520] hover:shadow-[0_4px_0_#8a1520,0_0_12px_rgba(200,32,48,0.25)] active:shadow-[0_0px_0_#8a1520]',
 	ghost: 'bg-transparent hover:bg-stone-800 text-stone-300 hover:text-stone-100',
 };
 
