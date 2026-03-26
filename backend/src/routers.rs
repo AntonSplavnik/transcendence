@@ -6,10 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    notifications::NotificationManager, prelude::*, stream::StreamManager,
-    tos::CurrentTosTimestamp, utils::NickCache,
-    game::GameManager, notifications::NotificationManager, prelude::*, stream::StreamManager,
-    utils::NickCache,
+    game::GameManager, notifications::NotificationManager, prelude::*,
+    stream::StreamManager, tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -48,6 +46,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
 
     Router::new()
         .hoop(affix_state::inject(database))
+        .hoop(affix_state::inject(tos_timestamp))
         .hoop(affix_state::inject(stream_manager.clone()))
         .hoop(affix_state::inject(NotificationManager::new()))
         .hoop(affix_state::inject(GameManager::new(stream_manager)))

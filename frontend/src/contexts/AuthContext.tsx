@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/auth';
-import { setAuthFailureCallback } from '../api/client';
+import { setAuthFailureCallback, setTosNotAcceptedCallback } from '../api/client';
 import type { AuthResponse, Session, User } from '../api/types';
 import * as userApi from '../api/user';
 import { useJwtRefresh } from '../hooks/useJwtRefresh';

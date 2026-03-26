@@ -47,6 +47,7 @@ pub enum ApiError {
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
+    Friend(#[from] FriendError),
     Game(#[from] GameError),
 }
 
@@ -166,6 +167,8 @@ impl Scribe for ApiError {
                     FriendError::RequestNotPending => StatusError::conflict().brief(variant),
                     FriendError::NotAuthorized => StatusError::forbidden().brief(variant),
                     FriendError::UserNotFound => StatusError::not_found().brief(variant),
+                }
+            }
             Self::Game(err) => {
                 use crate::game::GameError;
                 // Derive a static variant-name string for the HTTP `brief` field so

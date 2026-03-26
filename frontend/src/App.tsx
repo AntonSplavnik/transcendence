@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { GameProvider } from './contexts/GameContext';
 import { LobbyProvider } from './contexts/LobbyContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { FriendsProvider } from './contexts/FriendsContext';
 import { StreamProvider } from './contexts/StreamContext';
 
 function App() {
@@ -12,11 +13,13 @@ function App() {
 			<AuthProvider>
 				<StreamProvider>
 					<NotificationProvider>
-						<LobbyProvider>
-							<GameProvider>
-								<AppRoutes />
-							</GameProvider>
-						</LobbyProvider>
+						<FriendsProvider>
+							<LobbyProvider>
+								<GameProvider>
+									<AppRoutes />
+								</GameProvider>
+							</LobbyProvider>
+						</FriendsProvider>
 					</NotificationProvider>
 				</StreamProvider>
 			</AuthProvider>

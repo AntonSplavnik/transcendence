@@ -1,5 +1,6 @@
 import { Lock, Mail, Swords, User } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getErrorBrief, getErrorMessage } from '../api/error';
 import * as usersApi from '../api/users';
 import { useAuth } from '../contexts/AuthContext';

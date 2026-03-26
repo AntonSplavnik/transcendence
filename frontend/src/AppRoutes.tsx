@@ -23,6 +23,7 @@ import { useGame } from './contexts/GameContext';
 import { useLobby } from './contexts/LobbyContext';
 import { useStream } from './contexts/StreamContext';
 import type { ConnectionState } from './stream/types';
+import { AudioProvider } from './audio/AudioProvider';
 
 /**
  * `connecting` and `authenticating` are often very brief during a healthy
@@ -222,6 +223,7 @@ export default function AppRoutes() {
 	}
 
 	return (
+		<AudioProvider>
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
 			<TosGate />
 			<RealtimeStatusOverlays />

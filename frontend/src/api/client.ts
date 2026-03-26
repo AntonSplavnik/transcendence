@@ -1,7 +1,7 @@
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axios from 'axios';
 import { refreshJWT } from './auth';
-import { getErrorBrief, storeError } from './error';
+import { getErrorBrief, getErrorMessage, storeError } from './error';
 
 let authFailureCallback: (() => void) | null = null;
 export function setAuthFailureCallback(cb: (() => void) | null) {
