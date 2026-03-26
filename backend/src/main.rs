@@ -95,8 +95,7 @@ async fn async_main() -> std::process::ExitCode {
     #[cfg(test)]
     let mailer = Mailer::new();
 
-    let mut router = routers::root(database, tos_timestamp, mailer)
-        .hoop(ForceHttps::new().https_port(config.listen_https_port));
+    let mut router = routers::root(database, tos_timestamp, mailer, config.listen_https_port);
 
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;

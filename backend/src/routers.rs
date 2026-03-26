@@ -60,14 +60,22 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
 }
 
 #[cfg_attr(test, allow(dead_code))]
-pub fn root(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer) -> Router {
+pub fn root(
+    database: Db,
+    tos_timestamp: CurrentTosTimestamp,
+    mailer: Mailer,
+    https_port: u16,
+) -> Router {
     let api_routes = rest_api(database, tos_timestamp, mailer);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
-    let router = Router::new().push(api_routes).push(
-        Router::with_path("{*path}")
-            .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html")),
-    );
+    let router = Router::new()
+        .push(api_routes.hoop(ForceHttps::new().https_port(https_port)))
+        .push(
+            Router::with_path("{*path}")
+                .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html"))
+                .hoop(ForceHttps::new().https_port(https_port)),
+        );
 
     #[cfg(debug_assertions)]
     let router = router
