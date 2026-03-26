@@ -2,9 +2,9 @@
 
 use cookie::CookieJar;
 use salvo::{
-    Response,
-    http::{HeaderMap, Method, header::COOKIE},
+    http::{header::COOKIE, HeaderMap, Method},
     test::RequestBuilder,
+    Response,
 };
 
 use crate::utils::mock::server::Server;

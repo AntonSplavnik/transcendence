@@ -1,14 +1,16 @@
 #![allow(unused_imports)]
 
 mod compress_cbor_codec;
+mod stream_group;
 mod stream_manager;
 
 pub use futures::SinkExt;
 pub use futures::StreamExt;
 use salvo::Depot;
+pub use stream_group::{StreamGroup, StreamHandle};
 pub use stream_manager::{
-    Receiver, Sender, SharedSender, StreamApiError, StreamManager, StreamManagerDepotExt,
-    StreamManagerError, connect_stream, router, webtransport_router,
+    connect_stream, router, webtransport_router, Receiver, Sender, SharedSender, StreamApiError,
+    StreamManager, StreamManagerDepotExt, StreamManagerError,
 };
 
 use crate::db::Db;
@@ -28,6 +30,8 @@ pub enum StreamType {
     /// two-step auth handshake.  Subsequent messages on this stream are
     /// [`CtrlMessage`] values.
     Ctrl(stream_manager::PendingConnectionKey),
+    Game,
+    Lobby(ulid::Ulid),
 }
 
 /// Messages sent on the [`StreamType::Ctrl`] uni stream after the header.

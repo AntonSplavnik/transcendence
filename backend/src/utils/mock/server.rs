@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use parking_lot::Mutex;
-use salvo::{Service, test::SendTarget};
+use salvo::{test::SendTarget, Service};
 use tracing_appender::non_blocking::WorkerGuard;
 
 use crate::{
@@ -75,7 +75,15 @@ impl Server {
 impl Default for Server {
     fn default() -> Self {
         let db = Db::new_test().expect("Failed to create test database");
-        Self::default_with(db, CurrentTosTimestamp::now())
+
+        let router = crate::routers::rest_api(db.clone());
+        Server {
+            host: "http://localhost".into(),
+            db,
+            logger: None,
+            service: Arc::new(Service::new(router)),
+            unique_nicks: Arc::new(Mutex::new(NickGenerator::new())),
+        }
     }
 }
 

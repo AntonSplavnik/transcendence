@@ -92,9 +92,6 @@ public:
     Core::World& getWorld() { return m_world; }
     const Core::World& getWorld() const { return m_world; }
 
-    // Event queue access (for FFI drain)
-    GameEventQueue& getEventQueue() { return m_world.getEventQueue(); }
-
 private:
     // World manages all entities and systems (EnTT version)
     Core::World m_world;

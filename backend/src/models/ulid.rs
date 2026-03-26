@@ -24,6 +24,6 @@ impl From<Ulid> for SqlUlid {
 impl From<SqlUlid> for Ulid {
     #[inline]
     fn from(value: SqlUlid) -> Self {
-        value.0.0.into()
+        value.0 .0.into()
     }
 }

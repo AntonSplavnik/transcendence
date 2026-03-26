@@ -1,7 +1,12 @@
 /// <reference types="vite/client" />
 
-// Declare GLB file imports
+// Declare GLB/GLTF file imports
 declare module '*.glb' {
-  const src: string;
-  export default src;
+	const src: string;
+	export default src;
+}
+
+declare module '*.gltf' {
+	const src: string;
+	export default src;
 }

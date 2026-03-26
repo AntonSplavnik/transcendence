@@ -31,7 +31,6 @@ struct PhysicsBody {
     bool useGravity;            // Should gravity be applied?
     bool isKinematic;           // If true, not affected by forces (manually controlled)
     bool isGrounded;            // Is the object touching the ground?
-    bool wasGrounded;           // Was the object grounded last frame? (for landing detection)
 
     // Velocity limits
     float maxSpeed;             // Maximum horizontal speed (m/s)
@@ -47,7 +46,6 @@ struct PhysicsBody {
         , useGravity(true)
         , isKinematic(false)
         , isGrounded(false)
-        , wasGrounded(false)
         , maxSpeed(GameConfig::CHARACTER_MAX_SPEED)
         , maxFallSpeed(50.0f)
     {}

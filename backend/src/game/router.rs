@@ -1,121 +1,152 @@
+use ulid::Ulid;
+
+use crate::models::nickname::Nickname;
 use crate::prelude::*;
-use std::sync::Arc;
 
-use super::{stream_handler, GameManager, GameStateSnapshot, Vector3D};
+use super::lobby::{LobbyInfo, LobbySettings, LobbySettingsPatch};
+use super::manager::{GameError, GameManagerDepotExt as _};
 
-// =============================================================================
-// Request/Response Types
-// =============================================================================
+pub fn router(path: impl Into<String>) -> Router {
+    Router::with_path(path)
+        .requires_user_login()
+        .oapi_tag("game")
+        .push(
+            Router::with_path("lobby")
+                .post(create_lobby)
+                .get(list_lobbies)
+                .push(Router::with_path("{id}").get(get_lobby))
+                .push(Router::with_path("{id}/join").post(join_lobby))
+                .push(Router::with_path("{id}/spectate").post(spectate_lobby))
+                .push(Router::with_path("{id}/leave").post(leave))
+                .push(Router::with_path("{id}/ready").post(set_ready))
+                .push(Router::with_path("{id}/settings").patch(update_settings)),
+        )
+}
 
-/// Request to join the game and establish a WebTransport stream
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct JoinStreamRequest {
-    /// Player's display name
-    pub name: String,
+struct CreateLobbyRequest {
+    #[serde(flatten)]
+    settings: LobbySettings,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct GameStatusResponse {
-    pub running: bool,
-    pub player_count: usize,
-    pub frame_number: u64,
+struct CreateLobbyResponse {
+    id: Ulid,
 }
 
-// =============================================================================
-// Handlers
-// =============================================================================
+#[derive(Debug, Deserialize, ToSchema)]
+struct SetReadyRequest {
+    ready: bool,
+}
 
-/// Join the game and establish a WebTransport stream for bidirectional communication
-///
-/// This endpoint:
-/// 1. Adds the player to the game
-/// 2. Spawns a background task to handle the player's stream
-/// 3. Returns immediately after spawning the task
-///
-/// The actual stream communication happens asynchronously via WebTransport.
+/// Create a new lobby and join it as the host.
 #[endpoint]
-async fn join_stream(
-    req: JsonBody<JoinStreamRequest>,
+async fn create_lobby(
+    req: JsonBody<CreateLobbyRequest>,
     depot: &mut Depot,
-) -> Result<StatusCode, StatusError> {
-    let user_id: i32 = depot.user_id();
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-    let req = req.into_inner();
+) -> JsonResult<CreateLobbyResponse> {
+    let user_id = depot.user_id();
+    let gm = depot.game_manager().clone();
+    let nickname = resolve_nickname(depot).await?;
 
-    // Use user_id as player_id (or implement custom player_id assignment logic)
-    let player_id = user_id as u32;
+    let settings = req.into_inner().settings;
+    let id = gm.create_lobby(user_id, nickname, settings).await?;
 
-    // Add player to the game
-    let success = game_manager.add_player(player_id, &req.name).await;
-    if !success {
-        return Err(StatusError::bad_request()
-            .detail("Failed to join game (game full or player already exists)"));
-    }
-
-    // Spawn background task to handle the WebTransport stream
-    tokio::spawn({
-        let gm = game_manager.clone();
-        let name = req.name.clone();
-        async move {
-            if let Err(e) =
-                stream_handler::handle_player_stream(user_id, player_id, name, gm).await
-            {
-                tracing::error!("Game stream handler error for player {}: {}", player_id, e);
-            }
-        }
-    });
-
-    Ok(StatusCode::OK)
+    json_ok(CreateLobbyResponse { id })
 }
 
+/// List all public lobbies.
 #[endpoint]
-async fn get_status(depot: &mut Depot) -> Json<GameStatusResponse> {
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-
-    let running = game_manager.is_running().await;
-    let player_count = game_manager.get_player_count().await;
-    let snapshot = game_manager.get_snapshot().await;
-
-    Json(GameStatusResponse {
-        running,
-        player_count,
-        frame_number: snapshot.frame_number,
-    })
+async fn list_lobbies(depot: &mut Depot) -> Json<Vec<LobbyInfo>> {
+    Json(depot.game_manager().list_public_lobbies())
 }
 
+/// Get details of a specific lobby.
 #[endpoint]
-async fn get_snapshot(depot: &mut Depot) -> Json<GameStateSnapshot> {
-    let game_manager = depot.get::<Arc<GameManager>>("game_manager").unwrap();
-    let snapshot = game_manager.get_snapshot().await;
-    Json(snapshot)
+async fn get_lobby(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<LobbyInfo> {
+    let id = id.into_inner();
+
+    json_ok(
+        depot
+            .game_manager()
+            .get_lobby_info(id)
+            .ok_or(GameError::LobbyNotFound)?,
+    )
 }
 
+/// Join a lobby as a player.
+#[endpoint]
+async fn join_lobby(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    let gm = depot.game_manager().clone();
+    let nickname = resolve_nickname(depot).await?;
 
-// =============================================================================
-// Router
-// =============================================================================
+    gm.join_lobby(id, user_id, nickname).await?;
 
-struct GameManagerHoop(Arc<GameManager>);
-
-#[handler]
-impl GameManagerHoop {
-    async fn handle(
-        &self,
-        req: &mut Request,
-        depot: &mut Depot,
-        res: &mut Response,
-        ctrl: &mut FlowCtrl,
-    ) {
-        depot.insert("game_manager", self.0.clone());
-        ctrl.call_next(req, depot, res).await;
-    }
+    json_ok(())
 }
 
-pub fn router(gm: Arc<GameManager>) -> Router {
-    Router::with_path("game")
-        .hoop(GameManagerHoop(gm))
-        .requires_user_login()
-        .push(Router::with_path("join_stream").post(join_stream))
-        .push(Router::with_path("status").get(get_status))
-        .push(Router::with_path("snapshot").get(get_snapshot))
+/// Join a lobby as a spectator.
+#[endpoint]
+async fn spectate_lobby(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    let gm = depot.game_manager().clone();
+    let nickname = resolve_nickname(depot).await?;
+
+    gm.spectate_lobby(id, user_id, nickname).await?;
+
+    json_ok(())
+}
+
+/// Leave the specified lobby (player or spectator).
+#[endpoint]
+async fn leave(id: PathParam<Ulid>, depot: &mut Depot) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    depot.game_manager().leave(user_id, id)?;
+    json_ok(())
+}
+
+/// Set ready state in the specified lobby.
+#[endpoint]
+async fn set_ready(
+    id: PathParam<Ulid>,
+    req: JsonBody<SetReadyRequest>,
+    depot: &mut Depot,
+) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    depot
+        .game_manager()
+        .set_ready(user_id, id, req.into_inner().ready)?;
+    json_ok(())
+}
+
+/// Partially update lobby settings (only allowed while the lobby is private).
+/// Only the provided fields are changed; omitted fields keep their current values.
+#[endpoint]
+async fn update_settings(
+    id: PathParam<Ulid>,
+    req: JsonBody<LobbySettingsPatch>,
+    depot: &mut Depot,
+) -> JsonResult<()> {
+    let id = id.into_inner();
+    let user_id = depot.user_id();
+    depot
+        .game_manager()
+        .update_settings(user_id, id, req.into_inner())?;
+    json_ok(())
+}
+
+async fn resolve_nickname(depot: &Depot) -> AppResult<Nickname> {
+    let user_id = depot.user_id();
+    let nick_cache = depot.nickname_cache().clone();
+    let db = depot.db().clone();
+    let nickname = db
+        .read(move |conn| nick_cache.try_get(user_id, conn))
+        .await?
+        .ok_or(diesel::result::Error::NotFound)?;
+    Ok(nickname)
 }

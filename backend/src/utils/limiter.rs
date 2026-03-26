@@ -1,11 +1,11 @@
-use std::sync::Arc;
 #[cfg(not(test))]
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 use std::time::Duration;
 
 use pingora_limits::rate::Rate;
 use salvo::http::StatusCode;
-use salvo::{Depot, FlowCtrl, Handler, Request, Response, Router, async_trait};
+use salvo::{async_trait, Depot, FlowCtrl, Handler, Request, Response, Router};
 
 use crate::auth::DepotAuthExt;
 

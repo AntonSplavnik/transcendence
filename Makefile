@@ -85,28 +85,39 @@ check-cert:
 	fi
 
 chrome-dev:
-	@echo "🌐 Launching Chrome dev instance (WebTransport enabled)..."; \
-	CHROME_BIN=""; \
-	for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
-		if command -v $$bin >/dev/null 2>&1; then \
-			CHROME_BIN=$$bin; break; \
+	@echo "🌐 Launching Chrome dev instance (WebTransport enabled)..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		open -na "Google Chrome" --args \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			"$(CHROME_URL)"; \
+	else \
+		CHROME_BIN=""; \
+		for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
+			if command -v $$bin >/dev/null 2>&1; then CHROME_BIN=$$bin; break; fi; \
+		done; \
+		if [ -z "$$CHROME_BIN" ]; then \
+			echo "⚠️  No Chrome/Chromium binary found in PATH."; exit 1; \
 		fi; \
-	done; \
-	if [ -z "$$CHROME_BIN" ]; then \
-		echo "⚠️  No Chrome/Chromium binary found in PATH."; \
-		exit 1; \
-	fi; \
-	$$CHROME_BIN \
-		--user-data-dir="/tmp/chrome-dev-wt" \
-		--webtransport-developer-mode \
-		--no-first-run \
-		--no-default-browser-check \
-		--disable-default-apps \
-		--disable-popup-blocking \
-		--disable-translate \
-		--disable-sync \
-		--password-store=basic \
-		"$(CHROME_URL)" >/dev/null 2>&1 &
+		$$CHROME_BIN \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			"$(CHROME_URL)" >/dev/null 2>&1 & \
+	fi
 
 create-db:
 	@if [ ! -f $(DB_FILE) ]; then \

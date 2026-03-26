@@ -1,7 +1,8 @@
 import { HashRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
 import { AuthProvider } from './contexts/AuthContext';
-import { FriendsProvider } from './contexts/FriendsContext';
+import { GameProvider } from './contexts/GameContext';
+import { LobbyProvider } from './contexts/LobbyContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { StreamProvider } from './contexts/StreamContext';
 
@@ -11,9 +12,11 @@ function App() {
 			<AuthProvider>
 				<StreamProvider>
 					<NotificationProvider>
-						<FriendsProvider>
-							<AppRoutes />
-						</FriendsProvider>
+						<LobbyProvider>
+							<GameProvider>
+								<AppRoutes />
+							</GameProvider>
+						</LobbyProvider>
 					</NotificationProvider>
 				</StreamProvider>
 			</AuthProvider>

@@ -1,735 +1,654 @@
-// Simple game client - adapted from simple_client.ts with minimal React wrapper
-import { useEffect, useRef } from 'react';
-import {
-    Scene, Engine, Vector3, MeshBuilder, UniversalCamera, HemisphericLight,
-    StandardMaterial, Color3, SceneLoader, AnimationGroup, AbstractMesh, TransformNode
+// Simple game client - uses window.BABYLON and window.TOOLKIT
+// set by the toolkit scripts loaded in index.html
+import type {
+	AbstractMesh,
+	AnimationGroup,
+	Engine,
+	Scene,
+	TransformNode,
+	UniversalCamera,
+	Vector3,
 } from '@babylonjs/core';
-import * as BabylonModule from '@babylonjs/core';
-import '@babylonjs/loaders/glTF';
-import { GameAudioEngine } from '../../audio/AudioEngine';
-import { SoundBank } from '../../audio/SoundBank';
-import { AudioEventSystem } from '../../audio/AudioEventSystem';
-import '@babylonjs/materials'; // Required for SkyMaterial and other materials
-import * as CANNON from 'cannon-es'; // Required for physics
+import type * as BabylonType from '@babylonjs/core';
+import type { RefObject } from 'react';
+import { useEffect, useRef } from 'react';
+import type { GameStateSnapshot, Vector3D } from '../../game/types';
 
-// Make BABYLON available globally for Inspector (must be extensible object)
-(window as any).BABYLON = Object.assign({}, BabylonModule);
-(window as any).CANNON = CANNON;
-import type { GameStateSnapshot, GameEvent, Vector3D } from '../../game/types';
-import { measureModel } from '../../utils/measureModel';
+declare const BABYLON: typeof BabylonType;
+declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
-// Import game assets
+// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
+// Server arena is 0→100; Unity scene is centred at 0. Subtract to align.
+const ARENA_OFFSET = { x: 50, z: 50 };
+
+// Import game assets — Vite resolves these to hashed public URLs at build time
+import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 import generalModel from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
-import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
 
 // ============ COPIED FROM simple_client.ts ============
 
 interface CharacterSnapshot {
-    player_id: number;
-    position: Vector3D;
-    velocity: Vector3D;
-    yaw: number;
-    state: number;
-    health: number;
-    max_health: number;
+	player_id: number;
+	position: Vector3D;
+	velocity: Vector3D;
+	yaw: number;
+	state: number;
+	health: number;
+	max_health: number;
 }
 
 interface InputState {
-    movementDirection: Vector3D;
-    isAttacking: boolean;
-    isJumping: boolean;
-    isSprinting: boolean;
-    isGrounded: boolean;
+	movementDirection: Vector3D;
+	isAttacking: boolean;
+	isJumping: boolean;
+	isSprinting: boolean;
 }
 
-enum CharacterState {
-    Idle = 0,
-    Moving = 1,
-    Attacking = 2,
-    Stunned = 4,
-    Dead = 5
-}
+const CharacterState = {
+	Idle: 0,
+	Moving: 1,
+	Attacking: 2,
+	Stunned: 4,
+	Dead: 5,
+} as const;
+type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
 const AnimationNames = {
-    idle: 'Idle_A',
-    walk: 'Walking_B',
-    run: 'Running_B',
-    jumpStart: 'Jump_Start',
-    jumpIdle: 'Jump_Idle',
-    jumpLand: 'Jump_Land',
-    attack: 'Melee_2H_Attack_Spinning',
-    hit: 'Hit_A',
-    death: 'Death_A',
-    spawn: 'Spawn_Air'
+	idle: 'Idle_A',
+	walk: 'Walking_B',
+	run: 'Running_B',
+	jumpStart: 'Jump_Start',
+	jumpIdle: 'Jump_Idle',
+	jumpLand: 'Jump_Land',
+	attack: 'Melee_2H_Attack_Spinning',
+	hit: 'Hit_A',
+	death: 'Death_A',
+	spawn: 'Spawn_Air',
 };
 
-enum JumpState {
-    GROUNDED = 'grounded',      // On ground, normal animations
-    JUMP_START = 'jump_start',  // Playing jump start animation
-    AIRBORNE = 'airborne',      // In air, playing jump idle loop
-    LANDING = 'landing'         // Playing landing animation
-}
+const JumpState = {
+	GROUNDED: 'grounded',
+	JUMP_START: 'jump_start',
+	AIRBORNE: 'airborne',
+	LANDING: 'landing',
+} as const;
+type JumpState = (typeof JumpState)[keyof typeof JumpState];
 
 class AnimatedCharacter {
-    public rootNode: TransformNode;
-    public meshes: AbstractMesh[] = [];
-    public animations: Map<string, AnimationGroup> = new Map();
-    private currentAnimation: AnimationGroup | null = null;
-    private currentAnimationName: string = '';
-    private scene: Scene;
-    private skeleton: any = null;  // Store this character's skeleton
+	public rootNode: TransformNode;
+	public meshes: AbstractMesh[] = [];
+	public animations: Map<string, AnimationGroup> = new Map();
+	private currentAnimation: AnimationGroup | null = null;
+	private currentAnimationName: string = '';
+	private scene: Scene;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private skeleton: any = null;
 
-    constructor(scene: Scene) {
-        this.scene = scene;
-        this.rootNode = new TransformNode("character_root", scene);
-    }
+	constructor(scene: Scene) {
+		this.scene = scene;
+		this.rootNode = new BABYLON.TransformNode('character_root', scene);
+	}
 
-    async loadModel(assetUrl: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
-        result.meshes.forEach(mesh => {
-            if (!mesh.parent) mesh.parent = this.rootNode;
-            this.meshes.push(mesh);
-        });
-        result.animationGroups.forEach(anim => {
-            this.animations.set(anim.name, anim);
-            anim.stop();
-        });
-        // Store this character's skeleton
-        if (result.skeletons && result.skeletons.length > 0) {
-            this.skeleton = result.skeletons[0];
-        }
-    }
+	async loadModel(assetUrl: string): Promise<void> {
+		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		result.meshes.forEach((mesh) => {
+			if (!mesh.parent) mesh.parent = this.rootNode;
+			this.meshes.push(mesh);
+		});
+		result.animationGroups.forEach((anim) => {
+			this.animations.set(anim.name, anim);
+			anim.stop();
+		});
+		if (result.skeletons && result.skeletons.length > 0) {
+			this.skeleton = result.skeletons[0];
+		}
+	}
 
-    async loadAnimations(assetUrl: string): Promise<void> {
-        const result = await SceneLoader.ImportMeshAsync("", "", assetUrl, this.scene);
-        // Use THIS character's skeleton, not scene.skeletons[0]!
-        if (!this.skeleton) return;
+	async loadAnimations(assetUrl: string): Promise<void> {
+		const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		if (!this.skeleton) return;
 
-        result.animationGroups.forEach(anim => {
-            anim.targetedAnimations.forEach(ta => {
-                const targetName = ta.target?.name;
-                if (targetName) {
-                    const mainBone = this.skeleton.bones.find((b: any) => b.name === targetName);
-                    if (mainBone) ta.target = mainBone.getTransformNode() || mainBone;
-                }
-            });
-            this.animations.set(anim.name, anim);
-            anim.stop();
-        });
+		result.animationGroups.forEach((anim) => {
+			anim.targetedAnimations.forEach((ta) => {
+				const targetName = ta.target?.name;
+				if (targetName) {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const mainBone = this.skeleton.bones.find((b: any) => b.name === targetName);
+					if (mainBone) ta.target = mainBone.getTransformNode() || mainBone;
+				}
+			});
+			this.animations.set(anim.name, anim);
+			anim.stop();
+		});
 
-        result.meshes.forEach(mesh => {
-            mesh.isVisible = false;
-            mesh.setEnabled(false);
-        });
-    }
+		result.meshes.forEach((mesh) => {
+			mesh.isVisible = false;
+			mesh.setEnabled(false);
+		});
+	}
 
-    playAnimation(name: string, loop: boolean = true): void {
-        if (this.currentAnimationName === name) return;
-        const anim = this.animations.get(name);
-        if (!anim) return;
-        if (this.currentAnimation) this.currentAnimation.stop();
-        anim.start(loop);
-        this.currentAnimation = anim;
-        this.currentAnimationName = name;
-    }
+	playAnimation(name: string, loop: boolean = true): void {
+		if (this.currentAnimationName === name) return;
+		const anim = this.animations.get(name);
+		if (!anim) return;
+		if (this.currentAnimation) this.currentAnimation.stop();
+		anim.start(loop);
+		this.currentAnimation = anim;
+		this.currentAnimationName = name;
+	}
 
-    setPosition(pos: Vector3): void {
-        this.rootNode.position.copyFrom(pos);
-    }
+	setPosition(pos: Vector3): void {
+		this.rootNode.position.copyFrom(pos);
+	}
 
-    setRotation(yaw: number): void {
-        this.rootNode.rotation.y = yaw;
-    }
+	setRotation(yaw: number): void {
+		this.rootNode.rotation.y = yaw;
+	}
 
-    dispose(): void {
-        this.animations.forEach(anim => anim.stop());
-        this.meshes.forEach(mesh => mesh.dispose());
-        this.rootNode.dispose();
-    }
+	dispose(): void {
+		this.animations.forEach((anim) => anim.stop());
+		this.meshes.forEach((mesh) => mesh.dispose());
+		this.rootNode.dispose();
+	}
+}
+
+// Shared jump state machine for both local and remote characters.
+function tickJumpState(
+	character: AnimatedCharacter,
+	state: JumpState,
+	isGrounded: boolean,
+	isJumping: boolean,
+): JumpState {
+	if (state === JumpState.GROUNDED && !isGrounded && isJumping) {
+		character.playAnimation(AnimationNames.jumpStart, false);
+		return JumpState.JUMP_START;
+	}
+	if (state === JumpState.GROUNDED && !isGrounded) {
+		character.playAnimation(AnimationNames.jumpIdle, true);
+		return JumpState.AIRBORNE;
+	}
+	if (state === JumpState.JUMP_START) {
+		const anim = character.animations.get(AnimationNames.jumpStart);
+		if (anim && !anim.isPlaying) {
+			character.playAnimation(AnimationNames.jumpIdle, true);
+			return JumpState.AIRBORNE;
+		}
+		return JumpState.JUMP_START;
+	}
+	if (state === JumpState.AIRBORNE && !isGrounded) {
+		character.playAnimation(AnimationNames.jumpIdle, true);
+		return JumpState.AIRBORNE;
+	}
+	if (state === JumpState.AIRBORNE && isGrounded) {
+		character.playAnimation(AnimationNames.jumpLand, false);
+		return JumpState.LANDING;
+	}
+	if (state === JumpState.LANDING) {
+		const anim = character.animations.get(AnimationNames.jumpLand);
+		if (anim && !anim.isPlaying) return JumpState.GROUNDED;
+		return JumpState.LANDING;
+	}
+	return state;
 }
 
 class GameClient {
-    private scene: Scene;
-    private localPlayerID: number;
-    private characters: Map<number, AnimatedCharacter> = new Map();
-    private loadingCharacters: Set<number> = new Set();
-    private localCharacter: AnimatedCharacter | null = null;
-    private position: Vector3 = new Vector3(0, 1, 0);
-    private velocity: Vector3 = new Vector3(0, 0, 0);
-    private camera: UniversalCamera;
-    private currentAnimState: string = 'idle';
-    private jumpState: JumpState = JumpState.GROUNDED;
-    private wasGrounded: boolean = true;
-    // Track jump state for remote players
-    private remoteJumpStates: Map<number, JumpState> = new Map();
-    private remoteWasGrounded: Map<number, boolean> = new Map();
+	private scene: Scene;
+	private localPlayerID: number;
+	private characters: Map<number, AnimatedCharacter> = new Map();
+	private loadingCharacters: Set<number> = new Set();
+	private localCharacter: AnimatedCharacter | null = null;
+	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
+	private velocity: Vector3 = new BABYLON.Vector3(0, 0, 0);
+	private camera: UniversalCamera;
+	private currentAnimState: string = 'idle';
+	private jumpState: JumpState = JumpState.GROUNDED;
+	private remoteJumpStates: Map<number, JumpState> = new Map();
 
-    constructor(scene: Scene, localPlayerID: number, camera: UniversalCamera) {
-        this.scene = scene;
-        this.localPlayerID = localPlayerID;
-        this.camera = camera;
-    }
+	constructor(scene: Scene, localPlayerID: number, camera: UniversalCamera) {
+		this.scene = scene;
+		this.localPlayerID = localPlayerID;
+		this.camera = camera;
+	}
 
-    async initLocalPlayer(): Promise<void> {
-        this.localCharacter = new AnimatedCharacter(this.scene);
-        await this.localCharacter.loadModel(generalModel);
-        await this.localCharacter.loadAnimations(movementBasicAnims);
-        await this.localCharacter.loadAnimations(combatMeleeAnims);
+	async initLocalPlayer(): Promise<void> {
+		this.localCharacter = new AnimatedCharacter(this.scene);
+		await this.localCharacter.loadModel(generalModel);
+		await this.localCharacter.loadAnimations(movementBasicAnims);
+		await this.localCharacter.loadAnimations(combatMeleeAnims);
 
-        // Scale character up 3x to make it more visible
-        this.localCharacter.rootNode.scaling.setAll(3);
+		this.localCharacter.rootNode.scaling.setAll(0.8);
+		this.localCharacter.setPosition(this.position);
+		this.localCharacter.playAnimation('Spawn_Air', false);
+		setTimeout(() => {
+			this.currentAnimState = '';
+			this.playAnimation('idle');
+		}, 1500);
+	}
 
-        this.localCharacter.setPosition(this.position);
-        this.localCharacter.playAnimation('Spawn_Air', false);
-        setTimeout(() => {
-            this.currentAnimState = '';
-            this.playAnimation('idle');
-        }, 1500);
-    }
+	private playAnimation(state: string, loop: boolean = true): void {
+		if (this.currentAnimState === state) return;
+		const animName = AnimationNames[state as keyof typeof AnimationNames];
+		if (animName && this.localCharacter) {
+			this.localCharacter.playAnimation(animName, loop);
+			this.currentAnimState = state;
+		}
+	}
 
-    private playAnimation(state: string, loop: boolean = true): void {
-        if (this.currentAnimState === state) return;
-        const animName = AnimationNames[state as keyof typeof AnimationNames];
-        if (animName && this.localCharacter) {
-            this.localCharacter.playAnimation(animName, loop);
-            this.currentAnimState = state;
-        }
-    }
+	// Legacy method - kept for applyInput (currently disabled)
+	private updateAnimation(input: InputState): void {
+		if (!this.localCharacter) return;
+		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+		const speed = Math.sqrt(
+			this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z,
+		);
 
-    // Legacy method - kept for applyInput (currently disabled)
-    private updateAnimation(input: InputState): void {
-        if (!this.localCharacter) return;
-        const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
-        const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
+		if (input.isAttacking) {
+			this.playAnimation('attack', false);
+			return;
+		}
 
-        if (input.isAttacking) {
-            this.playAnimation('attack', false);
-            return;
-        }
+		if (isMoving) {
+			this.playAnimation(speed > 3.0 ? 'run' : 'walk');
+			if (this.velocity.x !== 0 || this.velocity.z !== 0) {
+				const targetRotation = Math.atan2(this.velocity.x, this.velocity.z);
+				this.localCharacter.setRotation(targetRotation);
+			}
+		} else {
+			this.playAnimation('idle');
+		}
+	}
 
-        if (isMoving) {
-            this.playAnimation(speed > 3.0 ? 'run' : 'walk');
-            if (this.velocity.x !== 0 || this.velocity.z !== 0) {
-                const targetRotation = Math.atan2(this.velocity.x, this.velocity.z);
-                this.localCharacter.setRotation(targetRotation);
-            }
-        } else {
-            this.playAnimation('idle');
-        }
-    }
+	// Legacy method - currently disabled (prediction disabled)
+	applyInput(input: InputState, deltaTime: number) {
+		const moveSpeed = 5.0;
 
-    // Legacy method - currently disabled (prediction disabled)
-    applyInput(input: InputState, deltaTime: number) {
-        const moveSpeed = 5.0;
+		if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+			const cameraForward = this.camera.getTarget().subtract(this.camera.position);
+			cameraForward.y = 0;
+			cameraForward.normalize();
+			const cameraRight = BABYLON.Vector3.Cross(
+				BABYLON.Vector3.Up(),
+				cameraForward,
+			).normalize();
+			const worldMoveDir = cameraForward
+				.scale(input.movementDirection.z)
+				.add(cameraRight.scale(input.movementDirection.x));
 
-        if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
-            const cameraForward = this.camera.getTarget().subtract(this.camera.position);
-            cameraForward.y = 0;
-            cameraForward.normalize();
-            const cameraRight = Vector3.Cross(Vector3.Up(), cameraForward).normalize();
-            const worldMoveDir = cameraForward.scale(input.movementDirection.z)
-                .add(cameraRight.scale(input.movementDirection.x));
+			if (worldMoveDir.length() > 0) {
+				worldMoveDir.normalize();
+				this.velocity.x = worldMoveDir.x * moveSpeed;
+				this.velocity.z = worldMoveDir.z * moveSpeed;
+			}
+		} else {
+			this.velocity.x = 0;
+			this.velocity.z = 0;
+		}
 
-            if (worldMoveDir.length() > 0) {
-                worldMoveDir.normalize();
-                this.velocity.x = worldMoveDir.x * moveSpeed;
-                this.velocity.z = worldMoveDir.z * moveSpeed;
-            }
-        } else {
-            this.velocity.x = 0;
-            this.velocity.z = 0;
-        }
+		if (input.isJumping && this.position.y <= 1.1) {
+			this.velocity.y = 8.0;
+		}
 
-        if (input.isJumping && this.position.y <= 1.1) {
-            this.velocity.y = 8.0;
-        }
+		if (this.position.y > 1.0) {
+			this.velocity.y -= 20.0 * deltaTime;
+		} else {
+			this.position.y = 1.0;
+			this.velocity.y = 0;
+		}
 
-        if (this.position.y > 1.0) {
-            this.velocity.y -= 20.0 * deltaTime;
-        } else {
-            this.position.y = 1.0;
-            this.velocity.y = 0;
-        }
+		this.position.addInPlace(this.velocity.scale(deltaTime));
+		this.position.x = Math.max(-49, Math.min(49, this.position.x));
+		this.position.z = Math.max(-49, Math.min(49, this.position.z));
 
-        this.position.addInPlace(this.velocity.scale(deltaTime));
-        this.position.x = Math.max(-49, Math.min(49, this.position.x));
-        this.position.z = Math.max(-49, Math.min(49, this.position.z));
+		if (this.localCharacter) this.localCharacter.setPosition(this.position);
+		this.updateAnimation(input);
 
-        if (this.localCharacter) this.localCharacter.setPosition(this.position);
-        this.updateAnimation(input);
+		const cameraOffset = new BABYLON.Vector3(30, 60, -30);
+		this.camera.position = this.position.add(cameraOffset);
+		this.camera.setTarget(this.position);
+	}
 
-        const cameraOffset = new Vector3(30, 60, -30);
-        this.camera.position = this.position.add(cameraOffset);
-        this.camera.setTarget(this.position);
-    }
+	processSnapshot(snapshot: GameStateSnapshot) {
+		const activePlayerIDs = new Set<number>();
 
-    processSnapshot(snapshot: GameStateSnapshot) {
-        const activePlayerIDs = new Set<number>();
+		for (const char of snapshot.characters) {
+			activePlayerIDs.add(char.player_id);
 
-        for (const char of snapshot.characters) {
-            activePlayerIDs.add(char.player_id);
+			if (char.player_id === this.localPlayerID) {
+				const serverPos = new BABYLON.Vector3(
+					char.position.x - ARENA_OFFSET.x,
+					char.position.y,
+					char.position.z - ARENA_OFFSET.z,
+				);
+				this.position.copyFrom(serverPos);
+				if (this.localCharacter) {
+					this.localCharacter.setPosition(this.position);
+					this.localCharacter.setRotation(char.yaw);
+				}
 
-            if (char.player_id === this.localPlayerID) {
-                // PREDICTION DISABLED - Always use server position
-                const serverPos = new Vector3(char.position.x, char.position.y, char.position.z);
-                this.position.copyFrom(serverPos);
-                if (this.localCharacter) {
-                    this.localCharacter.setPosition(this.position);
-                    this.localCharacter.setRotation(char.yaw); // Use server rotation
-                }
+				const cameraOffset = new BABYLON.Vector3(10, 15, -10);
+				this.camera.position = this.position.add(cameraOffset);
+				this.camera.setTarget(this.position);
+			} else {
+				const remoteChar = this.characters.get(char.player_id);
+				if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
+					this.createRemoteCharacter(char.player_id, char);
+				} else if (remoteChar) {
+					const pos = new BABYLON.Vector3(
+						char.position.x - ARENA_OFFSET.x,
+						char.position.y,
+						char.position.z - ARENA_OFFSET.z,
+					);
+					remoteChar.setPosition(pos);
+					remoteChar.setRotation(char.yaw);
+					this.updateRemoteAnimation(char.player_id, remoteChar, char);
+				}
+			}
+		}
 
-                // Update camera to follow player (adjusted for scaled characters)
-                const cameraOffset = new Vector3(30, 40, -30);
-                this.camera.position = this.position.add(cameraOffset);
-                this.camera.setTarget(this.position);
-            } else {
-                let remoteChar = this.characters.get(char.player_id);
-                if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
-                    this.createRemoteCharacter(char.player_id, char);
-                } else if (remoteChar) {
-                    const pos = new Vector3(char.position.x, char.position.y, char.position.z);
-                    remoteChar.setPosition(pos);
-                    remoteChar.setRotation(char.yaw);
-                    this.updateRemoteAnimation(char.player_id, remoteChar, char);
-                }
-            }
-        }
+		const disconnectedPlayers: number[] = [];
+		for (const [playerID, character] of this.characters.entries()) {
+			if (!activePlayerIDs.has(playerID)) {
+				disconnectedPlayers.push(playerID);
+				character.dispose();
+			}
+		}
+		for (const playerID of disconnectedPlayers) {
+			this.characters.delete(playerID);
+			this.loadingCharacters.delete(playerID);
+			this.remoteJumpStates.delete(playerID);
+		}
+	}
 
-        const disconnectedPlayers: number[] = [];
-        for (const [playerID, character] of this.characters.entries()) {
-            if (!activePlayerIDs.has(playerID)) {
-                disconnectedPlayers.push(playerID);
-                character.dispose();
-            }
-        }
-        for (const playerID of disconnectedPlayers) {
-            this.characters.delete(playerID);
-            this.loadingCharacters.delete(playerID);
-            this.remoteJumpStates.delete(playerID);
-            this.remoteWasGrounded.delete(playerID);
-        }
-    }
+	private async createRemoteCharacter(
+		playerID: number,
+		charData: CharacterSnapshot,
+	): Promise<void> {
+		this.loadingCharacters.add(playerID);
+		const remoteChar = new AnimatedCharacter(this.scene);
+		try {
+			await remoteChar.loadModel(generalModel);
+			await remoteChar.loadAnimations(movementBasicAnims);
+			await remoteChar.loadAnimations(combatMeleeAnims);
 
-    private async createRemoteCharacter(playerID: number, charData: CharacterSnapshot): Promise<void> {
-        this.loadingCharacters.add(playerID);
-        const remoteChar = new AnimatedCharacter(this.scene);
-        try {
-            await remoteChar.loadModel(generalModel);
-            await remoteChar.loadAnimations(movementBasicAnims);
-            await remoteChar.loadAnimations(combatMeleeAnims);
+			remoteChar.rootNode.scaling.setAll(0.8);
 
-            // Scale character up 3x to make it more visible
-            remoteChar.rootNode.scaling.setAll(3);
+			if (playerID === this.localPlayerID) {
+				remoteChar.dispose();
+				this.loadingCharacters.delete(playerID);
+				return;
+			}
+			remoteChar.setPosition(
+				new BABYLON.Vector3(
+					charData.position.x - ARENA_OFFSET.x,
+					charData.position.y,
+					charData.position.z - ARENA_OFFSET.z,
+				),
+			);
+			remoteChar.setRotation(charData.yaw);
+			this.characters.set(playerID, remoteChar);
+			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
+			remoteChar.playAnimation(AnimationNames.idle, true);
+		} catch (error) {
+			console.error(`Failed to load remote character ${playerID}:`, error);
+		} finally {
+			this.loadingCharacters.delete(playerID);
+		}
+	}
 
-            if (playerID === this.localPlayerID) {
-                remoteChar.dispose();
-                this.loadingCharacters.delete(playerID);
-                return;
-            }
-            remoteChar.setPosition(new Vector3(charData.position.x, charData.position.y, charData.position.z));
-            remoteChar.setRotation(charData.yaw);
-            this.characters.set(playerID, remoteChar);
-            // Initialize jump state for remote player
-            this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
-            this.remoteWasGrounded.set(playerID, true);
-            remoteChar.playAnimation(AnimationNames.idle, true);
-        } catch (error) {
-            console.error(`Failed to load remote character ${playerID}:`, error);
-        } finally {
-            this.loadingCharacters.delete(playerID);
-        }
-    }
+	private updateRemoteAnimation(
+		playerID: number,
+		character: AnimatedCharacter,
+		charData: CharacterSnapshot,
+	): void {
+		const isGrounded = charData.position.y <= 1.1;
+		const speed = Math.sqrt(
+			charData.velocity.x * charData.velocity.x + charData.velocity.z * charData.velocity.z,
+		);
 
-    private updateRemoteAnimation(playerID: number, character: AnimatedCharacter, charData: CharacterSnapshot): void {
-        const position = new Vector3(charData.position.x, charData.position.y, charData.position.z);
-        const velocity = charData.velocity;
-        const state = charData.state;
+		const jumpState = tickJumpState(
+			character,
+			this.remoteJumpStates.get(playerID) ?? JumpState.GROUNDED,
+			isGrounded,
+			false,
+		);
+		this.remoteJumpStates.set(playerID, jumpState);
+		if (jumpState !== JumpState.GROUNDED) return;
 
-        // Get or initialize jump state for this player
-        let jumpState = this.remoteJumpStates.get(playerID) || JumpState.GROUNDED;
-        const wasGrounded = this.remoteWasGrounded.get(playerID) ?? true;
+		switch (charData.state) {
+			case CharacterState.Attacking:
+				character.playAnimation(AnimationNames.attack, true);
+				break;
+			case CharacterState.Stunned:
+				character.playAnimation(AnimationNames.hit, false);
+				break;
+			case CharacterState.Dead:
+				character.playAnimation(AnimationNames.death, false);
+				break;
+			case CharacterState.Moving:
+				character.playAnimation(
+					speed > 10 ? AnimationNames.run : AnimationNames.walk,
+					true,
+				);
+				break;
+			case CharacterState.Idle:
+			default:
+				character.playAnimation(AnimationNames.idle, true);
+				break;
+		}
+	}
 
-        // Check if character is grounded based on Y position
-        const isGrounded = position.y <= 1.1;
-        const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+	updateLocalAnimation(input: InputState): void {
+		if (!this.localCharacter) return;
 
-        // ===== JUMP STATE MACHINE (same logic as local player) =====
+		const isGrounded = this.position.y <= 1.1;
+		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
-        // TRANSITION: GROUNDED → AIRBORNE (became airborne)
-        if (jumpState === JumpState.GROUNDED && !isGrounded) {
-            // We can't distinguish between jump and fall for remote players, so just go to airborne
-            jumpState = JumpState.AIRBORNE;
-            character.playAnimation(AnimationNames.jumpIdle, true);
-            this.remoteWasGrounded.set(playerID, false);
-            this.remoteJumpStates.set(playerID, jumpState);
-            return;
-        }
+		this.jumpState = tickJumpState(
+			this.localCharacter,
+			this.jumpState,
+			isGrounded,
+			input.isJumping,
+		);
+		if (this.jumpState !== JumpState.GROUNDED) return;
 
-        // STATE: AIRBORNE (ensure jump idle is playing)
-        if (jumpState === JumpState.AIRBORNE && !isGrounded) {
-            character.playAnimation(AnimationNames.jumpIdle, true);
-            return;
-        }
-
-        // TRANSITION: AIRBORNE → LANDING (touched ground)
-        if (jumpState === JumpState.AIRBORNE && isGrounded) {
-            jumpState = JumpState.LANDING;
-            character.playAnimation(AnimationNames.jumpLand, false);
-            this.remoteWasGrounded.set(playerID, true);
-            this.remoteJumpStates.set(playerID, jumpState);
-            return;
-        }
-
-        // TRANSITION: LANDING → GROUNDED (landing animation finished)
-        if (jumpState === JumpState.LANDING) {
-            const landAnim = character.animations.get(AnimationNames.jumpLand);
-            if (landAnim && !landAnim.isPlaying) {
-                jumpState = JumpState.GROUNDED;
-                this.remoteJumpStates.set(playerID, jumpState);
-                // Fall through to ground animations
-            } else {
-                return; // Still playing landing animation
-            }
-        }
-
-        // ===== GROUNDED ANIMATIONS =====
-        if (jumpState === JumpState.GROUNDED) {
-            switch (state) {
-                case CharacterState.Attacking:
-                    character.playAnimation(AnimationNames.attack, true);
-                    break;
-                case CharacterState.Stunned:
-                    character.playAnimation(AnimationNames.hit, false);
-                    break;
-                case CharacterState.Dead:
-                    character.playAnimation(AnimationNames.death, false);
-                    break;
-                case CharacterState.Moving:
-                    // Use run animation if speed > 10 (sprinting), walk otherwise
-                    character.playAnimation(speed > 10 ? AnimationNames.run : AnimationNames.walk, true);
-                    break;
-                case CharacterState.Idle:
-                default:
-                    character.playAnimation(AnimationNames.idle, true);
-                    break;
-            }
-        }
-    }
-
-    // Jump animation state machine
-    updateLocalAnimation(input: InputState): void {
-        if (!this.localCharacter) return;
-
-        // Check ground state based on Y position (server authoritative)
-        const isGrounded = this.position.y <= 1.1;
-        const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
-
-        // ===== STATE MACHINE =====
-
-        // TRANSITION: GROUNDED → JUMP_START (initiated jump)
-        if (this.jumpState === JumpState.GROUNDED && !isGrounded && input.isJumping) {
-            this.jumpState = JumpState.JUMP_START;
-            this.playAnimation('jumpStart', false);
-            this.wasGrounded = false;
-            return;
-        }
-
-        // TRANSITION: GROUNDED → AIRBORNE (fell off edge)
-        if (this.jumpState === JumpState.GROUNDED && !isGrounded && !input.isJumping) {
-            this.jumpState = JumpState.AIRBORNE;
-            this.playAnimation('jumpIdle', true);
-            this.wasGrounded = false;
-            return;
-        }
-
-        // TRANSITION: JUMP_START → AIRBORNE (start animation finished)
-        if (this.jumpState === JumpState.JUMP_START) {
-            const jumpStartAnim = this.localCharacter.animations.get(AnimationNames.jumpStart);
-            if (jumpStartAnim && !jumpStartAnim.isPlaying) {
-                this.jumpState = JumpState.AIRBORNE;
-                this.playAnimation('jumpIdle', true);
-            }
-            return; // Stay in jump sequence
-        }
-
-        // STATE: AIRBORNE (ensure jump idle is playing)
-        if (this.jumpState === JumpState.AIRBORNE && !isGrounded) {
-            this.playAnimation('jumpIdle', true);
-            return;
-        }
-
-        // TRANSITION: AIRBORNE → LANDING (touched ground)
-        if (this.jumpState === JumpState.AIRBORNE && isGrounded) {
-            this.jumpState = JumpState.LANDING;
-            this.playAnimation('jumpLand', false);
-            this.wasGrounded = true;
-            return;
-        }
-
-        // TRANSITION: LANDING → GROUNDED (landing animation finished)
-        if (this.jumpState === JumpState.LANDING) {
-            const landAnim = this.localCharacter.animations.get(AnimationNames.jumpLand);
-            if (landAnim && !landAnim.isPlaying) {
-                this.jumpState = JumpState.GROUNDED;
-                // Fall through to ground animations
-            } else {
-                return; // Still playing landing animation
-            }
-        }
-
-        // ===== GROUNDED ANIMATIONS =====
-        if (this.jumpState === JumpState.GROUNDED) {
-            if (input.isAttacking) {
-                this.playAnimation('attack', true);
-                return;
-            }
-
-            if (isMoving) {
-                this.playAnimation(input.isSprinting ? 'run' : 'walk');
-            } else {
-                this.playAnimation('idle');
-            }
-        }
-    }
-
-    getIsGrounded(): boolean {
-        return this.position.y <= 1.1;
-    }
+		if (input.isAttacking) {
+			this.playAnimation('attack', true);
+		} else if (isMoving) {
+			this.playAnimation(input.isSprinting ? 'run' : 'walk');
+		} else {
+			this.playAnimation('idle');
+		}
+	}
 }
 
 // ============ MINIMAL REACT WRAPPER ============
 
-type GameEventsCallback = (callback: (events: GameEvent[]) => void) => void;
-
 interface Props {
-    snapshot: GameStateSnapshot | null;
-    onSendInput: (movement: Vector3D, lookDirection: Vector3D, attacking: boolean, jumping: boolean, sprinting: boolean) => void;
-    localPlayerId: number | undefined;
-    onGameEvents?: GameEventsCallback;
+	/** Ref to the latest GameStateSnapshot. Read in the Babylon render loop — NOT React state. */
+	snapshotRef: RefObject<GameStateSnapshot | null>;
+	onSendInput: (
+		movement: Vector3D,
+		lookDirection: Vector3D,
+		attacking: boolean,
+		jumping: boolean,
+		sprinting: boolean,
+	) => void;
+	localPlayerId: number;
 }
 
-export default function SimpleGameClient({ snapshot, onSendInput, localPlayerId, onGameEvents }: Props) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const gameClientRef = useRef<GameClient | null>(null);
-    const engineRef = useRef<Engine | null>(null);
-    const audioEventSystemRef = useRef<AudioEventSystem | null>(null);
-    const localPlayerPositionRef = useRef<Vector3D>({ x: 50, y: 0, z: 50 });
-    const prevSnapshotRef = useRef<GameStateSnapshot | null>(null);
+export default function SimpleGameClient({ snapshotRef, onSendInput, localPlayerId }: Props) {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const gameClientRef = useRef<GameClient | null>(null);
+	const engineRef = useRef<Engine | null>(null);
 
-    // Initialize once
-    useEffect(() => {
-        if (!canvasRef.current || !localPlayerId) return;
+	useEffect(() => {
+		if (!canvasRef.current || !localPlayerId) return;
 
-        const canvas = canvasRef.current;
-        const engine = new Engine(canvas, true);
-        const scene = new Scene(engine);
-        engineRef.current = engine;
+		const canvas = canvasRef.current;
+		let disposed = false;
+		let sceneInstance: Scene | null = null;
 
-        // Measure character model to understand original scale
-        measureModel(generalModel).then(dims => {
-            console.log('📏 === CHARACTER MODEL MEASUREMENTS ===');
-            console.log(`   Height: ${dims.height.toFixed(3)} units (original scale)`);
-            console.log(`   Width:  ${dims.width.toFixed(3)} units`);
-            console.log(`   Depth:  ${dims.depth.toFixed(3)} units`);
-            console.log(`   `);
-            console.log(`   For 1.75m tall human (standard):`);
-            console.log(`   Scale factor needed: ${(1.75 / dims.height).toFixed(2)}x`);
-            console.log('📏 ====================================');
-        });
+		(async () => {
+			const engine = new BABYLON.Engine(canvas, true);
+			engineRef.current = engine;
 
-        // Setup camera - FIXED: Look at arena center (50, 0, 50)
-        // Adjusted closer for better view of scaled-up characters
-        const camera = new UniversalCamera('camera', new Vector3(80, 60, 20), scene);
-        camera.setTarget(new Vector3(50, 0, 50));
-        camera.minZ = 0.1;
-        camera.maxZ = 500;
+			await TOOLKIT.SceneManager.InitializeRuntime(engine);
+			if (disposed) {
+				engine.dispose();
+				return;
+			}
 
-        // Load arena scene from Babylon.js Editor
-        // The scene file references binary mesh data in the "example" folder
-        SceneLoader.Append("/scenes/", "arena.babylon", scene, (loadedScene) => {
-            console.log("Arena scene loaded!");
-            console.log("Loaded meshes:", loadedScene.meshes.length);
+			const scene = new BABYLON.Scene(engine);
+			sceneInstance = scene;
 
-            // The editor scene is huge (spread over ~2000 units), but our game arena is 100x100
-            // We need to scale it down and position it correctly
-            const SCALE_FACTOR = 0.05; // Scale down to 5% of original size
-            const ROTATION_Y = Math.PI / 1.5; // Rotate 90 degrees (adjust as needed: Math.PI = 180°, Math.PI/2 = 90°, etc.)
+			const camera = new BABYLON.UniversalCamera(
+				'camera',
+				new BABYLON.Vector3(78, 33, 22),
+				scene,
+			);
+			camera.setTarget(new BABYLON.Vector3(50, 2, 50));
+			camera.minZ = 0.1;
+			camera.maxZ = 500;
 
-            // Create a root transform node for the entire scene
-            const sceneRoot = new TransformNode("sceneRoot", scene);
-            sceneRoot.position = new Vector3(50, 0, 50); // Center at game coordinates
-            sceneRoot.scaling.setAll(SCALE_FACTOR);
-            sceneRoot.rotation.y = ROTATION_Y; // Rotate the scene
+			// const sun = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-2, -4, 3), scene);
+			// sun.intensity = 3;
+			// const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+			// hemi.intensity = 0.6;
 
-            // Parent all root meshes to the scene root
-            loadedScene.meshes.forEach(mesh => {
-                if (mesh.name !== '__root__' && !mesh.parent) {
-                    mesh.parent = sceneRoot;
-                }
-            });
+			scene.onReadyObservable.addOnce(() => {
+				console.log(
+					'[Scene] cameras:',
+					scene.cameras.map((c) => `${c.name} (${c.getClassName()})`),
+				);
+				scene.activeCamera = camera;
+			});
 
-            console.log(`Scene scaled to ${SCALE_FACTOR * 100}% and centered at (50, 0, 50)`);
+			// Press F to toggle between game camera and Unity "Main Camera.Rig"
+			window.addEventListener('keydown', (event) => {
+				if (event.key === 'f' || event.key === 'F') {
+					const unityCam = scene.getCameraByName('Main Camera.Rig');
+					if (!unityCam) return;
+					if (scene.activeCamera === camera) {
+						scene.activeCamera = unityCam;
+						console.log('[Camera] switched to Unity camera');
+					} else {
+						scene.activeCamera = camera;
+						console.log('[Camera] switched to game camera');
+					}
+				}
+			});
 
-            // Keep using game camera (not camera from the editor)
-            loadedScene.activeCamera = camera;
-        }, undefined, (scene, message, exception) => {
-            console.error("Failed to load arena scene:", message, exception);
-        });
+			BABYLON.SceneLoader.Append(
+				'/scenes/Export/scenes/',
+				'Forest.gltf',
+				scene,
+				undefined,
+				undefined,
+				(_s, message, exception) => {
+					console.error('Failed to load Forest scene:', message, exception);
+				},
+			);
 
-        // Enable Inspector with Ctrl+Shift+I (loaded from CDN)
-        let inspectorLoaded = false;
-        window.addEventListener('keydown', async (event) => {
-            if (event.ctrlKey && event.shiftKey && event.key === 'I') {
-                event.preventDefault();
+			// Enable Inspector with Ctrl+Shift+I
+			let inspectorLoaded = false;
+			window.addEventListener('keydown', async (event) => {
+				if (event.ctrlKey && event.shiftKey && event.key === 'I') {
+					event.preventDefault();
+					if (!inspectorLoaded) {
+						await BABYLON.Tools.LoadScriptAsync(
+							'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js',
+						);
+						inspectorLoaded = true;
+					}
+					if (scene.debugLayer.isVisible()) {
+						scene.debugLayer.hide();
+					} else {
+						await scene.debugLayer.show({
+							embedMode: false,
+							overlay: true,
+							globalRoot: document.body,
+						});
+					}
+				}
+			});
 
-                if (scene.debugLayer.isVisible()) {
-                    scene.debugLayer.hide();
-                } else {
-                    // Load inspector from CDN on first use
-                    if (!inspectorLoaded) {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js';
-                        document.head.appendChild(script);
-                        await new Promise((resolve) => { script.onload = resolve; });
-                        inspectorLoaded = true;
-                    }
-                    await scene.debugLayer.show({
-                        embedMode: false,
-                        overlay: true,
-                        globalRoot: document.body
-                    });
-                }
-            }
-        });
+			const gameClient = new GameClient(scene, localPlayerId, camera);
+			gameClientRef.current = gameClient;
+			gameClient
+				.initLocalPlayer()
+				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
 
-        // Game client
-        const gameClient = new GameClient(scene, localPlayerId, camera);
-        gameClientRef.current = gameClient;
-        gameClient.initLocalPlayer();
+			const input: InputState = {
+				movementDirection: { x: 0, y: 0, z: 0 },
+				isAttacking: false,
+				isJumping: false,
+				isSprinting: false,
+			};
+			const keysPressed = new Set<string>();
 
-        // Audio system initialization
-        const gameAudio = new GameAudioEngine();
-        const soundBank = new SoundBank();
-        const audioEventSystem = new AudioEventSystem(gameAudio, soundBank);
-        audioEventSystem.setLocalPlayerId(localPlayerId);
-        audioEventSystemRef.current = audioEventSystem;
+			scene.onKeyboardObservable.add((kbInfo) => {
+				if (kbInfo.type === 1) keysPressed.add(kbInfo.event.key.toLowerCase());
+				else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
+			});
 
-        gameAudio.initialize().then(async () => {
-            gameAudio.attachListenerToCamera(camera);
-            await soundBank.loadAll(gameAudio);
-            const ambientSound = soundBank.getRandomSound('amb_forest');                                                                                   
-            if (ambientSound) {                                                                                                                            
-                ambientSound.loop = true;                                                                                                                
-                ambientSound.play();
-            }
-            console.log('Audio system initialized');
-        }).catch(err => {
-            console.warn('Audio initialization failed:', err);
-        });
+			scene.onBeforeRenderObservable.add(() => {
+				input.movementDirection.x = 0;
+				input.movementDirection.z = 0;
+				if (keysPressed.has('w')) input.movementDirection.z = 1;
+				if (keysPressed.has('s')) input.movementDirection.z = -1;
+				if (keysPressed.has('a')) input.movementDirection.x = -1;
+				if (keysPressed.has('d')) input.movementDirection.x = 1;
+				input.isJumping = keysPressed.has(' ');
+				input.isAttacking = keysPressed.has('e');
+				input.isSprinting = keysPressed.has('shift');
 
-        // Input
-        const input: InputState = {
-            movementDirection: { x: 0, y: 0, z: 0 },
-            isAttacking: false,
-            isJumping: false,
-            isSprinting: false,
-            isGrounded: true,
-        };
-        const keysPressed = new Set<string>();
+				gameClient.updateLocalAnimation(input);
+			});
 
-        scene.onKeyboardObservable.add((kbInfo) => {
-            const key = kbInfo.event.key.toLowerCase();
-            if (kbInfo.type === 1) keysPressed.add(key);
-            else if (kbInfo.type === 2) keysPressed.delete(key);
-        });
+			const TARGET_FRAME_MS = 1000 / 60;
+			let lastFrameTime = 0;
 
-        scene.onBeforeRenderObservable.add(() => {
-            input.movementDirection.x = 0;
-            input.movementDirection.z = 0;
-            if (keysPressed.has('w')) input.movementDirection.z = 1;
-            if (keysPressed.has('s')) input.movementDirection.z = -1;
-            if (keysPressed.has('a')) input.movementDirection.x = -1;
-            if (keysPressed.has('d')) input.movementDirection.x = 1;
-            input.isJumping = keysPressed.has(' ');
-            input.isAttacking = keysPressed.has('e');
-            input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
-            input.isGrounded = gameClient.getIsGrounded();
+			engine.runRenderLoop(() => {
+				const now = performance.now();
+				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
+				lastFrameTime =
+					now - lastFrameTime > TARGET_FRAME_MS * 2
+						? now
+						: lastFrameTime + TARGET_FRAME_MS;
 
-            // Update animations based on input
-            gameClient.updateLocalAnimation(input);
-            // Pipeline 1: local player audio (0ms, same trigger as updateLocalAnimation)
-            if (audioEventSystemRef.current) {
-                audioEventSystemRef.current.onLocalInput(input, localPlayerPositionRef.current);
-            }
-        });
+				const snap = snapshotRef.current;
+				if (snap !== null) {
+					gameClient.processSnapshot(snap);
+					snapshotRef.current = null;
+				}
 
-        // Render loop
-        let lastInputSend = 0;
-        engine.runRenderLoop(() => {
-            const now = performance.now();
+				const lookDir =
+					input.movementDirection.x !== 0 || input.movementDirection.z !== 0
+						? input.movementDirection
+						: { x: 0, y: 0, z: 1 };
+				onSendInput(
+					input.movementDirection,
+					lookDir,
+					input.isAttacking,
+					input.isJumping,
+					input.isSprinting,
+				);
 
-            // PREDICTION DISABLED - Only use server positions
-            // gameClient.applyInput(input, deltaTime);
+				scene.render();
+			});
 
-            // Send input to server (throttled to 20/sec)
-            if (now - lastInputSend >= 50) {
-                // Use movement direction as look direction so character faces where they move
-                const lookDir = input.movementDirection.x !== 0 || input.movementDirection.z !== 0
-                    ? input.movementDirection
-                    : { x: 0, y: 0, z: 1 }; // Default forward when not moving
-                onSendInput(input.movementDirection, lookDir, input.isAttacking, input.isJumping, input.isSprinting);
-                lastInputSend = now;
-            }
+			window.addEventListener('resize', () => engine.resize());
+		})();
 
-            scene.render();
-        });
+		return () => {
+			disposed = true;
+			engineRef.current?.stopRenderLoop();
+			sceneInstance?.dispose();
+			engineRef.current?.dispose();
+			engineRef.current = null;
+		};
+	}, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        window.addEventListener('resize', () => engine.resize());
-
-        return () => {
-            engine.stopRenderLoop();
-            scene.dispose();
-            engine.dispose();
-            gameAudio.dispose();
-        };
-    }, [localPlayerId]);
-
-    // Register game events callback for audio (Pipeline 3: server critical events)
-    useEffect(() => {
-        if (onGameEvents) {
-            onGameEvents((events: GameEvent[]) => {
-                if (audioEventSystemRef.current) {
-                    audioEventSystemRef.current.onServerEvents(events);
-                }
-            });
-        }
-    }, [onGameEvents]);
-
-    // Process snapshots
-    useEffect(() => {
-        if (snapshot && gameClientRef.current) {
-            gameClientRef.current.processSnapshot(snapshot);
-
-            // Update local player position for Pipeline 1 audio
-            if (localPlayerId) {
-                const localChar = snapshot.characters.find(c => c.player_id === localPlayerId);
-                if (localChar) {
-                    localPlayerPositionRef.current = localChar.position;
-                }
-            }
-
-            // Pipeline 2: remote player audio via snapshot delta
-            if (prevSnapshotRef.current && audioEventSystemRef.current) {
-                for (const cur of snapshot.characters) {
-                    if (cur.player_id === localPlayerId) continue; // local handled by onLocalInput
-                    const prev = prevSnapshotRef.current.characters.find(c => c.player_id === cur.player_id);
-                    if (prev) audioEventSystemRef.current.onRemoteSnapshot(prev, cur);
-                }
-            }
-            prevSnapshotRef.current = snapshot;
-        }
-    }, [snapshot, localPlayerId]);
-
-    return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
+	return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }

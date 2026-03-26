@@ -1,6 +1,6 @@
-use crate::auth::SessionInfo;
 use crate::auth::router::PasswordInput;
 use crate::auth::user::SessionsInput;
+use crate::auth::SessionInfo;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;

@@ -2,7 +2,7 @@ use salvo::oapi::SecurityRequirement;
 use thiserror::Error;
 use ulid::Ulid;
 
-use crate::auth::{JwtClaims, jwt_decoding_key, jwt_validation};
+use crate::auth::{jwt_decoding_key, jwt_validation, JwtClaims};
 use crate::models::Session;
 use crate::prelude::*;
 

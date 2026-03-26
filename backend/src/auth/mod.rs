@@ -10,7 +10,7 @@ mod two_factor;
 mod user;
 mod util;
 
-pub use hoops::{AuthError, DepotAuthExt, RouterAuthExt, device_id_inserter_hoop};
+pub use hoops::{device_id_inserter_hoop, AuthError, DepotAuthExt, RouterAuthExt};
 pub use router::router;
 pub use two_factor::TwoFactorError;
 pub use user::router as user_router;

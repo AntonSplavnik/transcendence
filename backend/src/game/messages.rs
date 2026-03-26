@@ -1,5 +1,5 @@
+use super::ffi::{GameStateSnapshot, Vector3D};
 use serde::{Deserialize, Serialize};
-use super::ffi::{GameEvent, GameStateSnapshot, Vector3D};
 
 /// Messages sent FROM server TO client over the game stream
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,26 +8,14 @@ pub enum GameServerMessage {
     /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
 
-    /// Game events for audio/effects (sent alongside snapshots)
-    GameEvents {
-        events: Vec<GameEvent>,
-    },
-
     /// Player successfully joined the game
-    PlayerJoined {
-        player_id: u32,
-        name: String,
-    },
+    PlayerJoined { player_id: u32, name: String },
 
     /// Another player left the game
-    PlayerLeft {
-        player_id: u32,
-    },
+    PlayerLeft { player_id: u32 },
 
     /// Error occurred during gameplay
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 /// Messages sent FROM client TO server over the game stream
@@ -53,10 +41,7 @@ pub enum GameClientMessage {
     },
 
     /// Register a hit on another player (client-authoritative for now)
-    RegisterHit {
-        victim_id: u32,
-        damage: f32,
-    },
+    RegisterHit { victim_id: u32, damage: f32 },
 
     /// Player is leaving the game
     Leave,

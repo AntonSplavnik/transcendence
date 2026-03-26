@@ -1,11 +1,9 @@
 #pragma once
 
-#include "Systems/System.hpp"
+#include "System.hpp"
 #include "Components/Transform.hpp"
 #include "Components/PhysicsBody.hpp"
-#include "Components/PlayerInfo.hpp"
 #include "GameTypes.hpp"
-#include "GameEvents.hpp"
 #include <entt/entt.hpp>
 
 namespace ArenaGame {
@@ -74,9 +72,6 @@ inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
         auto& transform = view.get<Components::Transform>(entity);
         auto& physics = view.get<Components::PhysicsBody>(entity);
 
-        // Save pre-collision velocity for landing impact detection
-        float preCollisionVelY = physics.velocity.y;
-
         // Apply physics forces
         applyGravity(physics, fixedDeltaTime);
 
@@ -86,26 +81,6 @@ inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
         // Enforce constraints
         enforceArenaBounds(transform);
         checkGroundCollision(transform, physics);
-
-        // Detect landing transition: was in air, now grounded
-        if (!physics.wasGrounded && physics.isGrounded && m_eventQueue) {
-            // Get player ID if this entity has PlayerInfo
-            auto* playerInfo = m_registry->try_get<Components::PlayerInfo>(entity);
-            if (playerInfo) {
-                GameEvent event;
-                event.type = GameEventType::Land;
-                event.playerID = playerInfo->playerID;
-                event.posX = transform.position.x;
-                event.posY = transform.position.y;
-                event.posZ = transform.position.z;
-                event.param1 = std::abs(preCollisionVelY);  // Impact velocity
-                event.param2 = 0.0f;
-                m_eventQueue->push(event);
-            }
-        }
-
-        // Update wasGrounded for next frame
-        physics.wasGrounded = physics.isGrounded;
     }
 }
 

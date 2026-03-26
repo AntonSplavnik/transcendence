@@ -1,12 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import { retrieveStoredError } from './api/error';
 import type { StoredError } from './api/error';
+import { retrieveStoredError } from './api/error';
 import AuthPage from './components/AuthPage';
 import GameBoard from './components/GameBoard';
 import Home from './components/Home';
 import LandingPage from './components/LandingPage';
+import LobbyOverlay from './components/LobbyOverlay';
+import LobbyPage from './components/LobbyPage';
 import DisplacedModal from './components/modals/DisplacedModal';
 import TosModal from './components/modals/TosModal';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -17,6 +18,9 @@ import ErrorBanner from './components/ui/ErrorBanner';
 import FriendsDrawer from './components/friends/FriendsDrawer';
 import Layout from './components/ui/Layout';
 import NotificationToast from './components/ui/NotificationToast';
+import { useAuth } from './contexts/AuthContext';
+import { useGame } from './contexts/GameContext';
+import { useLobby } from './contexts/LobbyContext';
 import { useStream } from './contexts/StreamContext';
 import type { ConnectionState } from './stream/types';
 
@@ -45,6 +49,32 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 	const { user } = useAuth();
 	if (user) {
 		return <Navigate to="/home" replace />;
+	}
+	return <>{children}</>;
+}
+
+/**
+ * Redirects to /game while a game session is active for the current player.
+ *
+ * Checks both `gameState.status` (set when the game stream opens) and
+ * `lobbyState.gameActive` (set when the `GameStarting` lobby message
+ * arrives, slightly earlier).  The dual check closes the brief window
+ * between the countdown firing and the game stream fully opening.
+ *
+ * Spectators (in the lobby but not in the players map) are intentionally
+ * excluded — they stay on the lobby page and see the "Game in progress" badge.
+ */
+function InGameGuard({ children }: { children: React.ReactNode }) {
+	const { gameState } = useGame();
+	const { lobbyState } = useLobby();
+	const { user } = useAuth();
+	const isSpectator =
+		!!user && lobbyState.status === 'active' && !lobbyState.players.has(user.id);
+	const isGameActive =
+		gameState.status === 'active' ||
+		(lobbyState.status === 'active' && lobbyState.gameActive && !isSpectator);
+	if (isGameActive) {
+		return <Navigate to="/game" replace />;
 	}
 	return <>{children}</>;
 }
@@ -134,6 +164,7 @@ function RealtimeStatusOverlays() {
 				<ConnectionStatusBanner state={connectionState} />
 			) : null}
 			<NotificationToast />
+			<LobbyOverlay />
 			{shouldShowDisplacedModal && (
 				<DisplacedModal onDismiss={() => setDismissedDisplacementState(connectionState)} />
 			)}
@@ -224,11 +255,22 @@ export default function AppRoutes() {
 					path="/home"
 					element={
 						<ProtectedRoute>
-							<Home
-								onGame={() => navigate('/game')}
-								onLogout={handleLogout}
-								onSessions={() => navigate('/sessions')}
-							/>
+							<InGameGuard>
+								<Home
+									onLogout={handleLogout}
+									onSessions={() => navigate('/sessions')}
+								/>
+							</InGameGuard>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/lobby"
+					element={
+						<ProtectedRoute>
+							<InGameGuard>
+								<LobbyPage />
+							</InGameGuard>
 						</ProtectedRoute>
 					}
 				/>
@@ -236,10 +278,12 @@ export default function AppRoutes() {
 					path="/sessions"
 					element={
 						<ProtectedRoute>
-							<SessionManagement
-								onBack={() => navigate('/home')}
-								onLogout={handleLogout}
-							/>
+							<InGameGuard>
+								<SessionManagement
+									onBack={() => navigate('/home')}
+									onLogout={handleLogout}
+								/>
+							</InGameGuard>
 						</ProtectedRoute>
 					}
 				/>
@@ -247,7 +291,7 @@ export default function AppRoutes() {
 					path="/game"
 					element={
 						<ProtectedRoute>
-							<GameBoard onLeave={() => navigate('/home')} />
+							<GameBoard />
 						</ProtectedRoute>
 					}
 				/>

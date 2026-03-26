@@ -8,6 +8,8 @@ use crate::ON_SHUTDOWN;
 use crate::{
     notifications::NotificationManager, prelude::*, stream::StreamManager,
     tos::CurrentTosTimestamp, utils::NickCache,
+    game::GameManager, notifications::NotificationManager, prelude::*, stream::StreamManager,
+    utils::NickCache,
 };
 
 pub mod users;
@@ -17,9 +19,6 @@ const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
 pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
     let api_routes = Router::with_path("api")
-        .hoop(affix_state::inject(NickCache::new(
-            crate::utils::NICK_CACHE_TTI,
-        )))
         .hoop(crate::auth::device_id_inserter_hoop)
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
@@ -30,10 +29,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
             crate::avatar::router("avatar"),
             crate::friends::router("friends"),
             crate::stream::router("stream"),
-            Router::with_path("tos")
-                .oapi_tag("tos")
-                .ip_rate_limit(&RateLimit::per_minute(30))
-                .get(crate::tos::current_tos),
+            crate::game::router("game"),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -48,11 +44,14 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
         });
     }
 
+    let nick_cache = NickCache::new(crate::utils::NICK_CACHE_TTI);
+
     Router::new()
         .hoop(affix_state::inject(database))
-        .hoop(affix_state::inject(tos_timestamp))
-        .hoop(affix_state::inject(stream_manager))
+        .hoop(affix_state::inject(stream_manager.clone()))
         .hoop(affix_state::inject(NotificationManager::new()))
+        .hoop(affix_state::inject(GameManager::new(stream_manager)))
+        .hoop(affix_state::inject(nick_cache))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }

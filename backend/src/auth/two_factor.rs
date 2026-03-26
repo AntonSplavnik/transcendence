@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
-use base64::Engine;
 use base64::engine::general_purpose::{STANDARD as base64std, URL_SAFE_NO_PAD as base64url};
+use base64::Engine;
 use chacha20poly1305::aead::{Aead, OsRng, Payload};
 use chacha20poly1305::{AeadCore as _, KeyInit, XChaCha20Poly1305, XNonce};
 use thiserror::Error;

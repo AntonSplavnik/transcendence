@@ -6,7 +6,7 @@ use parking_lot::{Condvar, Mutex};
 use tokio::sync::Mutex as AsyncMutex;
 use tracing::info;
 
-use super::{Database, DbConn, DbError, run_migrations};
+use super::{run_migrations, Database, DbConn, DbError};
 
 /// Default number of reader connections in the pool.
 #[allow(dead_code)]

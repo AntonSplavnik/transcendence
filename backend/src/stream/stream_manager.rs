@@ -88,19 +88,19 @@ use futures::SinkExt as _;
 use salvo::http::Method;
 use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
 use tokio_util::sync::CancellationToken;
 
+use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use super::CtrlMessage;
 use super::StreamType;
-use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
-use crate::models::Session;
 use crate::models::blob::FixedBlob;
+use crate::models::Session;
 use crate::prelude::*;
 use crate::utils::adaptive_buffer::BufferParams;
 
@@ -504,7 +504,7 @@ impl StreamManager {
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
-        let token = entry.disconnect_token.clone();
+        let token = entry.disconnect_token.child_token();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -556,7 +556,7 @@ impl StreamManager {
             .ok_or(StreamManagerError::UserNotConnected { user_id })?;
         let tx = entry.tx.clone();
         let connection_id = entry.connection_id;
-        let token = entry.disconnect_token.clone();
+        let token = entry.disconnect_token.child_token();
         drop(entry);
 
         let (response_tx, response_rx) = oneshot::channel();

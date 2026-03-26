@@ -8,8 +8,8 @@
 //! - Still image only (no animation)
 
 use image::{
-    EncodableLayout, ImageDecoder, ImageError, Pixel, Primitive, RgbaImage,
-    codecs::avif::AvifDecoder,
+    codecs::avif::AvifDecoder, EncodableLayout, ImageDecoder, ImageError, Pixel, Primitive,
+    RgbaImage,
 };
 use thiserror::Error;
 

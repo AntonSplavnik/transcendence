@@ -123,9 +123,13 @@ smallvec = { version = "1.15.1", features = [
 	"const_generics",
 ] }
 mini-moka = "0.10.3"
+indexmap = "2.11.4"
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+[build-dependencies]
+cc = "1.0"
 
 # ---------------------------------------------------------------------------
 # Always compile CPU-intensive dependencies with optimizations, even in
