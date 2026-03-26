@@ -66,20 +66,59 @@ function UsernameContextMenu({
 	const top = spaceAbove > menuHeight ? anchorRect.top - menuHeight : anchorRect.bottom + 4;
 	const left = anchorRect.left;
 
+	// Focus the first enabled menu item on mount
+	useEffect(() => {
+		const first = menuRef.current?.querySelector<HTMLElement>(
+			'[role="menuitem"]:not([disabled])',
+		);
+		first?.focus();
+	}, []);
+
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
 			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
 				onClose();
 			}
 		}
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose();
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				e.stopImmediatePropagation();
+				onClose();
+				return;
+			}
+			// Tab closes the menu per ARIA menu pattern (does not traverse items)
+			if (e.key === 'Tab') {
+				e.preventDefault();
+				onClose();
+				return;
+			}
+			if (
+				e.key === 'ArrowDown' ||
+				e.key === 'ArrowUp' ||
+				e.key === 'Home' ||
+				e.key === 'End'
+			) {
+				e.preventDefault();
+				const items = Array.from(
+					menuRef.current?.querySelectorAll<HTMLElement>(
+						'[role="menuitem"]:not([disabled])',
+					) ?? [],
+				);
+				if (items.length === 0) return;
+				const current = items.indexOf(document.activeElement as HTMLElement);
+				let next: number;
+				if (e.key === 'ArrowDown') next = current < items.length - 1 ? current + 1 : 0;
+				else if (e.key === 'ArrowUp') next = current > 0 ? current - 1 : items.length - 1;
+				else if (e.key === 'Home') next = 0;
+				else next = items.length - 1;
+				items[next]?.focus();
+			}
 		}
 		document.addEventListener('mousedown', handleClickOutside);
-		document.addEventListener('keydown', handleEscape);
+		document.addEventListener('keydown', handleKeyDown, { capture: true });
 		return () => {
 			document.removeEventListener('mousedown', handleClickOutside);
-			document.removeEventListener('keydown', handleEscape);
+			document.removeEventListener('keydown', handleKeyDown, { capture: true });
 		};
 	}, [onClose]);
 
@@ -217,7 +256,7 @@ export default function Username({
 			<button
 				ref={buttonRef}
 				type="button"
-				className={`${color} hover:underline cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit`}
+				className={`${color} hover:underline cursor-pointer bg-transparent border-0 px-0.5 py-px rounded-sm font-inherit text-inherit`}
 				onClick={handleClick}
 				aria-label={`Options for ${nickname}`}
 				aria-haspopup="menu"
@@ -232,7 +271,10 @@ export default function Username({
 					anchorRect={anchorRect}
 					isFriend={isFriend}
 					onShowProfile={onShowProfile}
-					onClose={() => setMenuOpen(false)}
+					onClose={() => {
+						setMenuOpen(false);
+						buttonRef.current?.focus();
+					}}
 				/>
 			)}
 		</span>
