@@ -141,6 +141,13 @@ extern "C" {
     fn game_register_hit(game: RawGameHandle, attacker_id: u32, victim_id: u32, damage: f32);
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub enum CharacterClass {
+    #[default]
+    Knight,
+    Rogue,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct Vector3D {
     pub x: f32,

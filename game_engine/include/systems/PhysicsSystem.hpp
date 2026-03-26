@@ -38,11 +38,11 @@ public:
         float minVelocity = GameConfig::MIN_VELOCITY;
         float groundY = GameConfig::GROUND_Y;
 
-        // Arena bounds
-        float arenaMinX = GameConfig::CHARACTER_RADIUS;
-        float arenaMaxX = GameConfig::ARENA_WIDTH - GameConfig::CHARACTER_RADIUS;
-        float arenaMinZ = GameConfig::CHARACTER_RADIUS;
-        float arenaMaxZ = GameConfig::ARENA_LENGTH - GameConfig::CHARACTER_RADIUS;
+        // Arena bounds (arena centered at origin: [-ARENA_WIDTH/2, ARENA_WIDTH/2])
+        float arenaMinX = -(GameConfig::ARENA_WIDTH  / 2.0f) + GameConfig::CHARACTER_RADIUS;
+        float arenaMaxX =  (GameConfig::ARENA_WIDTH  / 2.0f) - GameConfig::CHARACTER_RADIUS;
+        float arenaMinZ = -(GameConfig::ARENA_LENGTH / 2.0f) + GameConfig::CHARACTER_RADIUS;
+        float arenaMaxZ =  (GameConfig::ARENA_LENGTH / 2.0f) - GameConfig::CHARACTER_RADIUS;
     };
 
     const Config& getConfig() const { return m_config; }

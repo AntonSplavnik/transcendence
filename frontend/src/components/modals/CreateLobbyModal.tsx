@@ -18,10 +18,16 @@ interface CreateLobbyModalProps {
  */
 export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 	const [name, setName] = useState('');
-	const [gamemode, setGamemode] = useState('default');
+	const [gamemode, _setGamemode] = useState('default');
 	const [isPublic, setIsPublic] = useState(true);
 	const [isCreating, setIsCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter' && !isCreating) {
+			void handleCreate();
+		}
+	};
 
 	const handleCreate = async () => {
 		const trimmedName = name.trim();
@@ -87,17 +93,10 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 					label="Lobby name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
+					onKeyDown={handleKeyDown}
 					placeholder="My lobby"
 					maxLength={32}
 					autoFocus
-				/>
-
-				<Input
-					label="Gamemode"
-					value={gamemode}
-					onChange={(e) => setGamemode(e.target.value)}
-					placeholder="default"
-					maxLength={32}
 				/>
 
 				<label className="flex items-center gap-3 cursor-pointer select-none">

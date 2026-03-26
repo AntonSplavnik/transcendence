@@ -58,6 +58,11 @@ export async function setReadyApi(id: string, ready: boolean): Promise<void> {
 	await apiClient.post(`/game/lobby/${id}/ready`, { ready });
 }
 
+/** Set character class for the current player in the specified lobby. */
+export async function setCharacterApi(id: string, characterClass: string): Promise<void> {
+	await apiClient.post(`/game/lobby/${id}/character`, { character_class: characterClass });
+}
+
 /** Partially update lobby settings (host only, private lobbies only). */
 export async function updateLobbySettings(
 	id: string,

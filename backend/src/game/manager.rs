@@ -8,9 +8,10 @@ use thiserror::Error;
 use tracing::{debug, info, warn};
 use ulid::Ulid;
 
+use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::GameClientMessage;
+use super::messages::{GameClientMessage, GameServerMessage};
 use crate::models::nickname::Nickname;
 use crate::stream::{StreamManager, StreamType};
 
@@ -358,6 +359,21 @@ impl GameManager {
         Ok(())
     }
 
+    /// Set character class for a player in the specified lobby.
+    pub fn set_character(
+        &self,
+        user_id: i32,
+        lobby_id: Ulid,
+        character_class: CharacterClass,
+    ) -> Result<(), GameError> {
+        let lobby_arc = self.get_lobby_arc_verified(lobby_id, user_id)?;
+        let mut lobby = lobby_arc.lock();
+        if !lobby.set_character(user_id, character_class) {
+            return Err(GameError::NotAPlayer);
+        }
+        Ok(())
+    }
+
     /// Update settings for the specified lobby (host only, private lobby only).
     pub fn update_settings(
         &self,
@@ -434,7 +450,7 @@ impl GameManager {
                 return;
             }
 
-            players = lobby.player_nicknames().collect::<Vec<_>>();
+            players = lobby.player_data().collect::<Vec<_>>();
 
             // Guard: players may have left in the race window between the countdown
             // timer firing and this task acquiring the lobby lock.
@@ -459,7 +475,7 @@ impl GameManager {
 
         // Phase 2: async — open bidi game streams for players (no locks held).
         // Each stream gets a receive loop that feeds client input into the engine.
-        for (uid, _nick) in &players {
+        for (uid, _nick, _class) in &players {
             let uid = *uid;
             let game_ref = Arc::clone(&game);
             let gm = self.clone();
@@ -505,10 +521,15 @@ impl GameManager {
             }
         }
 
-        // Phase 4: sync — connect players to the C++ engine.
+        // Phase 4: sync — connect players to the C++ engine and broadcast PlayerJoined.
         // Done after stream setup so the engine and streams are ready together.
-        for (uid, nick) in &players {
+        for (uid, nick, character_class) in &players {
             game.on_connect(*uid as u32, nick.as_ref());
+            game_streams.broadcast(&GameServerMessage::PlayerJoined {
+                player_id: *uid as u32,
+                name: nick.to_string(),
+                character_class: character_class.clone(),
+            });
         }
 
         let lobby_weak = Arc::downgrade(&lobby_arc);

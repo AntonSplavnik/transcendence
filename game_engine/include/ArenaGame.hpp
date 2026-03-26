@@ -107,7 +107,7 @@ private:
     std::vector<Vector3D> m_spawnPositions;
     size_t m_nextSpawnIndex;
 
-    void initializeSpawnPositions();
+    void initializeSpawnPositions(int numPlayers = GameConfig::MAX_PLAYERS);
     Vector3D getSpawnPosition();
 };
 
@@ -125,11 +125,16 @@ inline ArenaGame::ArenaGame()
     // Initialize world (creates and initializes all systems)
     m_world.initialize();
 
-    // Setup spawn positions in a circle around center
-    initializeSpawnPositions();
+    // Pre-compute spawn positions for MAX_PLAYERS as a safe default.
+    // start() will recompute based on actual player count.
+    initializeSpawnPositions(GameConfig::MAX_PLAYERS);
 }
 
 inline void ArenaGame::start() {
+    // Compute spawn circle based on the players already registered
+    const int playerCount = static_cast<int>(m_world.getPlayerCount());
+    initializeSpawnPositions(playerCount > 0 ? playerCount : GameConfig::MAX_PLAYERS);
+
     m_isRunning = true;
     m_frameNumber = 0;
     m_gameTime = 0.0;
@@ -191,6 +196,12 @@ inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name) {
 
     // Create player entity through World
     entt::entity entity = m_world.addPlayer(playerID, name, spawnPos);
+
+    if (entity != entt::null) {
+        // Face the arena centre (origin): yaw = atan2(-x, -z) for convention yaw=0 → +Z
+        float yaw = std::atan2(-spawnPos.x, -spawnPos.z);
+        m_world.getRegistry().get<Components::Transform>(entity).setRotation(0.0f, yaw, 0.0f);
+    }
 
     return entity != entt::null;
 }
@@ -255,12 +266,11 @@ inline void ArenaGame::registerHit(PlayerID attackerID, PlayerID victimID, float
     m_world.registerHit(attackerID, victimID, damage);
 }
 
-inline void ArenaGame::initializeSpawnPositions() {
-    // Create spawn positions in a circle around the center of the arena
-    const float centerX = GameConfig::ARENA_WIDTH / 2.0f;
-    const float centerZ = GameConfig::ARENA_LENGTH / 2.0f;
-    const float radius = GameConfig::ARENA_WIDTH * 0.3f;  // 30% of arena width
-    const int numSpawns = GameConfig::MAX_PLAYERS;
+inline void ArenaGame::initializeSpawnPositions(int numPlayers) {
+    // Arena is centered at (0, 0, 0): positions range from -ARENA_WIDTH/2 to ARENA_WIDTH/2.
+    // Divide the full circle equally among the given number of players.
+    const float radius = GameConfig::ARENA_WIDTH * 0.35f;  // 35% of arena width (~17.5 units)
+    const int numSpawns = numPlayers > 0 ? numPlayers : GameConfig::MAX_PLAYERS;
     const float angleStep = 2.0f * 3.14159265359f / numSpawns;
 
     m_spawnPositions.clear();
@@ -268,20 +278,16 @@ inline void ArenaGame::initializeSpawnPositions() {
 
     for (int i = 0; i < numSpawns; ++i) {
         float angle = i * angleStep;
-        float x = centerX + radius * std::cos(angle);
-        float z = centerZ + radius * std::sin(angle);
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
         m_spawnPositions.push_back(Vector3D(x, GameConfig::GROUND_Y, z));
     }
 }
 
 inline Vector3D ArenaGame::getSpawnPosition() {
     if (m_spawnPositions.empty()) {
-        // Fallback: center of arena
-        return Vector3D(
-            GameConfig::ARENA_WIDTH / 2.0f,
-            GameConfig::GROUND_Y,
-            GameConfig::ARENA_LENGTH / 2.0f
-        );
+        // Fallback: center of arena (origin in centered coordinate system)
+        return Vector3D(0.0f, GameConfig::GROUND_Y, 0.0f);
     }
 
     // Round-robin spawn selection
