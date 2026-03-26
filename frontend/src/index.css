@@ -52,9 +52,8 @@
 
 	/* ── Focus ring (gold instead of blue) ── */
 	:focus-visible {
-		outline: 2px solid transparent;
+		outline: 2px solid rgba(224, 160, 48, 0.8);
 		outline-offset: 2px;
-		box-shadow: 0 0 0 2px rgba(224, 160, 48, 0.4);
 	}
 
 	/* ── Selection ── */
