@@ -47,7 +47,6 @@ fn main() -> std::process::ExitCode {
 }
 
 async fn async_main() -> std::process::ExitCode {
-    use salvo::prelude::*;
     use std::process::ExitCode;
     let _ = dotenvy::dotenv();
     crate::config::init();
