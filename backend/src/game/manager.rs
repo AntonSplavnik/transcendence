@@ -313,17 +313,36 @@ impl GameManager {
 
             match result {
                 Ok(_) => {
-                    // Send PlayerJoined for every current player so the spectator's
-                    // GameContext knows who is in the game.
-                    for (uid, nick, character_class) in &players {
-                        game_streams.send(
-                            user_id,
-                            &GameServerMessage::PlayerJoined {
-                                player_id: *uid as u32,
-                                name: nick.to_string(),
-                                character_class: character_class.clone(),
-                            },
-                        );
+                    // Guard against the race where the game ended between Phase 3
+                    // and here: clear_game() replaces lobby.game_streams with a
+                    // fresh Arc, so the Arc we hold is now detached. If we kept
+                    // it, StreamGroup::Drop would immediately cancel the handle
+                    // when our local Arc goes out of scope.
+                    let still_active = {
+                        let lobby = lobby_arc.lock();
+                        lobby.is_game_active()
+                            && Arc::ptr_eq(lobby.game_streams(), &game_streams)
+                    };
+
+                    if still_active {
+                        // Send PlayerJoined for every current player so the spectator's
+                        // GameContext knows who is in the game.
+                        for (uid, nick, character_class) in &players {
+                            game_streams.send(
+                                user_id,
+                                &GameServerMessage::PlayerJoined {
+                                    player_id: *uid as u32,
+                                    name: nick.to_string(),
+                                    character_class: character_class.clone(),
+                                },
+                            );
+                        }
+                    } else {
+                        // Game ended in the race window; our stream handle is on a
+                        // dead group. Tear it down explicitly before the Arc drops.
+                        game_streams.destroy_handle(user_id);
+                        warn!(lobby_id = %lobby_id, user_id,
+                            "game ended before mid-game spectator stream was established; discarding");
                     }
                 }
                 Err(e) => {
