@@ -2,9 +2,9 @@ services:
   backend:
     image: ghcr.io/antonsplavnik/transcendence:latest
     ports:
-      - "80:8080"
-      - "443:8443/tcp"
-      - "443:8443/udp"
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
     volumes:
       - db-data:/app/data
       - acme-cache:/app/acme
@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
 
   watchtower:
-    image: containrrr/watchtower
+    image: nickfedor/watchtower:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
