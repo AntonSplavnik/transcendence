@@ -1,23 +1,5 @@
 import apiClient from './client';
-import type {
-	AuthResponse,
-	Session,
-	LoginRequest,
-	RegisterRequest,
-	ReauthRequest
-} from './types';
-
-/**
- * Get current user info (requires authentication)
- * @param options.silent - If true, skip error storage (used for initial auth check)
- * @returns User session info including user data, session details
- */
-export async function getMe(options?: { silent?: boolean }): Promise<AuthResponse> {
-	const response = await apiClient.get<AuthResponse>('/user/me', {
-		_silent: options?.silent
-	} as any);
-	return response.data;
-}
+import type { AuthResponse, Session, TosInfo } from './types';
 
 /**
  * Login with email and password
@@ -29,10 +11,13 @@ export async function getMe(options?: { silent?: boolean }): Promise<AuthRespons
 export async function login(
 	email: string,
 	password: string,
-	mfa_code?: string
+	mfa_code?: string,
 ): Promise<AuthResponse> {
-	const payload: LoginRequest = { email, password, mfa_code };
-	const response = await apiClient.post<AuthResponse>('/auth/login', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/login', {
+		email,
+		password,
+		mfa_code,
+	});
 	return response.data;
 }
 
@@ -46,10 +31,15 @@ export async function login(
 export async function register(
 	nickname: string,
 	email: string,
-	password: string
+	password: string,
+	tos: boolean,
 ): Promise<AuthResponse> {
-	const payload: RegisterRequest = { nickname, email, password };
-	const response = await apiClient.post<AuthResponse>('/auth/register', payload);
+	const response = await apiClient.post<AuthResponse>('/auth/register', {
+		nickname,
+		email,
+		password,
+		tos,
+	});
 	return response.data;
 }
 
@@ -67,27 +57,30 @@ export async function logout(): Promise<void> {
  * @returns Updated session info with new JWT expiry time
  */
 export async function refreshJWT(): Promise<Session> {
-	const response = await apiClient.post<Session>(
-		'/auth/session-management/refresh-jwt'
-	);
+	const response = await apiClient.post<Session>('/auth/session-management/refresh-jwt');
+	return response.data;
+}
+
+/** Accept the current Terms of Service and receive a fresh JWT. */
+export async function acceptTos(): Promise<Session> {
+	const response = await apiClient.post<Session>('/auth/session-management/accept-tos');
+	return response.data;
+}
+
+/** Fetch the current ToS version timestamp from the server (unauthenticated). */
+export async function getTosTimestamp(): Promise<TosInfo> {
+	const response = await apiClient.get<TosInfo>('/tos');
 	return response.data;
 }
 
 /**
- * Reauthenticate by providing password again
- * Used when session requires reauth (e.g., after 7 days of inactivity or 30 days since last password entry)
- * @param password - User password
- * @param mfa_code - Optional 2FA code (required if 2FA is enabled)
- * @returns User session info on successful reauth
+ * Reauthenticate by providing password again.
+ * Used when session requires reauth (e.g., after prolonged inactivity).
  */
-export async function reauth(
-	password: string,
-	mfa_code?: string
-): Promise<AuthResponse> {
-	const payload: ReauthRequest = { password, mfa_code };
-	const response = await apiClient.post<AuthResponse>(
-		'/auth/session-management/reauth',
-		payload
-	);
+export async function reauth(password: string, mfa_code?: string): Promise<AuthResponse> {
+	const response = await apiClient.post<AuthResponse>('/auth/session-management/reauth', {
+		password,
+		mfa_code,
+	});
 	return response.data;
 }

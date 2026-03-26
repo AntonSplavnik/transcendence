@@ -1,0 +1,33 @@
+name: Prek checks
+on: [push, pull_request]
+
+jobs:
+  prek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install backend system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdav1d-dev libsqlite3-dev libzstd-dev pkg-config
+
+      # Cache Rust target directory for the backend
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "backend -> target"
+
+      # Cache Node modules for the frontend
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - uses: j178/prek-action@v1
+        with:
+          extra_args: --all-files --stage manual

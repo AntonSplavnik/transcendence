@@ -1,11 +1,20 @@
 import axios from 'axios';
 import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { refreshJWT } from './auth';
-import { storeError, getErrorBrief } from './error';
+import { getErrorBrief, getErrorMessage, storeError } from './error';
+
+let authFailureCallback: (() => void) | null = null;
+export function setAuthFailureCallback(cb: (() => void) | null) {
+	authFailureCallback = cb;
+}
+
+let tosNotAcceptedCallback: (() => void) | null = null;
+export function setTosNotAcceptedCallback(cb: (() => void) | null) {
+	tosNotAcceptedCallback = cb;
+}
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
-	_silent?: boolean;
 }
 
 const apiClient = axios.create({
@@ -29,11 +38,6 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 	if (!originalRequest) {
 		return Promise.reject(error);
 	}
-	// Skip error storage for silent requests (initial auth check)
-	if (originalRequest._silent) {
-		return Promise.reject(error);
-	}
-
 	// Network error (status 0 = server unreachable)
 	if (!error.response) {
 		console.error('Network error:', error);
@@ -41,61 +45,93 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		return Promise.reject(error);
 	}
 
+	// Replace Axios's generic "Request failed with status code XXX" with the backend brief
+	error.message = getErrorMessage(error);
+
+	// Handle 403 Forbidden — ToS not accepted.
+	// Notify AuthContext via callback so it can activate the ToS gate UI.
+	// This is the authoritative signal that the backend requires ToS
+	// acceptance — AuthContext uses it as a fallback when /api/tos fails.
+	if (error.response.status === 403) {
+		const brief = getErrorBrief(error);
+		if (brief === 'TosNotAccepted') {
+			tosNotAcceptedCallback?.();
+			return Promise.reject(error);
+		}
+	}
+
 	// Handle 401 Unauthorized errors
 	if (error.response.status === 401) {
 		const brief = getErrorBrief(error);
 
-		// Try automatic JWT refresh for expired (but present) JWT
-		const canRefresh = ['InvalidJwt'].includes(brief || '');
+		// Try automatic JWT refresh when JWT is expired or missing (but session cookie may still be valid)
+		// MissingJwtCookie: browser dropped the expired JWT cookie (normal 15-min expiry)
+		// InvalidJwt: JWT cookie is present but rejected (e.g. corrupted or clock skew)
+		const canRefresh = ['InvalidJwt', 'MissingJwtCookie'].includes(brief || '');
 		if (canRefresh && !originalRequest._retry) {
 			originalRequest._retry = true;
 			try {
 				await refreshJWT();
 				return apiClient(originalRequest);
 			} catch (refreshError) {
-				storeError(refreshError, 'JWT refresh error');
-				console.error('JWT refresh failed:', refreshError);
-				window.location.reload();
+				// Non-401 refresh failures (429, 500, network): session is still valid,
+				// the refresh just failed transiently. Show a banner but keep auth state.
+				if (
+					!axios.isAxiosError(refreshError) ||
+					!refreshError.response ||
+					refreshError.response.status !== 401
+				) {
+					if (axios.isAxiosError(refreshError) && refreshError.response) {
+						storeError(refreshError, 'refresh_failed');
+						console.log('JWT refresh failed:', refreshError);
+					}
+					return Promise.reject(refreshError);
+				}
+				// 401: session is gone. The interceptor already classified the refresh
+				// response (SessionNotFound → stored, NeedReauth → stored, etc.) and
+				// called authFailureCallback. Call it here as a safety net.
+				authFailureCallback?.();
 				return Promise.reject(refreshError);
 			}
 		}
 
-		// Errors expected when user is not logged in (no cookies present)
-		// Don't store - ProtectedRoute handles redirect silently
-		const silentAuthErrors = [
-			'MissingJwtCookie',
-			'MissingSessionCookie',
-			'SessionNotFound',
-		];
-		if (silentAuthErrors.includes(brief || '')) {
+		// No session cookie — ambiguous: could be fresh user or 30-day expiry.
+		// Initial auth check (getMe on mount) hits this for users who were never
+		// logged in, so we must stay silent to avoid a spurious error banner.
+		if (brief === 'MissingSessionCookie') {
 			return Promise.reject(error);
 		}
 
-		// User needs to log in again (session is invalid/corrupted)
-		const deadSessionErrors = [
-			'InvalidSessionToken',
-			'SessionMismatch',
-		];
-		if (deadSessionErrors.includes(brief || '')) {
-			storeError(error, 'dead_session');
-			return Promise.reject(error);
-		}
-		if (brief === 'NeedReauth') {
-			// User needs to reauthenticate with password
-			storeError(error, 'needReauth');
-			return Promise.reject(error);
-		}
-		// Login/2FA errors (user is trying to authenticate)
+		// Login/2FA errors — component shows inline feedback, not a banner
 		if (['InvalidCredentials', 'TwoFactorRequired', 'TwoFactorInvalid'].includes(brief || '')) {
-			// Don't store - let component handle
 			return Promise.reject(error);
 		}
 		if (brief === 'DidLogout') {
 			console.log('Logged out');
 			return Promise.reject(error);
 		}
-		console.error('unknown 401 error:', error);
+
+		// --- Terminal 401s: store error, clear auth, redirect to login ---
+
+		const deadSessionErrors = [
+			'SessionNotFound', // session deleted (by user, or oldest-session eviction)
+			'InvalidSessionToken', // session cookie corrupted
+			'SessionMismatch', // JWT references wrong session
+		];
+		if (deadSessionErrors.includes(brief || '')) {
+			storeError(error, 'dead_session');
+			authFailureCallback?.();
+			return Promise.reject(error);
+		}
+		if (brief === 'NeedReauth') {
+			storeError(error, 'needReauth');
+			authFailureCallback?.();
+			return Promise.reject(error);
+		}
+		// Unknown 401 — shouldn't happen, but don't leave user stranded
+		console.log('unknown 401 error:', error);
 		storeError(error, 'unauthorized');
+		authFailureCallback?.();
 	}
 	return Promise.reject(error);
 };

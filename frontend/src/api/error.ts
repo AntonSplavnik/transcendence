@@ -1,16 +1,7 @@
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from './types';
 
-/**
- * Standard error response from backend
- */
-export interface ApiErrorResponse {
-	error?: {
-		code?: number;
-		name?: string;
-		brief?: string;
-		detail?: string | null;
-	};
-}
+const MAX_STORED_ERROR_AGE_MS = 60_000; // Don't show stored errors older than 1 minute
 
 /**
  * Stored error info for displaying after redirect
@@ -70,27 +61,43 @@ export function getErrorMessage(error: unknown, fallback = 'An unexpected error 
 function getMessageFromBrief(brief: string): string {
 	const briefMessages: Record<string, string> = {
 		// Session/Auth errors
-		'MissingSessionCookie': 'Session expired. Please log in again.',
-		'InvalidSessionToken': 'Invalid session.  Please log in again.',
-		'SessionNotFound': 'Session not found. Please log in again.',
-		'SessionMismatch': 'Session mismatch. Please log in properly.',
-		'NeedReauth': 'Your session has expired. Please reauthenticate.',
+		MissingSessionCookie: 'Session expired. Please log in again.',
+		InvalidSessionToken: 'Invalid session.  Please log in again.',
+		SessionNotFound: 'Session not found. Please log in again.',
+		SessionMismatch: 'Session mismatch. Please log in properly.',
+		NeedReauth: 'Your session has expired. Please reauthenticate.',
 
 		// JWT errors (shouldn't normally see these - interceptor handles them)
-		'MissingJwtCookie': 'Authentication required. Please log in.',
-		'InvalidJwt': 'Your session is invalid. Please log in again.',
+		MissingJwtCookie: 'Authentication required. Please log in.',
+		InvalidJwt: 'Your session is invalid. Please log in again.',
 
 		// Login errors
-		'InvalidCredentials': 'Invalid email or password.',
+		InvalidCredentials: 'Invalid email or password.',
 
 		// 2FA errors
-		'TwoFactorRequired': 'Two-factor authentication code is required.',
-		'TwoFactorInvalid': 'Invalid two-factor authentication code.',
+		TwoFactorRequired: 'Two-factor authentication code is required.',
+		TwoFactorInvalid: 'Invalid two-factor authentication code.',
+
+		// ToS errors
+		TosNotAccepted: 'Please accept the Terms of Service to continue.',
 
 		// Success messages
-		'DidLogout': 'You have been logged out successfully.',
+		DidLogout: 'You have been logged out successfully.',
+
+		// Friend errors
+		SelfRequest: 'You cannot add yourself as a friend.',
+		DuplicateRequest: 'A friend request already exists with this user.',
+		AlreadyFriends: 'You are already friends with this user.',
+		UserNotFound: 'User not found.',
+		NotFriends: 'You are not friends with this user.',
+		RequestNotFound: 'Friend request not found.',
+		TooManyPending: 'Too many pending requests. Try again later.',
+		RequestNotPending: 'This friend request is no longer pending.',
+		FriendListFull: 'Friend list is full (100 friends maximum).',
+		NotAuthorized: 'You are not authorized to perform this action.',
+		InvalidParam: 'Invalid request parameter.',
 	};
-	return briefMessages[brief] || `Authentication error: ${brief}`;
+	return briefMessages[brief] || brief;
 }
 
 /**
@@ -98,9 +105,10 @@ function getMessageFromBrief(brief: string): string {
  */
 export function storeError(error: unknown, fallbackType = 'error'): void {
 	const message = getErrorMessage(error);
-	const type = isAxiosError(error) && error.response?.data?.error?.brief
-		? error.response.data.error.brief
-		: fallbackType;
+	const type =
+		isAxiosError(error) && error.response?.data?.error?.brief
+			? error.response.data.error.brief
+			: fallbackType;
 
 	const errorData: StoredError = {
 		type,
@@ -108,6 +116,7 @@ export function storeError(error: unknown, fallbackType = 'error'): void {
 		timestamp: Date.now(),
 	};
 	localStorage.setItem('auth_error', JSON.stringify(errorData));
+	window.dispatchEvent(new Event('auth-error-stored'));
 }
 
 /**
@@ -121,8 +130,7 @@ export function retrieveStoredError(): StoredError | null {
 	try {
 		const error = JSON.parse(stored) as StoredError;
 		localStorage.removeItem('auth_error');
-		// Ignore old errors (older than 1 minute)
-		const oneMinuteAgo = Date.now() - 60 * 1000;
+		const oneMinuteAgo = Date.now() - MAX_STORED_ERROR_AGE_MS;
 		if (error.timestamp < oneMinuteAgo) {
 			return null;
 		}

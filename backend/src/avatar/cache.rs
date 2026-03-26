@@ -3,14 +3,24 @@
 //! Caches small avatars (200x200, ~4kb each) to reduce database load.
 //! With 1000 users cached, memory usage is approximately 4MB.
 
+use chrono::{DateTime, Utc};
 use quick_cache::sync::Cache;
 use std::sync::{Arc, LazyLock};
 
 /// Cache capacity (number of avatars to cache)
 const CACHE_CAPACITY: usize = 1000;
 
-/// Cached avatar data (Arc for cheap cloning)
-pub type CachedAvatar = Arc<Vec<u8>>;
+/// Cached avatar data with timestamp for ETag generation
+#[derive(Clone)]
+pub struct CachedAvatar {
+    pub data: Arc<Vec<u8>>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// TODO remove global cache and replace with injected shared value
+// via affix_state::inject inside crate::router::api_router()
+// need to make wrapper struct around TTIMemCache
+// then remove quick_cache dependency, as its no longer needed
 
 /// Global cache for small avatars
 static SMALL_AVATAR_CACHE: LazyLock<Cache<i32, CachedAvatar>> =
@@ -22,8 +32,14 @@ pub fn get(user_id: i32) -> Option<CachedAvatar> {
 }
 
 /// Insert a small avatar into the cache
-pub fn insert(user_id: i32, data: Vec<u8>) {
-    SMALL_AVATAR_CACHE.insert(user_id, Arc::new(data));
+pub fn insert(user_id: i32, data: Vec<u8>, updated_at: DateTime<Utc>) {
+    SMALL_AVATAR_CACHE.insert(
+        user_id,
+        CachedAvatar {
+            data: Arc::new(data),
+            updated_at,
+        },
+    );
 }
 
 /// Remove a small avatar from the cache (call when avatar is updated/deleted)

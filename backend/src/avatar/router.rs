@@ -11,8 +11,91 @@ use crate::models::{AvatarLarge, AvatarSmall};
 use crate::prelude::*;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use chrono::{DateTime, Utc};
+use salvo::http::StatusCode;
 use salvo::http::header;
 use salvo::oapi::extract::PathParam;
+use std::borrow::Cow;
+use std::sync::LazyLock;
+
+/// Hash bytes into a 18-char ETag: `"<16 hex chars>"`
+fn hexstr_hash(bytes: &[u8]) -> Box<str> {
+    let mut hash = [0u8; 8];
+    blake3::Hasher::new()
+        .update(bytes)
+        .finalize_xof()
+        .fill(&mut hash);
+    format!("\"{}\"", hex::encode(hash)).into_boxed_str()
+}
+
+/// Static ETag for the default large avatar (never changes)
+static DEFAULT_AVATAR_ETAG_LARGE: LazyLock<Box<str>> =
+    LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_LARGE));
+/// Static ETag for the default small avatar (never changes)
+static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<Box<str>> =
+    LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_SMALL));
+
+/// Derive an ETag for an Avatar
+///
+/// 27-character fixed-length string containing quotes and:
+/// - 8 hex chars for user_id
+/// - 16 hex chars for updated_at timestamp in microseconds
+/// - 1 hex char for is_large flag (0 or 1)
+fn make_etag(user_id: i32, updated_at: DateTime<Utc>, is_large: bool) -> impl AsRef<str> {
+    use crate::models::blob::Str;
+    use crate::models::blob::WritableFixedBlob;
+    use std::io::Write;
+    let mut out = WritableFixedBlob::<27, Str>::new();
+    write!(
+        &mut out,
+        "\"{:08X}{:016X}{:01X}\"",
+        user_id,
+        updated_at.timestamp_micros(),
+        is_large as u8
+    )
+    .unwrap();
+    out.finish()
+}
+
+/// Check whether the `If-None-Match` header matches `etag`.
+///
+/// Handles the wildcard `*`, multiple comma-separated ETags, and weak tags
+/// (`W/"…"`) by stripping the `W/` prefix before comparison (per RFC 7232 §3.2,
+/// weak comparison only checks the opaque-tag).
+fn etag_matches(if_none_match: &str, etag: &str) -> bool {
+    let inm = if_none_match.trim();
+    if inm == "*" {
+        return true;
+    }
+    inm.split(',')
+        .any(|tag| tag.trim().strip_prefix("W/").unwrap_or(tag.trim()) == etag)
+}
+
+/// Write an avatar response with ETag support, returning 304 if the client's cache is fresh
+fn write_avatar_response(req: &Request, res: &mut Response, data: Cow<'_, [u8]>, etag: &str) {
+    if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
+        if let Ok(value) = if_none_match.to_str() {
+            if etag_matches(value, etag) {
+                res.status_code(StatusCode::NOT_MODIFIED);
+                res.headers_mut()
+                    .insert(header::ETAG, etag.parse().unwrap());
+                res.headers_mut()
+                    .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+                return;
+            }
+        }
+    }
+
+    res.headers_mut()
+        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
+    res.headers_mut()
+        .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+    res.headers_mut()
+        .insert(header::ETAG, etag.parse().unwrap());
+    res.headers_mut()
+        .insert(header::CONTENT_LENGTH, data.len().into());
+    res.write_body(data.into_owned()).ok();
+}
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -20,6 +103,7 @@ pub fn router(path: &str) -> Router {
         .push(
             Router::new()
                 .requires_user_login()
+                .requires_tos_accepted()
                 .user_rate_limit(&RateLimit::per_15_minutes(10))
                 .post(upload_avatar)
                 .delete(delete_avatar),
@@ -27,11 +111,13 @@ pub fn router(path: &str) -> Router {
         .push(
             Router::with_path("{user_id}/large")
                 .requires_user_login()
+                .requires_tos_accepted()
                 .get(get_avatar_large),
         )
         .push(
             Router::with_path("{user_id}/small")
                 .requires_user_login()
+                .requires_tos_accepted()
                 .get(get_avatar_small),
         )
 }
@@ -53,15 +139,17 @@ impl UploadAvatarRequest {
     }
 }
 
-/// Upload or update avatar images
+/// Upload avatar
 ///
 /// Accepts both large (450x450) and small (200x200) avatar variants.
 /// Both must be valid AVIF images without transparency or animation.
-#[endpoint(
-    summary = "Upload avatar",
-    description = "Upload both large and small avatar variants. Images must be AVIF format."
-)]
-async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -> AppResult<()> {
+#[endpoint]
+async fn upload_avatar(
+    depot: &mut Depot,
+    res: &mut Response,
+    json: JsonBody<UploadAvatarRequest>,
+    db: Db,
+) -> AppResult<()> {
     let user_id = depot.user_id();
     let request = json.into_inner();
 
@@ -70,149 +158,151 @@ async fn upload_avatar(depot: &mut Depot, json: JsonBody<UploadAvatarRequest>) -
     validate_large(&large_data)?;
     validate_small(&small_data)?;
 
-    // Store in database (upsert)
-    let conn = &mut db::get()?;
-
     let avatar_large = AvatarLarge::new(user_id, large_data);
     let avatar_small = AvatarSmall::new(user_id, small_data.clone());
+    let updated_at = avatar_small.updated_at;
 
-    // Use INSERT OR REPLACE for upsert behavior
-    diesel::replace_into(crate::schema::avatars_large::table)
-        .values(&avatar_large)
-        .execute(conn)?;
+    // Store in database (upsert)
+    db.write(move |conn| {
+        diesel::replace_into(crate::schema::avatars_large::table)
+            .values(&avatar_large)
+            .execute(conn)?;
 
-    diesel::replace_into(crate::schema::avatars_small::table)
-        .values(&avatar_small)
-        .execute(conn)?;
+        diesel::replace_into(crate::schema::avatars_small::table)
+            .values(&avatar_small)
+            .execute(conn)?;
+        Ok::<_, ApiError>(())
+    })
+    .await??;
 
     // Update cache with small avatar
-    cache::insert(user_id, small_data);
+    cache::insert(user_id, small_data, updated_at);
 
     tracing::info!(user_id = user_id, "Avatar uploaded successfully");
 
+    res.status_code(StatusCode::NO_CONTENT);
     Ok(())
 }
 
-/// Get large avatar for a user
-#[endpoint(
-    summary = "Get large avatar",
-    description = "Retrieve the large (450x450) avatar for a user. Returns default avatar if none set."
-)]
+/// Get large avatar
+///
+/// Retrieve the large (450x450) avatar for a user. Returns default avatar if none set.
+#[endpoint]
 async fn get_avatar_large(
     req: &mut Request,
     res: &mut Response,
     user_id: PathParam<i32>,
+    db: Db,
 ) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
-    let conn = &mut db::get()?;
-
     use crate::schema::avatars_large::dsl;
-    let data = match dsl::avatars_large
-        .filter(dsl::user_id.eq(user_id))
-        .first::<AvatarLarge>(conn)
-    {
-        Ok(avatar) => avatar.data,
-        Err(_) => DEFAULT_AVATAR_LARGE.to_vec(),
-    };
+    let avatar = db
+        .read(move |conn| {
+            dsl::avatars_large
+                .filter(dsl::user_id.eq(user_id))
+                .first::<AvatarLarge>(conn)
+                .optional()
+        })
+        .await??;
 
-    res.headers_mut()
-        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-    res.headers_mut().insert(
-        header::CACHE_CONTROL,
-        "public, max-age=3600".parse().unwrap(),
-    );
-    res.headers_mut()
-        .insert(header::CONTENT_LENGTH, data.len().into());
-    res.write_body(data).ok();
+    match avatar {
+        Some(avatar) => {
+            let etag = make_etag(user_id, avatar.updated_at, true);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), etag.as_ref());
+        }
+        None => {
+            write_avatar_response(
+                req,
+                res,
+                Cow::Borrowed(DEFAULT_AVATAR_LARGE),
+                &DEFAULT_AVATAR_ETAG_LARGE,
+            );
+        }
+    }
 
     Ok(())
 }
 
 /// Get small avatar for a user
-#[endpoint(
-    summary = "Get small avatar",
-    description = "Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached."
-)]
+///
+/// Retrieve the small (200x200) avatar for a user. Returns default avatar if none set. This endpoint is cached.
+#[endpoint]
 async fn get_avatar_small(
     req: &mut Request,
     res: &mut Response,
     user_id: PathParam<i32>,
+    db: Db,
 ) -> AppResult<()> {
     let user_id = user_id.into_inner();
 
     // Try cache first
     if let Some(cached) = cache::get(user_id) {
-        res.headers_mut()
-            .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-        res.headers_mut().insert(
-            header::CACHE_CONTROL,
-            "public, max-age=3600".parse().unwrap(),
-        );
-        res.headers_mut()
-            .insert(header::CONTENT_LENGTH, cached.len().into());
-        res.write_body(cached.as_ref().clone()).ok();
+        let etag = make_etag(user_id, cached.updated_at, false);
+        write_avatar_response(req, res, Cow::Borrowed(cached.data.as_ref()), etag.as_ref());
         return Ok(());
     }
 
     // Fallback to database
-    let conn = &mut db::get()?;
-
     use crate::schema::avatars_small::dsl;
-    let data = match dsl::avatars_small
-        .filter(dsl::user_id.eq(user_id))
-        .first::<AvatarSmall>(conn)
-    {
-        Ok(avatar) => {
-            // Populate cache for next time
-            cache::insert(user_id, avatar.data.clone());
-            avatar.data
-        }
-        Err(_) => DEFAULT_AVATAR_SMALL.to_vec(),
-    };
+    let avatar = db
+        .read(move |conn| {
+            dsl::avatars_small
+                .filter(dsl::user_id.eq(user_id))
+                .first::<AvatarSmall>(conn)
+                .optional()
+        })
+        .await??;
 
-    res.headers_mut()
-        .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
-    res.headers_mut().insert(
-        header::CACHE_CONTROL,
-        "public, max-age=3600".parse().unwrap(),
-    );
-    res.headers_mut()
-        .insert(header::CONTENT_LENGTH, data.len().into());
-    res.write_body(data).ok();
+    match avatar {
+        Some(avatar) => {
+            let etag = make_etag(user_id, avatar.updated_at, false);
+            cache::insert(user_id, avatar.data.clone(), avatar.updated_at);
+            write_avatar_response(req, res, Cow::Owned(avatar.data), etag.as_ref());
+        }
+        None => {
+            write_avatar_response(
+                req,
+                res,
+                Cow::Borrowed(DEFAULT_AVATAR_SMALL),
+                &DEFAULT_AVATAR_ETAG_SMALL,
+            );
+        }
+    }
 
     Ok(())
 }
 
 /// Delete own avatar
-#[endpoint(
-    summary = "Delete avatar",
-    description = "Delete the authenticated user's avatar (both sizes)"
-)]
-async fn delete_avatar(depot: &mut Depot) -> AppResult<()> {
+#[endpoint]
+async fn delete_avatar(depot: &mut Depot, res: &mut Response, db: Db) -> AppResult<()> {
     let user_id = depot.user_id();
 
-    let conn = &mut db::get()?;
+    db.write(move |conn| {
+        // Delete from both tables
+        {
+            use crate::schema::avatars_large::dsl;
+            diesel::delete(dsl::avatars_large.filter(dsl::user_id.eq(user_id)))
+                .execute(conn)
+                .ok();
+        }
 
-    // Delete from both tables
-    {
-        use crate::schema::avatars_large::dsl;
-        diesel::delete(dsl::avatars_large.filter(dsl::user_id.eq(user_id)))
-            .execute(conn)
-            .ok();
-    }
+        {
+            use crate::schema::avatars_small::dsl;
+            diesel::delete(dsl::avatars_small.filter(dsl::user_id.eq(user_id)))
+                .execute(conn)
+                .ok();
+        }
 
-    {
-        use crate::schema::avatars_small::dsl;
-        diesel::delete(dsl::avatars_small.filter(dsl::user_id.eq(user_id)))
-            .execute(conn)
-            .ok();
-    }
+        Ok::<_, ApiError>(())
+    })
+    .await??;
 
     // Invalidate cache
     cache::invalidate(user_id);
 
     tracing::info!(user_id = user_id, "Avatar deleted");
 
+    res.status_code(StatusCode::NO_CONTENT);
     Ok(())
 }

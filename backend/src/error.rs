@@ -7,12 +7,38 @@ use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
 use crate::stream::StreamApiError;
 
+#[derive(Error, Debug, strum::IntoStaticStr)]
+pub enum FriendError {
+    #[error("cannot send friend request to yourself")]
+    SelfRequest,
+    #[error("friend request already exists")]
+    DuplicateRequest,
+    #[error("already friends with this user")]
+    AlreadyFriends,
+    #[error("friend request not found")]
+    RequestNotFound,
+    #[error("friend request is no longer pending")]
+    RequestNotPending,
+    #[error("not authorized to perform this action")]
+    NotAuthorized,
+    #[error("user not found")]
+    UserNotFound,
+    #[error("not friends with this user")]
+    NotFriends,
+    #[error("too many pending friend requests")]
+    TooManyPending,
+    #[error("friend list is full")]
+    FriendListFull,
+    #[error("invalid parameter: {0}")]
+    InvalidParam(String),
+}
+
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum ApiError {
     Validation(#[from] validator::ValidationErrors),
     PasswordHash(#[from] argon2::password_hash::Error),
-    DatabaseSQL(#[from] diesel::result::Error),
+    DatabaseQuery(#[from] diesel::result::Error),
     DatabaseConnection(#[from] diesel::ConnectionError),
     DatabaseConnectionPool(#[from] diesel::r2d2::PoolError),
     Stream(#[from] StreamApiError),
@@ -20,23 +46,21 @@ pub enum ApiError {
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
+    Friend(#[from] FriendError),
 }
 
 impl Scribe for ApiError {
     fn render(self, res: &mut Response) {
         let status_error = match self {
             // Validation errors -> 400 Bad Request with field details
-            Self::Validation(errs) => {
-                StatusError::bad_request().brief(errs.to_string())
-            }
+            Self::Validation(errs) => StatusError::bad_request().brief(errs.to_string()),
             // Argon2 password hash errors
             Self::PasswordHash(err) => {
                 use argon2::password_hash::Error;
                 match err {
                     // Wrong password -> 401 Unauthorized
                     Error::Password => {
-                        return ApiError::Auth(AuthError::InvalidCredentials)
-                            .render(res);
+                        return ApiError::Auth(AuthError::InvalidCredentials).render(res);
                     }
                     // Other hashing errors are internal
                     err => {
@@ -46,13 +70,11 @@ impl Scribe for ApiError {
                 }
             }
             // Diesel SQL errors
-            Self::DatabaseSQL(err) => {
+            Self::DatabaseQuery(err) => {
                 use diesel::result::{DatabaseErrorKind, Error};
                 match err {
                     // Not found -> 404
-                    Error::NotFound => {
-                        StatusError::not_found().brief("Resource not found")
-                    }
+                    Error::NotFound => StatusError::not_found().brief("Resource not found"),
                     // Database constraint errors
                     Error::DatabaseError(kind, info) => {
                         let message = info.message().to_string();
@@ -64,25 +86,17 @@ impl Scribe for ApiError {
                                     .strip_prefix("UNIQUE constraint failed: ")
                                     .and_then(|s| s.split('.').last())
                                     .unwrap_or("Value");
-                                StatusError::conflict()
-                                    .brief(format!("{} already exists", field))
+                                StatusError::conflict().brief(format!("{} already exists", field))
                             }
                             // Foreign key violation -> 400 Bad Request
-                            DatabaseErrorKind::ForeignKeyViolation => {
-                                StatusError::bad_request()
-                                    .brief("Referenced resource does not exist")
-                            }
+                            DatabaseErrorKind::ForeignKeyViolation => StatusError::bad_request()
+                                .brief("Referenced resource does not exist"),
                             // Check constraint violation -> 400 Bad Request
-                            DatabaseErrorKind::CheckViolation => {
-                                StatusError::bad_request().brief(format!(
-                                    "Constraint violation: {}",
-                                    message
-                                ))
-                            }
+                            DatabaseErrorKind::CheckViolation => StatusError::bad_request()
+                                .brief(format!("Constraint violation: {}", message)),
                             // Not null violation -> 400 Bad Request
                             DatabaseErrorKind::NotNullViolation => {
-                                StatusError::bad_request()
-                                    .brief("A required field is missing")
+                                StatusError::bad_request().brief("A required field is missing")
                             }
                             // Other database errors are internal
                             _ => {
@@ -135,6 +149,23 @@ impl Scribe for ApiError {
                     StatusError::not_found().brief("Avatar not found")
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
+            },
+            Self::Friend(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    FriendError::SelfRequest
+                    | FriendError::DuplicateRequest
+                    | FriendError::AlreadyFriends
+                    | FriendError::TooManyPending
+                    | FriendError::FriendListFull
+                    | FriendError::InvalidParam(_) => StatusError::bad_request().brief(variant),
+                    FriendError::RequestNotFound | FriendError::NotFriends => {
+                        StatusError::not_found().brief(variant)
+                    }
+                    FriendError::RequestNotPending => StatusError::conflict().brief(variant),
+                    FriendError::NotAuthorized => StatusError::forbidden().brief(variant),
+                    FriendError::UserNotFound => StatusError::not_found().brief(variant),
+                }
             }
         };
 
@@ -143,13 +174,11 @@ impl Scribe for ApiError {
 }
 
 impl EndpointOutRegister for ApiError {
-    fn register(
-        components: &mut oapi::Components,
-        operation: &mut oapi::Operation,
-    ) {
+    fn register(components: &mut oapi::Components, operation: &mut oapi::Operation) {
         let responses = [
             (StatusCode::BAD_REQUEST, "Bad request or validation error"),
             (StatusCode::NOT_FOUND, "Resource not found"),
+            (StatusCode::FORBIDDEN, "Forbidden"),
             (StatusCode::CONFLICT, "Resource already exists"),
             (StatusCode::UNAUTHORIZED, "Unauthorized"),
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
@@ -158,10 +187,8 @@ impl EndpointOutRegister for ApiError {
         for (status, description) in responses {
             operation.responses.insert(
                 status.as_str(),
-                oapi::Response::new(description).add_content(
-                    "application/json",
-                    StatusError::to_schema(components),
-                ),
+                oapi::Response::new(description)
+                    .add_content("application/json", StatusError::to_schema(components)),
             );
         }
     }

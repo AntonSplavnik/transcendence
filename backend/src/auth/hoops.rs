@@ -37,6 +37,9 @@ pub trait DepotAuthExt {
     fn user_id(&self) -> i32;
     fn session(&self) -> &crate::models::Session;
     fn device_id(&self) -> &str;
+    /// The user's `tos_accepted_at` timestamp, extracted from the JWT `tos` claim.
+    /// Available only on routes behind `access_hoop`.
+    fn tos_accepted_at(&self) -> Option<chrono::DateTime<chrono::Utc>>;
 }
 
 impl DepotAuthExt for Depot {
@@ -54,6 +57,13 @@ impl DepotAuthExt for Depot {
             .map(|s| s.as_str())
             .expect("Needs device_id inserter hoop")
     }
+
+    fn tos_accepted_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.get::<Option<i64>>("tos_accepted_at")
+            .ok()
+            .and_then(|opt| opt.as_ref())
+            .and_then(|&ts| chrono::DateTime::from_timestamp(ts, 0))
+    }
 }
 
 pub(super) fn set_session(depot: &mut Depot, session: crate::models::Session) {
@@ -65,11 +75,7 @@ fn set_device_id(depot: &mut Depot, device_id: String) {
 }
 
 #[handler]
-pub async fn device_id_inserter_hoop(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-) {
+pub async fn device_id_inserter_hoop(req: &mut Request, depot: &mut Depot, res: &mut Response) {
     match req.cookies().get("device_id") {
         Some(cookie) => {
             set_device_id(depot, cookie.value().to_string());
@@ -89,32 +95,31 @@ pub async fn device_id_inserter_hoop(
 /// For convenience there is a Router extension method [RouterAuthExt::requires_user_login]
 /// that adds this hoop along with OpenAPI security metadata.
 #[handler]
-pub fn access_hoop(
+pub async fn access_hoop(
     req: &mut Request,
     depot: &mut Depot,
     res: &mut Response,
     ctrl: &mut FlowCtrl,
+    db: Db,
 ) {
     // TODO triage whether we can introduce a cache (moka or quick-cache) for hot sessions to avoid DB hits on every request
     // need to make sure to update the cache on session refresh, reauth, logout, etc.
-    fn inner(req: &mut Request, depot: &mut Depot) -> Result<(), ApiError> {
+    async fn inner(req: &mut Request, depot: &mut Depot, db: Db) -> Result<(), ApiError> {
         let jwt_token = req
             .cookie(super::JWT_COOKIE_NAME)
             .ok_or(AuthError::MissingJwtCookie)?
             .value();
         // decoding checks expiry as well
-        let claims: JwtClaims = jsonwebtoken::decode(
-            jwt_token,
-            jwt_decoding_key(),
-            jwt_validation(),
-        )
-        .map_err(|_| AuthError::InvalidJwt)?
-        .claims;
+        let claims: JwtClaims =
+            jsonwebtoken::decode(jwt_token, jwt_decoding_key(), jwt_validation())
+                .map_err(|_| AuthError::InvalidJwt)?
+                .claims;
 
         use crate::schema::sessions::dsl::*;
-        let session: Session = sessions
-            .filter(id.eq(claims.sid))
-            .first(&mut db::get()?)
+        let session_id = claims.sid;
+        let session: Session = db
+            .read(move |conn| sessions.filter(id.eq(session_id)).first(conn))
+            .await?
             .map_err(|_| AuthError::SessionNotFound)?;
 
         if session.user_id != claims.sub {
@@ -131,11 +136,12 @@ pub fn access_hoop(
             return Err(AuthError::NeedReauth.into());
         }
 
+        depot.insert("tos_accepted_at", claims.tos);
         set_session(depot, session);
         Ok(())
     }
 
-    if let Err(err) = inner(req, depot) {
+    if let Err(err) = inner(req, depot, db).await {
         err.render(res);
         ctrl.skip_rest();
     }
@@ -149,9 +155,6 @@ pub trait RouterAuthExt {
 impl RouterAuthExt for Router {
     fn requires_user_login(self) -> Self {
         self.hoop(access_hoop)
-            .oapi_security(SecurityRequirement::new(
-                "jwt",
-                Vec::<String>::new(),
-            ))
+            .oapi_security(SecurityRequirement::new("jwt", Vec::<String>::new()))
     }
 }

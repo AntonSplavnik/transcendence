@@ -1,19 +1,19 @@
-import GameTestUI from './GameTestUI';
+import BabylonCanvas from './GameBoard/BabylonCanvas';
+import { Button } from './ui';
 
 export default function GameBoard({ onLeave }: { onLeave: () => void }) {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-8">
-        <div className="mb-4">
-          <button
-            onClick={onLeave}
-            className="text-blue-600 hover:text-blue-800"
-          >
-            ← Back to Home
-          </button>
-        </div>
-        <GameTestUI />
-      </div>
-    </div>
-  );
+	return (
+		<div className="flex flex-col h-screen">
+			<div className="bg-stone-800 border-b border-stone-700 p-2 flex justify-between items-center shadow-lg z-10">
+				<Button onClick={onLeave} variant="danger" size="sm">
+					Forfeit Match
+				</Button>
+			</div>
+
+			{/* 3D Canvas Area */}
+			<div className="flex-grow bg-black relative">
+				<BabylonCanvas />
+			</div>
+		</div>
+	);
 }
