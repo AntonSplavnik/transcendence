@@ -66,8 +66,7 @@ function InGameGuard({ children }: { children: React.ReactNode }) {
 	const { gameState } = useGame();
 	const { lobbyState } = useLobby();
 	const isGameActive =
-		gameState.status === 'active' ||
-		(lobbyState.status === 'active' && lobbyState.gameActive);
+		gameState.status === 'active' || (lobbyState.status === 'active' && lobbyState.gameActive);
 	if (isGameActive) {
 		return <Navigate to="/game" replace />;
 	}
