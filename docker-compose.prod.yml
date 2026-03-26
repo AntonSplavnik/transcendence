@@ -1,10 +1,14 @@
 services:
   backend:
     image: ghcr.io/antonsplavnik/transcendence:latest
-    ports:
-      - "80:80"
-      - "443:443/tcp"
-      - "443:443/udp"
+    # not using host network causes the ip address of
+    # all incoming connections to be the same (the one of the docker bridge),
+    # which breaks rate limiting and session ip identification
+    network_mode: host
+    # ports:
+    #   - "80:80"
+    #   - "443:443/tcp"
+    #   - "443:443/udp"
     volumes:
       - db-data:/app/data
       - acme-cache:/app/acme
@@ -17,7 +21,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      WATCHTOWER_POLL_INTERVAL: 120
+      WATCHTOWER_POLL_INTERVAL: 300
       WATCHTOWER_CLEANUP: "true"
     restart: unless-stopped
 
