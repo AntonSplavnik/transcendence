@@ -104,7 +104,11 @@ export default function FriendsDrawer() {
 					)}
 
 					{loading ? (
-						<p role="status" aria-live="polite" className="text-stone-400 text-sm text-center py-4">
+						<p
+							role="status"
+							aria-live="polite"
+							className="text-stone-400 text-sm text-center py-4"
+						>
 							Loading...
 						</p>
 					) : (

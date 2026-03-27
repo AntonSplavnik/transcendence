@@ -29,9 +29,13 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 						{/* Visual badge hidden from SR — the live region below handles announcements */}
 						<span aria-hidden="true">
 							{user.online ? (
-								<Badge variant="success" dot>Online</Badge>
+								<Badge variant="success" dot>
+									Online
+								</Badge>
 							) : (
-								<Badge variant="neutral" dot>Offline</Badge>
+								<Badge variant="neutral" dot>
+									Offline
+								</Badge>
 							)}
 						</span>
 						{/* Single persistent live region — always in DOM, text content changes */}
