@@ -12,26 +12,6 @@ use crate::prelude::*;
 
 use super::router::PasswordInput;
 
-// ── HTML pages ───────────────────────────────────────────────────────────
-
-const CONFIRMED_HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Deletion Confirmed</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
-.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#22c55e;margin-bottom:.5rem}</style></head>
-<body><div class="card"><h1>Email Confirmed</h1><p>Your account deletion request has been confirmed. You may now complete the deletion from the app.</p></div></body>
-</html>"#;
-
-const ERROR_HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Confirmation Failed</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
-.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#ef4444;margin-bottom:.5rem}</style></head>
-<body><div class="card"><h1>Confirmation Failed</h1><p>This confirmation link is invalid or has expired. Please request a new deletion.</p></div></body>
-</html>"#;
-
 // ── Response types ────────────────────────────────────────────────────────
 
 /// Response returned when a GDPR deletion request is initiated.
@@ -363,11 +343,22 @@ pub async fn confirm_account_deletion(
     res: &mut Response,
     db: Db,
 ) {
+    use crate::utils::html_action_result_card;
+
+    let error_html = || {
+        html_action_result_card(
+            "Confirmation Failed",
+            "Confirmation Failed",
+            false,
+            "This confirmation link is invalid or has expired. Please request a new deletion.",
+        )
+    };
+
     let (user_id, token_str) = match (user_id.into_inner(), token.into_inner()) {
         (Some(uid), Some(tok)) => (uid, tok),
         _ => {
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(ERROR_HTML));
+            res.render(salvo::writing::Text::Html(error_html()));
             return;
         }
     };
@@ -377,7 +368,7 @@ pub async fn confirm_account_deletion(
         Ok(b) => b,
         Err(_) => {
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(ERROR_HTML));
+            res.render(salvo::writing::Text::Html(error_html()));
             return;
         }
     };
@@ -419,11 +410,16 @@ pub async fn confirm_account_deletion(
 
     match result {
         Ok(true) => {
-            res.render(salvo::writing::Text::Html(CONFIRMED_HTML));
+            res.render(salvo::writing::Text::Html(html_action_result_card(
+                "Deletion Confirmed",
+                "Email Confirmed",
+                true,
+                "Your account deletion request has been confirmed. You may now complete the deletion from the app.",
+            )));
         }
         _ => {
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(ERROR_HTML));
+            res.render(salvo::writing::Text::Html(error_html()));
         }
     }
 }
