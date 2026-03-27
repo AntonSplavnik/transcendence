@@ -53,7 +53,20 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     priority: 2,
     maxInstances: 8,
   },
-    {
+  {
+    id: 'player_attack_swing',
+    variations: ['/sounds/sfx/swoosh_quick_01.wav', '/sounds/sfx/swoosh_quick_02.wav', '/sounds/sfx/swoosh_quick_03.wav', '/sounds/sfx/swoosh_quick_04.wav', '/sounds/sfx/swoosh_quick_05.wav'],
+    volume: { min: 0.1, max: 0.3 },
+    pitch: { min: 0.9, max: 1.1 },
+    bus: 'sfx',
+    spatial: true,
+    maxDistance: 20,
+    minDistance: 2,
+    cooldown: 300,
+    priority: 4,
+    maxInstances: 3,
+  },
+  {
     id: 'amb_forest',
     variations: ['/sounds/ambient/amb_forest.mp3'],
     volume: { min: 0.1, max: 0.2 },

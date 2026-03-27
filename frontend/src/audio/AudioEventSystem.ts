@@ -50,7 +50,11 @@ export class AudioEventSystem {
       const fired = trigger.edge === 'rising' ? current && !previous : !current && previous;
 
       if (fired) {
-        this.playSoundAt(trigger.soundId, position, trigger.volume);
+        if (trigger.delayMs) {
+          setTimeout(() => this.playSoundAt(trigger.soundId, position, trigger.volume), trigger.delayMs);
+        } else {
+          this.playSoundAt(trigger.soundId, position, trigger.volume);
+        }
       }
       this.prevInputState[trigger.field] = current;
     }

@@ -20,11 +20,13 @@ export interface LocalInputTrigger {
   field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting'>;
   edge: 'rising' | 'falling';
   volume?: number;
+  /** Optional delay in ms before the sound plays — use to sync with animation */
+  delayMs?: number;
 }
 
 export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
   { soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
-  // { soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising' },
+  { soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
   // { soundId: 'player_dodge',        field: 'isDodging',   edge: 'rising' },
 ];
 
