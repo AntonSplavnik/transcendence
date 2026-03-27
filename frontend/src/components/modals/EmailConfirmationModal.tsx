@@ -99,7 +99,7 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 					</p>
 
 					<div className="p-3 bg-stone-900 rounded-lg border border-stone-700/40">
-						<p className="text-xs text-stone-400 mb-1">Email address</p>
+						<p className="text-xs text-stone-350 mb-1">Email address</p>
 						<p className="text-stone-100">{user.email}</p>
 					</div>
 

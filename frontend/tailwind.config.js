@@ -53,8 +53,8 @@ export default {
         },
         warning: {
           DEFAULT: "#f08038",
-          light: "#f0c838",
-          dark: "#8a4820",
+          light: "#f0a838",
+          dark: "#7a3418",
           bg: "rgba(240, 128, 56, 0.15)",
         },
         info: {
