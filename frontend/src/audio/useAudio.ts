@@ -9,6 +9,8 @@ export interface AudioHandle {
   playSound(soundId: string): void;
   playMusic(soundId: string): void;
   stopMusic(): void;
+  playAmbient(soundId: string): void;
+  stopAmbient(): void;
   setBusVolume(bus: BusName, volume: number): void;
   isReady: boolean;
 }
@@ -93,6 +95,9 @@ export function useAudio(): AudioHandle {
       (currentMusicRef.current as any).stop?.();
       currentMusicRef.current = null;
     },
+
+    playAmbient(): void {},
+    stopAmbient(): void {},
 
     setBusVolume(bus: BusName, volume: number): void {
       const engine = engineRef.current;

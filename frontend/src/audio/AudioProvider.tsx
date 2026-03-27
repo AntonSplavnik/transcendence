@@ -12,6 +12,8 @@ const AudioCtx = createContext<AudioHandle | null>(null);
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const engineRef = useRef<GameAudioEngine | null>(null);
   const bankRef = useRef<SoundBank | null>(null);
+  const currentMusicRef = useRef<import('@babylonjs/core/AudioV2').StaticSound | null>(null);
+  const currentAmbientRef = useRef<import('@babylonjs/core/AudioV2').StaticSound | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -56,13 +58,46 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       const engine = engineRef.current;
       const bank = bankRef.current;
       if (!engine?.isInitialized() || !bank) return;
+      // Already playing this track — do nothing
+      if (currentMusicRef.current) return;
       const sound = bank.getRandomSound(soundId);
       if (!sound) return;
+      const def = bank.getDefinition(soundId);
+      if (def) {
+        sound.volume = def.volume.min;
+      }
       (sound as any).loop = true;
       sound.play();
+      currentMusicRef.current = sound;
     },
 
-    stopMusic(): void {},
+    stopMusic(): void {
+      if (!currentMusicRef.current) return;
+      (currentMusicRef.current as any).stop?.();
+      currentMusicRef.current = null;
+    },
+
+    playAmbient(soundId: string): void {
+      const engine = engineRef.current;
+      const bank = bankRef.current;
+      if (!engine?.isInitialized() || !bank) return;
+      if (currentAmbientRef.current) return;
+      const sound = bank.getRandomSound(soundId);
+      if (!sound) return;
+      const def = bank.getDefinition(soundId);
+      if (def) {
+        sound.volume = def.volume.min;
+      }
+      (sound as any).loop = true;
+      sound.play();
+      currentAmbientRef.current = sound;
+    },
+
+    stopAmbient(): void {
+      if (!currentAmbientRef.current) return;
+      (currentAmbientRef.current as any).stop?.();
+      currentAmbientRef.current = null;
+    },
 
     setBusVolume(bus, volume): void {
       const engine = engineRef.current;
