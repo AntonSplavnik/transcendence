@@ -195,7 +195,7 @@ export default function AppRoutes() {
 			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			<main id="main-content" className="flex-grow flex flex-col">
+			<div id="main-content" tabIndex={-1} className="flex-grow flex flex-col">
 				{user && !isGame && <FriendsDrawer />}
 				{/* Key on tos_accepted_at so the entire route tree remounts after
 				ToS acceptance. Components that failed to fetch data (403
@@ -260,7 +260,7 @@ export default function AppRoutes() {
 
 					<Route path="*" element={<Navigate to="/landing" replace />} />
 				</Routes>
-			</main>
+			</div>
 			{!hideFooter && (
 				<footer
 					role="contentinfo"
