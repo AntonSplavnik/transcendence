@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNotifications, type ToastNotification } from '../../contexts/NotificationContext';
+import { useUIAudio } from '../../audio/AudioProvider';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 
@@ -143,10 +144,20 @@ function getCardLayout(index: number, visibleCount: number, isStackMode: boolean
  */
 export default function NotificationToast() {
 	const { activeToasts, dismissToast } = useNotifications();
+	const audio = useUIAudio();
+	const prevCountRef = useRef(0);
 
 	// IDs of toasts currently animating out.
 	const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
 	const exitTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+	// Play sound when a new toast arrives.
+	useEffect(() => {
+		if (activeToasts.length > prevCountRef.current && audio.isReady) {
+			audio.playSound('ui_notif');
+		}
+		prevCountRef.current = activeToasts.length;
+	}, [activeToasts.length, audio]);
 
 	// Clean up timers on unmount.
 	useEffect(() => {
