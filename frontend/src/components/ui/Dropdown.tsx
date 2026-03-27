@@ -71,6 +71,9 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 
 			const currentIndex = items.indexOf(document.activeElement as HTMLElement);
 
+			// focus guard: only handle navigation when focus is within menu or on trigger
+			if (currentIndex === -1 && document.activeElement !== triggerRef.current) return;
+
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
 				const next = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
