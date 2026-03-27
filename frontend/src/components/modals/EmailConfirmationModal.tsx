@@ -110,10 +110,12 @@ export default function EmailConfirmationModal({ user, onClose }: EmailConfirmat
 						<button
 							onClick={handleRefresh}
 							disabled={isRefreshing}
+							aria-label={isRefreshing ? 'Refreshing status...' : 'Refresh status'}
 							className="flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition-colors disabled:opacity-50"
 						>
 							<RefreshCw
 								className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`}
+								aria-hidden="true"
 							/>
 							Refresh status
 						</button>
