@@ -57,7 +57,7 @@ export default function FriendsDrawer() {
 			<button
 				ref={toggleButtonRef}
 				onClick={toggleDrawer}
-				className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary hover:bg-primary-hover text-primary-text shadow-lg flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-stone-900 focus-visible:outline-offset-2"
+				className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary hover:bg-primary-hover text-primary-text shadow-lg flex items-center justify-center transition-colors"
 				aria-label={isOpen ? 'Close friends panel' : 'Open friends panel'}
 				aria-expanded={isOpen}
 			>
