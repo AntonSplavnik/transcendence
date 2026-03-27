@@ -8,6 +8,9 @@ import type { GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
+import { GameAudioEngine } from '@/audio/AudioEngine';
+import { SoundBank } from '@/audio/SoundBank';
+import { AudioEventSystem } from '@/audio/AudioEventSystem';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -122,6 +125,11 @@ class GameClient {
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
+	// Audio
+	private audioEngine: GameAudioEngine | null = null;
+	private soundBank: SoundBank | null = null;
+	private audioEventSystem: AudioEventSystem | null = null;
+	private prevRemoteSnapshots: Map<number, CharacterSnapshot> = new Map();
 
 	constructor(
 		scene: Scene,
@@ -135,6 +143,31 @@ class GameClient {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
 		this.characterClassesRef = characterClassesRef;
+		this.initAudio();
+	}
+
+	private async initAudio(): Promise<void> {
+		try {
+			const audioEngine = new GameAudioEngine();
+			const soundBank = new SoundBank();
+			await audioEngine.initialize();
+			await soundBank.loadAll(audioEngine);
+			this.audioEngine = audioEngine;
+			this.soundBank = soundBank;
+			const aes = new AudioEventSystem(audioEngine, soundBank);
+			aes.setLocalPlayerId(this.localPlayerID);
+			this.audioEventSystem = aes;
+			console.log('[Audio] Game audio initialized');
+		} catch (err) {
+			console.warn('[Audio] Failed to initialize game audio:', err);
+		}
+	}
+
+	disposeAudio(): void {
+		this.audioEngine?.dispose();
+		this.audioEngine = null;
+		this.soundBank = null;
+		this.audioEventSystem = null;
 	}
 
 	async initLocalPlayer(): Promise<void> {
@@ -196,6 +229,13 @@ class GameClient {
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
 					this.updateRemoteAnimation(char.player_id, remoteChar, char);
+
+					// Trigger audio for remote players
+					const prev = this.prevRemoteSnapshots.get(char.player_id);
+					if (prev && this.audioEventSystem) {
+						this.audioEventSystem.onRemoteSnapshot(prev, char);
+					}
+					this.prevRemoteSnapshots.set(char.player_id, { ...char });
 				}
 			}
 		}
@@ -297,6 +337,18 @@ class GameClient {
 
 		const isGrounded = this.position.y <= 1.1;
 		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+
+		// Trigger audio for local player input
+		this.audioEventSystem?.onLocalInput(
+			{
+				movementDirection: input.movementDirection,
+				isAttacking: input.isAttacking,
+				isJumping: input.isJumping,
+				isSprinting: input.isSprinting,
+				isGrounded,
+			},
+			{ x: this.position.x, y: this.position.y, z: this.position.z },
+		);
 
 		this.jumpState = tickJumpState(
 			this.localCharacter,
@@ -580,6 +632,7 @@ export default function SimpleGameClient({
 			window.removeEventListener('focus', onFocus);
 			disposed = true;
 			engineRef.current?.stopRenderLoop();
+			gameClientRef.current?.disposeAudio();
 			sceneInstance?.dispose();
 			engineRef.current?.dispose();
 			engineRef.current = null;

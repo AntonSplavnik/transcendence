@@ -31,6 +31,22 @@ export type GameServerMessage =
 	| { type: 'PlayerLeft'; player_id: number }
 	| { type: 'Error'; message: string };
 
+// Game events sent by the server for audio/VFX triggers
+export const GameEventType = {
+	Jump: 1,
+	Land: 2,
+	Hit: 3,
+	Death: 4,
+	Dodge: 5,
+} as const;
+
+export interface GameEvent {
+	event_type: number;
+	player_id: number;
+	position: Vector3D;
+	param1: number;
+}
+
 export type GameClientMessage =
 	| {
 			type: 'Input';

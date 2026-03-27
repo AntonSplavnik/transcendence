@@ -3,7 +3,7 @@ import type { SoundDefinition } from './SoundBank';
 export const SOUND_DEFINITIONS: SoundDefinition[] = [
   {
     id: 'player_jump',
-    variations: ['/sounds/sfx/jump_01.wav', '/sounds/sfx/jump_02.wav', '/sounds/sfx/jump_03.wav', '/sounds/sfx/jump_04.wav'],
+    variations: ['/sounds/sfx/mouvement/jump_01.wav', '/sounds/sfx/mouvement/jump_02.wav', '/sounds/sfx/mouvement/jump_03.wav', '/sounds/sfx/mouvement/jump_04.wav'],
     volume: { min: 2.5, max: 2.8 },
     pitch: { min: 0.95, max: 1.05 },
     bus: 'sfx',
@@ -16,7 +16,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
   {
     id: 'player_land',
-    variations: ['/sounds/sfx/land_01.wav'],
+    variations: ['/sounds/sfx/mouvement/land_01.wav'],
     volume: { min: 0.08, max: 0.1 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'sfx',
@@ -29,7 +29,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
   {
     id: 'player_footstep',
-    variations: ['/sounds/sfx/footstep_01.wav', '/sounds/sfx/footstep_02.wav', '/sounds/sfx/footstep_03.wav', '/sounds/sfx/footstep_04.wav', '/sounds/sfx/footstep_05.wav' ],
+    variations: ['/sounds/sfx/mouvement/footstep_grass_01.wav', '/sounds/sfx/mouvement/footstep_grass_02.wav', '/sounds/sfx/mouvement/footstep_grass_03.wav', '/sounds/sfx/mouvement/footstep_grass_04.wav', '/sounds/sfx/mouvement/footstep_grass_05.wav'],
     volume: { min: 0.1, max: 0.2 },
     pitch: { min: 0.8, max: 0.9 },
     bus: 'sfx',
@@ -42,7 +42,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
   {
     id: 'ui_click',
-    variations: ['/sounds/sfx/ui_click.mp3'],
+    variations: ['/sounds/ui/ui_click.mp3'],
     volume: { min: 0.2, max: 0.4 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'sfx',
@@ -55,7 +55,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
     {
     id: 'amb_forest',
-    variations: ['/sounds/sfx/amb_forest.mp3'],
+    variations: ['/sounds/ambient/amb_forest.mp3'],
     volume: { min: 0.8, max: 1.2 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'ambient',
