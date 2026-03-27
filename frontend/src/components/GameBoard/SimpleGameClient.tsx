@@ -129,6 +129,7 @@ class GameClient {
 	private audioEngine: GameAudioEngine | null = null;
 	private soundBank: SoundBank | null = null;
 	private audioEventSystem: AudioEventSystem | null = null;
+	private ambientSound: import('@babylonjs/core/AudioV2').StaticSound | null = null;
 	private prevRemoteSnapshots: Map<number, CharacterSnapshot> = new Map();
 
 	constructor(
@@ -157,6 +158,19 @@ class GameClient {
 			const aes = new AudioEventSystem(audioEngine, soundBank);
 			aes.setLocalPlayerId(this.localPlayerID);
 			this.audioEventSystem = aes;
+
+			// Start ambient loop
+			const ambientSound = soundBank.getRandomSound('amb_forest');
+			if (ambientSound) {
+				const ambDef = soundBank.getDefinition('amb_forest');
+				if (ambDef) {
+					ambientSound.volume = ambDef.volume.min + Math.random() * (ambDef.volume.max - ambDef.volume.min);
+				}
+				(ambientSound as any).loop = true;
+				ambientSound.play();
+				this.ambientSound = ambientSound;
+			}
+
 			console.log('[Audio] Game audio initialized');
 		} catch (err) {
 			console.warn('[Audio] Failed to initialize game audio:', err);
@@ -164,6 +178,8 @@ class GameClient {
 	}
 
 	disposeAudio(): void {
+		(this.ambientSound as any)?.stop?.();
+		this.ambientSound = null;
 		this.audioEngine?.dispose();
 		this.audioEngine = null;
 		this.soundBank = null;

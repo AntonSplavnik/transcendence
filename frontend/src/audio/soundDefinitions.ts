@@ -56,7 +56,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
     {
     id: 'amb_forest',
     variations: ['/sounds/ambient/amb_forest.mp3'],
-    volume: { min: 0.8, max: 1.2 },
+    volume: { min: 0.1, max: 0.2 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'ambient',
     spatial: false,
