@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: .
+      args:
+        CARGO_PROFILE: debug
+    ports:
+      - "8080:8080"
+      - "8443:8443/tcp"
+      - "8443:8443/udp"
+    volumes:
+      - db-data:/app/data
+      - acme-cache:/app/acme
+      - ./backend/config.toml:/app/config.toml:ro
+    secrets:
+      - tls_cert
+      - tls_key
+    env_file: backend/.env
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+      MP_MAX_MESSAGES: 500
+
+secrets:
+  tls_cert:
+    file: ./backend/certs/cert.pem
+  tls_key:
+    file: ./backend/certs/key.pem
+
+volumes:
+  db-data:
+  acme-cache:

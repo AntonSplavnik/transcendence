@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
+use crate::email::{EmailConfirmationError, EmailError};
 use crate::stream::StreamApiError;
 
 #[derive(Error, Debug, strum::IntoStaticStr)]
@@ -47,6 +48,8 @@ pub enum ApiError {
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
     Friend(#[from] FriendError),
+    Email(#[from] EmailError),
+    EmailConfirmation(#[from] EmailConfirmationError),
 }
 
 impl Scribe for ApiError {
@@ -150,6 +153,24 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
+            Self::Email(err) => {
+                tracing::error!(error = ?err, "email send failed");
+                StatusError::internal_server_error()
+            }
+            Self::EmailConfirmation(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    EmailConfirmationError::UnconfirmedEmail => {
+                        StatusError::forbidden().brief(variant)
+                    }
+                    EmailConfirmationError::AlreadyConfirmed => {
+                        StatusError::conflict().brief(variant)
+                    }
+                    EmailConfirmationError::InvalidToken => {
+                        StatusError::bad_request().brief(variant)
+                    }
+                }
+            }
             Self::Friend(err) => {
                 let variant: &'static str = (&err).into();
                 match err {

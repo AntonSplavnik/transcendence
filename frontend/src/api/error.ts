@@ -80,6 +80,8 @@ function getMessageFromBrief(brief: string): string {
 
 		// ToS errors
 		TosNotAccepted: 'Please accept the Terms of Service to continue.',
+		// Email confirmation errors
+		AlreadyConfirmed: 'Your email is already confirmed.',
 
 		// Success messages
 		DidLogout: 'You have been logged out successfully.',

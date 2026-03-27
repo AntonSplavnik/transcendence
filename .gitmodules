@@ -1,0 +1,3 @@
+[submodule "game_engine/external/entt"]
+	path = game_engine/external/entt
+	url = https://github.com/skypjack/entt.git

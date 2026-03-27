@@ -6,7 +6,7 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    notifications::NotificationManager, prelude::*, stream::StreamManager,
+    email::Mailer, notifications::NotificationManager, prelude::*, stream::StreamManager,
     tos::CurrentTosTimestamp, utils::NickCache,
 };
 
@@ -15,7 +15,7 @@ pub mod users;
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
+pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer) -> Router {
     let api_routes = Router::with_path("api")
         .hoop(affix_state::inject(NickCache::new(
             crate::utils::NICK_CACHE_TTI,
@@ -34,6 +34,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
                 .oapi_tag("tos")
                 .ip_rate_limit(&RateLimit::per_minute(30))
                 .get(crate::tos::current_tos),
+            crate::email::confirm::router("email"),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -51,20 +52,30 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
     Router::new()
         .hoop(affix_state::inject(database))
         .hoop(affix_state::inject(tos_timestamp))
+        .hoop(affix_state::inject(mailer))
         .hoop(affix_state::inject(stream_manager))
         .hoop(affix_state::inject(NotificationManager::new()))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root(database: Db, tos_timestamp: CurrentTosTimestamp) -> Router {
-    let api_routes = rest_api(database, tos_timestamp);
+#[cfg_attr(test, allow(dead_code))]
+pub fn root(
+    database: Db,
+    tos_timestamp: CurrentTosTimestamp,
+    mailer: Mailer,
+    https_port: u16,
+) -> Router {
+    let api_routes = rest_api(database, tos_timestamp, mailer);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
-    let router = Router::new().push(api_routes).push(
-        Router::with_path("{*path}")
-            .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html")),
-    );
+    let router = Router::new()
+        .push(api_routes.hoop(ForceHttps::new().https_port(https_port)))
+        .push(
+            Router::with_path("{*path}")
+                .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html"))
+                .hoop(ForceHttps::new().https_port(https_port)),
+        );
 
     #[cfg(debug_assertions)]
     let router = router

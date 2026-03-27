@@ -1,0 +1,17 @@
+backend/target/
+backend/data/
+backend/certs/
+backend/.env
+backend/.env.*
+frontend/node_modules/
+frontend/dist/
+.git/
+.github/
+.claude/
+docs/
+*.md
+Makefile
+docker-compose*.yml
+prod_config.toml*
+.pre-commit-config.yaml
+.prek.toml
