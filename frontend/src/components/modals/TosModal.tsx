@@ -57,7 +57,7 @@ export default function TosModal() {
 				</Link>
 				.
 			</p>
-			{error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+			{error && <p className="text-red-400 text-sm mt-3" role="alert">{error}</p>}
 		</Modal>
 	);
 }

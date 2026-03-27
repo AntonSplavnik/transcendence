@@ -365,12 +365,13 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 							loading={accepting}
 							loadingText="Accepting..."
 							className="shrink-0"
+							aria-label="accept Terms of Service and continue to the app"
 						>
 							I Accept
 						</Button>
 					</div>
 					{acceptError && (
-						<p className="text-red-400 text-sm mt-2 text-center">{acceptError}</p>
+						<p className="text-red-400 text-sm mt-2 text-center" role="alert">{acceptError}</p>
 					)}
 				</div>
 			)}

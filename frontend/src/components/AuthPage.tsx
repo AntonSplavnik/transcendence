@@ -246,6 +246,7 @@ export default function AuthPage({
 									className="text-gold-400 hover:underline"
 									target="_blank"
 									rel="noopener noreferrer"
+									aria-label="Terms of Service (opens in new tab)"
 								>
 									Terms of Service
 								</Link>
