@@ -195,68 +195,72 @@ export default function AppRoutes() {
 			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			{user && !isGame && <FriendsDrawer />}
-			{/* Key on tos_accepted_at so the entire route tree remounts after
-			   ToS acceptance. Components that failed to fetch data (403
-			   TosNotAccepted) hold stale error state — a remount gives them
-			   a fresh start without requiring a full page reload. */}
-			<Routes key={user?.tos_accepted_at ?? 'pending'}>
-				<Route
-					path="/landing"
-					element={
-						<PublicRoute>
-							<LandingPage onLogin={() => navigate('/auth')} />
-						</PublicRoute>
-					}
-				/>
-				<Route
-					path="/auth"
-					element={
-						<PublicRoute>
-							<AuthPage
-								onBack={() => navigate('/landing')}
-								onAuthSuccess={handleAuthSuccess}
-							/>
-						</PublicRoute>
-					}
-				/>
-				<Route
-					path="/home"
-					element={
-						<ProtectedRoute>
-							<Home
-								onGame={() => navigate('/game')}
-								onLogout={handleLogout}
-								onSessions={() => navigate('/sessions')}
-							/>
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/sessions"
-					element={
-						<ProtectedRoute>
-							<SessionManagement
-								onBack={() => navigate('/home')}
-								onLogout={handleLogout}
-							/>
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/game"
-					element={
-						<ProtectedRoute>
-							<GameBoard onLeave={() => navigate('/home')} />
-						</ProtectedRoute>
-					}
-				/>
+			<main id="main-content" className="flex-grow flex flex-col">
+				{user && !isGame && <FriendsDrawer />}
+				{/* Key on tos_accepted_at so the entire route tree remounts after
+				ToS acceptance. Components that failed to fetch data (403
+				TosNotAccepted) hold stale error state — a remount gives them
+				a fresh start without requiring a full page reload. */}
+				<Routes key={user?.tos_accepted_at ?? 'pending'}>
+					<Route
+						path="/landing"
+						element={
+							<PublicRoute>
+								<LandingPage onLogin={() => navigate('/auth')} />
+							</PublicRoute>
+						}
+					/>
+					<Route
+						path="/auth"
+						element={
+							<PublicRoute>
+								<AuthPage
+									onBack={() => navigate('/landing')}
+									onAuthSuccess={handleAuthSuccess}
+								/>
+							</PublicRoute>
+						}
+					/>
+					<Route
+						path="/home"
+						element={
+							<ProtectedRoute>
+								<Home
+									onGame={() => navigate('/game')}
+									onLogout={handleLogout}
+									onSessions={() => navigate('/sessions')}
+								/>
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/sessions"
+						element={
+							<ProtectedRoute>
+								<SessionManagement
+									onBack={() => navigate('/home')}
+									onLogout={handleLogout}
+								/>
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/game"
+						element={
+							<ProtectedRoute>
+								<GameBoard onLeave={() => navigate('/home')} />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/privacy"
+						element={<PrivacyPolicy onBack={() => navigate(-1)} />}
+					/>
+					<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
 
-				<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
-				<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
-
-				<Route path="*" element={<Navigate to="/landing" replace />} />
-			</Routes>
+					<Route path="*" element={<Navigate to="/landing" replace />} />
+				</Routes>
+			</main>
 			{!hideFooter && (
 				<footer
 					role="contentinfo"

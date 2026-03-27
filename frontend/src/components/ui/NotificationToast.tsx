@@ -50,6 +50,7 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 						viewBox="0 0 24 24"
 						stroke="currentColor"
 						strokeWidth={2}
+						aria-hidden="true"
 					>
 						<path
 							strokeLinecap="round"
@@ -75,9 +76,14 @@ function NotificationCard({ toast, actionable, onAction }: NotificationCardProps
 							border-l border-gold/20 hover:bg-gold/10
 							text-gold/60 hover:text-gold transition-colors
 							rounded-r-lg"
-						aria-label="Open"
+						aria-label={`Go to: ${toast.displayText}`}
 					>
-						<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+						<svg
+							className="w-4 h-4"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							aria-hidden="true"
+						>
 							<path
 								fillRule="evenodd"
 								d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
@@ -229,6 +235,7 @@ export default function NotificationToast() {
 						}
 						role={interactive ? 'button' : undefined}
 						tabIndex={interactive ? 0 : undefined}
+						aria-label={interactive ? `Dismiss: ${toast.displayText}` : undefined}
 					>
 						<div role="status" aria-live="polite">
 							<NotificationCard

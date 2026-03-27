@@ -330,6 +330,7 @@ SQLite was chosen because:
 | Privacy Policy | asplavnic | Accessible from footer; covers data collection, cookies, and user rights. |
 | Terms of Service | asplavnic | Accessible from footer; covers acceptable use and account rules. |
 | Sound system | drongier | Sounds for ingame elements such as footsteps. |
+| WCAG 2.1 AA accessibility | lmeubrin/drongier | Full keyboard navigation (Dropdown arrow keys, Modal focus trap), skip link, reduced-motion support, ARIA landmark regions, descriptive labels on all interactive elements. The 3D game canvas carries a descriptive text alternative under WCAG SC 1.1.1 (sensory experience exemption). See [`docs/accessibility-compliance.md`](docs/accessibility-compliance.md). |
 
 ---
 
@@ -349,8 +350,9 @@ SQLite was chosen because:
 | 8 | Two-Factor Authentication (TOTP) | User Mgmt Minor | 1 | Done |
 | 9 | File upload/management — avatar system | Web Minor | 1 | Done |
 | 10 | Custom: Session Management | Modules of choice Minor | 1 | Done |
-| | **Confirmed (modules 1, 2, 7, 8, 9, 10)** | | **8** | |
-| | **When modules 3–6 complete** | | **16** | Exceeds 14-point target |
+| 11 | Accessibility compliance (WCAG 2.1 AA) | Accessibility Major | 2 | Done |
+| | **Confirmed (modules 1, 2, 7, 8, 9, 10, 11)** | | **10** | |
+| | **When modules 3–6 complete** | | **18** | Exceeds 14-point target |
 
 ---
 
@@ -479,6 +481,27 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ---
 
+### Module 11 — Complete Accessibility Compliance (WCAG 2.1 AA)
+
+_Accessibility and Internationalization Major (2 pts) — by lmeubrin_
+
+All non-game UI conforms to WCAG 2.1 Level AA, providing full screen reader support, keyboard navigation, and assistive technology compatibility. The 3D game canvas is a real-time visual-spatial sensory experience and falls under the WCAG SC 1.1.1 sensory experience exemption; it carries a descriptive `aria-label` identifying its nature.
+
+**What was implemented:**
+
+- **Keyboard navigation:** `Dropdown` component implements the full ARIA menu pattern — Arrow Up/Down navigate items, Home/End jump to first/last, Tab closes the menu. `Modal` traps Tab/Shift+Tab within its boundary and restores focus to the trigger element on close.
+- **Skip link:** Visually hidden "Skip to main content" link (first focusable element in the page) targets `<main id="main-content">`, enabling keyboard users to bypass navigation on every page.
+- **Reduced motion:** `@media (prefers-reduced-motion: reduce)` disables all CSS animations and transitions for users who have enabled this OS-level accessibility preference. Affects dropdown entrance, toast slide, button transitions, and the loading spinner.
+- **ARIA landmarks:** `<main id="main-content">` wraps all page content; `<footer role="contentinfo">` marks the footer. Existing `<header>` and semantic section landmarks are retained.
+- **Form accessibility:** All inputs use the Input component's built-in `aria-invalid`, `aria-describedby`, and `role="alert"` error pattern. The description textarea in `EditUserModal` gained `aria-invalid` and is linked to its error message via `aria-describedby`. Character count uses `aria-live="polite"`.
+- **Descriptive labels:** Session checkboxes now include device name in `aria-label`. Notification action buttons have context-bearing labels instead of the generic "Open". Decorative SVG icons are marked `aria-hidden="true"`.
+- **Focus management:** Modal auto-focuses the first element (respecting `autoFocus` on inputs), stores the previously focused element, and restores it on close. Focus is never lost after any interactive action.
+- **Game canvas:** `aria-label="Real-time 3D multiplayer arena game — requires visual interaction"` on the Babylon.js canvas satisfies WCAG SC 1.1.1 for the sensory experience exception.
+
+**Full compliance documentation:** [`docs/accessibility-compliance.md`](docs/accessibility-compliance.md)
+
+---
+
 ## Individual Contributions
 
 ### kwurster
@@ -519,6 +542,7 @@ In a competitive gaming platform, account security matters. This module gives us
 - Design system: 11 UI components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`), stone/gold/dungeon theme, full Tailwind custom config
 - Error system: `storeError` / `retrieveStoredError` pattern, `ErrorBanner` component
 - Frontend CI/CD pipeline
+- WCAG 2.1 AA accessibility compliance (Module 11): Dropdown keyboard navigation, Modal focus trap and focus restoration, skip link, `prefers-reduced-motion` support, ARIA landmarks, descriptive labels, game canvas text alternative
 
 ### drongier
 
@@ -527,6 +551,7 @@ In a competitive gaming platform, account security matters. This module gives us
   - Frontend: image crop/resize/AVIF conversion, upload flow, avatar display components
 - Profile editing: `EditUserModal` for nickname and description changes
 - User description field: backend migration + frontend display/edit
+- WCAG 2.1 AA accessibility compliance while working on the frontend
 - Sound system (in progress, not yet merged)
 
 ---
@@ -546,6 +571,8 @@ In a competitive gaming platform, account security matters. This module gives us
 | Argon2 RFC | https://datatracker.ietf.org/doc/rfc9106/ | Password hashing specification |
 | TOTP RFC 6238 | https://datatracker.ietf.org/doc/html/rfc6238 | Time-based OTP specification |
 | AVIF spec | https://aomediacodec.github.io/av1-avif/ | Image format used for avatars |
+| WCAG 2.1 specification | https://www.w3.org/TR/WCAG21/ | Web Content Accessibility Guidelines |
+| ARIA authoring practices | https://www.w3.org/WAI/ARIA/apg/ | ARIA patterns for menus, dialogs, widgets |
 
 ### Internal documentation
 
@@ -556,6 +583,7 @@ In a competitive gaming platform, account security matters. This module gives us
 | Frontend | [docs/frontend.md](docs/frontend.md) | Frontend stack, design system, auth flow, JWT refresh |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
+| Accessibility compliance | [docs/accessibility-compliance.md](docs/accessibility-compliance.md) | WCAG 2.1 AA compliance plan, gap analysis, implementation checklist |
 | TODO | [docs/todo.md](docs/todo.md) | What still needs to be done before evaluation |
 
 ### AI usage

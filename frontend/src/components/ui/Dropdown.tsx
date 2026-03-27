@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
+/* ─── Helpers ─── */
+
+function getFocusableItems(container: HTMLElement | null): HTMLElement[] {
+	if (!container) return [];
+	return Array.from(container.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)'));
+}
+
 /* ─── Dropdown ─── */
 
 export interface DropdownProps {
@@ -12,15 +19,67 @@ export interface DropdownProps {
 export function Dropdown({ trigger, children, align = 'right', className = '' }: DropdownProps) {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const menuRef = useRef<HTMLDivElement>(null);
 
-	const close = useCallback(() => setOpen(false), []);
+	const close = useCallback(() => {
+		setOpen(false);
+	}, []);
+
+	// Focus management: open → focus first item; close → restore focus to trigger
+	useEffect(() => {
+		if (!open) return;
+
+		const items = getFocusableItems(menuRef.current);
+		items[0]?.focus();
+
+		// Capture ref value so cleanup uses the same node even if ref changes
+		const trigger = triggerRef.current;
+		// Cleanup runs when open transitions false: returns focus to trigger
+		return () => {
+			trigger?.focus();
+		};
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) return;
 
 		const handleKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') close();
+			if (e.key === 'Escape') {
+				close();
+				return;
+			}
+
+			// Tab closes menu and returns focus to trigger (then continues naturally)
+			if (e.key === 'Tab') {
+				e.preventDefault();
+				close();
+				return;
+			}
+
+			if (!menuRef.current) return;
+			const items = getFocusableItems(menuRef.current);
+			if (items.length === 0) return;
+
+			const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				const next = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+				items[next]?.focus();
+			} else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				const prev = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+				items[prev]?.focus();
+			} else if (e.key === 'Home') {
+				e.preventDefault();
+				items[0]?.focus();
+			} else if (e.key === 'End') {
+				e.preventDefault();
+				items[items.length - 1]?.focus();
+			}
 		};
+
 		const handleClick = (e: MouseEvent) => {
 			if (ref.current && !ref.current.contains(e.target as Node)) close();
 		};
@@ -36,6 +95,7 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 	return (
 		<div ref={ref} className={`relative ${className}`}>
 			<button
+				ref={triggerRef}
 				onClick={() => setOpen((prev) => !prev)}
 				aria-expanded={open}
 				aria-haspopup="menu"
@@ -45,6 +105,7 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
 			</button>
 			{open && (
 				<div
+					ref={menuRef}
 					role="menu"
 					className={`
             absolute top-full mt-2 z-50 min-w-[200px]
@@ -100,6 +161,7 @@ export function DropdownItem({
 	return (
 		<button
 			role="menuitem"
+			tabIndex={-1}
 			onClick={handleClick}
 			className={`
         w-full px-4 py-2.5 text-left text-sm flex items-center gap-3

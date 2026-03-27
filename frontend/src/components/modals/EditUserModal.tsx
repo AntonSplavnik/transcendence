@@ -182,16 +182,28 @@ export default function EditUserModal({
 							setDescriptionError(null);
 						}}
 						rows={2}
+						aria-invalid={descriptionError ? 'true' : undefined}
+						aria-describedby={
+							descriptionError ? 'description-error' : 'description-count'
+						}
 						className={`w-full bg-stone-800 border rounded-lg px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none resize-none ${descriptionError ? 'border-red-500 focus:border-red-400' : 'border-stone-600 focus:border-stone-400'}`}
 						placeholder="A few words about you…"
 					/>
 					<div className="flex justify-between items-center">
 						{descriptionError ? (
-							<p className="text-xs text-red-400">{descriptionError}</p>
+							<p id="description-error" role="alert" className="text-xs text-red-400">
+								{descriptionError}
+							</p>
 						) : (
 							<span />
 						)}
-						<p className="text-xs text-stone-500">{[...descriptionValue].length}/50</p>
+						<p
+							id="description-count"
+							aria-live="polite"
+							className="text-xs text-stone-500"
+						>
+							{[...descriptionValue].length}/50
+						</p>
 					</div>
 				</div>
 

@@ -77,7 +77,7 @@ function SessionRow({ session, isCurrent, isSelected, onToggle }: SessionRowProp
 					onClick={(e) => e.stopPropagation()}
 					disabled={isCurrent}
 					className="mt-1 rounded border-stone-600 bg-stone-800 text-gold-400 focus:ring-gold-400/50 disabled:opacity-30"
-					aria-label={`Select session ${session.session_id}`}
+					aria-label={`Select session ${session.session_id}${session.device_name ? ` on ${session.device_name}` : ''}${isCurrent ? ' (current session)' : ''}`}
 				/>
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 mb-2">
