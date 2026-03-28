@@ -88,6 +88,8 @@ use futures::SinkExt as _;
 use salvo::http::Method;
 use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
+use std::num::NonZeroUsize;
+
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
@@ -752,6 +754,131 @@ impl StreamManager {
                     reason: format!("failed to frame uni stream: {e}"),
                 }
             })
+    }
+
+    /// Request a new bidirectional stream, returning a [`StreamSink`] + [`Receiver`].
+    ///
+    /// Unlike [`request_stream`](Self::request_stream), this wraps the send side in
+    /// a [`StreamSink`] with a bounded mpsc buffer and structured cancellation.
+    ///
+    /// Standalone callers (not using `StreamRoom`) should use
+    /// [`spawn_receive_loop`](super::spawn_receive_loop) rather than consuming the
+    /// `Receiver` manually — it handles decode errors and cancellation correctly.
+    ///
+    /// # Arguments
+    ///
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_stream_v2<S, R>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+        buffer: NonZeroUsize,
+    ) -> Result<(super::StreamSink<S>, Receiver<R>)>
+    where
+        S: Serialize + Send + 'static,
+        R: DeserializeOwned + Send + 'static,
+    {
+        let ((send, recv), connection_id, token) = self.request_unframed_stream(user_id).await?;
+
+        let (sender, receiver) =
+            frame_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(send, recv, r#type)
+                .await
+                .map_err(|e| {
+                    self.unregister(user_id, Some(connection_id), None);
+                    StreamManagerError::ConnectionClosed {
+                        user_id,
+                        reason: format!("failed to frame stream: {e}"),
+                    }
+                })?;
+
+        let child_token = token.child_token();
+        let sink = super::StreamSink::new(sender, child_token, buffer);
+
+        Ok((sink, receiver))
+    }
+
+    /// Request a new uni-directional stream, returning a [`StreamSink`].
+    ///
+    /// Unlike [`request_uni_stream`](Self::request_uni_stream), this wraps the
+    /// sender in a [`StreamSink`] with structured cancellation.
+    ///
+    /// # Arguments
+    ///
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
+    ///   `NonZeroUsize` enforces at the type level that zero-capacity channels
+    ///   (rendezvous) cannot be created — they would cause immediate backpressure
+    ///   cancellation on every broadcast.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn request_uni_stream_v2<S>(
+        &self,
+        user_id: i32,
+        r#type: StreamType,
+        buffer: NonZeroUsize,
+    ) -> Result<super::StreamSink<S>>
+    where
+        S: Serialize + Send + 'static,
+    {
+        let (send, connection_id, token) = self.request_unframed_uni_stream(user_id).await?;
+
+        let sender = frame_uni_stream::<S, CodecBufferParams>(send, r#type)
+            .await
+            .map_err(|e| {
+                self.unregister(user_id, Some(connection_id), None);
+                StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: format!("failed to frame uni stream: {e}"),
+                }
+            })?;
+
+        let child_token = token.child_token();
+        let sink = super::StreamSink::new(sender, child_token, buffer);
+
+        Ok(sink)
+    }
+
+    /// Open a typed protocol stream via [`StreamProtocol`](super::StreamProtocol).
+    ///
+    /// Convenience method that uses the protocol's `stream_type()` and type
+    /// parameters to open a correctly-typed bidirectional stream.
+    ///
+    /// # Arguments
+    ///
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
+    ///   `NonZeroUsize` enforces at the type level that zero-capacity channels
+    ///   (rendezvous) cannot be created — they would cause immediate backpressure
+    ///   cancellation on every broadcast.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn open_protocol<P: super::StreamProtocol>(
+        &self,
+        user_id: i32,
+        protocol: P,
+        buffer: NonZeroUsize,
+    ) -> Result<(super::StreamSink<P::Send>, Receiver<P::Recv>)>
+    where
+        P::Send: Send + 'static,
+        P::Recv: Send + 'static,
+    {
+        self.request_stream_v2(user_id, protocol.stream_type(), buffer)
+            .await
     }
 
     /// Force-disconnect a user's WebTransport connection.

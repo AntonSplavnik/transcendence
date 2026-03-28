@@ -83,6 +83,8 @@ zstd = "0.13.3"
 h3-quinn = "0.0.10"
 # fast concurrent hashmap
 dashmap = "6"
+# ordered map preserving insertion order
+indexmap = "2"
 # user-agent parsing
 woothee = "0.13.0"
 # fast (but DOS-resistant) hashing
