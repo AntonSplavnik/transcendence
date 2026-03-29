@@ -507,7 +507,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
 
         // ── Step 2: Open transport stream (async, no lock held) ──────
         let (sink, rx) = sm
-            .request_stream_v2::<P::Send, P::Recv>(user_id, stream_type, DEFAULT_SINK_BUFFER)
+            .request_stream::<P::Send, P::Recv>(user_id, stream_type, DEFAULT_SINK_BUFFER)
             .await?;
         let boxed_rx: BoxStream<P::Recv> = Box::pin(futures::StreamExt::map(rx, |r| {
             r.map_err(|e| anyhow::anyhow!(e))
@@ -744,7 +744,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// Join a user with a uni-directional (server → client) stream.
     ///
     /// Same atomic join protocol as `join_with` (pending → init → activate),
-    /// but opens a uni-stream via `StreamManager::request_uni_stream_v2` and
+    /// but opens a uni-stream via `StreamManager::request_uni_stream` and
     /// does NOT spawn a receive loop. The client cannot send messages to the
     /// server on this stream.
     ///
@@ -769,7 +769,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
 
         // ── Step 2: Open uni-directional stream (server → client only) ─
         let sink = sm
-            .request_uni_stream_v2::<P::Send>(user_id, stream_type, DEFAULT_SINK_BUFFER)
+            .request_uni_stream::<P::Send>(user_id, stream_type, DEFAULT_SINK_BUFFER)
             .await?;
 
         // ── Steps 3-4: Atomic join + cleanup task ────────────────────

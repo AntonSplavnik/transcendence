@@ -48,14 +48,13 @@
 //!
 //! ## Stream requests and framing
 //!
-//! Server-side components call [`StreamManager::request_stream`] (or
-//! [`StreamManager::request_custom_stream`]) to open a fresh bidirectional stream
-//! on the user's WebTransport session, or [`StreamManager::request_uni_stream`]
-//! (or [`StreamManager::request_custom_uni_stream`]) for a server → client
-//! send-only stream.
+//! Server-side components call [`StreamManager::request_stream`] to open a fresh
+//! bidirectional stream on the user's WebTransport session, or
+//! [`StreamManager::request_uni_stream`] for a server → client send-only stream.
+//! Both return a [`StreamSink`](super::StreamSink) for the send side.
 //!
 //! The server always sends a first CBOR message describing the [`StreamType`] of
-//! that stream. The returned `Sender`/`Receiver` then carry typed CBOR messages
+//! that stream. The returned `StreamSink`/`Receiver` then carry typed CBOR messages
 //! (optionally compressed by the codec).
 //!
 //! ## Liveness detection (current state)
@@ -143,53 +142,11 @@ type WtSend = salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes
 /// Receive half of a WebTransport bidirectional stream (raw, unframed).
 type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
 
-/// A sink for sending typed messages to a client.
-///
-/// Use with [`futures::SinkExt`] to send messages:
-/// ```ignore
-/// use futures::SinkExt;
-/// sender.send(MyMessage { ... }).await?;
-/// ```
-pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
-
-/// A sharable (by clone) and comparable Sender for stream messages.
-///
-/// This is a thin wrapper around `mpsc::Sender` that spawns a task to forward messages to the actual `Sender`.
-#[derive(Clone)]
-pub struct SharedSender<T>(pub mpsc::Sender<T>);
-
-impl<T: Serialize + Send + 'static> SharedSender<T> {
-    /// When creating Shared Managers, you want to use SharedSender instead of Sender.
-    pub fn new<BP: Send + BufferParams + 'static>(sender: Sender<T, BP>) -> SharedSender<T> {
-        let (tx, mut rx) = mpsc::channel(32);
-        tokio::spawn(async move {
-            let mut sender = sender;
-            while let Some(payload) = rx.recv().await {
-                if let Err(err) = sender.send(payload).await {
-                    tracing::debug!(error = %err, "failed to send message to client, closing stream");
-                    break;
-                }
-            }
-        });
-        Self(tx)
-    }
-}
-
-impl<T> Deref for SharedSender<T> {
-    type Target = mpsc::Sender<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> PartialEq for SharedSender<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.same_channel(&other.0)
-    }
-}
-
-impl<T> Eq for SharedSender<T> {}
+/// Internal framed sender type. Used by `frame_stream`, `frame_uni_stream`,
+/// and `open_ctrl_stream`. Public callers receive [`StreamSink`](super::StreamSink)
+/// from [`StreamManager::request_stream`] / [`StreamManager::request_uni_stream`].
+pub(crate) type Sender<S, BP = CodecBufferParams> =
+    FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -591,175 +548,10 @@ impl StreamManager {
         }
     }
 
-    /// Request a new bidirectional stream for typed message passing.
-    ///
-    /// This is the primary API for server-side components to communicate with clients.
-    /// The returned stream halves use CBOR serialization with optional Zstd compression,
-    /// using default codec parameters.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `R`: The type to receive (must implement [`DeserializeOwned`])
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use futures::{SinkExt, StreamExt};
-    ///
-    /// let (mut send, mut recv) = manager
-    ///     .request_stream::<ServerMsg, ClientMsg>(user_id)
-    ///     .await?;
-    ///
-    /// // Send a message
-    /// send.send(ServerMsg::Welcome { user_id }).await?;
-    ///
-    /// // Receive a message
-    /// if let Some(msg) = recv.next().await {
-    ///     handle_message(msg?);
-    /// }
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_stream<S, R>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S>, Receiver<R>, CancellationToken)>
-    where
-        S: Serialize,
-        R: DeserializeOwned,
-    {
-        self.request_custom_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            user_id, r#type,
-        )
-        .await
-    }
-
-    /// Request a new bidirectional stream with custom codec parameters.
-    ///
-    /// This is an advanced API for cases where you need to customize the codec
-    /// buffer behavior or maximum frame size. For most use cases, prefer
-    /// [`request_stream`](Self::request_stream) which uses sensible defaults.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `R`: The type to receive (must implement [`DeserializeOwned`])
-    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
-    /// - `MAX_FRAME`: Maximum allowed receive frame size in bytes
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_custom_stream<S, R, BP, const MAX_FRAME: usize>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>, CancellationToken)>
-    where
-        S: Serialize,
-        R: DeserializeOwned,
-        BP: BufferParams,
-    {
-        let ((send, recv), connection_id, token) = self.request_unframed_stream(user_id).await?;
-
-        frame_stream::<S, R, BP, MAX_FRAME>(send, recv, r#type)
-            .await
-            .map(|(sender, receiver)| (sender, receiver, token))
-            .map_err(|e| {
-                self.unregister(user_id, Some(connection_id), None);
-                StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: format!("failed to frame stream: {e}"),
-                }
-            })
-    }
-
-    /// Request a new uni-directional (server → client) stream for typed message passing.
-    ///
-    /// Unlike [`request_stream`](Self::request_stream), this opens a send-only stream.
-    /// The client cannot send data back on this stream. Use this for server-initiated
-    /// push scenarios such as notifications or state updates.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use futures::SinkExt;
-    ///
-    /// let mut send = manager
-    ///     .request_uni_stream::<Notification>(user_id, StreamType::Notifications)
-    ///     .await?;
-    ///
-    /// send.send(Notification::NewMessage { from: 42 }).await?;
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_uni_stream<S>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S>, CancellationToken)>
-    where
-        S: Serialize,
-    {
-        self.request_custom_uni_stream::<S, CodecBufferParams>(user_id, r#type)
-            .await
-    }
-
-    /// Request a new uni-directional stream with custom codec parameters.
-    ///
-    /// This is an advanced API for cases where you need to customize the codec
-    /// buffer behavior. For most use cases, prefer
-    /// [`request_uni_stream`](Self::request_uni_stream) which uses sensible defaults.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_custom_uni_stream<S, BP>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, CancellationToken)>
-    where
-        S: Serialize,
-        BP: BufferParams,
-    {
-        let (send, connection_id, token) = self.request_unframed_uni_stream(user_id).await?;
-
-        frame_uni_stream::<S, BP>(send, r#type)
-            .await
-            .map(|sender| (sender, token))
-            .map_err(|e| {
-                self.unregister(user_id, Some(connection_id), None);
-                StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: format!("failed to frame uni stream: {e}"),
-                }
-            })
-    }
-
     /// Request a new bidirectional stream, returning a [`StreamSink`] + [`Receiver`].
     ///
-    /// Unlike [`request_stream`](Self::request_stream), this wraps the send side in
-    /// a [`StreamSink`] with a bounded mpsc buffer and structured cancellation.
+    /// The send side is wrapped in a [`StreamSink`] with a bounded mpsc buffer and
+    /// structured cancellation via [`CancelHandle`](super::CancelHandle).
     ///
     /// Standalone callers (not using `StreamRoom`) should use
     /// [`spawn_receive_loop`](super::spawn_receive_loop) rather than consuming the
@@ -775,7 +567,7 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_stream_v2<S, R>(
+    pub async fn request_stream<S, R>(
         &self,
         user_id: i32,
         r#type: StreamType,
@@ -804,10 +596,11 @@ impl StreamManager {
         Ok((sink, receiver))
     }
 
-    /// Request a new uni-directional stream, returning a [`StreamSink`].
+    /// Request a new uni-directional (server → client) stream, returning a [`StreamSink`].
     ///
-    /// Unlike [`request_uni_stream`](Self::request_uni_stream), this wraps the
-    /// sender in a [`StreamSink`] with structured cancellation.
+    /// The sender is wrapped in a [`StreamSink`] with a bounded mpsc buffer and
+    /// structured cancellation. Use this for server-initiated push scenarios such
+    /// as notifications or state updates.
     ///
     /// # Arguments
     ///
@@ -822,7 +615,7 @@ impl StreamManager {
     ///
     /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
     /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_uni_stream_v2<S>(
+    pub async fn request_uni_stream<S>(
         &self,
         user_id: i32,
         r#type: StreamType,
@@ -877,7 +670,7 @@ impl StreamManager {
         P::Send: Send + 'static,
         P::Recv: Send + 'static,
     {
-        self.request_stream_v2(user_id, protocol.stream_type(), buffer)
+        self.request_stream(user_id, protocol.stream_type(), buffer)
             .await
     }
 

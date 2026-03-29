@@ -16,7 +16,9 @@ use crate::models::cbor_blob::CborBlob;
 use crate::models::{NewOfflineNotification, OfflineNotification};
 use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
-use crate::stream::{DEFAULT_SINK_BUFFER, StreamManager, StreamManagerError, StreamSink, StreamType};
+use crate::stream::{
+    DEFAULT_SINK_BUFFER, StreamManager, StreamManagerError, StreamSink, StreamType,
+};
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
@@ -118,7 +120,11 @@ impl NotificationManager {
         user_id: i32,
     ) -> Result<(), NotificationError> {
         let sink = streams
-            .request_uni_stream_v2(user_id, StreamType::Notifications, DEFAULT_SINK_BUFFER)
+            .request_uni_stream::<WireNotification>(
+                user_id,
+                StreamType::Notifications,
+                DEFAULT_SINK_BUFFER,
+            )
             .await?;
 
         // Register (replaces any previous sink for this user).

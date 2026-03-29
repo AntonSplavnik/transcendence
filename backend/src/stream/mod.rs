@@ -21,10 +21,6 @@
 //! | `stream_room` | [`StreamRoom<P>`], [`RoomProtocol`] — room lifecycle callbacks |
 //! | `stream_manager` | [`StreamManager`] — WebTransport connections |
 
-// SinkExt/StreamExt re-exports and SharedSender are used by downstream modules
-// (notifications, chat). SharedSender and SinkExt/StreamExt are removed in Phase 3.
-#![allow(unused_imports)]
-
 mod cancel;
 mod compress_cbor_codec;
 mod sink;
@@ -32,16 +28,20 @@ mod stream_manager;
 mod stream_room;
 
 pub use cancel::{CancelHandle, CancelReason};
-pub use futures::SinkExt;
-pub use futures::StreamExt;
 use salvo::Depot;
+// MAX_INIT_MESSAGES and Receiver are public API consumed by callers of
+// StreamRoom / request_stream. Plan B (chat module) will also use
+// JoinError, RoomProtocol, and StreamRoom via this re-export.
+#[allow(unused_imports)]
 pub use sink::{DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink};
+#[allow(unused_imports)]
 pub use stream_manager::{
-    Receiver, Sender, SharedSender, StreamApiError, StreamManager, StreamManagerDepotExt,
-    StreamManagerError, connect_stream, router, webtransport_router,
+    Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
+    connect_stream, router, webtransport_router,
 };
 #[cfg(test)]
 pub(crate) use stream_room::GateHandle;
+#[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
 
 use crate::db::Db;
