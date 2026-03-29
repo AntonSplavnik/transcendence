@@ -39,8 +39,6 @@ pub use stream_manager::{
     Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
     connect_stream, router, webtransport_router,
 };
-#[cfg(test)]
-pub(crate) use stream_room::GateHandle;
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
 

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::super::cancel::CancelReason;
-use super::super::stream_room::{GateHandle, JoinError, RoomProtocol, StreamRoom};
+use super::super::stream_room::{JoinError, RoomProtocol, StreamRoom};
 use super::super::{MAX_INIT_MESSAGES, StreamType};
 
 /// Stamp out the common associated types and `stream_type()` for test protocols.
