@@ -10,11 +10,7 @@ namespace Components {
 // PlayerInfo - Player identification and metadata
 // =============================================================================
 // Pure data component - stores player ID and name
-// Used in EnTT implementation to maintain PlayerID mapping
-//
-// In the original ECS, this data was stored in the Entity class itself.
-// With EnTT, entities are just handles (uint32_t), so we need a component
-// to store the player identification data.
+// Used to maintain PlayerID mapping
 //
 // Usage:
 //   PlayerInfo playerInfo{42, "PlayerName"};

@@ -46,7 +46,6 @@ struct Health {
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
-
     explicit Health(float maxHealth)
         : current(maxHealth)
         , maximum(maxHealth)
@@ -58,7 +57,6 @@ struct Health {
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
-
     Health(float maxHealth, float armor, float resistance)
         : current(maxHealth)
         , maximum(maxHealth)
@@ -78,6 +76,10 @@ struct Health {
 
     bool isFullHealth() const {
         return current >= maximum;
+    }
+
+    float getCurrentHelth() const {
+        return current;
     }
 
     float getHealthPercent() const {

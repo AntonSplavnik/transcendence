@@ -72,10 +72,6 @@ public:
     bool addPlayer(PlayerID playerID, const std::string& name);
     bool removePlayer(PlayerID playerID);
 
-    // Direct entity access (returns entt::entity)
-    entt::entity getEntity(PlayerID playerID) { return m_world.getEntity(playerID); }
-    entt::entity getEntity(PlayerID playerID) const { return m_world.getEntity(playerID); }
-
     // Input handling
     void setPlayerInput(PlayerID playerID, const InputState& input);
 
@@ -93,7 +89,7 @@ public:
     const Core::World& getWorld() const { return m_world; }
 
 private:
-    // World manages all entities and systems (EnTT version)
+    // World manages all entities and systems
     Core::World m_world;
 
     // Game state (identical to ArenaGame)
@@ -195,7 +191,7 @@ inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name) {
     Vector3D spawnPos = getSpawnPosition();
 
     // Create player entity through World
-    entt::entity entity = m_world.addPlayer(playerID, name, spawnPos);
+    entt::entity entity = m_world.createPlayer(playerID, name, spawnPos);
 
     if (entity != entt::null) {
         // Face the arena centre (origin): yaw = atan2(-x, -z) for convention yaw=0 → +Z
@@ -211,7 +207,6 @@ inline bool ArenaGame::removePlayer(PlayerID playerID) {
 }
 
 inline void ArenaGame::setPlayerInput(PlayerID playerID, const InputState& input) {
-    // Delegate to World
     m_world.setPlayerInput(playerID, input);
 }
 

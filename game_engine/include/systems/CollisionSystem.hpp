@@ -12,17 +12,13 @@
 namespace ArenaGame {
 
 // =============================================================================
-// CollisionSystem - EnTT-based collision detection and resolution
+// CollisionSystem - Detects and resolves collisions between entities
 // =============================================================================
-// Drop-in replacement for CollisionSystem using EnTT views
-// - Uses view<Transform, Collider> for iteration
-// - Better performance with EnTT groups (cache-friendly)
-// - Identical collision logic to CollisionSystem.hpp
+// - Iterates all entity pairs with Transform + Collider components
+// - Filters by collision layer (shouldCollideWith) and skips dead entities
+// - Resolves overlap by pushing entities apart based on kinematic flags
 //
-// Performance improvements:
-// - Packed storage for better cache locality
-// - Can use EnTT groups for hot path optimization
-// - No manual entity tracking needed
+// Should run in fixedUpdate phase (after physics integration)
 // =============================================================================
 
 class CollisionSystem : public System {

@@ -9,17 +9,13 @@
 namespace ArenaGame {
 
 // =============================================================================
-// PhysicsSystem - EnTT-based physics simulation
+// PhysicsSystem - Simulates gravity, friction, and positional integration
 // =============================================================================
-// Drop-in replacement for PhysicsSystem using EnTT views
-// - Uses view<Transform, PhysicsBody> for cache-friendly iteration
-// - No manual entity tracking (EnTT handles this)
-// - Identical physics logic to PhysicsSystem.hpp
+// - Applies gravity and friction to all entities with PhysicsBody
+// - Integrates velocity into position (Euler integration)
+// - Enforces arena bounds and ground collision
 //
-// Performance improvements:
-// - 10-20x faster iteration (packed component storage)
-// - No need to check hasPhysics() (view filters automatically)
-// - Better cache locality
+// Should run in fixedUpdate phase (before collision)
 // =============================================================================
 
 class PhysicsSystem : public System {

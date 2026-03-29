@@ -50,12 +50,12 @@ public:
     virtual const char* getName() const = 0;
 
     // Update phase flags (override to indicate which phases this system needs)
-    virtual bool needsEarlyUpdate() const { return false; }
-    virtual bool needsFixedUpdate() const { return false; }
-    virtual bool needsUpdate() const { return true; }  // Most systems need this
-    virtual bool needsLateUpdate() const { return false; }
+    virtual bool needsEarlyUpdate() const { return false; } // Input
+    virtual bool needsFixedUpdate() const { return false; } // Physics, Collision
+    virtual bool needsUpdate() const { return true; }      // Game logic, Combat, AI
+    virtual bool needsLateUpdate() const { return false; } // Post-processing, interpolation
 
-    // Set registry (called during world initialization)
+    // Called during world initialization
     void setRegistry(entt::registry* registry) {
         m_registry = registry;
     }
