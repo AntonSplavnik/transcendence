@@ -16,7 +16,7 @@ use crate::models::cbor_blob::CborBlob;
 use crate::models::{NewOfflineNotification, OfflineNotification};
 use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
-use crate::stream::{SharedSender, StreamManager, StreamManagerError, StreamType};
+use crate::stream::{DEFAULT_SINK_BUFFER, StreamManager, StreamManagerError, StreamSink, StreamType};
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
@@ -42,7 +42,7 @@ pub enum NotificationError {
 #[derive(Clone)]
 pub struct NotificationManager {
     /// Active notification streams keyed by `user_id`.
-    streams: Arc<DashMap<i32, SharedSender<WireNotification>, ahash::RandomState>>,
+    streams: Arc<DashMap<i32, StreamSink<WireNotification>, ahash::RandomState>>,
 }
 
 #[allow(dead_code)]
@@ -70,14 +70,14 @@ impl NotificationManager {
     ) -> Result<(), NotificationError> {
         let created_at = chrono::Utc::now();
         // Fast path: try the open stream first.
-        let sender = {
+        let sink = {
             self.streams
                 .get(&user_id)
-                .map(|sender_ref| sender_ref.value().clone())
+                .map(|sink_ref| sink_ref.value().clone())
         };
 
-        if let Some(sender) = sender {
-            match sender
+        if let Some(sink) = sink {
+            match sink
                 .send(WireNotification {
                     payload: payload.clone(),
                     created_at,
@@ -91,7 +91,7 @@ impl NotificationManager {
                         "notification stream channel closed, falling back to DB"
                     );
 
-                    self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
+                    self.streams.remove_if(&user_id, |_, v| v.eq(&sink));
                 }
             }
         }
@@ -117,28 +117,29 @@ impl NotificationManager {
         streams: &StreamManager,
         user_id: i32,
     ) -> Result<(), NotificationError> {
-        let (sender, disconnect_token) = streams
-            .request_uni_stream(user_id, StreamType::Notifications)
+        let sink = streams
+            .request_uni_stream_v2(user_id, StreamType::Notifications, DEFAULT_SINK_BUFFER)
             .await?;
 
-        let sender = SharedSender::new(sender);
-
-        // Register (replaces any previous sender for this user).
+        // Register (replaces any previous sink for this user).
         // Inserting before draining the DB ensures that a parallel send() call
         // that comes in while we're draining will write to the new stream
         // instead of falling back to the DB, leaving the DB entry undelivered until the next reconnect.
         // This might deliver new notifications before the backlog, but because every payload
         // is tagged with the send timestamp, the client can sort them correctly.
-        self.streams.insert(user_id, sender.clone());
+        self.streams.insert(user_id, sink.clone());
 
-        // Spawn a cleanup task: when the WebTransport connection is dropped,
-        // the disconnect_token is cancelled and we remove the stale sender.
+        // Spawn a cleanup task: when the WebTransport connection drops (or the
+        // sink is cancelled for any reason), remove the stale entry.
+        // `cancel_handle().cancelled()` fires when the parent connection token
+        // is cancelled (disconnect) OR when the forwarding task cancels due to
+        // a transport error — both mean the sink is no longer usable.
         {
             let streams = self.streams.clone();
-            let sender_for_cleanup = sender.clone();
+            let sink_for_cleanup = sink.clone();
             tokio::spawn(async move {
-                disconnect_token.cancelled().await;
-                streams.remove_if(&user_id, |_, v| v.eq(&sender_for_cleanup));
+                sink_for_cleanup.cancel_handle().cancelled().await;
+                streams.remove_if(&user_id, |_, v| v.eq(&sink_for_cleanup));
                 tracing::debug!(user_id, "notification stream cleaned up after disconnect");
             });
         }
@@ -147,9 +148,9 @@ impl NotificationManager {
         let pending = match Self::drain_from_db(db, user_id).await {
             Ok(pending) => pending,
             Err(err) => {
-                // Clean up the sender we just registered if draining fails,
-                // to avoid leaving a stale sender in the manager.
-                self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
+                // Clean up the sink we just registered if draining fails,
+                // to avoid leaving a stale entry in the manager.
+                self.streams.remove_if(&user_id, |_, v| v.eq(&sink));
                 return Err(err.into());
             }
         };
@@ -163,7 +164,7 @@ impl NotificationManager {
             let mut unsent = SmallVec::<[OfflineNotification; 5]>::new();
             for notification in pending {
                 if res.is_none() {
-                    match sender
+                    match sink
                         .send(WireNotification {
                             payload: notification.data.clone().into_inner(),
                             created_at: notification.created_at,
@@ -176,7 +177,7 @@ impl NotificationManager {
                         Ok(_) => continue,
                         Err(err) => {
                             res = Some(err);
-                            self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
+                            self.streams.remove_if(&user_id, |_, v| v.eq(&sink));
                         }
                     }
                 }
