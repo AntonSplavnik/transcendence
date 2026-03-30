@@ -61,12 +61,9 @@ private:
 
 inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
     // EnTT view: iterate only entities with Transform AND PhysicsBody
-    // This is cached and very fast (packed storage)
     auto view = m_registry->view<Components::Transform, Components::PhysicsBody>();
 
-    for (auto entity : view) {
-        auto& transform = view.get<Components::Transform>(entity);
-        auto& physics = view.get<Components::PhysicsBody>(entity);
+    view.each([&](Components::Transform& transform,Components::PhysicsBody& physics){
 
         // Apply physics forces
         applyGravity(physics, fixedDeltaTime);
@@ -77,7 +74,8 @@ inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
         // Enforce constraints
         enforceArenaBounds(transform);
         checkGroundCollision(transform, physics);
-    }
+
+    });
 }
 
 inline void PhysicsSystem::applyGravity(Components::PhysicsBody& physics, float deltaTime) {

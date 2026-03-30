@@ -216,7 +216,6 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     snapshot.timestamp = m_gameTime;
 
     // Get all entities that represent players (have all player components)
-    // Using EnTT view for efficient iteration
     auto& registry = const_cast<Core::World&>(m_world).getRegistry();
 
     // View of all entities with player components
@@ -229,14 +228,17 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     >();
 
     // Convert entities to character snapshots
-    // Use view.each() for better C++20 compatibility
-    view.each([&](auto entity,
-                  Components::PlayerInfo& playerInfo,
+    view.each([&](Components::PlayerInfo& playerInfo,
                   Components::Transform& transform,
                   Components::PhysicsBody& physics,
                   Components::Health& health,
                   Components::CharacterController& controller) {
+
         // Skip dead entities
+        /**
+         * Inside a lambda, continue doesn't exist — return is used instead,
+         * which exits thecurrent lambda call and each() moves on to the next entity.
+         */
         if (!health.isAlive()) {
             return;  // continue in lambda
         }
