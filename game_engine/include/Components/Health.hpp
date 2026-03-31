@@ -12,13 +12,20 @@ namespace Components {
 // =============================================================================
 // Health - Hit points and damage handling
 // =============================================================================
-// Pure data component - logic handled by CombatSystem
-// Represents an entity that can take damage and die
+// Pure data component - damage reduction applied in takeDamage().
 //
-// Usage:
-//   Health health(100.0f);
-//   health.takeDamage(25.0f);
-//   if (!health.isAlive()) { ... }
+// Damage formula (applied in order):
+//   1. raw       = baseDamage * stageMultiplier * damageMultiplier [± crit]
+//                  (calculated in CombatSystem::calculateCombatDamage)
+//   2. post-armor  = max(0, raw - armor)          flat reduction
+//   3. final       = post-armor * (1 - resistance) percentage reduction
+//
+// Example: raw=10, armor=2, resistance=0.1 (10%)
+//   post-armor = max(0, 10 - 2) = 8
+//   final      = 8 * 0.9        = 7.2
+//
+// armor      — counters chip damage / weak attackers; ineffective vs big hits
+// resistance — scales proportionally; stays relevant regardless of damage source
 // =============================================================================
 
 struct Health {
@@ -173,6 +180,7 @@ struct Health {
         h.maximum = preset.maxHealth;
         h.current = h.maximum;
         h.armor = preset.armor;
+        h.resistance = preset.resistance;
         return h;
     }
     static Health createCharacter() {

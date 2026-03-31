@@ -9,6 +9,7 @@ namespace Presets {
 	inline const CharacterPreset KNIGHT = {
 		.maxHealth           = 120.0f,
 		.armor               = 5.0f,
+		.resistance          = 0.1f,
 		.movementSpeed       = 1.5f,
 		.rotationSpeed       = 1.0f,
 		.baseDamage          = 18.0f,

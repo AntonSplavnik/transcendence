@@ -9,6 +9,7 @@ namespace ArenaGame {
 		// Health
 		float maxHealth;
 		float armor;
+		float resistance;
 
 		// CharacterController
 		float movementSpeed;
