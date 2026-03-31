@@ -25,6 +25,10 @@ diesel::table! {
         score_p1 -> Integer,
         score_p2 -> Integer,
         played_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     friend_requests (id) {
         id -> Integer,
         sender_id -> Integer,
