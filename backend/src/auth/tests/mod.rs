@@ -6,4 +6,5 @@ mod password;
 mod register;
 mod session;
 mod sessions;
+mod tos;
 mod two_factor;

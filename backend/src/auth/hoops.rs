@@ -37,6 +37,9 @@ pub trait DepotAuthExt {
     fn user_id(&self) -> i32;
     fn session(&self) -> &crate::models::Session;
     fn device_id(&self) -> &str;
+    /// The user's `tos_accepted_at` timestamp, extracted from the JWT `tos` claim.
+    /// Available only on routes behind `access_hoop`.
+    fn tos_accepted_at(&self) -> Option<chrono::DateTime<chrono::Utc>>;
 }
 
 impl DepotAuthExt for Depot {
@@ -53,6 +56,13 @@ impl DepotAuthExt for Depot {
         self.get::<String>("device_id")
             .map(|s| s.as_str())
             .expect("Needs device_id inserter hoop")
+    }
+
+    fn tos_accepted_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.get::<Option<i64>>("tos_accepted_at")
+            .ok()
+            .and_then(|opt| opt.as_ref())
+            .and_then(|&ts| chrono::DateTime::from_timestamp(ts, 0))
     }
 }
 
@@ -126,6 +136,7 @@ pub async fn access_hoop(
             return Err(AuthError::NeedReauth.into());
         }
 
+        depot.insert("tos_accepted_at", claims.tos);
         set_session(depot, session);
         Ok(())
     }

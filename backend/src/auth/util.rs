@@ -85,13 +85,18 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
         .build()
 }
 
-pub fn jwt_create(session: &Session, jti: SessionTokenHashTruncated) -> AppResult<String> {
+pub fn jwt_create(
+    session: &Session,
+    jti: SessionTokenHashTruncated,
+    tos_accepted_at: Option<chrono::DateTime<chrono::Utc>>,
+) -> AppResult<String> {
     let claim = JwtClaims {
         sub: session.user_id,
         sid: session.id,
         jti,
         exp: session.access_expiry().timestamp() as usize,
         iat: session.refreshed_at.timestamp() as usize,
+        tos: tos_accepted_at.map(|ts| ts.timestamp()),
     };
     Ok(jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),

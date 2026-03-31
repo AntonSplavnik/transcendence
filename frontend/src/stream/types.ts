@@ -109,7 +109,13 @@ export type ConnectionState =
  *
  * Extend this union as the backend adds more variants.
  */
-export type NotificationPayload = 'ServerHello';
+export type NotificationPayload =
+	| 'ServerHello'
+	| { FriendRequestReceived: { request_id: number; sender_id: number } }
+	| { FriendRequestAccepted: { request_id: number; friend_id: number } }
+	| { FriendRequestRejected: { request_id: number } }
+	| { FriendRequestCancelled: { request_id: number } }
+	| { FriendRemoved: { user_id: number } };
 
 /**
  * A single notification as transmitted on the wire.

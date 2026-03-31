@@ -25,6 +25,13 @@ diesel::table! {
         score_p1 -> Integer,
         score_p2 -> Integer,
         played_at -> TimestamptzSqlite,
+    friend_requests (id) {
+        id -> Integer,
+        sender_id -> Integer,
+        receiver_id -> Integer,
+        status -> Integer,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
     }
 }
 
@@ -49,6 +56,13 @@ diesel::table! {
         refreshed_at -> TimestamptzSqlite,
         last_used_at -> TimestamptzSqlite,
         last_authenticated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
+    tos_versions (key) {
+        key -> Text,
+        created_at -> TimestamptzSqlite,
     }
 }
 
@@ -87,6 +101,11 @@ diesel::table! {
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
         description -> Text,
+        tos_accepted_at -> Nullable<TimestamptzSqlite>,
+        email_confirmed_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_hash -> Nullable<Binary>,
+        email_confirmation_token_expires_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_email -> Nullable<Text>,
     }
 }
 
@@ -101,8 +120,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
     games,
+    friend_requests,
     notifications,
     sessions,
+    tos_versions,
     two_fa_recovery_codes,
     user_stats,
     users,
