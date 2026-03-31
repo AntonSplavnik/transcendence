@@ -119,6 +119,9 @@ class GameClient {
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
+	private gui: any = null;
+	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
+	private localHealthFill: any = null;
 
 	constructor(
 		scene: Scene,
@@ -132,6 +135,75 @@ class GameClient {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
 		this.characterClassesRef = characterClassesRef;
+		this.setupHUD();
+	}
+
+	private setupHUD(): void {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const GUI = (BABYLON as any).GUI;
+		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
+
+		// Update enemy bar positions every frame by projecting world-space position
+		this.scene.onBeforeRenderObservable.add(() => {
+			for (const [playerID, bar] of this.enemyBars.entries()) {
+				const char = this.characters.get(playerID);
+				if (!char) continue;
+				const pos = char.rootNode.getAbsolutePosition();
+				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + 2.4, pos.z), this.scene);
+			}
+		});
+
+		// Local player health bar — bottom center
+		const localBg = new GUI.Rectangle('local-hp-bg');
+		localBg.width = '200px';
+		localBg.height = '14px';
+		localBg.cornerRadius = 3;
+		localBg.color = '#00000099';
+		localBg.thickness = 1;
+		localBg.background = '#1a1a1a';
+		localBg.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+		localBg.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+		localBg.top = '-28px';
+		this.gui.addControl(localBg);
+
+		const localFill = new GUI.Rectangle('local-hp-fill');
+		localFill.width = '100%';
+		localFill.height = '100%';
+		localFill.cornerRadius = 0;
+		localFill.color = 'transparent';
+		localFill.thickness = 0;
+		localFill.background = '#c0392b';
+		localFill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+		localBg.addControl(localFill);
+
+		this.localHealthFill = localFill;
+	}
+
+	private createEnemyBar(playerID: number): void {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const GUI = (BABYLON as any).GUI;
+
+		const bg = new GUI.Rectangle(`enemy-hp-bg-${playerID}`);
+		bg.width = '54px';
+		bg.height = '5px';
+		bg.cornerRadius = 2;
+		bg.color = 'transparent';
+		bg.thickness = 0;
+		bg.background = '#1a1a1a';
+		bg.isPointerBlocker = false;
+		this.gui.addControl(bg);
+
+		const fill = new GUI.Rectangle(`enemy-hp-fill-${playerID}`);
+		fill.width = '100%';
+		fill.height = '100%';
+		fill.cornerRadius = 0;
+		fill.color = 'transparent';
+		fill.thickness = 0;
+		fill.background = '#c0392b';
+		fill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+		bg.addControl(fill);
+
+		this.enemyBars.set(playerID, { bg, fill });
 	}
 
 	async initLocalPlayer(): Promise<void> {
@@ -173,6 +245,11 @@ class GameClient {
 					this.localCharacter.setRotation(char.yaw);
 				}
 
+				if (this.localHealthFill) {
+					const pct = char.max_health > 0 ? char.health / char.max_health : 0;
+					this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+				}
+
 				// Update camera to follow player
 				this.camera.position = new BABYLON.Vector3(
 					this.position.x + ISO_CAM_OFFSET.x,
@@ -193,6 +270,12 @@ class GameClient {
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
 					this.updateRemoteAnimation(char.player_id, remoteChar, char);
+
+					const bar = this.enemyBars.get(char.player_id);
+					if (bar) {
+						const pct = char.max_health > 0 ? char.health / char.max_health : 0;
+						bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+					}
 				}
 			}
 		}
@@ -208,6 +291,11 @@ class GameClient {
 			this.characters.delete(playerID);
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
+			const bar = this.enemyBars.get(playerID);
+			if (bar) {
+				bar.bg.dispose();
+				this.enemyBars.delete(playerID);
+			}
 		}
 	}
 
@@ -236,6 +324,7 @@ class GameClient {
 			this.characters.set(playerID, remoteChar);
 			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
 			remoteChar.playAnimation(AnimationNames.idle, true);
+			this.createEnemyBar(playerID);
 		} catch (error) {
 			console.error(`Failed to load remote character ${playerID}:`, error);
 		} finally {

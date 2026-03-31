@@ -168,9 +168,10 @@ struct Health {
     }
 
     // Static factory methods
-    static Health createFromPreset (const CharacterPreset& preset) {
+    static Health createFromPreset(const CharacterPreset& preset) {
         Health h;
         h.maximum = preset.maxHealth;
+        h.current = h.maximum;
         h.armor = preset.armor;
         return h;
     }
