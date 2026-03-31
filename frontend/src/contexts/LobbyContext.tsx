@@ -49,6 +49,15 @@ import { useStream } from './StreamContext';
 
 export type { LobbySettings };
 
+// ─── Game-end result type ────────────────────────────────────────────────────
+
+export interface PlayerGameResult {
+	player_id: number;
+	kills: number;
+	damage_dealt: number;
+	alive: boolean;
+}
+
 // ─── State machine ────────────────────────────────────────────────────────────
 
 export type LobbyState =
@@ -66,6 +75,8 @@ export type LobbyState =
 			countdown: { startAt: Date } | null;
 			/** True while the game is running (between GameStarting and GameEnded). */
 			gameActive: boolean;
+			/** Set when GameEnded arrives; cleared when the modal is dismissed. */
+			gameEndResult: { results: PlayerGameResult[] } | null;
 	  };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -73,7 +84,8 @@ export type LobbyState =
 type LobbyAction =
 	| { type: 'OPEN'; info: LobbyInfo }
 	| { type: 'CLOSE' }
-	| { type: 'MESSAGE'; msg: LobbyServerMessage };
+	| { type: 'MESSAGE'; msg: LobbyServerMessage }
+	| { type: 'CLEAR_GAME_END' };
 
 function lobbyReducer(state: LobbyState, action: LobbyAction): LobbyState {
 	switch (action.type) {
@@ -94,11 +106,16 @@ function lobbyReducer(state: LobbyState, action: LobbyAction): LobbyState {
 				spectators: new Set(),
 				countdown,
 				gameActive: info.game_active,
+				gameEndResult: null,
 			};
 		}
 
 		case 'CLOSE':
 			return { status: 'idle' };
+
+		case 'CLEAR_GAME_END':
+			if (state.status !== 'active') return state;
+			return { ...state, gameEndResult: null };
 
 		case 'MESSAGE': {
 			if (state.status !== 'active') return state;
@@ -114,7 +131,13 @@ function lobbyReducer(state: LobbyState, action: LobbyAction): LobbyState {
 				const players = new Map(
 					[...state.players.entries()].map(([id, p]) => [id, { ...p, ready: false }]),
 				);
-				return { ...state, gameActive: false, countdown: null, players };
+				return {
+					...state,
+					gameActive: false,
+					countdown: null,
+					players,
+					gameEndResult: { results: [] },
+				};
 			}
 			if ('LobbySnapshot' in msg) {
 				// A snapshot arriving after initialization is a no-op in the reducer
@@ -187,6 +210,8 @@ export interface LobbyContextType {
 	 * close — the backend's stream-cleanup task reconciles server state.
 	 */
 	leave(): Promise<void>;
+	/** Clear the game-end result (dismisses the GameEndModal). */
+	clearGameEndResult(): void;
 }
 
 const LobbyContext = createContext<LobbyContextType | undefined>(undefined);
@@ -362,6 +387,10 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 		await updateLobbySettings(state.lobbyId, patch);
 	}, []);
 
+	const clearGameEndResult = useCallback(() => {
+		dispatch({ type: 'CLEAR_GAME_END' });
+	}, []);
+
 	const leave = useCallback(async () => {
 		const state = lobbyStateRef.current;
 		if (state.status !== 'active') {
@@ -388,7 +417,14 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<LobbyContext.Provider
-			value={{ lobbyState, setReady, setCharacter, updateSettings, leave }}
+			value={{
+				lobbyState,
+				setReady,
+				setCharacter,
+				updateSettings,
+				leave,
+				clearGameEndResult,
+			}}
 		>
 			{children}
 		</LobbyContext.Provider>
