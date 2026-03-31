@@ -1,8 +1,8 @@
 #pragma once
 
 #include "System.hpp"
-#include "Components/PlayerInfo.hpp"
 #include "Components/Transform.hpp"
+#include <cstdio>
 #include "Components/PhysicsBody.hpp"
 #include "Components/Health.hpp"
 #include "Components/CombatController.hpp"
@@ -234,24 +234,19 @@ inline void CombatSystem::processDamage() {
         auto* health = m_registry->try_get<Components::Health>(hit.victim);
         if (!health || !health->isAlive()) continue;
 
-        PlayerID attackerID = 0;
-        if (auto* info = m_registry->try_get<Components::PlayerInfo>(hit.attacker)) {
-            attackerID = info->playerID;
-        }
-
         float hpBefore = health->current;
-        health->takeDamage(hit.damage, attackerID);
-        float hpAfter = health->current;
+        health->takeDamage(hit.damage, hit.attacker);
+        float hpAfter  = health->current;
 
-        fprintf(stderr, "[COMBAT] DAMAGE  attacker_pid=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f  %s\n",
-            attackerID, static_cast<unsigned>(hit.victim),
-            hit.damage, hpBefore - hpAfter,
+        fprintf(stderr, "[COMBAT] attacker=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f%s\n",
+            static_cast<unsigned>(hit.attacker),
+            static_cast<unsigned>(hit.victim),
+            hit.damage,
+            hpBefore - hpAfter,
             hpBefore, hpAfter, health->maximum,
-            health->isAlive() ? "" : "DEAD");
+            health->isAlive() ? "" : "  DEAD");
 
         if (!health->isAlive()) {
-            fprintf(stderr, "[COMBAT] KILL  attacker_pid=%u  victim=%u\n",
-                attackerID, static_cast<unsigned>(hit.victim));
             if (auto* controller = m_registry->try_get<Components::CharacterController>(hit.victim)) {
                 controller->setState(CharacterState::Dead);
                 controller->canMove = false;

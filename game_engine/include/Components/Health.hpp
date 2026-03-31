@@ -2,6 +2,7 @@
 
 #include "../GameTypes.hpp"
 #include "../CharacterPreset.hpp"
+#include <entt/entt.hpp>
 #include <algorithm>
 #include <cstdio>
 
@@ -32,8 +33,8 @@ struct Health {
     bool invulnerable;  // If true, takes no damage
     bool isDead;        // Cached death state
 
-    // Last damage info (for combat log, kill tracking, etc.)
-    PlayerID lastAttackerID;
+    // Last damage info (for kill feed / scoreboard — translate to PlayerID at snapshot time)
+    entt::entity lastAttacker;
     float lastDamageAmount;
     double lastDamageTime;
 
@@ -44,7 +45,7 @@ struct Health {
         , resistance(0.0f)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
@@ -55,7 +56,7 @@ struct Health {
         , resistance(0.0f)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
@@ -66,7 +67,7 @@ struct Health {
         , resistance(resistance)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
@@ -93,10 +94,8 @@ struct Health {
     }
 
     // Health manipulation
-    void takeDamage(float rawDamage, PlayerID attackerID = 0) {
+    void takeDamage(float rawDamage, entt::entity attacker = entt::null) {
         if (invulnerable || isDead) {
-            fprintf(stderr, "[HEALTH] takeDamage skipped  raw=%.2f  invulnerable=%d  isDead=%d\n",
-                rawDamage, invulnerable, isDead);
             return;
         }
 
@@ -106,23 +105,22 @@ struct Health {
         // Apply resistance (percentage reduction)
         float finalDamage = damageAfterArmor * (1.0f - resistance);
 
-        fprintf(stderr, "[HEALTH] takeDamage  attacker=%u  raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
-            attackerID, rawDamage, armor, damageAfterArmor,
+        fprintf(stderr, "[HEALTH] raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
+            rawDamage, armor, damageAfterArmor,
             resistance * 100.0f, finalDamage,
-            current, current - finalDamage);
+            current, std::max(0.0f, current - finalDamage));
 
         // Apply damage
         current -= finalDamage;
 
-        // Clamp to 0
         if (current <= 0.0f) {
             current = 0.0f;
             isDead = true;
         }
 
-        // Track last damage
+        // Track last damage (translate attacker entity → PlayerID at snapshot time)
         lastDamageAmount = finalDamage;
-        lastAttackerID = attackerID;
+        lastAttacker = attacker;
         // lastDamageTime should be set by CombatSystem with game time
     }
 
