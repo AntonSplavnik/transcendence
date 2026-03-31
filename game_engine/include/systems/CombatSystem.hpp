@@ -115,8 +115,11 @@ private:
     void processDamage();
     void updateCooldowns(float deltaTime);
 
-    // Queue hits for all living, in-range targets (excludes attacker).
+    // Queue hits for all living, in-range targets (excludes attacker). Full 360°.
     void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
+
+    // Queue hits for targets within a frontal arc. attackAngle is the half-angle in radians.
+    void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
 
     // Dispatch skill execution via SkillVariant visitor.
     void executeSkill(SkillDefinition& skill, SkillContext& ctx);
@@ -172,7 +175,7 @@ inline void CombatSystem::processInputAttacks() {
                 charcon.canMove = false;
             }
 
-            hitAllInRange(ctx, stage.range, stage.damageMultiplier);
+            hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
             comcon.advanceChain();
 
             fprintf(stderr, "[COMBAT]         next_chain_stage=%d\n", comcon.chainStage);
@@ -215,6 +218,31 @@ inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dm
                 dist, dmg);
             ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
         }
+    });
+}
+
+inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle) {
+    auto targets = m_registry->view<Components::Transform, Components::Health>();
+    Vector3D forward = ctx.attackerTransform.getForwardDirection();
+    float cosAngle = std::cos(attackAngle);
+
+    targets.each([&](entt::entity target,
+                     Components::Transform& targetTransform,
+                     Components::Health&    targetHealth) {
+        if (target == ctx.attackerEntity) return;
+        if (!targetHealth.isAlive()) return;
+
+        float dist = ctx.attackerTransform.position.distanceTo(targetTransform.position);
+        if (dist > range) return;
+
+        Vector3D toTarget = (targetTransform.position - ctx.attackerTransform.position).normalized();
+        if (forward.dot(toTarget) < cosAngle) return;
+
+        float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
+        fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
+            static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
+            dist, dmg);
+        ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
     });
 }
 

@@ -23,7 +23,7 @@ namespace Components {
 // Example: raw=10, armor=2, resistance=0.1 (10%)
 //   post-armor = max(0, 10 - 2) = 8
 //   final      = 8 * 0.9        = 7.2
-//
+//w
 // armor      — counters chip damage / weak attackers; ineffective vs big hits
 // resistance — scales proportionally; stays relevant regardless of damage source
 // =============================================================================
