@@ -161,18 +161,21 @@ struct Health {
     }
 
     // Static factory methods
+    static Health createFromPreset (const CharacterPreset& preset) {
+        Health h;
+        h.maximum = preset.maxHealth;
+        h.armor = preset.armor;
+        return h;
+    }
     static Health createCharacter() {
         return Health(GameConfig::CHARACTER_MAX_HEALTH, 0.0f, 0.0f);
     }
-
     static Health createTank() {
         return Health(150.0f, 10.0f, 0.2f);  // More HP, armor, and resistance
     }
-
     static Health createGlass() {
         return Health(50.0f, 0.0f, 0.0f);  // Low HP, no protection
     }
-
     static Health createBoss() {
         return Health(500.0f, 20.0f, 0.3f);  // High HP, armor, and resistance
     }

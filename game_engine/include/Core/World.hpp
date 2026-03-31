@@ -78,7 +78,7 @@ public:
     SystemManager* getSystemManager() { return &m_systemManager; }
 
     // Convenience methods for player management
-    entt::entity createPlayer(PlayerID id, const std::string& name, Vector3D pos);
+    entt::entity createPlayer(PlayerID id, const std::string& name, Vector3D pos, const CharacterPreset& preset);
     bool removePlayer(PlayerID id);
     size_t getPlayerCount() const { return m_playerToEntity.size(); }
 
@@ -193,7 +193,6 @@ inline void World::lateUpdate(float deltaTime) {
 }
 
 // General entity
-
 inline entt::entity World::createActor(const Vector3D& spawnPos) {
 
     entt::entity entity = m_registry.create();
@@ -201,7 +200,6 @@ inline entt::entity World::createActor(const Vector3D& spawnPos) {
         return entt::null;
     }
 
-    // Initialize as character
     m_registry.emplace<ActorTag>(entity);
     m_registry.emplace<Components::Transform>(entity, spawnPos);
     m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createCharacter());
@@ -210,11 +208,8 @@ inline entt::entity World::createActor(const Vector3D& spawnPos) {
     m_registry.emplace<Components::CharacterController>(entity, Components::CharacterController::createDefault());
     m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createMelee());
 
-    // No need to register with systems - EnTT views handle this automatically!
-
     return entity;
 }
-
 inline entt::entity World::createProjectile(const Vector3D& spawnPos, const Vector3D& velocity) {
 
     entt::entity entity = m_registry.create();;
@@ -233,7 +228,6 @@ inline entt::entity World::createProjectile(const Vector3D& spawnPos, const Vect
 
     return entity;
 }
-
 inline entt::entity World::createWall(const Vector3D& position, const Vector3D& halfExtents) {
     entt::entity entity = m_registry.create();
     if (entity == entt::null) {
@@ -248,7 +242,6 @@ inline entt::entity World::createWall(const Vector3D& position, const Vector3D& 
 
     return entity;
 }
-
 inline entt::entity World::createTrigger(const Vector3D& position, float radius) {
 
     entt::entity entity = m_registry.create();
@@ -281,7 +274,6 @@ inline void World::clearEntities() {
 }
 
 // Player related
-
 inline entt::entity World::getEntityByPlayerID(PlayerID id) const {
     auto it = m_playerToEntity.find(id);
     return (it != m_playerToEntity.end()) ? it->second : entt::null;
@@ -291,20 +283,28 @@ inline PlayerID World::getPlayerIDByEntity(entt::entity entity) const {
     return (it != m_entityToPlayer.end()) ? it->second : 0;
 }
 
-inline entt::entity World::createPlayer(PlayerID id, const std::string& name, Vector3D pos) {
+inline entt::entity World::createPlayer(PlayerID id,
+                                        const std::string& name,
+                                        Vector3D pos,
+                                        const CharacterPreset& preset) {
 
     // Check if entity already exists
     if (m_playerToEntity.find(id) != m_playerToEntity.end()) {
         return entt::null;
     }
 
-    entt::entity entity = createActor(pos);
+    entt::entity entity = m_registry.create();
 
     // Add PlayerInfo component
     m_registry.emplace<PlayerTag>(entity);
     m_registry.emplace<Components::PlayerInfo>(entity, id, name);
+    m_registry.emplace<Components::Transform>(entity, pos);
+    m_registry.emplace<Components::Collider>(entity, Components::Collider::createCharacter());
+    m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createCharacter());
+    m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset));
+    m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset));
+    m_registry.emplace<Components::CharacterController>(entity, Components::CharacterController::createFromPreset(preset));
 
-    // Register PlayerID mapping
     registerPlayerIDMapping(entity, id);
 
     return entity;

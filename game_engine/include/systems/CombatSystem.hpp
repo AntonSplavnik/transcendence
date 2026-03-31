@@ -7,8 +7,10 @@
 #include "Components/CombatController.hpp"
 #include "Components/CharacterController.hpp"
 #include "GameTypes.hpp"
+#include "Skills.hpp"
 #include <entt/entt.hpp>
 #include <queue>
+#include <variant>
 
 namespace ArenaGame {
 
@@ -77,6 +79,8 @@ private:
     void processAttacks();
     void processDamage();
     void updateCooldowns(float deltaTime);
+
+    inline void CombatSystem::processInputAttacks();
 };
 
 // =============================================================================
@@ -219,5 +223,55 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
         }
     }
 }
+
+inline void CombatSystem::processInputAttacks() {
+
+    auto view = m_registry->view<PlayerInfo, CharacterController, CombatController,
+                                Health, Transform, PhysicsBody>();
+
+    view.each([&] (PlayerInfo& info,
+                  CharacterController& charcon,
+                  CombatController& comcon,
+                  Health& health,
+                  Transform& trans,
+                  hysicsBody& physics) {
+
+                    SkillContext ctx {
+                        *m_registry, ,info.playerID, trans, physics, charcon, comcon, m_pendingAttacks};
+                    }
+            });
+}
+
+template<typename... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+struct SkillContext {
+    entt::registry&               registry;
+    entt::entity                  attackerEntity;
+    PlayerID                      attackerID;
+    Components::Transform&        attackerTransform;
+    Components::PhysicsBody&      attackerPhysics;   // needed for dash
+    Components::CharacterController characterCon;
+    Components::CombatController& combatCon;            // baseDamage, damageMultiplier
+    std::queue<PendingHit>&       pendingHits;       // output: damage to apply
+};
+
+inline void CombatSystem::executeSkill(SkillDefinition& skill, SkillContext& ctx) {
+    std::visit(overloaded{
+        [&](MeleeAOE& s) {hitAllInRange(ctx, s.range, s.dmgMultiplier); }
+    }, skill.params);
+}
+
+// Returns final damage for the attacker's current chain stage.
+// Applies: stage multiplier * base * global modifier * optional crit.
+inline float calculateDamage(const Components::CombatController& cc) {
+    float dmg    = cc.baseDamage * cc.currentStage().damageMultiplier * cc.damageMultiplier;
+    bool  isCrit = (static_cast<float>(std::rand()) / RAND_MAX) < cc.criticalChance;
+    return isCrit ? dmg * cc.criticalMultiplier : dmg;
+}
+
+void hitAllInRange(SkillContext& ctx, float range, float damageMultiplier);
 
 } // namespace ArenaGame

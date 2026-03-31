@@ -1,239 +1,157 @@
 #pragma once
 
-#include "../GameTypes.hpp"
+#include "CharacterPreset.hpp"
+#include <vector>
+#include <algorithm>
+#include <cstdlib>
 
 namespace ArenaGame {
 namespace Components {
 
 // =============================================================================
-// CombatController - Attack timing, damage, and combat state
+// CombatController - Attack chain state, skills, and damage modifiers
 // =============================================================================
-// Pure data component - logic handled by CombatSystem
-// Stores combat-related state and configuration
+// Pure data component — logic handled by CombatSystem.
 //
-// Usage:
-//   CombatController combat;
-//   combat.baseDamage = 25.0f;
-//   if (combat.canAttack()) {
-//       combat.startAttack();
-//   }
+// Attack chain
+// ─────────────────────────────────────────────────────────────────────────────
+// attackChain holds the ordered sequence of AttackStages copied from the
+// CharacterPreset at entity creation.  At runtime the component tracks which
+// stage fires next (chainStage) and whether the player is still inside the
+// chain window (chainTimer).
+//
+// A normal attack fires at attackChain[chainStage].  After the swing lands,
+// advanceChain() either advances to the next stage (if chainWindow > 0) or
+// wraps back to 0 (last stage / chainWindow == 0).  If the player does not
+// press attack again before chainWindow expires, chainStage resets to 0.
+//
+// Skills
+// ─────────────────────────────────────────────────────────────────────────────
+// ability1 / ability2 are SkillDefinition slots copied from the preset.
+// Each carries its own cooldown timer ticked by updateTimers().
 // =============================================================================
 
 struct CombatController {
-    // Attack properties
-    float baseDamage;           // Base damage per attack
-    float attackRange;          // Range of melee attacks
-    float attackCooldown;       // Time between attacks (seconds)
-    float attackDuration;       // How long an attack lasts (animation time)
 
-    // Attack timing
-    float timeSinceLastAttack;  // Time since last attack started
-    float attackTimer;          // Current attack animation timer
+    // ── Preset-derived data (set once via createFromPreset) ──────────────────
 
-    // Attack state
-    bool isAttacking;           // Currently performing an attack
-    bool attackRequested;       // Player has requested an attack
+    float baseDamage;                      // base; each AttackStage multiplies this
+    std::vector<AttackStage> attackChain;  // ordered attack sequence
+    SkillDefinition ability1;
+    SkillDefinition ability2;
 
-    // Combo system (optional)
-    int comboCount;             // Current combo counter
-    float comboWindow;          // Time window to continue combo
-    float comboTimer;           // Time since last combo hit
+    // ── Damage modifiers ─────────────────────────────────────────────────────
 
-    // Damage modifiers
-    float damageMultiplier;     // Multiplier for all damage dealt (buffs/debuffs)
-    float criticalChance;       // Chance to deal critical hit (0.0-1.0)
-    float criticalMultiplier;   // Damage multiplier on critical hit
+    // Base values: set from preset, never modified at runtime.
+    // Use these to restore runtime values after a buff/debuff expires.
+    float baseDamageMultiplier;
+    float baseCriticalChance;
+    float baseCriticalMultiplier;
 
-    // Ability cooldowns
-    float ability1Cooldown;
-    float ability1Timer;
-    float ability2Cooldown;
-    float ability2Timer;
+    // Runtime values: start equal to base, modified by buffs / debuffs.
+    float damageMultiplier;
+    float criticalChance;
+    float criticalMultiplier;
 
-    // Combat capabilities
-    bool canAttack;
-    bool canUseAbilities;
+    // ── Attack chain runtime state ───────────────────────────────────────────
 
-    // Constructors
-    CombatController()
-        : baseDamage(GameConfig::MELEE_DAMAGE)
-        , attackRange(GameConfig::ATTACK_RANGE)
-        , attackCooldown(0.5f)
-        , attackDuration(0.3f)
-        , timeSinceLastAttack(999.0f)  // Can attack immediately
-        , attackTimer(0.0f)
-        , isAttacking(false)
-        , attackRequested(false)
-        , comboCount(0)
-        , comboWindow(1.0f)
-        , comboTimer(0.0f)
-        , damageMultiplier(1.0f)
-        , criticalChance(0.05f)  // 5% crit chance
-        , criticalMultiplier(2.0f)  // 2x damage on crit
-        , ability1Cooldown(5.0f)
-        , ability1Timer(0.0f)
-        , ability2Cooldown(10.0f)
-        , ability2Timer(0.0f)
-        , canAttack(true)
-        , canUseAbilities(true)
-    {}
+    int   chainStage  = 0;     // index of the stage that fires on next attack press
+    float chainTimer  = 0.0f;  // time elapsed since the last stage completed
+    float swingTimer  = 0.0f;  // time elapsed inside the current swing
+    bool  isAttacking = false; // true while swingTimer < currentStage().duration
 
-    // Attack state management
+    // ── Capability flags ─────────────────────────────────────────────────────
+
+    bool canAttack       = true;
+    bool canUseAbilities = true;
+
+    // ── Queries ──────────────────────────────────────────────────────────────
+
+    // Returns the stage that fires on the next attack input.
+    const AttackStage& currentStage() const {
+        return attackChain[chainStage];
+    }
+
+    // Ready to accept an attack input — not mid-swing and attacks are enabled.
     bool canPerformAttack() const {
-        return canAttack && !isAttacking && timeSinceLastAttack >= attackCooldown;
+        return canAttack && !isAttacking && !attackChain.empty();
     }
 
+    bool canUseAbility1() const { return canUseAbilities && ability1.canUse(); }
+    bool canUseAbility2() const { return canUseAbilities && ability2.canUse(); }
+
+    // ── State transitions (called by CombatSystem) ───────────────────────────
+
+    // Begin the current stage's swing.
     void startAttack() {
-        if (!canPerformAttack()) {
-            return;
-        }
-
         isAttacking = true;
-        attackTimer = 0.0f;
-        timeSinceLastAttack = 0.0f;
-        attackRequested = false;
+        swingTimer  = 0.0f;
+        chainTimer  = 0.0f;  // player acted in time — reset window clock
     }
 
-    void finishAttack() {
-        isAttacking = false;
-        attackTimer = 0.0f;
+    // Advance chain after a hit lands.
+    // Called by CombatSystem once per successful hit, not per frame.
+    void advanceChain() {
+        const bool lastStage = (chainStage + 1 >= static_cast<int>(attackChain.size()));
+        const bool chainEnds = lastStage || attackChain[chainStage].chainWindow <= 0.0f;
+
+        chainStage = chainEnds ? 0 : chainStage + 1;
+        chainTimer = 0.0f;
     }
 
-    void requestAttack() {
-        attackRequested = true;
-    }
+    void useAbility1() { ability1.trigger(); }
+    void useAbility2() { ability2.trigger(); }
 
-    void clearAttackRequest() {
-        attackRequested = false;
-    }
-
-    // Update timers (called by CombatSystem)
-    void updateTimers(float deltaTime) {
-        // Attack cooldown
-        timeSinceLastAttack += deltaTime;
-
-        // Attack animation
-        if (isAttacking) {
-            attackTimer += deltaTime;
-            if (attackTimer >= attackDuration) {
-                finishAttack();
-            }
-        }
-
-        // Combo timer
-        if (comboCount > 0) {
-            comboTimer += deltaTime;
-            if (comboTimer >= comboWindow) {
-                resetCombo();
-            }
-        }
-
-        // Ability cooldowns
-        if (ability1Timer > 0.0f) {
-            ability1Timer = std::max(0.0f, ability1Timer - deltaTime);
-        }
-        if (ability2Timer > 0.0f) {
-            ability2Timer = std::max(0.0f, ability2Timer - deltaTime);
-        }
-    }
-
-    // Combo system
-    void incrementCombo() {
-        comboCount++;
-        comboTimer = 0.0f;
-    }
-
-    void resetCombo() {
-        comboCount = 0;
-        comboTimer = 0.0f;
-    }
-
-    float getComboMultiplier() const {
-        // Each combo hit increases damage by 10%, up to 50%
-        return 1.0f + std::min(comboCount * 0.1f, 0.5f);
-    }
-
-    // Ability management
-    bool canUseAbility1() const {
-        return canUseAbilities && ability1Timer <= 0.0f;
-    }
-
-    bool canUseAbility2() const {
-        return canUseAbilities && ability2Timer <= 0.0f;
-    }
-
-    void useAbility1() {
-        if (canUseAbility1()) {
-            ability1Timer = ability1Cooldown;
-        }
-    }
-
-    void useAbility2() {
-        if (canUseAbility2()) {
-            ability2Timer = ability2Cooldown;
-        }
-    }
-
-    // Damage calculation
-    float calculateDamage(bool* outIsCritical = nullptr) const {
-        float damage = baseDamage * damageMultiplier;
-
-        // Apply combo multiplier
-        damage *= getComboMultiplier();
-
-        // Check for critical hit
-        bool isCritical = (static_cast<float>(rand()) / RAND_MAX) < criticalChance;
-        if (isCritical) {
-            damage *= criticalMultiplier;
-        }
-
-        if (outIsCritical) {
-            *outIsCritical = isCritical;
-        }
-
-        return damage;
-    }
-
-    // Enable/disable capabilities
-    void disableAttacks() { canAttack = false; }
-    void enableAttacks() { canAttack = true; }
-
+    void disableAttacks()   { canAttack = false; }
+    void enableAttacks()    { canAttack = true;  }
     void disableAbilities() { canUseAbilities = false; }
-    void enableAbilities() { canUseAbilities = true; }
+    void enableAbilities()  { canUseAbilities = true;  }
 
-    // Static factory methods
-    static CombatController createMelee() {
-        CombatController combat;
-        combat.baseDamage = 25.0f;
-        combat.attackRange = 2.0f;
-        combat.attackCooldown = 0.5f;
-        return combat;
+    // ── Per-frame timer update (called by CombatSystem::updateCooldowns) ─────
+
+    void updateTimers(float deltaTime) {
+        // Advance swing — clear isAttacking once duration has elapsed
+        if (isAttacking) {
+            swingTimer += deltaTime;
+            if (swingTimer >= currentStage().duration) {
+                isAttacking = false;
+                swingTimer  = 0.0f;
+            }
+        }
+
+        // Advance chain window — break chain if player is too slow
+        if (chainStage > 0) {
+            chainTimer += deltaTime;
+            const float window = attackChain[chainStage - 1].chainWindow;
+            if (chainTimer > window) {
+                chainStage = 0;
+                chainTimer = 0.0f;
+            }
+        }
+
+        // Tick skill cooldowns
+        if (ability1.timer > 0.0f)
+            ability1.timer = std::max(0.0f, ability1.timer - deltaTime);
+        if (ability2.timer > 0.0f)
+            ability2.timer = std::max(0.0f, ability2.timer - deltaTime);
     }
 
-    static CombatController createRanged() {
-        CombatController combat;
-        combat.baseDamage = 15.0f;
-        combat.attackRange = 20.0f;
-        combat.attackCooldown = 0.3f;
-        return combat;
-    }
+    // ── Factory ──────────────────────────────────────────────────────────────
 
-    static CombatController createHeavy() {
-        CombatController combat;
-        combat.baseDamage = 50.0f;
-        combat.attackRange = 2.5f;
-        combat.attackCooldown = 1.5f;  // Slower attacks
-        combat.attackDuration = 0.8f;  // Longer animation
-        return combat;
-    }
+    static CombatController createFromPreset(const CharacterPreset& p) {
+        CombatController cc;
+        cc.baseDamage  = p.baseDamage;
+        cc.attackChain = p.attackChain;
+        cc.ability1    = p.skill1;
+        cc.ability2    = p.skill2;
 
-    static CombatController createFast() {
-        CombatController combat;
-        combat.baseDamage = 10.0f;
-        combat.attackRange = 1.5f;
-        combat.attackCooldown = 0.2f;  // Very fast attacks
-        combat.attackDuration = 0.15f;
-        return combat;
+        cc.baseDamageMultiplier   = p.damageMultiplier;
+        cc.baseCriticalChance     = p.criticalChance;
+        cc.baseCriticalMultiplier = p.criticalMultiplier;
+        cc.damageMultiplier       = p.damageMultiplier;
+        cc.criticalChance         = p.criticalChance;
+        cc.criticalMultiplier     = p.criticalMultiplier;
+        return cc;
     }
 };
 
