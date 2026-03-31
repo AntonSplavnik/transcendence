@@ -85,8 +85,6 @@ public:
     // Input handling (forwards to controller component)
     void setPlayerInput(PlayerID id, const InputState& input);
 
-    // Combat handling (forwards to combat system)
-    void registerHit(PlayerID attackerId, PlayerID victimId, float damage);
 
 private:
     // EnTT registry (core data structure)
@@ -206,7 +204,7 @@ inline entt::entity World::createActor(const Vector3D& spawnPos) {
     m_registry.emplace<Components::Collider>(entity, Components::Collider::createCharacter());
     m_registry.emplace<Components::Health>(entity, Components::Health::createCharacter());
     m_registry.emplace<Components::CharacterController>(entity, Components::CharacterController::createDefault());
-    m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createMelee());
+    m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createDefault());
 
     return entity;
 }
@@ -337,12 +335,6 @@ inline void World::setPlayerInput(PlayerID id, const InputState& input) {
     auto* controller = m_registry.try_get<Components::CharacterController>(entity);
     if (controller) {
         controller->setInput(input);
-    }
-}
-
-inline void World::registerHit(PlayerID attackerId, PlayerID victimId, float damage) {
-    if (m_combatSystem) {
-        m_combatSystem->registerHit(attackerId, victimId, damage);
     }
 }
 

@@ -76,11 +76,6 @@ impl Game {
                 );
                 true
             }
-            GameClientMessage::RegisterHit { victim_id, damage } => {
-                self.lock().register_hit(player_id, victim_id, damage);
-                debug!(player_id, victim_id, damage, "Hit registered");
-                true
-            }
             GameClientMessage::Leave => false,
         }
     }

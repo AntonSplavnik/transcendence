@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
 
 namespace ArenaGame {
 namespace Components {

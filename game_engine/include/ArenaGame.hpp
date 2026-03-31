@@ -2,6 +2,7 @@
 
 #include "Core/World.hpp"
 #include "GameTypes.hpp"
+#include "Presets.hpp"
 #include <vector>
 #include <chrono>
 #include <cmath>
@@ -80,9 +81,6 @@ public:
     uint64_t getFrameNumber() const { return m_frameNumber; }
     double getGameTime() const { return m_gameTime; }
     size_t getPlayerCount() const { return m_world.getPlayerCount(); }
-
-    // Combat
-    void registerHit(PlayerID attackerID, PlayerID victimID, float damage);
 
     // World access (for advanced usage)
     Core::World& getWorld() { return m_world; }
@@ -191,7 +189,7 @@ inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name) {
     Vector3D spawnPos = getSpawnPosition();
 
     // Create player entity through World
-    entt::entity entity = m_world.createPlayer(playerID, name, spawnPos);
+    entt::entity entity = m_world.createPlayer(playerID, name, spawnPos, Presets::KNIGHT);
 
     if (entity != entt::null) {
         // Face the arena centre (origin): yaw = atan2(-x, -z) for convention yaw=0 → +Z
@@ -256,11 +254,6 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     });
 
     return snapshot;
-}
-
-inline void ArenaGame::registerHit(PlayerID attackerID, PlayerID victimID, float damage) {
-    // Delegate to World (which delegates to CombatSystem)
-    m_world.registerHit(attackerID, victimID, damage);
 }
 
 inline void ArenaGame::initializeSpawnPositions(int numPlayers) {

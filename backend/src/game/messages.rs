@@ -40,9 +40,6 @@ pub enum GameClientMessage {
         sprinting: bool,
     },
 
-    /// Register a hit on another player (client-authoritative for now)
-    RegisterHit { victim_id: u32, damage: f32 },
-
     /// Player is leaving the game
     Leave,
 }

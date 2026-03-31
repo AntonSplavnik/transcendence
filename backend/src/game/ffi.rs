@@ -137,8 +137,6 @@ extern "C" {
     fn game_get_frame_number(game: RawGameHandle) -> u64;
     fn game_get_game_time(game: RawGameHandle) -> f64;
 
-    // Combat
-    fn game_register_hit(game: RawGameHandle, attacker_id: u32, victim_id: u32, damage: f32);
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
@@ -390,10 +388,6 @@ impl GameHandle {
 
     pub fn get_game_time(&self) -> f64 {
         unsafe { game_get_game_time(self.0) }
-    }
-
-    pub fn register_hit(&mut self, attacker_id: u32, victim_id: u32, damage: f32) {
-        unsafe { game_register_hit(self.0, attacker_id, victim_id, damage) }
     }
 
     /// Minimum number of players required to start a game.

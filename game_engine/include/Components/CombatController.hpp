@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
+#include <cstdio>
 
 namespace ArenaGame {
 namespace Components {
@@ -84,6 +85,9 @@ struct CombatController {
 
     // Begin the current stage's swing.
     void startAttack() {
+        fprintf(stderr, "[CHAIN] startAttack  stage=%d/%d  duration=%.2f  range=%.1f  window=%.2f\n",
+            chainStage, static_cast<int>(attackChain.size()) - 1,
+            currentStage().duration, currentStage().range, currentStage().chainWindow);
         isAttacking = true;
         swingTimer  = 0.0f;
         chainTimer  = 0.0f;  // player acted in time — reset window clock
@@ -95,8 +99,12 @@ struct CombatController {
         const bool lastStage = (chainStage + 1 >= static_cast<int>(attackChain.size()));
         const bool chainEnds = lastStage || attackChain[chainStage].chainWindow <= 0.0f;
 
+        int prevStage = chainStage;
         chainStage = chainEnds ? 0 : chainStage + 1;
         chainTimer = 0.0f;
+
+        fprintf(stderr, "[CHAIN] advanceChain  %d -> %d  %s\n",
+            prevStage, chainStage, chainEnds ? "(chain reset)" : "(chain continues)");
     }
 
     void useAbility1() { ability1.trigger(); }
@@ -137,6 +145,21 @@ struct CombatController {
     }
 
     // ── Factory ──────────────────────────────────────────────────────────────
+
+    // Default melee combatant with no attack chain (can't attack).
+    // Used for generic actors that don't need preset-driven combat.
+    static CombatController createDefault() {
+        CombatController cc;
+        cc.baseDamage             = 10.0f;
+        cc.baseDamageMultiplier   = 1.0f;
+        cc.baseCriticalChance     = 0.1f;
+        cc.baseCriticalMultiplier = 1.5f;
+        cc.damageMultiplier       = 1.0f;
+        cc.criticalChance         = 0.1f;
+        cc.criticalMultiplier     = 1.5f;
+        // attackChain intentionally empty — canPerformAttack() returns false
+        return cc;
+    }
 
     static CombatController createFromPreset(const CharacterPreset& p) {
         CombatController cc;

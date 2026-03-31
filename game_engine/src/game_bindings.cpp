@@ -283,12 +283,4 @@ double game_get_game_time(Game* game) {
     return game->getGameTime();
 }
 
-// =============================================================================
-// Combat
-// =============================================================================
-
-void game_register_hit(Game* game, uint32_t attacker_id, uint32_t victim_id, float damage) {
-    game->registerHit(attacker_id, victim_id, damage);
-}
-
 } // extern "C"

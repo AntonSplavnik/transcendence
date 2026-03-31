@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
 #include <algorithm>
+#include <cstdio>
 
 namespace ArenaGame {
 namespace Components {
@@ -93,6 +95,8 @@ struct Health {
     // Health manipulation
     void takeDamage(float rawDamage, PlayerID attackerID = 0) {
         if (invulnerable || isDead) {
+            fprintf(stderr, "[HEALTH] takeDamage skipped  raw=%.2f  invulnerable=%d  isDead=%d\n",
+                rawDamage, invulnerable, isDead);
             return;
         }
 
@@ -101,6 +105,11 @@ struct Health {
 
         // Apply resistance (percentage reduction)
         float finalDamage = damageAfterArmor * (1.0f - resistance);
+
+        fprintf(stderr, "[HEALTH] takeDamage  attacker=%u  raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
+            attackerID, rawDamage, armor, damageAfterArmor,
+            resistance * 100.0f, finalDamage,
+            current, current - finalDamage);
 
         // Apply damage
         current -= finalDamage;
