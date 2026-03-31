@@ -38,6 +38,8 @@ function statusLabel(alive: boolean, isWinner: boolean): string {
 	return 'Eliminated';
 }
 
+const GRID_COLS = 'grid-cols-[2.5rem_1fr_3.5rem_5rem]';
+
 export default function GameEndModal({ results, players, onClose }: GameEndModalProps) {
 	const displayResults = results.length > 0 ? results : PLACEHOLDER_RESULTS;
 
@@ -56,8 +58,7 @@ export default function GameEndModal({ results, players, onClose }: GameEndModal
 		>
 			{/* Column headers */}
 			<div
-				className="grid grid-cols-[2.5rem_1fr_3.5rem_5rem] gap-x-3 px-3 pb-2 text-xs font-semibold text-stone-500 uppercase tracking-wider"
-				role="row"
+				className={`grid ${GRID_COLS} gap-x-3 px-3 pb-2 text-xs font-semibold text-stone-500 uppercase tracking-wider`}
 				aria-hidden="true"
 			>
 				<span>Rank</span>
@@ -77,10 +78,9 @@ export default function GameEndModal({ results, players, onClose }: GameEndModal
 					return (
 						<li
 							key={r.player_id === 0 ? `placeholder-${i}` : r.player_id}
-							role="listitem"
 							aria-label={`${rank} place: ${name}, ${status}, ${r.kills} kills, ${r.damage_dealt.toFixed(0)} damage`}
 							className={`
-								grid grid-cols-[2.5rem_1fr_3.5rem_5rem] gap-x-3 items-center
+								grid ${GRID_COLS} gap-x-3 items-center
 								px-3 py-2.5 rounded-lg transition-colors
 								${
 									isWinner

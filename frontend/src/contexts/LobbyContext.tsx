@@ -125,7 +125,7 @@ function lobbyReducer(state: LobbyState, action: LobbyAction): LobbyState {
 				return { ...state, countdown: null };
 			}
 			if (msg === 'GameStarting') {
-				return { ...state, gameActive: true };
+				return { ...state, gameActive: true, gameEndResult: null };
 			}
 			if (msg === 'GameEnded') {
 				const players = new Map(

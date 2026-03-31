@@ -39,10 +39,11 @@ export default function GameBoard() {
 		lobbyState.status === 'active' &&
 		!lobbyState.players.has(user.id);
 
+	if (!user) return <Navigate to="/home" replace />;
+
 	// Allow staying on /game while the game-end modal is shown,
 	// even though gameState has transitioned to idle.
 	if (gameState.status === 'idle' && !hasGameEndResult) {
-		if (!user) return <Navigate to="/home" replace />;
 		return <Navigate to={isSpectator ? '/lobby' : '/home'} replace />;
 	}
 
@@ -56,7 +57,7 @@ export default function GameBoard() {
 				snapshotRef={snapshotRef}
 				characterClassesRef={characterClassesRef}
 				onSendInput={sendInput}
-				localPlayerId={user!.id}
+				localPlayerId={user.id}
 				characterConfig={characterConfig}
 			/>
 			{hasGameEndResult && (
@@ -64,8 +65,8 @@ export default function GameBoard() {
 					results={lobbyState.gameEndResult!.results}
 					players={lobbyState.players}
 					onClose={() => {
-						clearGameEndResult();
 						navigate('/lobby');
+						clearGameEndResult();
 					}}
 				/>
 			)}

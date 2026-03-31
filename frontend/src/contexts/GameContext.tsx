@@ -240,23 +240,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 					characterClassesRef.current.clear();
 					dispatch({ type: 'CLOSE' });
 
-					const ls = lobbyStateRef.current;
-					const hasGameEndResult = ls.status === 'active' && ls.gameEndResult != null;
-
-					if (hasGameEndResult) {
-						// GameEndModal is showing on /game — it handles navigation on dismiss.
-						console.debug('[Game] game-end result pending, skipping navigation');
+					// When lobby is active, let GameBoard's render-time <Navigate>
+					// handle routing — it reads lobbyState directly (not a stale ref)
+					// so it correctly sees gameEndResult and shows the modal.
+					if (lobbyStateRef.current.status === 'active') {
+						console.debug('[Game] lobby active, deferring navigation to GameBoard');
 						return;
 					}
 
-					// Navigate back to lobby if still in one, otherwise home.
-					if (ls.status === 'active') {
-						console.debug('[Game] returning to /lobby');
-						navigateRef.current('/lobby');
-					} else {
-						console.debug('[Game] returning to /home');
-						navigateRef.current('/home');
-					}
+					console.debug('[Game] returning to /home');
+					navigateRef.current('/home');
 				},
 
 				onError(err) {
