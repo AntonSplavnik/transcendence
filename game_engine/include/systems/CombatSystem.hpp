@@ -286,6 +286,18 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 
     view.each([&](entt::entity entity, CombatController& combat, CharacterController& controller,
                   Transform& trans, PhysicsBody& physics) {
+        // Movement cancels the swing — mirrors client animation cancellation
+        if (combat.isAttacking && controller.hasMovementInput()) {
+            combat.isAttacking = false;
+            combat.swingTimer  = 0.0f;
+            combat.hitPending  = false;
+            controller.canMove = true;
+            controller.setState(CharacterState::Moving);
+            fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
+                static_cast<unsigned>(entity));
+            return;
+        }
+
         const bool wasAttacking = combat.isAttacking;
         combat.updateTimers(deltaTime);
 
