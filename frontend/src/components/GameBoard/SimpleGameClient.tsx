@@ -451,6 +451,8 @@ export default function SimpleGameClient({
 		canvas.tabIndex = 1;
 		const onFocus = () => canvas.focus();
 		window.addEventListener('focus', onFocus);
+		let onKeydown: ((event: KeyboardEvent) => void) | null = null;
+		let onResize: (() => void) | null = null;
 
 		(async () => {
 			const engine = new BABYLON.Engine(canvas, true);
@@ -550,7 +552,7 @@ export default function SimpleGameClient({
 
 			// Enable Inspector with Ctrl+Shift+I
 			let inspectorLoaded = false;
-			window.addEventListener('keydown', async (event) => {
+			onKeydown = async (event: KeyboardEvent) => {
 				if (event.ctrlKey && event.shiftKey && event.key === 'I') {
 					event.preventDefault();
 					if (!inspectorLoaded) {
@@ -567,7 +569,8 @@ export default function SimpleGameClient({
 						});
 					}
 				}
-			});
+			};
+			window.addEventListener('keydown', onKeydown);
 
 			const gameClient = new GameClient(
 				scene,
@@ -694,19 +697,23 @@ export default function SimpleGameClient({
 				scene.render();
 			});
 
-			window.addEventListener('resize', () => {
+			onResize = () => {
 				engine.resize();
 				const a = engine.getRenderWidth() / engine.getRenderHeight();
 				camera.orthoLeft = -ISO_ORTHO_SIZE * a;
 				camera.orthoRight = ISO_ORTHO_SIZE * a;
 				camera.orthoTop = ISO_ORTHO_SIZE;
 				camera.orthoBottom = -ISO_ORTHO_SIZE;
-			});
+			};
+			window.addEventListener('resize', onResize);
 		})();
 
 		return () => {
-			window.removeEventListener('focus', onFocus);
 			disposed = true;
+			window.removeEventListener('focus', onFocus);
+			if (onKeydown) window.removeEventListener('keydown', onKeydown);
+			if (onResize) window.removeEventListener('resize', onResize);
+			gameClientRef.current = null;
 			engineRef.current?.stopRenderLoop();
 			sceneInstance?.dispose();
 			engineRef.current?.dispose();
