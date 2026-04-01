@@ -81,7 +81,7 @@ export class AnimatedCharacter {
 	}
 
 	playAnimation(name: string, loop: boolean = true): void {
-		if (this.currentAnimationName === name) return;
+		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;
 		const anim = this.animations.get(name);
 		if (!anim) {
 			console.warn(`[playAnimation] "${name}" not found. Available:`, [

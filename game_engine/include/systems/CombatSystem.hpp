@@ -169,16 +169,12 @@ inline void CombatSystem::processInputAttacks() {
                 stage.range, stage.damageMultiplier, comcon.baseDamage);
 
             comcon.startAttack();
+            comcon.hitPending = true;   // hit lands at swing end, not swing start
             charcon.setState(CharacterState::Attacking);
 
             if (stage.movementMultiplier == 0.0f) {
                 charcon.canMove = false;
             }
-
-            hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
-            comcon.advanceChain();
-
-            fprintf(stderr, "[COMBAT]         next_chain_stage=%d\n", comcon.chainStage);
         }
 
         // ── Ability 1 ─────────────────────────────────────────────────────
@@ -286,15 +282,28 @@ inline void CombatSystem::processDamage() {
 inline void CombatSystem::updateCooldowns(float deltaTime) {
     using namespace Components;
 
-    auto view = m_registry->view<CombatController, CharacterController>();
+    auto view = m_registry->view<CombatController, CharacterController, Transform, PhysicsBody>();
 
-    view.each([&](entt::entity, CombatController& combat, CharacterController& controller) {
+    view.each([&](entt::entity entity, CombatController& combat, CharacterController& controller,
+                  Transform& trans, PhysicsBody& physics) {
         const bool wasAttacking = combat.isAttacking;
         combat.updateTimers(deltaTime);
 
-        // Restore movement when swing ends
+        // Swing just ended — restore movement and apply deferred hit
         if (wasAttacking && !combat.isAttacking) {
             controller.canMove = true;
+
+            if (combat.hitPending) {
+                auto* health = m_registry->try_get<Health>(entity);
+                if (health && health->isAlive()) {
+                    SkillContext ctx { *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
+                    const AttackStage& stage = combat.currentStage();
+                    hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
+                    combat.advanceChain();
+                    fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
+                }
+                combat.hitPending = false;
+            }
         }
 
         // Reset CharacterState when swing ends and player is not re-triggering

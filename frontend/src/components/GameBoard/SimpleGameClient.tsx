@@ -388,8 +388,21 @@ class GameClient {
 		);
 		if (this.jumpState !== JumpState.GROUNDED) return;
 
-		if (input.isAttacking) {
-			this.playAnimation('attack', true);
+		const attackAnim = this.localCharacter.animations.get(AnimationNames.attack);
+		const isAttackPlaying = attackAnim?.isPlaying ?? false;
+
+		// Reset state tracker when attack animation finishes naturally so it can replay
+		if (this.currentAnimState === 'attack' && !isAttackPlaying) {
+			this.currentAnimState = '';
+		}
+
+		if (isAttackPlaying && isMoving) {
+			// Movement cancels the attack animation
+			this.playAnimation(input.isSprinting ? 'run' : 'walk');
+		} else if (isAttackPlaying) {
+			// Attack animation is playing — let it finish, pressing attack again keeps it going
+		} else if (input.isAttacking) {
+			this.playAnimation('attack', false); // non-looped: play once to completion
 		} else if (isMoving) {
 			this.playAnimation(input.isSprinting ? 'run' : 'walk');
 		} else {
@@ -577,8 +590,14 @@ export default function SimpleGameClient({
 			const keysPressed = new Set<string>();
 
 			scene.onKeyboardObservable.add((kbInfo) => {
-				if (kbInfo.type === 1) keysPressed.add(kbInfo.event.key.toLowerCase());
-				else if (kbInfo.type === 2) keysPressed.delete(kbInfo.event.key.toLowerCase());
+				if (kbInfo.type === 1) {
+					keysPressed.add(kbInfo.event.key.toLowerCase());
+					// Attack is a one-shot trigger (keydown only, ignore keyboard repeat)
+					if (kbInfo.event.key.toLowerCase() === 'e' && !kbInfo.event.repeat)
+						input.isAttacking = true;
+				} else if (kbInfo.type === 2) {
+					keysPressed.delete(kbInfo.event.key.toLowerCase());
+				}
 			});
 
 			// Precomputed isometric directions (camera rotated 45° around Y)
@@ -612,11 +631,10 @@ export default function SimpleGameClient({
 				input.movementDirection.x = dir[0];
 				input.movementDirection.z = dir[1];
 				input.isJumping = keysPressed.has(' ');
-				input.isAttacking = keysPressed.has('e');
-				input.isSprinting = keysPressed.has('shift'); // Hold Shift to sprint
+				input.isSprinting = keysPressed.has('shift');
 
-				// Update animations based on input
 				gameClient.updateLocalAnimation(input);
+				input.isAttacking = false; // clear one-shot trigger after processing
 			});
 
 			// Track last movement direction so character keeps facing that way when idle

@@ -60,6 +60,7 @@ struct CombatController {
     float chainTimer  = 0.0f;  // time elapsed since the last stage completed
     float swingTimer  = 0.0f;  // time elapsed inside the current swing
     bool  isAttacking = false; // true while swingTimer < currentStage().duration
+    bool  hitPending  = false; // hit queued at swing start, applied at swing end
 
     // ── Capability flags ─────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ struct CombatController {
         isAttacking = true;
         swingTimer  = 0.0f;
         chainTimer  = 0.0f;  // player acted in time — reset window clock
+        hitPending  = false;
     }
 
     // Advance chain after a hit lands.
