@@ -2,10 +2,10 @@
 
 namespace ArenaGame {
 
-struct PlayerTag {};
-struct ActorTag {};
-struct ProjectileTag {};
-struct WallTag {};
-struct TriggerTag {};
+	struct PlayerTag {};
+	struct ActorTag {};
+	struct ProjectileTag {};
+	struct WallTag {};
+	struct TriggerTag {};
 
 };

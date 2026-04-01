@@ -18,24 +18,24 @@ namespace Components {
 // =============================================================================
 
 struct PlayerInfo {
-    PlayerID playerID;      // Unique player identifier
-    std::string name;       // Player display name
+	PlayerID playerID;      // Unique player identifier
+	std::string name;       // Player display name
 
-    // Constructors
-    PlayerInfo()
-        : playerID(0)
-        , name("")
-    {}
+	// Constructors
+	PlayerInfo()
+		: playerID(0)
+		, name("")
+	{}
 
-    PlayerInfo(PlayerID id, const std::string& playerName)
-        : playerID(id)
-        , name(playerName)
-    {}
+	PlayerInfo(PlayerID id, const std::string& playerName)
+		: playerID(id)
+		, name(playerName)
+	{}
 
-    PlayerInfo(PlayerID id, std::string&& playerName)
-        : playerID(id)
-        , name(std::move(playerName))
-    {}
+	PlayerInfo(PlayerID id, std::string&& playerName)
+		: playerID(id)
+		, name(std::move(playerName))
+	{}
 };
 
 } // namespace Components

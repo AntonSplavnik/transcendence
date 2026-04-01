@@ -33,36 +33,36 @@ namespace ArenaGame {
 
 class System {
 public:
-    virtual ~System() = default;
+	virtual ~System() = default;
 
-    // System lifecycle
-    virtual void initialize() {}
-    virtual void shutdown() {}
-    virtual void start() {}
+	// System lifecycle
+	virtual void initialize() {}
+	virtual void shutdown() {}
+	virtual void start() {}
 
-    // Update phases (override what you need)
-    virtual void earlyUpdate(float deltaTime) {}
-    virtual void fixedUpdate(float fixedDeltaTime) {}
-    virtual void update(float deltaTime) {}
-    virtual void lateUpdate(float deltaTime) {}
+	// Update phases (override what you need)
+	virtual void earlyUpdate(float deltaTime) {}
+	virtual void fixedUpdate(float fixedDeltaTime) {}
+	virtual void update(float deltaTime) {}
+	virtual void lateUpdate(float deltaTime) {}
 
-    // System metadata
-    virtual const char* getName() const = 0;
+	// System metadata
+	virtual const char* getName() const = 0;
 
-    // Update phase flags (override to indicate which phases this system needs)
-    virtual bool needsEarlyUpdate() const { return false; } // Input
-    virtual bool needsFixedUpdate() const { return false; } // Physics, Collision
-    virtual bool needsUpdate() const { return true; }      // Game logic, Combat, AI
-    virtual bool needsLateUpdate() const { return false; } // Post-processing, interpolation
+	// Update phase flags (override to indicate which phases this system needs)
+	virtual bool needsEarlyUpdate() const { return false; } // Input
+	virtual bool needsFixedUpdate() const { return false; } // Physics, Collision
+	virtual bool needsUpdate() const { return true; }      // Game logic, Combat, AI
+	virtual bool needsLateUpdate() const { return false; } // Post-processing, interpolation
 
-    // Called during world initialization
-    void setRegistry(entt::registry* registry) {
-        m_registry = registry;
-    }
+	// Called during world initialization
+	void setRegistry(entt::registry* registry) {
+		m_registry = registry;
+	}
 
 protected:
-    // Protected access to registry for derived systems
-    entt::registry* m_registry = nullptr;
+	// Protected access to registry for derived systems
+	entt::registry* m_registry = nullptr;
 };
 
 } // namespace ArenaGame
