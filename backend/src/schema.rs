@@ -17,18 +17,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    games (id) {
-        id -> Integer,
-        player1_id -> Integer,
-        player2_id -> Integer,
-        winner_id -> Integer,
-        score_p1 -> Integer,
-        score_p2 -> Integer,
-        played_at -> TimestamptzSqlite,
-    }
-}
-
-diesel::table! {
     friend_requests (id) {
         id -> Integer,
         sender_id -> Integer,
@@ -36,6 +24,20 @@ diesel::table! {
         status -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
+    games (id) {
+        id -> Integer,
+        player1_id -> Integer,
+        player2_id -> Integer,
+        winner_id -> Integer,
+        kills_p1 -> Integer,
+        kills_p2 -> Integer,
+        damage_p1 -> Integer,
+        damage_p2 -> Integer,
+        played_at -> TimestamptzSqlite,
     }
 }
 
@@ -123,8 +125,8 @@ diesel::joinable!(user_stats -> users (user_id));
 diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
-    games,
     friend_requests,
+    games,
     notifications,
     sessions,
     tos_versions,

@@ -15,7 +15,7 @@ async fn record_game_updates_stats() {
     let (game, stats1, stats2) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7)
+            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 5, 2, 1500, 800)
         })
         .await
         .expect("record_game_result failed");
@@ -24,8 +24,10 @@ async fn record_game_updates_stats() {
     assert_eq!(game.player1_id, p1_id);
     assert_eq!(game.player2_id, p2_id);
     assert_eq!(game.winner_id, p1_id);
-    assert_eq!(game.score_p1, 11);
-    assert_eq!(game.score_p2, 7);
+    assert_eq!(game.kills_p1, 5);
+    assert_eq!(game.kills_p2, 2);
+    assert_eq!(game.damage_p1, 1500);
+    assert_eq!(game.damage_p2, 800);
 
     // Player 1 (winner)
     assert_eq!(stats1.games_played, 1);
@@ -52,7 +54,7 @@ async fn get_my_games_returns_game() {
     server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7)
+            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 5, 2, 1500, 800)
         })
         .await
         .expect("record_game_result failed");

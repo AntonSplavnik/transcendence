@@ -28,8 +28,10 @@ pub struct GameResponse {
     pub player1_id: i32,
     pub player2_id: i32,
     pub winner_id: i32,
-    pub score_p1: i32,
-    pub score_p2: i32,
+    pub kills_p1: i32,
+    pub kills_p2: i32,
+    pub damage_p1: i32,
+    pub damage_p2: i32,
     pub played_at: DateTime<Utc>,
 }
 
@@ -40,8 +42,10 @@ impl From<Game> for GameResponse {
             player1_id: g.player1_id,
             player2_id: g.player2_id,
             winner_id: g.winner_id,
-            score_p1: g.score_p1,
-            score_p2: g.score_p2,
+            kills_p1: g.kills_p1,
+            kills_p2: g.kills_p2,
+            damage_p1: g.damage_p1,
+            damage_p2: g.damage_p2,
             played_at: g.played_at,
         }
     }
