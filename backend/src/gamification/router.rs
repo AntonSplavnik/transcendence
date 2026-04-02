@@ -187,7 +187,7 @@ async fn record_game(
 #[endpoint]
 async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
     let user_id = depot.user_id();
-    get_or_create_stats(user_id, db).await
+    get_stats(user_id, db).await
 }
 
 /// Get a user's stats by ID
@@ -197,36 +197,27 @@ async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> 
     if user_id == 0 {
         return Err(diesel::result::Error::NotFound.into());
     }
-    get_or_create_stats(user_id, db).await
+    get_stats(user_id, db).await
 }
 
-async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
-    let stats = db
-        .transaction_write(move |conn| {
-            use crate::schema::user_stats::dsl;
+async fn get_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
+    let stats = db.transaction_readonly(move |conn| {
+        use crate::schema::user_stats::dsl;
 
-            let stats = dsl::user_stats
-                .filter(dsl::user_id.eq(user_id))
-                .first::<UserStats>(conn)
-                .optional()?;
+        // Verify user exists (will return NotFound error if not)
+        use crate::schema::users;
+        users::table
+            .filter(users::id.eq(user_id))
+            .select(users::id)
+            .first::<i32>(conn)?;
 
-            match stats {
-                Some(s) => Ok(s),
-                None => {
-                    use crate::schema::users;
-                    users::table
-                        .filter(users::id.eq(user_id))
-                        .first::<crate::models::User>(conn)?;
+        let stats = dsl::user_stats
+            .filter(dsl::user_id.eq(user_id))
+            .first::<UserStats>(conn)
+            .optional()?;
 
-                    let new_stats = UserStats::new(user_id);
-                    diesel::insert_into(dsl::user_stats)
-                        .values(&new_stats)
-                        .execute(conn)?;
-                    Ok(new_stats)
-                }
-            }
-        })
-        .await?;
+        Ok(stats.unwrap_or_else(|| UserStats::new(user_id)))
+    }).await?;
 
     json_ok(StatsResponse::from(stats))
 }

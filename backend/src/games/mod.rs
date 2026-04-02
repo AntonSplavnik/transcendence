@@ -13,15 +13,16 @@ pub fn record_game_result(
     player1_id: i32,
     player2_id: i32,
     winner_id: i32,
-    score_p1: i32,
-    score_p2: i32,
-    mode: &str,
+    kills_p1: i32,
+    kills_p2: i32,
+    damage_p1: i32,
+    damage_p2: i32,
 ) -> QueryResult<(Game, UserStats, UserStats)> {
     use crate::schema::{games::dsl as games_dsl, user_stats::dsl as stats_dsl};
 
     // 1. Insert game record
     let game = diesel::insert_into(games_dsl::games)
-        .values(&NewGame::new(player1_id, player2_id, winner_id, score_p1, score_p2, mode.to_string()))
+        .values(&NewGame::new(player1_id, player2_id, winner_id, kills_p1, kills_p2, damage_p1, damage_p2))
         .returning(Game::as_returning())
         .get_result(conn)?;
 

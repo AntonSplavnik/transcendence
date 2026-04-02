@@ -26,9 +26,6 @@ The end-of-match XP distribution formula prioritizes game health over individual
 | Game played              | 10             | Participation reward    |
 | Game won                 | +25            | Victory bonus           |
 | Win streak (3+)          | +5/streak      | Caps at +25 (8+ streak) |
-| Daily challenge (Easy)   | 15 | 1 per day |
-| Daily challenge (Medium) | 30 | 1 per day |
-| Daily challenge (Hard)   | 50 | 1 per day |
 | Achievement unlocked     | 10-100         | Varies by tier          |
 
 ### Average XP per Match
@@ -108,9 +105,25 @@ CREATE TABLE user_stats (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- PLACEHOLDER: This schema is temporary. The final structure depends on how
+-- game data will be retrieved from the game engine.
+CREATE TABLE games (
+    id            INTEGER  NOT NULL PRIMARY KEY AUTOINCREMENT,
+    player1_id    INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    player2_id    INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    winner_id     INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kills_p1      INTEGER  NOT NULL DEFAULT 0,
+    kills_p2      INTEGER  NOT NULL DEFAULT 0,
+    damage_p1     INTEGER  NOT NULL DEFAULT 0,
+    damage_p2     INTEGER  NOT NULL DEFAULT 0,
+    played_at     DATETIME NOT NULL
+);
 ```
 
 **Note**: `level` is stored for quick queries but can always be recalculated from `xp` using `level_from_xp()`.
+
+**Note**: `user_stats` rows are only created when a player plays their first game. GET endpoints return default stats (level 1, 0 XP) in memory without inserting into the DB.
 
 ---
 

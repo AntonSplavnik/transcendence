@@ -48,10 +48,11 @@ diesel::table! {
         player1_id -> Integer,
         player2_id -> Integer,
         winner_id -> Integer,
-        score_p1 -> Integer,
-        score_p2 -> Integer,
+        kills_p1 -> Integer,
+        kills_p2 -> Integer,
+        damage_p1 -> Integer,
+        damage_p2 -> Integer,
         played_at -> TimestamptzSqlite,
-        mode -> Text,
     }
 }
 
@@ -154,8 +155,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     achievements,
     avatars_large,
     avatars_small,
-    games,
     friend_requests,
+    games,
     notifications,
     sessions,
     tos_versions,

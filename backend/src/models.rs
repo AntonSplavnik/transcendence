@@ -171,10 +171,11 @@ pub struct Game {
     pub player1_id: i32,
     pub player2_id: i32,
     pub winner_id: i32,
-    pub score_p1: i32,
-    pub score_p2: i32,
+    pub kills_p1: i32,
+    pub kills_p2: i32,
+    pub damage_p1: i32,
+    pub damage_p2: i32,
     pub played_at: DateTime<Utc>,
-    pub mode: String,
 }
 
 impl NewGame {
@@ -182,18 +183,20 @@ impl NewGame {
         player1_id: i32,
         player2_id: i32,
         winner_id: i32,
-        score_p1: i32,
-        score_p2: i32,
-        mode: String,
+        kills_p1: i32,
+        kills_p2: i32,
+        damage_p1: i32,
+        damage_p2: i32,
     ) -> Self {
         NewGame {
             player1_id,
             player2_id,
             winner_id,
-            score_p1,
-            score_p2,
+            kills_p1,
+            kills_p2,
+            damage_p1,
+            damage_p2,
             played_at: chrono::Utc::now(),
-            mode,
         }
     }
 }
