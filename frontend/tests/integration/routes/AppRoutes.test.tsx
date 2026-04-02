@@ -61,6 +61,25 @@ vi.mock('../../../src/contexts/NotificationContext', () => ({
 	})),
 }));
 
+// Mock FriendsContext — FriendsDrawer calls useFriends()
+vi.mock('../../../src/contexts/FriendsContext', () => ({
+	useFriends: vi.fn(() => ({
+		isOpen: false,
+		toggleDrawer: vi.fn(),
+		friends: [],
+		incoming: [],
+		outgoing: [],
+		loading: false,
+		error: null,
+		actionInProgress: null,
+		fetchAll: vi.fn(),
+		handleAccept: vi.fn(),
+		handleReject: vi.fn(),
+		handleCancel: vi.fn(),
+		handleRemove: vi.fn(),
+	})),
+}));
+
 describe('AppRoutes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();

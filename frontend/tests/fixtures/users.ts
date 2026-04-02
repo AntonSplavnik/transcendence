@@ -9,6 +9,7 @@ export function createMockUser(overrides?: Partial<User>): User {
 		totp_enabled: false,
 		totp_confirmed_at: null,
 		description: '',
+		tos_accepted_at: '2025-01-01T00:00:00Z',
 		...overrides,
 	};
 }

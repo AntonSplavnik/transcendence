@@ -1,21 +1,12 @@
-use std::process::ExitCode;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
-
-use salvo::catcher::Catcher;
-use salvo::conn::Acceptor;
-use salvo::conn::rustls::{Keycert, RustlsConfig};
-use salvo::prelude::*;
-use salvo::server::ServerHandle;
-use tokio::signal;
-
 mod auth;
 mod avatar;
 mod config;
 pub mod db;
+pub mod email;
 mod error;
 mod gamification;
 mod games;
+mod friends;
 mod models;
 mod notifications;
 mod prelude;
@@ -23,17 +14,22 @@ mod routers;
 mod schema;
 #[allow(dead_code)]
 mod stream;
+mod tos;
 mod utils;
 mod validate;
 
 pub use error::ApiError;
 use tokio::sync::Notify;
 
-use crate::config::{ServerConfig, TlsConfig};
+use crate::{db::Database as _, email::Mailer};
 
 pub static ON_SHUTDOWN: Notify = Notify::const_new();
 
-fn main() -> ExitCode {
+fn main() -> std::process::ExitCode {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to install default CryptoProvider");
     #[allow(
         clippy::expect_used,
         clippy::diverging_sub_expression,
@@ -52,7 +48,8 @@ fn main() -> ExitCode {
         .block_on(async_main());
 }
 
-async fn async_main() -> ExitCode {
+async fn async_main() -> std::process::ExitCode {
+    use std::process::ExitCode;
     let _ = dotenvy::dotenv();
     crate::config::init();
     let config = crate::config::get();
@@ -86,8 +83,21 @@ async fn async_main() -> ExitCode {
     // Initialize database (reader pool + single writer, runs migrations)
     let database = db::Db::new(&config.database_url, 4).expect("Failed to initialize database");
 
-    let mut router =
-        routers::root(database).hoop(ForceHttps::new().https_port(config.listen_https_port));
+    // Load (or create) the current ToS version timestamp from the database.
+    let tos_timestamp = database
+        .write(|conn| tos::load_current_tos_timestamp(conn))
+        .await
+        .expect("Failed to initialize ToS version");
+
+    // Initialize email sender (SMTP → Mailpit in dev, AWS SES in prod)
+    #[cfg(not(test))]
+    let mailer: Mailer = Mailer::new(&config.email).expect("Failed to initialize email sender");
+
+    #[cfg(test)]
+    let mailer = Mailer::new();
+
+    let mut router = routers::root(database, tos_timestamp, mailer, config.listen_https_port);
+
     if let Some(tls) = &config.tls {
         let acceptor = setup_acceptor_socket(&config, tls).await;
         run_server(acceptor, router).await;
@@ -102,7 +112,12 @@ async fn async_main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn setup_acceptor_socket(cfg: &ServerConfig, tls: &TlsConfig) -> impl Acceptor {
+async fn setup_acceptor_socket(
+    cfg: &crate::config::ServerConfig,
+    tls: &crate::config::TlsConfig,
+) -> impl salvo::conn::Acceptor {
+    use salvo::conn::rustls::{Keycert, RustlsConfig};
+    use salvo::prelude::*;
     // Load TLS certificates for https from files
     let (cert, key) = tokio::join!(tokio::fs::read(&tls.cert), tokio::fs::read(&tls.key));
     let cert = cert.expect("Valid cert.pem path must be provided");
@@ -121,15 +136,17 @@ async fn setup_acceptor_socket(cfg: &ServerConfig, tls: &TlsConfig) -> impl Acce
 }
 
 async fn setup_acme_acceptor_socket(
-    cfg: &ServerConfig,
+    cfg: &crate::config::ServerConfig,
     domain: &String,
-    mut router: &mut Router,
-) -> impl Acceptor + use<> {
+    mut router: &mut salvo::Router,
+) -> impl salvo::conn::Acceptor + use<> {
+    use salvo::prelude::*;
     // Set up a TCP listener on port 80 for HTTP
     let http = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_http_port));
+    let acme_cache = format!("{}/{}", cfg.acme_cache_dir, domain);
     let https = TcpListener::new((cfg.listen_addr.clone(), cfg.listen_https_port))
         .acme() // Enable ACME for automatic SSL certificate management
-        .cache_path("temp/letsencrypt") // Path to store the certificate cache
+        .cache_path(&acme_cache) // Persisted in Docker volume via data/acme/<domain>/
         .add_domain(domain)
         .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
         .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
@@ -139,18 +156,22 @@ async fn setup_acme_acceptor_socket(
 }
 
 // generic helper to enable using different acceptor types
-async fn run_server<A>(acceptor: A, router: Router)
+async fn run_server<A>(acceptor: A, router: salvo::Router)
 where
-    A: Acceptor + Send,
+    A: salvo::conn::Acceptor + Send,
 {
-    let server = Server::new(acceptor);
+    use salvo::catcher::Catcher;
+
+    let server = salvo::Server::new(acceptor);
     tokio::spawn(shutdown_signal(server.handle()));
 
-    let service = Service::new(router).catcher(Catcher::default());
+    let service = salvo::Service::new(router).catcher(Catcher::default());
     server.serve(service).await;
 }
 
-async fn shutdown_signal(handle: ServerHandle) {
+async fn shutdown_signal(handle: salvo::server::ServerHandle) {
+    use std::time::Duration;
+    use tokio::signal;
     let ctrl_c = async {
         signal::ctrl_c()
             .await

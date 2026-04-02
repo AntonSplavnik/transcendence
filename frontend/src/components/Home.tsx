@@ -1,8 +1,10 @@
 import { useAuth } from '../contexts/AuthContext';
 import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen, Flame, Trophy } from 'lucide-react';
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen, Mail } from 'lucide-react';
 import { Button, Card, Badge, LoadingSpinner } from './ui';
 import { Dropdown, DropdownItem, DropdownSeparator } from './ui';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
+import EmailConfirmationModal from './modals/EmailConfirmationModal';
 import ReauthModal from './modals/ReauthModal';
 import AvatarDisplay from './ui/AvatarDisplay';
 import EditUserModal from './modals/EditUserModal';
@@ -21,9 +23,10 @@ interface HomeProps {
 }
 
 export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
-	const { user, session } = useAuth();
+	const { user, session, isEmailConfirmed } = useAuth();
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
+	const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
 	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
@@ -123,6 +126,24 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 					<DropdownItem icon={<Monitor className="w-4 h-4" />} onClick={onSessions}>
 						Manage Sessions
+					</DropdownItem>
+
+					<DropdownItem
+						icon={<Mail className="w-4 h-4" />}
+						onClick={() => setShowEmailConfirmation(true)}
+						suffix={
+							isEmailConfirmed ? (
+								<Badge variant="success" size="sm">
+									Confirmed
+								</Badge>
+							) : (
+								<Badge variant="warning" size="sm">
+									Unconfirmed
+								</Badge>
+							)
+						}
+					>
+						Email Confirmation
 					</DropdownItem>
 
 					<DropdownSeparator />
@@ -324,6 +345,11 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 			{showAchievements && (
 				<AchievementsModal onClose={() => setShowAchievements(false)} />
+			{showEmailConfirmation && (
+				<EmailConfirmationModal
+					user={user}
+					onClose={() => setShowEmailConfirmation(false)}
+				/>
 			)}
 
 			{/*  */}

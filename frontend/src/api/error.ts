@@ -78,10 +78,28 @@ function getMessageFromBrief(brief: string): string {
 		TwoFactorRequired: 'Two-factor authentication code is required.',
 		TwoFactorInvalid: 'Invalid two-factor authentication code.',
 
+		// ToS errors
+		TosNotAccepted: 'Please accept the Terms of Service to continue.',
+		// Email confirmation errors
+		AlreadyConfirmed: 'Your email is already confirmed.',
+
 		// Success messages
 		DidLogout: 'You have been logged out successfully.',
+
+		// Friend errors
+		SelfRequest: 'You cannot add yourself as a friend.',
+		DuplicateRequest: 'A friend request already exists with this user.',
+		AlreadyFriends: 'You are already friends with this user.',
+		UserNotFound: 'User not found.',
+		NotFriends: 'You are not friends with this user.',
+		RequestNotFound: 'Friend request not found.',
+		TooManyPending: 'Too many pending requests. Try again later.',
+		RequestNotPending: 'This friend request is no longer pending.',
+		FriendListFull: 'Friend list is full (100 friends maximum).',
+		NotAuthorized: 'You are not authorized to perform this action.',
+		InvalidParam: 'Invalid request parameter.',
 	};
-	return briefMessages[brief] || `Authentication error: ${brief}`;
+	return briefMessages[brief] || brief;
 }
 
 /**

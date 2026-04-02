@@ -103,6 +103,7 @@ pub fn router(path: &str) -> Router {
         .push(
             Router::new()
                 .requires_user_login()
+                .requires_tos_accepted()
                 .user_rate_limit(&RateLimit::per_15_minutes(10))
                 .post(upload_avatar)
                 .delete(delete_avatar),
@@ -110,11 +111,13 @@ pub fn router(path: &str) -> Router {
         .push(
             Router::with_path("{user_id}/large")
                 .requires_user_login()
+                .requires_tos_accepted()
                 .get(get_avatar_large),
         )
         .push(
             Router::with_path("{user_id}/small")
                 .requires_user_login()
+                .requires_tos_accepted()
                 .get(get_avatar_small),
         )
 }

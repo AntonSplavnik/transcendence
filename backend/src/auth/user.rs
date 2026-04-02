@@ -16,26 +16,39 @@ pub fn router(path: &str) -> Router {
         .oapi_tag("user")
         .requires_user_login()
         .user_rate_limit(&RateLimit::per_minute(15))
-        .append(&mut vec![
-            Router::with_path("me").get(get_me),
-            Router::with_path("2fa")
-                .push(Router::with_path("start").post(two_fa_start))
-                .push(Router::with_path("confirm").post(two_fa_confirm))
-                .push(Router::with_path("disable").post(two_fa_disable)),
-            Router::with_path("description")
-                .user_rate_limit(&RateLimit::per_15_minutes(10))
-                .put(update_description),
-            Router::with_path("change-password")
-                .user_rate_limit(&RateLimit::per_15_minutes(10))
-                .post(change_pw),
-            Router::with_path("logout").post(logout),
-            Router::with_path("logout-sessions").post(logout_sessions),
-            Router::with_path("logout-other-sessions").post(logout_other_sessions),
-            Router::with_path("session").get(current_session),
+        // ToS-exempt: minimal functionality always available
+        .push(Router::with_path("me").get(get_me))
+        .push(Router::with_path("logout").post(logout))
+        .push(Router::with_path("logout-sessions").post(logout_sessions))
+        .push(Router::with_path("logout-other-sessions").post(logout_other_sessions))
+        .push(Router::with_path("session").get(current_session))
+        .push(
             Router::with_path("sessions")
                 .post(all_sessions)
                 .delete(delete_sessions),
-        ])
+        )
+        // ToS-gated: feature endpoints (separate sub-router so the hoop
+        // does not apply to the exempt routes above)
+        .push(
+            Router::new()
+                .requires_tos_accepted()
+                .push(
+                    Router::with_path("2fa")
+                        .push(Router::with_path("start").post(two_fa_start))
+                        .push(Router::with_path("confirm").post(two_fa_confirm))
+                        .push(Router::with_path("disable").post(two_fa_disable)),
+                )
+                .push(
+                    Router::with_path("description")
+                        .user_rate_limit(&RateLimit::per_15_minutes(10))
+                        .put(update_description),
+                )
+                .push(
+                    Router::with_path("change-password")
+                        .user_rate_limit(&RateLimit::per_15_minutes(10))
+                        .post(change_pw),
+                ),
+        )
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

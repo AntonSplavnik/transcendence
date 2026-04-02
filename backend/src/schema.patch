@@ -3,6 +3,10 @@ index e619b13..378096e 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
 @@ -1,95 +1,95 @@
+index b584efd..33c5f73 100644
+--- a/backend/src/schema.rs
++++ b/backend/src/schema.rs
+@@ -1,91 +1,91 @@
  // @generated automatically by Diesel CLI.
  
  diesel::table! {
@@ -34,6 +38,15 @@ index e619b13..378096e 100644
 -        played_at -> Timestamp,
 +        played_at -> TimestamptzSqlite,
          mode -> Text,
+     friend_requests (id) {
+         id -> Integer,
+         sender_id -> Integer,
+         receiver_id -> Integer,
+         status -> Integer,
+-        created_at -> Timestamp,
+-        updated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
++        updated_at -> TimestamptzSqlite,
      }
  }
  
@@ -63,6 +76,14 @@ index e619b13..378096e 100644
 +        refreshed_at -> TimestamptzSqlite,
 +        last_used_at -> TimestamptzSqlite,
 +        last_authenticated_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     tos_versions (key) {
+         key -> Text,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
      }
  }
  
@@ -107,6 +128,14 @@ index e619b13..378096e 100644
 -        created_at -> Timestamp,
 +        created_at -> TimestamptzSqlite,
          description -> Text,
+-        tos_accepted_at -> Nullable<Timestamp>,
+-        email_confirmed_at -> Nullable<Timestamp>,
++        tos_accepted_at -> Nullable<TimestamptzSqlite>,
++        email_confirmed_at -> Nullable<TimestamptzSqlite>,
+         email_confirmation_token_hash -> Nullable<Binary>,
+-        email_confirmation_token_expires_at -> Nullable<Timestamp>,
++        email_confirmation_token_expires_at -> Nullable<TimestamptzSqlite>,
+         email_confirmation_token_email -> Nullable<Text>,
      }
  }
  

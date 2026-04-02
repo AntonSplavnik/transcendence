@@ -20,7 +20,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-
+import { getNickname } from '../api/userResolver';
 import type { NotificationPayload, UniHandlerFactory, WireNotification } from '../stream/types';
 import { useStream } from './StreamContext';
 
@@ -86,6 +86,25 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
 		const { achievement_name, tier, xp_reward } = payload.AchievementUnlocked;
 		const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
 		return `${tierLabel} achievement unlocked: ${achievement_name} (+${xp_reward} XP)`;
+	if (typeof payload === 'object') {
+		if ('FriendRequestReceived' in payload) {
+			const name = await getNickname(payload.FriendRequestReceived.sender_id);
+			return `Friend request from ${name}`;
+		}
+		if ('FriendRequestAccepted' in payload) {
+			const name = await getNickname(payload.FriendRequestAccepted.friend_id);
+			return `${name} accepted your friend request`;
+		}
+		if ('FriendRequestRejected' in payload) {
+			return 'Your friend request was declined';
+		}
+		if ('FriendRequestCancelled' in payload) {
+			return 'A friend request was cancelled';
+		}
+		if ('FriendRemoved' in payload) {
+			const name = await getNickname(payload.FriendRemoved.user_id);
+			return `${name} removed you from their friends`;
+		}
 	}
 
 	return String(payload);
@@ -105,8 +124,12 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
  * }
  * ```
  */
-function getClickAction(_payload: NotificationPayload): (() => void) | null {
-	// Extend here per payload type.
+function getClickAction(payload: NotificationPayload): (() => void) | null {
+	if (typeof payload === 'object') {
+		if ('FriendRequestReceived' in payload || 'FriendRequestAccepted' in payload) {
+			return () => window.dispatchEvent(new CustomEvent('open-friends-drawer'));
+		}
+	}
 	return null;
 }
 

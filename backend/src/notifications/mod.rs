@@ -71,6 +71,16 @@ pub enum NotificationPayload {
         tier: String,
         xp_reward: i32,
     },
+    /// A friend request was received.
+    FriendRequestReceived { request_id: i32, sender_id: i32 },
+    /// A friend request was accepted.
+    FriendRequestAccepted { request_id: i32, friend_id: i32 },
+    /// A friend request was rejected.
+    FriendRequestRejected { request_id: i32 },
+    /// A friend request was cancelled by the sender.
+    FriendRequestCancelled { request_id: i32 },
+    /// A friend was removed.
+    FriendRemoved { user_id: i32 },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

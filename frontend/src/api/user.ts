@@ -106,6 +106,12 @@ export async function deleteSessions(
 	await apiClient.delete('/user/sessions', { data: payload });
 }
 
+// ==================== EMAIL CONFIRMATION ====================
+
+export async function sendConfirmationEmail(): Promise<void> {
+	await apiClient.post('/email/send-confirmation');
+}
+
 export async function logout(): Promise<void> {
 	await apiClient.post('/user/logout');
 }

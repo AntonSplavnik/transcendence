@@ -1,8 +1,14 @@
-serve_dir = "../frontend/dist"
+serve_dir = "/www"
 
 [log]
 format = "compact"
 
 [tls]
-cert = "./certs/cert.pem"
-key = "./certs/key.pem"
+cert = "/run/secrets/tls_cert"
+key = "/run/secrets/tls_key"
+
+[email]
+smtp_host = "mailpit"
+smtp_port = 1025
+from_address = "noreply@transcendence.local"
+base_url = "https://localhost:8443"

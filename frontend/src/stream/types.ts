@@ -112,6 +112,11 @@ export type ConnectionState =
 export type NotificationPayload =
 	| 'ServerHello'
 	| { AchievementUnlocked: { achievement_name: string; tier: string; xp_reward: number } };
+	| { FriendRequestReceived: { request_id: number; sender_id: number } }
+	| { FriendRequestAccepted: { request_id: number; friend_id: number } }
+	| { FriendRequestRejected: { request_id: number } }
+	| { FriendRequestCancelled: { request_id: number } }
+	| { FriendRemoved: { user_id: number } };
 
 /**
  * A single notification as transmitted on the wire.

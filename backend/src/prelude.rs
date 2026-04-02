@@ -8,9 +8,11 @@ pub use validator::Validate;
 
 pub use crate::auth::{DepotAuthExt as _, RouterAuthExt as _};
 pub use crate::db::{self, Database, Db, DbConn, DbError, DepotDatabaseExt as _};
+pub use crate::email::{DepotEmailExt as _, Mailer};
 pub use crate::error::ApiError;
 pub use crate::notifications::NotificationManagerDepotExt as _;
 pub use crate::stream::StreamManagerDepotExt as _;
+pub use crate::tos::{DepotTosExt as _, RouterTosExt as _};
 pub use crate::utils::limiter::{RateLimit, RouterRateLimitExt as _};
 pub use crate::utils::nick_cache::NicknameCache;
 pub use crate::utils::nick_cache::NicknameCacheDepotExt as _;
