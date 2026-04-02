@@ -2,10 +2,10 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use super::super::StreamType;
 use super::super::cancel::CancelReason;
 use super::super::sink::StreamSink;
 use super::super::user_stream::{SendError, UserStream, UserStreamProtocol};
-use super::super::StreamType;
 
 /// Minimal test protocol that tracks open/close calls.
 struct TestProtocol {
@@ -103,7 +103,11 @@ async fn test_user_stream_cleanup_on_cancel() {
     tokio::task::yield_now().await;
 
     assert!(!us.has_stream(1), "entry should be removed after cancel");
-    assert_eq!(us.protocol().closes(), 1, "on_close should have been called");
+    assert_eq!(
+        us.protocol().closes(),
+        1,
+        "on_close should have been called"
+    );
 }
 
 #[tokio::test]
@@ -144,10 +148,11 @@ async fn test_user_stream_send_to_offline_user_returns_no_stream() {
 async fn test_user_stream_with_live_returns_none_for_offline() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let result = us
-        .with_live(1, |_sink, _state| async { 42 })
-        .await;
-    assert!(result.is_none(), "with_live should return None for offline user");
+    let result = us.with_live(1, |_sink, _state| async { 42 }).await;
+    assert!(
+        result.is_none(),
+        "with_live should return None for offline user"
+    );
 }
 
 #[tokio::test]
@@ -172,11 +177,7 @@ async fn test_user_stream_with_live_or_else_calls_online_for_live() {
     let _ = us.open_stream_test(1, ()).await.unwrap();
 
     let was_online = us
-        .with_live_or_else(
-            1,
-            |_sink, _state| async { true },
-            || async { false },
-        )
+        .with_live_or_else(1, |_sink, _state| async { true }, || async { false })
         .await;
     assert!(was_online, "should have called on_live");
 }
@@ -186,11 +187,7 @@ async fn test_user_stream_with_live_or_else_calls_offline_for_absent() {
     let us = UserStream::new_test(TestProtocol::new());
 
     let was_online = us
-        .with_live_or_else(
-            999,
-            |_sink, _state| async { true },
-            || async { false },
-        )
+        .with_live_or_else(999, |_sink, _state| async { true }, || async { false })
         .await;
     assert!(!was_online, "should have called on_offline");
 }
@@ -200,12 +197,8 @@ async fn test_user_stream_with_live_or_else_calls_offline_for_absent() {
 async fn test_user_stream_with_live_or_else_cleans_up_ephemeral_slot() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    us.with_live_or_else(
-        999,
-        |_sink, _state| async { () },
-        || async { () },
-    )
-    .await;
+    us.with_live_or_else(999, |_sink, _state| async { () }, || async { () })
+        .await;
 
     // The ephemeral slot should have been removed.
     assert!(
@@ -253,7 +246,10 @@ async fn test_user_stream_concurrent_offline_sends_no_ghost_entries() {
     }
 
     // All ephemeral slots should be cleaned up.
-    assert!(!us.has_slot(1), "no ghost entries after concurrent offline sends");
+    assert!(
+        !us.has_slot(1),
+        "no ghost entries after concurrent offline sends"
+    );
 }
 
 /// `open_stream` and `send` race: send must either succeed (stream live)

@@ -81,9 +81,9 @@ use serde::Serialize;
 use thiserror::Error;
 use tokio::sync::Mutex as AsyncMutex;
 
+use super::StreamType;
 use super::cancel::CancelReason;
 use super::sink::StreamSink;
-use super::StreamType;
 use super::stream_manager::{StreamManager, StreamManagerError};
 
 /// Protocol trait for per-user stream lifecycle.
@@ -149,11 +149,7 @@ pub trait UserStreamProtocol: Send + Sync + 'static {
 
     /// Called under per-user lock when a stream is closed.
     /// State is consumed (moved out).
-    fn on_close(
-        &self,
-        user_id: i32,
-        state: Self::State,
-    ) -> impl Future<Output = ()> + Send;
+    fn on_close(&self, user_id: i32, state: Self::State) -> impl Future<Output = ()> + Send;
 }
 
 /// Internal per-user slot behind the `tokio::Mutex`.
@@ -257,7 +253,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
         use super::sink::DEFAULT_SINK_BUFFER;
 
         let sink = sm
-            .request_uni_stream::<P::Send>(user_id, self.protocol.stream_type(), DEFAULT_SINK_BUFFER)
+            .request_uni_stream::<P::Send>(
+                user_id,
+                self.protocol.stream_type(),
+                DEFAULT_SINK_BUFFER,
+            )
             .await?;
 
         self.open_stream_inner(user_id, context, sink).await
@@ -297,7 +297,9 @@ impl<P: UserStreamProtocol> UserStream<P> {
             .protocol
             .on_open(
                 user_id,
-                &mut guard.live.as_mut()
+                &mut guard
+                    .live
+                    .as_mut()
                     .expect("just set live to Some above")
                     .state,
                 context,
@@ -400,13 +402,12 @@ impl<P: UserStreamProtocol> UserStream<P> {
             let mut guard = slot_arc.lock().await;
 
             // ABA check: only clean up if this is still our sink.
-            let is_match = guard
-                .live
-                .as_ref()
-                .is_some_and(|l| l.sink == expected_sink);
+            let is_match = guard.live.as_ref().is_some_and(|l| l.sink == expected_sink);
 
             if is_match {
-                let live = guard.live.take()
+                let live = guard
+                    .live
+                    .take()
                     .expect("just checked it's Some via is_match");
                 us.protocol.on_close(user_id, live.state).await;
             }
@@ -454,9 +455,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
         let guard = slot_arc.lock().await;
         match &guard.live {
-            Some(live) if !live.sink.is_cancelled() => {
-                live.sink.send(msg).await.map_err(|e| SendError::ChannelClosed(e.0))
-            }
+            Some(live) if !live.sink.is_cancelled() => live
+                .sink
+                .send(msg)
+                .await
+                .map_err(|e| SendError::ChannelClosed(e.0)),
             _ => Err(SendError::NoStream(msg)),
         }
     }
@@ -531,12 +534,8 @@ impl<P: UserStreamProtocol> UserStream<P> {
         let mut guard = slot_arc.lock().await;
 
         let result = match &mut guard.live {
-            Some(live) if !live.sink.is_cancelled() => {
-                on_live(&live.sink, &mut live.state).await
-            }
-            _ => {
-                on_offline().await
-            }
+            Some(live) if !live.sink.is_cancelled() => on_live(&live.sink, &mut live.state).await,
+            _ => on_offline().await,
         };
 
         // If the slot is empty (offline path or cancelled stream), clean up.
@@ -551,12 +550,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
     /// Remove a DashMap entry if the slot is empty and unlocked.
     fn try_remove_empty_slot(&self, user_id: i32) {
-        self.users.remove_if(&user_id, |_, slot_arc| {
-            match slot_arc.try_lock() {
+        self.users
+            .remove_if(&user_id, |_, slot_arc| match slot_arc.try_lock() {
                 Ok(guard) => guard.live.is_none(),
                 Err(_) => false,
-            }
-        });
+            });
     }
 }
 

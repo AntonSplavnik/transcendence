@@ -34,7 +34,9 @@ use salvo::Depot;
 // StreamRoom / request_stream. Plan B (chat module) will also use
 // JoinError, RoomProtocol, and StreamRoom via this re-export.
 #[allow(unused_imports)]
-pub use sink::{ConfirmedBatchError, ConfirmedSendError, DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink};
+pub use sink::{
+    ConfirmedBatchError, ConfirmedSendError, DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink,
+};
 #[allow(unused_imports)]
 pub use stream_manager::{
     Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
@@ -43,7 +45,9 @@ pub use stream_manager::{
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
 #[allow(unused_imports)]
-pub use user_stream::{OpenError, SendError as UserStreamSendError, UserStream, UserStreamProtocol};
+pub use user_stream::{
+    OpenError, SendError as UserStreamSendError, UserStream, UserStreamProtocol,
+};
 
 use crate::db::Db;
 use crate::notifications::NotificationManagerDepotExt;

@@ -43,13 +43,12 @@ use crate::models::{NewOfflineNotification, OfflineNotification};
 use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
 use crate::stream::{
-    OpenError, StreamManager, StreamManagerError, StreamSink, StreamType,
-    UserStream, UserStreamProtocol,
+    OpenError, StreamManager, StreamManagerError, StreamSink, StreamType, UserStream,
+    UserStreamProtocol,
 };
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
-#[allow(dead_code)]
 pub enum NotificationError {
     /// The underlying WebTransport stream is gone or the user is not connected.
     #[error(transparent)]
@@ -58,10 +57,6 @@ pub enum NotificationError {
     /// A database operation failed.
     #[error(transparent)]
     Db(#[from] DbError),
-
-    /// Sending over an already-open stream failed (codec or transport error).
-    #[error("failed to send notification to user {user_id}: {reason}")]
-    Send { user_id: i32, reason: String },
 
     /// The protocol rejected the open.
     #[error("open stream failed: {0}")]
@@ -249,14 +244,16 @@ impl NotificationManager {
                                     user_id,
                                     "notification stream channel closed, falling back to DB"
                                 );
-                                store_to_db(&db, user_id, payload, created_at).await
+                                store_to_db(&db, user_id, payload, created_at)
+                                    .await
                                     .map_err(NotificationError::from)
                             }
                         }
                     }
                 },
                 || async move {
-                    store_to_db(&db_offline, user_id, payload_offline, created_at).await
+                    store_to_db(&db_offline, user_id, payload_offline, created_at)
+                        .await
                         .map_err(NotificationError::from)
                 },
             )
