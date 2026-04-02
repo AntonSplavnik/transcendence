@@ -148,11 +148,19 @@ pub struct ConfirmedBatchError<S> {
 /// `PartialEq` delegates to [`CancelHandle::eq`] — two sinks are equal
 /// iff they originated from the same `new()` call (same identity semantics
 /// as the old `SharedSender::same_channel`).
-#[derive(Clone)]
 #[must_use = "a StreamSink does nothing if dropped without sending or observing cancellation"]
 pub struct StreamSink<S> {
     tx: mpsc::Sender<Envelope<S>>,
     cancel: CancelHandle,
+}
+
+impl<S> Clone for StreamSink<S> {
+    fn clone(&self) -> Self {
+        Self {
+            tx: self.tx.clone(),
+            cancel: self.cancel.clone(),
+        }
+    }
 }
 
 impl<S: Serialize + Send + 'static> StreamSink<S> {

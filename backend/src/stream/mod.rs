@@ -26,6 +26,7 @@ mod compress_cbor_codec;
 mod sink;
 mod stream_manager;
 mod stream_room;
+mod user_stream;
 
 pub use cancel::{CancelHandle, CancelReason};
 use salvo::Depot;
@@ -41,6 +42,8 @@ pub use stream_manager::{
 };
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
+#[allow(unused_imports)]
+pub use user_stream::{OpenError, SendError as UserStreamSendError, UserStream, UserStreamProtocol};
 
 use crate::db::Db;
 use crate::notifications::NotificationManagerDepotExt;
