@@ -162,6 +162,20 @@ async fn sink_concurrent_clones_deliver_all_messages() {
     }
 }
 
+/// After the Envelope refactor, basic send/recv must still work identically.
+/// This test is identical to `test_stream_sink_send_recv` — it exists to
+/// catch regressions from the internal channel type change.
+#[tokio::test]
+async fn test_stream_sink_send_recv_after_envelope_refactor() {
+    let (sink, mut client) = test_sink::<String>();
+
+    sink.send("hello".to_string()).await.unwrap();
+    sink.send("world".to_string()).await.unwrap();
+
+    client.expect(&"hello".to_string()).await;
+    client.expect(&"world".to_string()).await;
+}
+
 /// A single sender's messages arrive at the client in FIFO order.
 ///
 /// The mpsc channel guarantees FIFO per sender; this makes the invariant
