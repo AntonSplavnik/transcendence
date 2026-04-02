@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::super::cancel::CancelReason;
@@ -211,4 +212,17 @@ async fn test_user_stream_with_live_or_else_cleans_up_ephemeral_slot() {
         !us.has_slot(999),
         "ephemeral slot should be removed after with_live_or_else"
     );
+}
+
+#[tokio::test]
+async fn test_user_stream_open_bidi_stream_test() {
+    let us = UserStream::new_test(TestProtocol::new());
+
+    let (_sink, _client_sender) = us
+        .open_bidi_stream_test(1, (), |_msg: String| async {})
+        .await
+        .unwrap();
+
+    assert!(us.has_stream(1));
+    assert_eq!(us.protocol().opens(), 1);
 }

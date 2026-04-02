@@ -319,6 +319,59 @@ impl<P: UserStreamProtocol> UserStream<P> {
         Ok(())
     }
 
+    /// Open a bidirectional stream for `user_id` with a receive handler.
+    ///
+    /// Same lifecycle as [`open_stream`](Self::open_stream) but opens a bidi
+    /// stream and spawns a [`spawn_receive_loop`](super::spawn_receive_loop)
+    /// for incoming messages. The receive handler runs OUTSIDE the per-user
+    /// lock — if it needs state access, it calls `UserStream` methods which
+    /// acquire the lock internally.
+    ///
+    /// The `JoinHandle` for the receive loop is dropped (fire-and-forget).
+    /// The `CancelHandle` governs the loop's lifetime.
+    ///
+    /// # Errors
+    ///
+    /// - [`OpenError::StreamOpen`] — the `StreamManager` could not open a stream.
+    /// - [`OpenError::Rejected`] — the protocol rejected the open.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Same as `open_stream`. The receive loop is independently cancellable.
+    #[cfg(not(test))]
+    pub async fn open_bidi_stream<R, F, Fut>(
+        self: &Arc<Self>,
+        sm: &super::stream_manager::StreamManager,
+        user_id: i32,
+        context: P::OpenContext,
+        handler: F,
+    ) -> Result<(), OpenError<P::OpenReject>>
+    where
+        R: serde::de::DeserializeOwned + Send + 'static,
+        F: Fn(R) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send,
+    {
+        use super::sink::DEFAULT_SINK_BUFFER;
+
+        let (sink, rx) = sm
+            .request_stream::<P::Send, R>(user_id, self.protocol.stream_type(), DEFAULT_SINK_BUFFER)
+            .await?;
+
+        let cancel = sink.cancel_handle().clone();
+        self.open_stream_inner(user_id, context, sink).await?;
+
+        // Spawn receive loop OUTSIDE the lock. Handler accesses state via
+        // UserStream methods which acquire the lock internally.
+        // JoinHandle dropped — receive loop is CancelHandle-governed.
+        let _ = super::spawn_receive_loop(
+            futures::StreamExt::map(rx, |r| r.map_err(|e| anyhow::anyhow!(e))),
+            cancel,
+            handler,
+        );
+
+        Ok(())
+    }
+
     /// Close a user's stream immediately.
     pub fn close_stream(&self, user_id: i32) {
         if let Some(entry) = self.users.get(&user_id) {
@@ -550,5 +603,59 @@ where
         self.open_stream_inner(user_id, context, sink).await?;
 
         Ok(sink_clone)
+    }
+
+    /// Test-mode bidi open: returns sink clone and `TestClientSender`.
+    ///
+    /// Creates two `DuplexStream` pairs (server→client write, client→server write),
+    /// opens the stream, and spawns a receive loop for client→server messages.
+    ///
+    /// # Errors
+    ///
+    /// - [`OpenError::Rejected`] — the protocol rejected the open.
+    pub async fn open_bidi_stream_test<R, F, Fut>(
+        self: &Arc<Self>,
+        user_id: i32,
+        context: P::OpenContext,
+        handler: F,
+    ) -> Result<
+        (
+            StreamSink<P::Send>,
+            super::tests::test_utils::TestClientSender<R>,
+        ),
+        OpenError<P::OpenReject>,
+    >
+    where
+        R: serde::Serialize + serde::de::DeserializeOwned + Send + 'static,
+        F: Fn(R) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send,
+    {
+        use futures::StreamExt as _;
+        use tokio_util::codec::{FramedRead, FramedWrite};
+        use tokio_util::sync::CancellationToken;
+
+        use super::compress_cbor_codec::{CompressedCborDecoder, CompressedCborEncoder};
+        use super::sink::DEFAULT_SINK_BUFFER;
+        use super::tests::test_utils::{DUPLEX_BUFFER, TestClientSender};
+
+        let (server_write, _client_read) = tokio::io::duplex(DUPLEX_BUFFER);
+        let (client_write, server_read) = tokio::io::duplex(DUPLEX_BUFFER);
+
+        let framed_write = FramedWrite::new(server_write, CompressedCborEncoder::<P::Send>::new());
+        let token = CancellationToken::new();
+        let sink = StreamSink::new(framed_write, token, DEFAULT_SINK_BUFFER);
+        let sink_clone = sink.clone();
+        let cancel = sink.cancel_handle().clone();
+
+        let server_rx = FramedRead::new(server_read, CompressedCborDecoder::<R>::new())
+            .map(|r| r.map_err(|e| anyhow::anyhow!(e)));
+
+        self.open_stream_inner(user_id, context, sink).await?;
+
+        // JoinHandle dropped — receive loop is CancelHandle-governed.
+        let _ = super::spawn_receive_loop(server_rx, cancel, handler);
+
+        let client_sender = TestClientSender::new(client_write);
+        Ok((sink_clone, client_sender))
     }
 }
