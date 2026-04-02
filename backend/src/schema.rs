@@ -32,6 +32,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    friend_requests (id) {
+        id -> Integer,
+        sender_id -> Integer,
+        receiver_id -> Integer,
+        status -> Integer,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     games (id) {
         id -> Integer,
         player1_id -> Integer,
@@ -41,13 +52,6 @@ diesel::table! {
         score_p2 -> Integer,
         played_at -> TimestamptzSqlite,
         mode -> Text,
-    friend_requests (id) {
-        id -> Integer,
-        sender_id -> Integer,
-        receiver_id -> Integer,
-        status -> Integer,
-        created_at -> TimestamptzSqlite,
-        updated_at -> TimestamptzSqlite,
     }
 }
 

@@ -38,6 +38,10 @@ index b584efd..33c5f73 100644
 -        played_at -> Timestamp,
 +        played_at -> TimestamptzSqlite,
          mode -> Text,
+     }
+ }
+
+ diesel::table! {
      friend_requests (id) {
          id -> Integer,
          sender_id -> Integer,

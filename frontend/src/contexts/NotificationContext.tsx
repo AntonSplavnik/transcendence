@@ -86,6 +86,8 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
 		const { achievement_name, tier, xp_reward } = payload.AchievementUnlocked;
 		const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
 		return `${tierLabel} achievement unlocked: ${achievement_name} (+${xp_reward} XP)`;
+	}
+
 	if (typeof payload === 'object') {
 		if ('FriendRequestReceived' in payload) {
 			const name = await getNickname(payload.FriendRequestReceived.sender_id);

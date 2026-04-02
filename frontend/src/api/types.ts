@@ -97,6 +97,8 @@ export interface AchievementWithProgress {
 	bronze_unlocked: boolean;
 	silver_unlocked: boolean;
 	gold_unlocked: boolean;
+}
+
 // ==================== FRIENDS ====================
 
 export interface PublicUser {

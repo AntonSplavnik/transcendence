@@ -1,6 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen, Flame, Trophy } from 'lucide-react';
-import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen, Mail } from 'lucide-react';
+import { User as UserIcon, Shield, Monitor, LogOut, ChevronDown, Pen, Flame, Trophy, Mail } from 'lucide-react';
 import { Button, Card, Badge, LoadingSpinner } from './ui';
 import { Dropdown, DropdownItem, DropdownSeparator } from './ui';
 import TwoFactorModal from './modals/TwoFactorAuthModal';
@@ -345,6 +344,8 @@ export default function Home({ onGame, onLogout, onSessions }: HomeProps) {
 
 			{showAchievements && (
 				<AchievementsModal onClose={() => setShowAchievements(false)} />
+			)}
+
 			{showEmailConfirmation && (
 				<EmailConfirmationModal
 					user={user}
