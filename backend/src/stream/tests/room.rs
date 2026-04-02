@@ -1801,3 +1801,30 @@ async fn drop_room_while_join_in_flight_no_panic() {
     // Also drop gate to ensure nothing holds a dangling ref.
     drop(gate);
 }
+
+// ── StreamRoom confirmed send wrappers ──────────────────────────
+
+/// `send_confirmed` delivers a confirmed message to a specific member.
+#[tokio::test]
+async fn test_room_send_confirmed_delivers_to_member() {
+    let room = StreamRoom::new(EchoProtocol::new());
+    let (_h, mut client, _tx) = room.join(1, |_msg: String| async {}).await.unwrap();
+
+    // Drain init ("welcome") + join broadcast ("joined:1").
+    client.drain(2).await;
+
+    room.send_confirmed(1, "direct".to_string())
+        .await
+        .expect("user 1 is a member")
+        .expect("send_confirmed succeeded");
+    client.expect(&"direct".to_string()).await;
+}
+
+/// `send_confirmed` returns None when the user is not a member.
+#[tokio::test]
+async fn test_room_send_confirmed_returns_none_for_non_member() {
+    let room = StreamRoom::new(EchoProtocol::new());
+
+    let result = room.send_confirmed(999, "msg".to_string()).await;
+    assert!(result.is_none(), "expected None for non-member");
+}

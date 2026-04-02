@@ -565,6 +565,54 @@ impl<P: RoomProtocol> StreamRoom<P> {
         }
     }
 
+    /// Send a confirmed message to one specific member.
+    ///
+    /// Looks up the member's sink under the lock, clones it, releases the lock,
+    /// then performs the confirmed send (async). Returns `None` if the user is
+    /// not an active member.
+    ///
+    /// Confirmed broadcast is intentionally not provided — confirmed delivery is
+    /// a per-user concept. Broadcasting is fire-and-forget with backpressure
+    /// cancellation.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. See [`StreamSink::send_confirmed`] for details.
+    pub async fn send_confirmed(
+        &self,
+        user_id: i32,
+        msg: P::Send,
+    ) -> Option<Result<(), super::sink::ConfirmedSendError>> {
+        let sink = {
+            let inner = self.inner.lock();
+            inner.handles.get(&user_id).cloned()
+        };
+        // Lock released — confirmed send is async and must not hold the room lock.
+        let sink = sink?;
+        Some(sink.send_confirmed(msg).await)
+    }
+
+    /// Send a confirmed batch to one specific member.
+    ///
+    /// Same lookup-then-release pattern as [`send_confirmed`](Self::send_confirmed).
+    /// Returns `None` if the user is not an active member.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. See [`StreamSink::send_confirmed_batch`] for details.
+    pub async fn send_confirmed_batch(
+        &self,
+        user_id: i32,
+        msgs: Vec<P::Send>,
+    ) -> Option<Result<(), super::sink::ConfirmedBatchError<P::Send>>> {
+        let sink = {
+            let inner = self.inner.lock();
+            inner.handles.get(&user_id).cloned()
+        };
+        let sink = sink?;
+        Some(sink.send_confirmed_batch(msgs).await)
+    }
+
     /// Per-member conditional broadcast.
     ///
     /// The closure receives `&P` (protocol state) and `user_id`. Return
