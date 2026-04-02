@@ -174,20 +174,19 @@ where
 /// When this function returns an error, it is logged and the connection is closed.
 async fn on_connect(
     user_id: i32,
-    db: &Db,
+    _db: &Db,
     streams: &StreamManager,
     depot: &mut Depot,
 ) -> anyhow::Result<()> {
     depot
         .notification_manager()
-        .open_stream(db, streams, user_id)
+        .open_stream(streams, user_id)
         .await?;
 
     // When everything else succeeds, send a welcome notification to the user
     depot
         .notification_manager()
         .send(
-            db,
             user_id,
             crate::notifications::NotificationPayload::ServerHello,
         )

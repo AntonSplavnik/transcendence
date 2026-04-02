@@ -84,9 +84,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use super::cancel::CancelReason;
 use super::sink::StreamSink;
 use super::StreamType;
-#[cfg(not(test))]
-use super::stream_manager::StreamManager;
-use super::stream_manager::StreamManagerError;
+use super::stream_manager::{StreamManager, StreamManagerError};
 
 /// Protocol trait for per-user stream lifecycle.
 ///
@@ -247,8 +245,9 @@ impl<P: UserStreamProtocol> UserStream<P> {
     }
 
     /// Open (or replace) a uni-directional stream for `user_id`.
-    /// Production version — uses StreamManager.
-    #[cfg(not(test))]
+    ///
+    /// Uses [`StreamManager`] to open the underlying WebTransport stream.
+    /// In tests, use [`open_stream_test`](Self::open_stream_test) instead.
     pub async fn open_stream(
         self: &Arc<Self>,
         sm: &StreamManager,
@@ -338,10 +337,9 @@ impl<P: UserStreamProtocol> UserStream<P> {
     /// # Cancel Safety
     ///
     /// Same as `open_stream`. The receive loop is independently cancellable.
-    #[cfg(not(test))]
     pub async fn open_bidi_stream<R, F, Fut>(
         self: &Arc<Self>,
-        sm: &super::stream_manager::StreamManager,
+        sm: &StreamManager,
         user_id: i32,
         context: P::OpenContext,
         handler: F,
@@ -363,11 +361,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
         // Spawn receive loop OUTSIDE the lock. Handler accesses state via
         // UserStream methods which acquire the lock internally.
         // JoinHandle dropped — receive loop is CancelHandle-governed.
-        let _ = super::spawn_receive_loop(
+        drop(super::spawn_receive_loop(
             futures::StreamExt::map(rx, |r| r.map_err(|e| anyhow::anyhow!(e))),
             cancel,
             handler,
-        );
+        ));
 
         Ok(())
     }
@@ -653,7 +651,7 @@ where
         self.open_stream_inner(user_id, context, sink).await?;
 
         // JoinHandle dropped — receive loop is CancelHandle-governed.
-        let _ = super::spawn_receive_loop(server_rx, cancel, handler);
+        drop(super::spawn_receive_loop(server_rx, cancel, handler));
 
         let client_sender = TestClientSender::new(client_write);
         Ok((sink_clone, client_sender))

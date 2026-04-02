@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
-use crate::db::DepotDatabaseExt;
 use crate::error::FriendError;
 use crate::models::nickname::Nickname;
 use crate::models::{FriendRequest, FriendRequestStatus, User};
@@ -26,8 +25,7 @@ pub const MAX_FRIENDS: i64 = 100;
 /// Send a notification, logging a warning on failure.
 pub async fn send_notification(depot: &Depot, target_id: i32, payload: NotificationPayload) {
     let nm = depot.notification_manager();
-    let db = depot.db();
-    if let Err(e) = nm.send(db, target_id, payload).await {
+    if let Err(e) = nm.send(target_id, payload).await {
         tracing::warn!(error = %e, target_id, "failed to send friend notification");
     }
 }
