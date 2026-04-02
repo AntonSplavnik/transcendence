@@ -375,6 +375,129 @@ impl<P: UserStreamProtocol> UserStream<P> {
         });
     }
 
+    /// Fire-and-forget send. Returns the message on failure.
+    ///
+    /// If the user has a live stream, sends the message and returns `Ok(())`.
+    /// If no stream exists or the channel is closed, returns the message
+    /// inside the error for the caller to handle (persist, discard, etc.).
+    ///
+    /// This method does NOT coordinate with `open_stream` for the offline
+    /// case — it simply returns the message. For race-safe offline handling
+    /// (e.g., DB fallback that must not race with `open_stream`'s drain),
+    /// use [`with_live_or_else`](Self::with_live_or_else) instead.
+    ///
+    /// # Errors
+    ///
+    /// - [`SendError::NoStream`] — no active stream for this user.
+    /// - [`SendError::ChannelClosed`] — stream exists but channel is dead.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. See [`StreamSink::send`] for details.
+    pub async fn send(&self, user_id: i32, msg: P::Send) -> Result<(), SendError<P::Send>> {
+        // Clone Arc out of DashMap immediately (releases shard lock).
+        let slot_arc = match self.users.get(&user_id) {
+            Some(entry) => entry.value().clone(),
+            None => return Err(SendError::NoStream(msg)),
+        };
+
+        let guard = slot_arc.lock().await;
+        match &guard.live {
+            Some(live) if !live.sink.is_cancelled() => {
+                live.sink.send(msg).await.map_err(|e| SendError::ChannelClosed(e.0))
+            }
+            _ => Err(SendError::NoStream(msg)),
+        }
+    }
+
+    /// Access a user's live sink and state under the per-user lock.
+    ///
+    /// Returns `None` if the user has no active stream. Returns `Some(T)`
+    /// with the closure's return value if the stream is live.
+    ///
+    /// The closure receives `&StreamSink<P::Send>` and `&mut P::State`.
+    /// The per-user lock is held for the duration of the closure.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safety depends on the closure. The lock is released on drop.
+    pub async fn with_live<T, F, Fut>(&self, user_id: i32, f: F) -> Option<T>
+    where
+        F: FnOnce(&StreamSink<P::Send>, &mut P::State) -> Fut,
+        Fut: Future<Output = T>,
+    {
+        let slot_arc = self.users.get(&user_id)?.value().clone();
+
+        let mut guard = slot_arc.lock().await;
+        let live = guard.live.as_mut()?;
+
+        if live.sink.is_cancelled() {
+            return None;
+        }
+
+        Some(f(&live.sink, &mut live.state).await)
+    }
+
+    /// Race-safe access: call `on_live` if stream exists, `on_offline` if not.
+    ///
+    /// Both closures run under the per-user `tokio::Mutex`, ensuring atomic
+    /// coordination between `send()` and `open_stream()`. This is the primary
+    /// mechanism for eliminating the check-then-act race condition.
+    ///
+    /// If no DashMap entry exists, an ephemeral slot is created, the offline
+    /// closure runs under its lock, and the slot is removed immediately after.
+    ///
+    /// # When to use this vs `send()`
+    ///
+    /// - `send()` — fire-and-forget. Returns the message on failure. No lock
+    ///   coordination for the offline path.
+    /// - `with_live_or_else()` — the offline fallback (e.g., DB write) runs
+    ///   under the same lock that `open_stream()` holds during drain.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safety depends on the closures. The lock is released on drop.
+    pub async fn with_live_or_else<T, F1, Fut1, F2, Fut2>(
+        &self,
+        user_id: i32,
+        on_live: F1,
+        on_offline: F2,
+    ) -> T
+    where
+        F1: FnOnce(&StreamSink<P::Send>, &mut P::State) -> Fut1,
+        Fut1: Future<Output = T>,
+        F2: FnOnce() -> Fut2,
+        Fut2: Future<Output = T>,
+    {
+        // Atomically get or create the per-user slot.
+        let slot_arc = self
+            .users
+            .entry(user_id)
+            .or_insert_with(|| Arc::new(AsyncMutex::new(UserSlot { live: None })))
+            .value()
+            .clone();
+
+        let mut guard = slot_arc.lock().await;
+
+        let result = match &mut guard.live {
+            Some(live) if !live.sink.is_cancelled() => {
+                on_live(&live.sink, &mut live.state).await
+            }
+            _ => {
+                on_offline().await
+            }
+        };
+
+        // If the slot is empty (offline path or cancelled stream), clean up.
+        let is_empty = guard.live.as_ref().map_or(true, |l| l.sink.is_cancelled());
+        if is_empty {
+            drop(guard);
+            self.try_remove_empty_slot(user_id);
+        }
+
+        result
+    }
+
     /// Remove a DashMap entry if the slot is empty and unlocked.
     fn try_remove_empty_slot(&self, user_id: i32) {
         self.users.remove_if(&user_id, |_, slot_arc| {
@@ -383,6 +506,14 @@ impl<P: UserStreamProtocol> UserStream<P> {
                 Err(_) => false,
             }
         });
+    }
+}
+
+#[cfg(test)]
+impl<P: UserStreamProtocol> UserStream<P> {
+    /// Test helper: whether a DashMap entry exists for this user (even if empty).
+    pub fn has_slot(&self, user_id: i32) -> bool {
+        self.users.contains_key(&user_id)
     }
 }
 
