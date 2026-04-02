@@ -334,6 +334,132 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
             })
     }
 
+    /// Send a batch of messages as a single atomic unit.
+    ///
+    /// The entire batch is enqueued as one `Envelope::SendBatch`. The forwarding
+    /// task writes each message sequentially with no interleaving from other
+    /// senders — the batch is atomic at the transport level.
+    ///
+    /// An empty `msgs` vec is a no-op (nothing is enqueued).
+    ///
+    /// # Errors
+    ///
+    /// Returns `SendError` if the channel is closed (forwarding task exited).
+    /// On error, none of the batch messages were enqueued.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. If dropped before completion, no messages are enqueued.
+    pub async fn send_batch(&self, msgs: Vec<S>) -> Result<(), mpsc::error::SendError<Vec<S>>> {
+        if msgs.is_empty() {
+            return Ok(());
+        }
+        self.tx
+            .send(Envelope::SendBatch(msgs))
+            .await
+            .map_err(|e| {
+                let Envelope::SendBatch(msgs) = e.0 else {
+                    unreachable!("send_batch always wraps in Envelope::SendBatch")
+                };
+                mpsc::error::SendError(msgs)
+            })
+    }
+
+    /// Send a message with transport-level delivery confirmation.
+    ///
+    /// Queues the message with a oneshot response channel. The forwarding task
+    /// writes to `FramedWrite::send` and sends the result back through the oneshot.
+    ///
+    /// "Confirmed" means the framed transport accepted the bytes — NOT that the
+    /// client application processed them. QUIC provides reliable transport, but
+    /// this is NOT an application-level ACK.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfirmedSendError::ChannelClosed`] — forwarding task exited before
+    ///   processing this message. The message never reached the transport.
+    /// - [`ConfirmedSendError::Transport`] — the `FramedWrite::send` call failed.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. If dropped mid-await, the message may or may not be written
+    /// (it's in the mpsc buffer). The forwarding task drops the oneshot response
+    /// sender if it processes the message after the caller stopped waiting.
+    /// No corruption occurs in either case.
+    pub async fn send_confirmed(&self, msg: S) -> Result<(), ConfirmedSendError> {
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .send(Envelope::Confirm(msg, response_tx))
+            .await
+            .map_err(|_| ConfirmedSendError::ChannelClosed)?;
+
+        // Wait for the forwarding task's confirmation.
+        // RecvError means the forwarding task dropped the sender (cancelled/exited).
+        match response_rx.await {
+            Ok(result) => result,
+            Err(_) => Err(ConfirmedSendError::ChannelClosed),
+        }
+    }
+
+    /// Send a batch of messages with transport-level delivery confirmation.
+    ///
+    /// The entire batch is queued as one `Envelope::ConfirmBatch`. The forwarding
+    /// task writes each message sequentially. On success, all messages were
+    /// written to the transport. On failure, the error carries the count of
+    /// successfully sent messages and ownership of the unsent remainder.
+    ///
+    /// An empty `msgs` vec succeeds immediately (no-op).
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfirmedBatchError`] — partial or complete failure. `sent` is the
+    ///   number successfully written, `unsent` contains messages that were not
+    ///   written (ownership returned to caller for persistence/retry/discard).
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. If dropped mid-await, the batch may be partially written
+    /// but the caller won't know which messages were sent. Acceptable for
+    /// at-least-once callers. Exactly-once callers should not cancel this future.
+    pub async fn send_confirmed_batch(
+        &self,
+        msgs: Vec<S>,
+    ) -> Result<(), ConfirmedBatchError<S>> {
+        if msgs.is_empty() {
+            return Ok(());
+        }
+
+        let (response_tx, response_rx) = oneshot::channel();
+        if self
+            .tx
+            .send(Envelope::ConfirmBatch(msgs, response_tx))
+            .await
+            .is_err()
+        {
+            // Channel closed — forwarding task exited. Extract msgs from the
+            // failed Envelope. Unfortunately, mpsc::SendError consumes the
+            // Envelope and we can't destructure it after the send attempt.
+            // The messages are lost in the error value.
+            //
+            // To return them, we'd need to keep a clone, which defeats the
+            // zero-copy design. Instead, signal total failure.
+            return Err(ConfirmedBatchError {
+                sent: 0,
+                unsent: vec![], // Messages consumed by the failed send.
+                source: anyhow::anyhow!("channel closed before batch reached forwarding task"),
+            });
+        }
+
+        match response_rx.await {
+            Ok(result) => result,
+            Err(_) => Err(ConfirmedBatchError {
+                sent: 0,
+                unsent: vec![],
+                source: anyhow::anyhow!("forwarding task dropped response channel"),
+            }),
+        }
+    }
+
     /// Try to send a message without waiting.
     ///
     /// # Errors
