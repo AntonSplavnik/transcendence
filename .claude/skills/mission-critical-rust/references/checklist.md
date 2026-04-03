@@ -15,7 +15,7 @@ it explicitly so the reviewer knows what still needs attention.
 - [ ] Public surface is minimal -- `pub(crate)` or `pub(super)` preferred over `pub`.
 - [ ] Builder pattern for types with 3+ optional fields.
 - [ ] Typestate pattern considered for any protocol with ordered steps.
-- [ ] `#[non_exhaustive]` on public enums and structs that may evolve.
+- [ ] no `#[non_exhaustive]` used on any enums
 - [ ] No function with more than 5 parameters -- use a config struct or builder.
 
 ## Invariants

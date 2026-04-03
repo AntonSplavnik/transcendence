@@ -188,11 +188,9 @@ pub fn try_lock(&self) -> Option<Guard<'_>> { ... }
 Prefer `pub(crate)` or `pub(super)` over `pub`. If something is truly internal,
 make it private. Use `#[doc(hidden)]` sparingly -- prefer true privacy.
 
-### `#[non_exhaustive]` for Evolvability
+### No `#[non_exhaustive]`
 
-Any public enum or struct that may gain variants or fields must be marked
-`#[non_exhaustive]` from the start. Adding a variant to a non-`#[non_exhaustive]`
-enum is a semver-breaking change.
+This is a binary only, not a sharable library. We control all call sites and can update them together with new enum variants.
 
 ### Sealed Traits
 
