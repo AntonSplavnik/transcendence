@@ -267,12 +267,31 @@ SQLite was chosen because:
 | `data` | BLOB | CBOR-encoded `Notification` enum value |
 | `created_at` | DATETIME | |
 
+### `account_deletion_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
+| `token` | BLOB | 32-byte random token, base64url-encoded in API responses |
+| `confirm_token` | BLOB nullable | 32-byte email confirmation token; NULL after confirmed |
+| `expires_at` | DATETIME | 30 minutes from initiation |
+
+### `data_export_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
+| `token` | BLOB | 32-byte random token, base64url-encoded in API responses |
+| `confirm_token` | BLOB nullable | 32-byte email confirmation token; NULL after confirmed |
+| `expires_at` | DATETIME | 30 minutes from initiation |
+
 ### Relationships summary
 
 - One user has many sessions (cascade delete).
 - One user has many recovery codes (cascade delete).
 - One user has at most one large avatar and one small avatar (cascade delete).
 - One user has many notifications (cascade delete).
+- One user has at most one pending deletion request and one pending export request (cascade delete).
 - Sessions reference users; avatars and notifications are user-scoped.
 
 ---
@@ -291,6 +310,7 @@ SQLite was chosen because:
 | TOTP 2FA | kwurster (backend), lmeubrin (frontend) | RFC 6238 TOTP. Secret encrypted at rest. Single-use recovery codes stored as hashes. Enable/confirm/disable flow. |
 | Rate limiting | kwurster | IP-based limits on register/login. User + IP limits on authenticated endpoints. |
 | HTTPS / TLS | kwurster | Salvo + Rustls; all cookies `Secure`, `HttpOnly`, `SameSite=Lax`. |
+| GDPR compliance | kwurster (backend), lmeubrin (frontend) | Account deletion (pseudo-anonymization) and personal data export via three-phase token flow. Password + MFA verification at each step. Email confirmation for verified users. Frontend "Privacy & Data" modal with nickname confirmation for deletion. |
 
 ### Session Management
 
@@ -533,6 +553,7 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 - Notification system: `notifications` table, CBOR-encoded `Notification` enum, `ServerHello`
 - Frontend WebTransport: codec `CompressedCborCodec.ts` (CBOR + zstd) and Stream manager
 - Backend CI/CD pipeline
+- GDPR backend: account deletion (pseudo-anonymization), data export, three-phase token flow, email confirmation endpoints, 56 integration tests
 - Full backend test infrastructure: mock server, `ApiClient`, `User` typestate, test conventions
 
 ### asplavnic
@@ -557,6 +578,7 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 - Landing page: `LandingPage.tsx` and animated `LandingScene.tsx`
 - Design system: 11 UI components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`), stone/gold/dungeon theme, full Tailwind custom config
 - Error system: `storeError` / `retrieveStoredError` pattern, `ErrorBanner` component
+- GDPR frontend: Privacy & Data modal with account deletion and data export flows, nickname confirmation for deletion, WCAG-compliant step-based UI
 - Frontend CI/CD pipeline
 - WCAG 2.1 AA accessibility compliance (Module 11): Dropdown keyboard navigation, Modal focus trap and focus restoration, skip link, `prefers-reduced-motion` support, ARIA landmarks, descriptive labels, game canvas text alternative
 

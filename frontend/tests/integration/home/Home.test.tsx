@@ -194,6 +194,26 @@ describe('Home', () => {
 		});
 	});
 
+	describe('privacy & data modal', () => {
+		it('opens DataPrivacyModal from menu', async () => {
+			const user = userEvent.setup();
+			renderHome();
+
+			await waitFor(() => {
+				expect(screen.getByText('Player Dashboard')).toBeInTheDocument();
+			});
+
+			// Open menu
+			await user.click(screen.getByRole('button', { name: /TestUser/i }));
+			await user.click(screen.getByText('Privacy & Data'));
+
+			await waitFor(() => {
+				expect(screen.getByRole('heading', { name: 'Export My Data' })).toBeInTheDocument();
+				expect(screen.getByRole('heading', { name: 'Delete My Account' })).toBeInTheDocument();
+			});
+		});
+	});
+
 	describe('manage sessions', () => {
 		it('calls onSessions from menu', async () => {
 			const user = userEvent.setup();
