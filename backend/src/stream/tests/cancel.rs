@@ -178,6 +178,7 @@ fn cancel_handle_all_cancel_reasons_round_trip() {
         CancelReason::RoomDestroyed,
         CancelReason::TransportError,
         CancelReason::StreamEnded,
+        CancelReason::SenderDropped,
     ];
 
     for reason in &all_reasons {

@@ -160,6 +160,10 @@ impl CancelHandle {
     /// observe `reason() == Some(...)` while `is_cancelled()` is still
     /// `false`. After `cancel` returns, both are stable.
     pub fn cancel(&self, reason: CancelReason) {
+        // Do not pre-check `is_cancelled()` here.
+        // A local failure may race with parent cancellation, and the first
+        // recorded local reason is intentionally preserved as the best
+        // diagnostic signal we have for stream-level shutdown.
         // First writer wins — OnceLock::set returns Err if already set,
         // which we intentionally discard. The first reason IS the root cause.
         let _ = self.reason.set(reason);
