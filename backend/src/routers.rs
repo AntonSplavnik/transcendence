@@ -49,12 +49,14 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
         });
     }
 
+    let notification_manager = NotificationManager::new(database.clone());
+
     Router::new()
         .hoop(affix_state::inject(database))
         .hoop(affix_state::inject(tos_timestamp))
         .hoop(affix_state::inject(mailer))
         .hoop(affix_state::inject(stream_manager))
-        .hoop(affix_state::inject(NotificationManager::new()))
+        .hoop(affix_state::inject(notification_manager))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
