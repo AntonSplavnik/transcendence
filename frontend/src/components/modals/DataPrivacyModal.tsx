@@ -22,7 +22,6 @@ interface GdprFlowState {
 	emailConfirmationRequired: boolean;
 	expiresAt: string | null;
 	error: string | null;
-	exportData: DataExport | null;
 }
 
 const INITIAL_FLOW_STATE: GdprFlowState = {
@@ -31,7 +30,6 @@ const INITIAL_FLOW_STATE: GdprFlowState = {
 	emailConfirmationRequired: false,
 	expiresAt: null,
 	error: null,
-	exportData: null,
 };
 
 interface DataPrivacyModalProps {
@@ -44,23 +42,28 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 	const [exportFlow, setExportFlow] = useState<GdprFlowState>(INITIAL_FLOW_STATE);
 	const [deleteFlow, setDeleteFlow] = useState<GdprFlowState>(INITIAL_FLOW_STATE);
 
-	// Credential refs — kept out of state to avoid leaking via React DevTools
 	const exportPasswordRef = useRef<HTMLInputElement>(null);
 	const exportMfaRef = useRef<HTMLInputElement>(null);
 	const deletePasswordRef = useRef<HTMLInputElement>(null);
 	const deleteMfaRef = useRef<HTMLInputElement>(null);
+	const exportDataRef = useRef<DataExport | null>(null);
+	const deleteTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-	// Inline validation error state
 	const [exportPasswordError, setExportPasswordError] = useState('');
 	const [exportMfaError, setExportMfaError] = useState('');
 	const [deletePasswordError, setDeletePasswordError] = useState('');
 	const [deleteMfaError, setDeleteMfaError] = useState('');
 
-	// Nickname confirmation for delete execute step
 	const [deleteNickname, setDeleteNickname] = useState('');
 	const [deleteNicknameError, setDeleteNicknameError] = useState('');
 
-	// Clear credential refs on tab visibility change (security pattern from SessionManagement)
+	useEffect(() => {
+		return () => {
+			if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+		};
+	}, []);
+
+	// Wipe credential inputs when the tab loses focus to avoid leaking secrets
 	useEffect(() => {
 		const handleVisibilityChange = () => {
 			if (document.hidden) {
@@ -128,7 +131,6 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 		[user?.totp_enabled],
 	);
 
-	// ── Initiate handler ──────────────────────────────────────
 	const handleInitiate = useCallback(
 		async (action: 'export' | 'delete') => {
 			const creds = validateCredentials(action);
@@ -162,16 +164,25 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 		[validateCredentials],
 	);
 
-	// ── Execute handler ───────────────────────────────────────
+	const triggerDownload = useCallback((data: DataExport) => {
+		const blob = new Blob([JSON.stringify(data, null, 2)], {
+			type: 'application/json',
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `my-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+		a.click();
+		setTimeout(() => URL.revokeObjectURL(url), 100);
+	}, []);
+
 	const handleExecute = useCallback(
 		async (action: 'export' | 'delete') => {
 			const creds = validateCredentials(action);
 			if (!creds) return;
 
-			const flow = action === 'export' ? exportFlow : deleteFlow;
 			const setFlow = action === 'export' ? setExportFlow : setDeleteFlow;
 
-			// Nickname confirmation for delete
 			if (action === 'delete') {
 				if (deleteNickname !== user?.nickname) {
 					setDeleteNicknameError('Nickname does not match.');
@@ -180,23 +191,26 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 				setDeleteNicknameError('');
 			}
 
-			setFlow(prev => ({ ...prev, step: 'executing', error: null }));
+			// Read token from current state to avoid stale closure
+			const token = await new Promise<string | null>(resolve => {
+				setFlow(prev => {
+					resolve(prev.token);
+					return { ...prev, step: 'executing', error: null };
+				});
+			});
 
 			try {
 				const apiFn = action === 'export' ? exportMyData : deleteMyAccount;
-				const response = await apiFn(creds.password, creds.mfaCode, flow.token!);
+				const response = await apiFn(creds.password, creds.mfaCode, token!);
 
 				if (action === 'export') {
 					const data = response as DataExport;
 					triggerDownload(data);
-					setExportFlow(prev => ({
-						...prev,
-						step: 'done',
-						exportData: data,
-					}));
+					exportDataRef.current = data;
+					setExportFlow(prev => ({ ...prev, step: 'done' }));
 				} else {
 					setDeleteFlow(prev => ({ ...prev, step: 'done' }));
-					setTimeout(() => clearAuth(), 2000);
+					deleteTimerRef.current = setTimeout(() => clearAuth(), 2000);
 				}
 			} catch (err) {
 				const brief = getErrorBrief(err);
@@ -223,28 +237,14 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 				}
 			}
 		},
-		[validateCredentials, exportFlow, deleteFlow, deleteNickname, user?.nickname, clearAuth],
+		[validateCredentials, deleteNickname, user?.nickname, clearAuth, triggerDownload],
 	);
 
-	// ── Download handler ──────────────────────────────────────
-	const triggerDownload = useCallback((data: DataExport) => {
-		const blob = new Blob([JSON.stringify(data, null, 2)], {
-			type: 'application/json',
-		});
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `my-data-export-${new Date().toISOString().slice(0, 10)}.json`;
-		a.click();
-		URL.revokeObjectURL(url);
-	}, []);
-
 	const handleDownloadExport = useCallback(() => {
-		if (!exportFlow.exportData) return;
-		triggerDownload(exportFlow.exportData);
-	}, [exportFlow.exportData, triggerDownload]);
+		if (!exportDataRef.current) return;
+		triggerDownload(exportDataRef.current);
+	}, [triggerDownload]);
 
-	// ── Credential form (reused by both sections) ─────────────
 	const renderCredentialInputs = (
 		action: 'export' | 'delete',
 		phase: 'initiate' | 'execute',
@@ -349,7 +349,6 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 		);
 	};
 
-	// ── Awaiting email step (reused) ──────────────────────────
 	const renderAwaitingEmail = (action: 'export' | 'delete') => {
 		const setFlow = action === 'export' ? setExportFlow : setDeleteFlow;
 
@@ -371,7 +370,6 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 	return (
 		<Modal onClose={onClose} title="Privacy & Data" icon={<ShieldCheck className="w-6 h-6" />} maxWidth="lg">
-			{/* ── Export My Data ──────────────────────────────── */}
 			<section aria-labelledby="export-heading">
 				<Card accent="info">
 					<div className="flex items-center gap-2 mb-3">
@@ -386,7 +384,6 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 						This includes your profile, sessions, friend requests, notifications, and avatars.
 					</p>
 
-					{/* Screen reader announcements */}
 					<div aria-live="polite" aria-atomic="true" className="sr-only">
 						{exportFlow.step === 'awaiting_email' && 'Check your email for a confirmation link.'}
 						{exportFlow.step === 'done' && 'Data export complete. File has been downloaded.'}
@@ -420,7 +417,7 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 					{(exportFlow.step === 'confirm_credentials' || exportFlow.step === 'executing') &&
 						renderCredentialInputs('export', 'execute')}
 
-					{exportFlow.step === 'done' && exportFlow.exportData && (
+					{exportFlow.step === 'done' && (
 						<div className="space-y-3">
 							<Alert variant="success">
 								Your data export has been downloaded.
@@ -438,10 +435,8 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 				</Card>
 			</section>
 
-			{/* ── Separator ──────────────────────────────────── */}
 			<hr className="my-6 border-stone-700" />
 
-			{/* ── Delete My Account ──────────────────────────── */}
 			<section aria-labelledby="delete-heading">
 				<Card accent="danger">
 					<div className="flex items-center gap-2 mb-3">
@@ -460,7 +455,6 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 						</p>
 					</Alert>
 
-					{/* Screen reader announcements */}
 					<div aria-live="assertive" aria-atomic="true" className="sr-only">
 						{deleteFlow.step === 'awaiting_email' && 'Check your email for a confirmation link.'}
 						{deleteFlow.step === 'done' && 'Your account has been deleted. Redirecting.'}
