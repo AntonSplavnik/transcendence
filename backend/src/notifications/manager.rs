@@ -60,7 +60,7 @@ pub enum NotificationError {
 
     /// The protocol rejected the open.
     #[error("open stream failed: {0}")]
-    Open(String),
+    Open(#[from] NotificationOpenError),
 }
 
 /// Protocol implementation for the notification stream.
@@ -101,7 +101,7 @@ impl UserStreamProtocol for NotificationProtocol {
     ) -> Result<(), NotificationOpenError> {
         let pending = load_from_db(&self.db, user_id)
             .await
-            .map_err(|e| NotificationOpenError(format!("DB load failed: {e}")))?;
+            .map_err(NotificationOpenError::DbLoad)?;
 
         if pending.is_empty() {
             return Ok(());
@@ -148,10 +148,10 @@ impl UserStreamProtocol for NotificationProtocol {
                         );
                     }
                 }
-                return Err(NotificationOpenError(format!(
-                    "batch send failed after {} messages: {}",
-                    e.sent, e.source
-                )));
+                return Err(NotificationOpenError::BatchSend {
+                    sent: e.sent,
+                    source: e.source,
+                });
             }
         }
 
@@ -164,9 +164,24 @@ impl UserStreamProtocol for NotificationProtocol {
 }
 
 /// Notification open rejection.
+///
+/// Returned by [`NotificationProtocol::on_open`] when the DB drain or batch
+/// send fails during stream setup.
 #[derive(Debug, Error)]
-#[error("{0}")]
-pub struct NotificationOpenError(String);
+pub enum NotificationOpenError {
+    /// Failed to load pending notifications from the database during drain.
+    #[error("DB load failed: {0}")]
+    DbLoad(#[from] DbError),
+
+    /// Batch send of pending notifications partially or fully failed.
+    #[error("batch send failed after {sent} messages: {source}")]
+    BatchSend {
+        /// Number of messages successfully written to the transport.
+        sent: usize,
+        /// The underlying transport error.
+        source: anyhow::Error,
+    },
+}
 
 /// Notification delivery manager.
 ///
@@ -185,7 +200,6 @@ pub struct NotificationManager {
     db: Db,
 }
 
-#[allow(dead_code)]
 impl NotificationManager {
     /// Create a new `NotificationManager`.
     pub fn new(db: Db) -> Self {
@@ -221,21 +235,20 @@ impl NotificationManager {
         payload: NotificationPayload,
     ) -> Result<(), NotificationError> {
         let created_at = chrono::Utc::now();
-        let wire = WireNotification {
-            payload: payload.clone(),
-            created_at,
-        };
         let db = self.db.clone();
         let db_offline = db.clone();
-        let payload_offline = payload.clone();
 
         self.user_stream
-            .with_live_or_else(
+            .with_live_or_else_ctx(
                 user_id,
-                move |sink, _state| {
+                payload,
+                move |sink, _state, payload: NotificationPayload| {
                     let sink = sink.clone();
-                    let db = db.clone();
                     async move {
+                        let wire = WireNotification {
+                            payload: payload.clone(),
+                            created_at,
+                        };
                         match sink.send(wire).await {
                             Ok(()) => Ok(()),
                             Err(_) => {
@@ -251,8 +264,8 @@ impl NotificationManager {
                         }
                     }
                 },
-                || async move {
-                    store_to_db(&db_offline, user_id, payload_offline, created_at)
+                |payload| async move {
+                    store_to_db(&db_offline, user_id, payload, created_at)
                         .await
                         .map_err(NotificationError::from)
                 },
@@ -279,16 +292,21 @@ impl NotificationManager {
             .await
             .map_err(|e| match e {
                 OpenError::StreamOpen(e) => NotificationError::Stream(e),
-                OpenError::Rejected(e) => NotificationError::Open(e.to_string()),
+                OpenError::Rejected(e) => NotificationError::Open(e),
             })
     }
 
     /// Remove the notification stream for a user.
+    // Used by the WebTransport disconnect handler (not yet wired).
+    #[allow(dead_code)]
     pub fn close_stream(&self, user_id: i32) {
         self.user_stream.close_stream(user_id);
     }
 
     /// Returns `true` if the user has an active, non-cancelled notification stream.
+    // Used by the WebTransport disconnect handler (not yet wired).
+    #[allow(dead_code)]
+    #[must_use]
     pub fn has_stream(&self, user_id: i32) -> bool {
         self.user_stream.has_stream(user_id)
     }
