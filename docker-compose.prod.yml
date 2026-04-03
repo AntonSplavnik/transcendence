@@ -5,6 +5,13 @@ services:
     # all incoming connections to be the same (the one of the docker bridge),
     # which breaks rate limiting and session ip identification
     network_mode: host
+    user: "0:0"
+    entrypoint: ["/app/transcendence-backend"]
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - DAC_OVERRIDE
     # ports:
     #   - "80:80"
     #   - "443:443/tcp"
