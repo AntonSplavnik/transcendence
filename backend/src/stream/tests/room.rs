@@ -871,10 +871,14 @@ async fn test_uni_stream_backpressure_cancels_member() {
     for i in 0..31 {
         room.broadcast(&format!("flood:{i}"));
     }
-    // Allow cleanup task to run.
-    tokio::task::yield_now().await;
-    tokio::task::yield_now().await;
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    // Allow cleanup task to run. Use bounded polling instead of a fixed sleep
+    // to be robust under CI load (100ms max).
+    for _ in 0..100 {
+        if room.is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+    }
     assert!(
         room.is_empty(),
         "member should have been removed by cleanup task"

@@ -299,8 +299,8 @@ impl NotificationManager {
     /// Remove the notification stream for a user.
     // Used by the WebTransport disconnect handler (not yet wired).
     #[allow(dead_code)]
-    pub fn close_stream(&self, user_id: i32) {
-        self.user_stream.close_stream(user_id);
+    pub async fn close_stream(&self, user_id: i32) {
+        self.user_stream.close_stream(user_id).await;
     }
 
     /// Returns `true` if the user has an active, non-cancelled notification stream.

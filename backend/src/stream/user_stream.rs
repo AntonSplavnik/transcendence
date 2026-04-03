@@ -129,10 +129,14 @@ pub trait UserStreamProtocol: Send + Sync + 'static {
     /// protocols that never reject (makes the `Rejected` variant unreachable).
     type OpenReject: std::error::Error + Send + 'static;
 
-    /// Stream type identifier (e.g., `StreamType::Notifications`).
+    /// Stream type identifier sent as the first frame to the client.
+    /// See [`StreamType`].
     fn stream_type(&self) -> StreamType;
 
     /// Create fresh per-user state for a new connection.
+    ///
+    /// Called under the per-user lock during `open_stream` / `open_bidi_stream`,
+    /// before `on_open`. The returned state persists until `on_close` consumes it.
     fn init_state(&self, user_id: i32, context: &Self::OpenContext) -> Self::State;
 
     /// Called under per-user lock after the stream is opened and state initialized.
@@ -226,6 +230,22 @@ impl<P: UserStreamProtocol> UserStream<P> {
         &self.protocol
     }
 
+    /// Snapshot of all currently tracked user IDs.
+    ///
+    /// Includes users with active streams AND users with in-flight cleanup.
+    /// Best-effort — the set may change immediately after this call returns.
+    ///
+    /// Use with [`send`](Self::send) to broadcast to all connected users:
+    /// ```ignore
+    /// for uid in us.tracked_user_ids() {
+    ///     let _ = us.send(uid, msg.clone()).await;
+    /// }
+    /// ```
+    #[must_use]
+    pub fn tracked_user_ids(&self) -> Vec<i32> {
+        self.users.iter().map(|e| *e.key()).collect()
+    }
+
     /// Atomically get-or-insert a user slot and return its owned lock guard.
     ///
     /// Bridges the DashMap shard lock and the per-user tokio Mutex without a
@@ -258,6 +278,12 @@ impl<P: UserStreamProtocol> UserStream<P> {
     }
 
     /// Whether a user has an active, non-cancelled stream.
+    ///
+    /// **Best-effort / opportunistic**: may return `false` under contention
+    /// (when the per-user lock is held by another operation) even if a stream
+    /// is active. Callers must not use this as a precondition for
+    /// correctness-critical decisions. Use [`with_live`](Self::with_live) or
+    /// [`with_live_or_else`](Self::with_live_or_else) for race-safe access.
     #[must_use]
     pub fn has_stream(&self, user_id: i32) -> bool {
         self.users.get(&user_id).is_some_and(|entry| {
@@ -274,6 +300,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
     ///
     /// Uses [`StreamManager`] to open the underlying WebTransport stream.
     /// In tests, use [`open_stream_test`](Self::open_stream_test) instead.
+    ///
+    /// # Errors
+    ///
+    /// - [`OpenError::StreamOpen`] — the `StreamManager` could not open the stream.
+    /// - [`OpenError::Rejected`] — the protocol's `on_open` rejected the open.
     pub async fn open_stream(
         self: &Arc<Self>,
         sm: &StreamManager,
@@ -337,6 +368,21 @@ impl<P: UserStreamProtocol> UserStream<P> {
             return Err(OpenError::Rejected(reject));
         }
 
+        // Guard: the sink may have been cancelled during the async on_open work
+        // (e.g. transport error). Return an error instead of leaving a dead stream.
+        if sink.is_cancelled() {
+            let live = guard.live.take().expect("just set live to Some above");
+            self.protocol.on_close(user_id, live.state).await;
+            drop(guard);
+            self.try_remove_empty_slot(user_id);
+            return Err(OpenError::StreamOpen(
+                StreamManagerError::ConnectionClosed {
+                    user_id,
+                    reason: "sink cancelled during on_open".to_string(),
+                },
+            ));
+        }
+
         // Spawn cleanup task before releasing lock.
         self.spawn_cleanup_task(user_id, &sink);
 
@@ -395,12 +441,23 @@ impl<P: UserStreamProtocol> UserStream<P> {
         Ok(())
     }
 
-    /// Close a user's stream immediately.
-    pub fn close_stream(&self, user_id: i32) {
-        if let Some(entry) = self.users.get(&user_id)
-            && let Ok(guard) = entry.value().try_lock()
-            && let Some(live) = &guard.live
-        {
+    /// Close a user's stream immediately by cancelling the sink.
+    ///
+    /// Acquires the per-user lock (async) to guarantee the cancel is issued
+    /// even under contention. The actual cleanup (calling `on_close`, removing
+    /// the DashMap entry) is handled by the spawned cleanup task — this method
+    /// only issues the cancel signal.
+    ///
+    /// Note: `has_stream(user_id)` may still return `true` briefly after this
+    /// call — the cleanup task runs asynchronously.
+    pub async fn close_stream(&self, user_id: i32) {
+        let slot_arc = match self.users.get(&user_id) {
+            Some(entry) => Arc::clone(entry.value()),
+            None => return,
+        };
+
+        let guard = slot_arc.lock_owned().await;
+        if let Some(live) = &guard.live {
             live.sink.cancel(CancelReason::Removed);
         }
     }
@@ -450,6 +507,9 @@ impl<P: UserStreamProtocol> UserStream<P> {
     }
 
     /// Fire-and-forget send. Returns the message on failure.
+    ///
+    /// This method is async (acquires the per-user lock). Compare with
+    /// [`StreamRoom::send`](super::StreamRoom::send) which is synchronous.
     ///
     /// If the user has a live stream, sends the message and returns `Ok(())`.
     /// If no stream exists or the channel is closed, returns the message
@@ -522,6 +582,9 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
     /// Delegates to [`with_live_or_else_ctx`](Self::with_live_or_else_ctx) with
     /// `()` context. See that method for full documentation.
+    ///
+    /// For non-`Clone` or expensive-to-clone context data, use
+    /// [`with_live_or_else_ctx`](Self::with_live_or_else_ctx).
     ///
     /// # Cancel Safety
     ///
@@ -596,8 +659,12 @@ impl<P: UserStreamProtocol> UserStream<P> {
             _ => on_offline(ctx).await,
         };
 
-        // If the slot is empty (offline path or cancelled stream), clean up.
-        let is_empty = guard.live.as_ref().is_none_or(|l| l.sink.is_cancelled());
+        // If the slot is empty (offline path), clean up the DashMap entry.
+        // When `live` is `Some` but cancelled, we do NOT take() it here because
+        // the cleanup task owns the `on_close` responsibility and needs the live
+        // connection to call `on_close(state)`. The cancelled-but-Some entry is
+        // a transient ghost that the cleanup task will resolve shortly.
+        let is_empty = guard.live.is_none();
         if is_empty {
             drop(guard);
             self.try_remove_empty_slot(user_id);
@@ -635,12 +702,16 @@ where
     }
 
     /// Test-mode open: creates a `DuplexStream`-backed sink.
-    /// Returns the sink clone for test inspection.
+    ///
+    /// Returns `(StreamSink, DuplexStream)` — the second element is the client
+    /// read half. Callers that don't need it can bind to `_` — the important
+    /// thing is that it stays alive for the duration of the test, otherwise
+    /// the transport pipe breaks and sends fail with `TransportError`.
     pub async fn open_stream_test(
         self: &Arc<Self>,
         user_id: i32,
         context: P::OpenContext,
-    ) -> Result<StreamSink<P::Send>, OpenError<P::OpenReject>> {
+    ) -> Result<(StreamSink<P::Send>, tokio::io::DuplexStream), OpenError<P::OpenReject>> {
         use tokio_util::codec::FramedWrite;
         use tokio_util::sync::CancellationToken;
 
@@ -648,7 +719,7 @@ where
         use super::sink::DEFAULT_SINK_BUFFER;
         use super::tests::test_utils::DUPLEX_BUFFER;
 
-        let (server_write, _client_read) = tokio::io::duplex(DUPLEX_BUFFER);
+        let (server_write, client_read) = tokio::io::duplex(DUPLEX_BUFFER);
         let framed_write = FramedWrite::new(server_write, CompressedCborEncoder::<P::Send>::new());
         let token = CancellationToken::new();
         let sink = StreamSink::new(framed_write, token, DEFAULT_SINK_BUFFER);
@@ -656,7 +727,7 @@ where
 
         self.open_stream_inner(user_id, context, sink).await?;
 
-        Ok(sink_clone)
+        Ok((sink_clone, client_read))
     }
 
     /// Test-mode bidi open: returns sink clone and `TestClientSender`.

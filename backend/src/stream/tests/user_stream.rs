@@ -64,7 +64,7 @@ async fn test_user_stream_open_and_has_stream() {
 
     assert!(!us.has_stream(1), "no stream before open");
 
-    let _ = us.open_stream_test(1, ()).await.unwrap();
+    let (_, _client_read) = us.open_stream_test(1, ()).await.unwrap();
 
     assert!(us.has_stream(1), "stream should be live after open");
     assert_eq!(us.protocol().opens(), 1);
@@ -74,10 +74,10 @@ async fn test_user_stream_open_and_has_stream() {
 async fn test_user_stream_close_removes_entry() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let _ = us.open_stream_test(1, ()).await.unwrap();
+    let (_, _client_read) = us.open_stream_test(1, ()).await.unwrap();
     assert!(us.has_stream(1));
 
-    us.close_stream(1);
+    us.close_stream(1).await;
 
     // Yield to let cleanup task run.
     tokio::task::yield_now().await;
@@ -92,7 +92,7 @@ async fn test_user_stream_close_removes_entry() {
 async fn test_user_stream_cleanup_on_cancel() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let sink = us.open_stream_test(1, ()).await.unwrap();
+    let (sink, _client_read) = us.open_stream_test(1, ()).await.unwrap();
 
     // Cancel the sink to trigger cleanup.
     sink.cancel(CancelReason::TransportError);
@@ -114,8 +114,8 @@ async fn test_user_stream_cleanup_on_cancel() {
 async fn test_user_stream_replace_stream_on_second_open() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let sink1 = us.open_stream_test(1, ()).await.unwrap();
-    let sink2 = us.open_stream_test(1, ()).await.unwrap();
+    let (sink1, _client_read1) = us.open_stream_test(1, ()).await.unwrap();
+    let (sink2, _client_read2) = us.open_stream_test(1, ()).await.unwrap();
 
     // sink1 should have been replaced
     assert!(us.has_stream(1));
@@ -127,7 +127,7 @@ async fn test_user_stream_replace_stream_on_second_open() {
 async fn test_user_stream_send_to_live_user() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let _ = us.open_stream_test(1, ()).await.unwrap();
+    let (_, _client_read) = us.open_stream_test(1, ()).await.unwrap();
 
     let result = us.send(1, "hello".to_string()).await;
     assert!(result.is_ok(), "send to live user should succeed");
@@ -159,7 +159,7 @@ async fn test_user_stream_with_live_returns_none_for_offline() {
 async fn test_user_stream_with_live_accesses_sink_and_state() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let _ = us.open_stream_test(1, ()).await.unwrap();
+    let (_, _client_read) = us.open_stream_test(1, ()).await.unwrap();
 
     let result = us
         .with_live(1, |sink, _state: &mut ()| {
@@ -174,7 +174,7 @@ async fn test_user_stream_with_live_accesses_sink_and_state() {
 async fn test_user_stream_with_live_or_else_calls_online_for_live() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    let _ = us.open_stream_test(1, ()).await.unwrap();
+    let (_, _client_read) = us.open_stream_test(1, ()).await.unwrap();
 
     let was_online = us
         .with_live_or_else(1, |_sink, _state| async { true }, || async { false })
@@ -260,7 +260,7 @@ async fn test_user_stream_open_and_send_race() {
 
     let us_open = Arc::clone(&us);
     let open_handle = tokio::spawn(async move {
-        let _ = us_open.open_stream_test(1, ()).await.unwrap();
+        let (_, _client_read) = us_open.open_stream_test(1, ()).await.unwrap();
     });
 
     let us_send = Arc::clone(&us);
@@ -284,10 +284,10 @@ async fn test_user_stream_cleanup_does_not_remove_new_stream() {
     let us = UserStream::new_test(TestProtocol::new());
 
     // Open first stream.
-    let sink1 = us.open_stream_test(1, ()).await.unwrap();
+    let (sink1, _client_read1) = us.open_stream_test(1, ()).await.unwrap();
 
     // Open second stream (replaces first).
-    let _sink2 = us.open_stream_test(1, ()).await.unwrap();
+    let (_sink2, _client_read2) = us.open_stream_test(1, ()).await.unwrap();
 
     // Cancel first stream — its cleanup should NOT remove the new stream.
     sink1.cancel(CancelReason::TransportError);

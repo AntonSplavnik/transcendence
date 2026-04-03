@@ -3,9 +3,10 @@
 //! # Architecture
 //!
 //! ```text
-//! Need shared state + broadcast?  → StreamRoom
-//! Need just a sender?             → StreamSink
-//! Need to know why cancelled?     → cancel_handle.reason()
+//! Need shared state + broadcast?          → StreamRoom
+//! Need per-user state + race-safe sends?  → UserStream
+//! Need just a sender?                     → StreamSink
+//! Need to know why cancelled?             → cancel_handle.reason()
 //! ```
 //!
 //! All types are re-exported from this module. For room-based broadcast,
@@ -45,6 +46,7 @@ pub use stream_manager::{
 };
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
+// Renamed to avoid collision with potential StreamRoom SendError types.
 #[allow(unused_imports)]
 pub use user_stream::{
     OpenError, SendError as UserStreamSendError, UserStream, UserStreamProtocol,
@@ -85,8 +87,9 @@ pub enum CtrlMessage {
 
 /// Typed protocol binding for standalone `StreamSink` usage.
 ///
-/// Binds Send/Recv types without room lifecycle. Use with
-/// `StreamManager::open_protocol()` for typed stream creation.
+/// Binds Send/Recv types without room lifecycle. Automatically implemented
+/// for all [`RoomProtocol`] types via a blanket impl. Used as a trait bound
+/// where only message types and stream type are needed.
 ///
 /// `RoomProtocol` adds lifecycle callbacks and is used with `StreamRoom`.
 /// A type may implement both.
@@ -168,8 +171,9 @@ where
     })
 }
 
-/// Actions to take when a user successfully connects to our streaming infrastructure.
+/// Called when a user's WebTransport connection is fully authenticated.
 ///
+/// Opens the notification stream and sends a `ServerHello` message.
 /// When this function returns an error, it is logged and the connection is closed.
 async fn on_connect(
     user_id: i32,

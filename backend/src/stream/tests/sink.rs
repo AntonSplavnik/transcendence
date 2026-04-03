@@ -226,12 +226,18 @@ async fn test_stream_sink_send_confirmed_channel_closed() {
 
     let err = sink.send_confirmed("msg".to_string()).await.unwrap_err();
     assert!(
-        matches!(err, ConfirmedSendError::ChannelClosed),
+        matches!(err, ConfirmedSendError::ChannelClosed(_)),
         "expected ChannelClosed, got {err:?}"
     );
 }
 
-/// `send_confirmed` returns `Transport` error when the write fails.
+/// `send_confirmed` returns an error when the transport write fails.
+///
+/// The error may be `Transport` (forwarding task reported the write error
+/// through the oneshot before the cancellation select fired) or
+/// `ChannelClosed` (the cancellation signal arrived before the oneshot
+/// response). Both are correct — the select in `send_confirmed` races
+/// the oneshot against cancellation to avoid hanging on blocked transports.
 #[tokio::test]
 async fn test_stream_sink_send_confirmed_transport_error() {
     let (sink, client) = test_sink::<String>();
@@ -244,8 +250,11 @@ async fn test_stream_sink_send_confirmed_transport_error() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, ConfirmedSendError::Transport(_)),
-        "expected Transport error, got {err:?}"
+        matches!(
+            err,
+            ConfirmedSendError::Transport(_) | ConfirmedSendError::ChannelClosed(_)
+        ),
+        "expected Transport or ChannelClosed error, got {err:?}"
     );
 }
 
@@ -286,8 +295,8 @@ async fn test_stream_sink_send_confirmed_batch_empty_succeeds() {
 }
 
 /// `send_confirmed_batch` returns `ChannelClosed`-style error when the forwarding
-/// task has already exited. Because the messages are consumed by the failed mpsc
-/// send, `unsent` is empty and `sent` is 0.
+/// task has already exited. The messages are recovered from the `SendError` and
+/// returned in `unsent`.
 #[tokio::test]
 async fn test_stream_sink_send_confirmed_batch_channel_closed() {
     let (sink, _client) = test_sink::<String>();
@@ -301,10 +310,11 @@ async fn test_stream_sink_send_confirmed_batch_channel_closed() {
         .unwrap_err();
 
     assert_eq!(err.sent, 0, "no messages should have been sent");
-    // Messages are consumed by the failed mpsc send — they cannot be returned.
-    assert!(
-        err.unsent.is_empty(),
-        "unsent must be empty when channel was closed before send"
+    // Messages are recovered from the failed mpsc SendError.
+    assert_eq!(
+        err.unsent,
+        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        "unsent must contain the full original batch when channel was closed before send"
     );
 }
 
@@ -355,4 +365,55 @@ async fn sink_send_order_preserved() {
         let received = client.recv().await;
         assert_eq!(received, expected, "messages must arrive in send order");
     }
+}
+
+/// `send_confirmed` returns `ChannelClosed` when the sink is cancelled while
+/// the forwarding task is blocked on a transport write.
+///
+/// Exercises the cancellation select arm in `send_confirmed`: the transport
+/// is full, so `FramedWrite::send` blocks, and the cancel fires before the
+/// oneshot response arrives.
+#[tokio::test]
+async fn test_stream_sink_send_confirmed_cancelled_while_blocked() {
+    use tokio_util::codec::FramedWrite;
+    use tokio_util::sync::CancellationToken;
+
+    use super::super::compress_cbor_codec::CompressedCborEncoder;
+    use super::super::sink::StreamSink;
+
+    // Tiny duplex buffer (8 bytes) — a single CBOR+Zstd frame will fill it,
+    // causing subsequent writes to block.
+    let (server_write, _client_read) = tokio::io::duplex(8);
+    let framed_write = FramedWrite::new(server_write, CompressedCborEncoder::<String>::new());
+    let token = CancellationToken::new();
+    let sink = StreamSink::new(framed_write, token, NonZeroUsize::new(32).unwrap());
+
+    // Fill the transport so the forwarding task blocks on the next write.
+    // Send enough messages that the forwarding task's FramedWrite::send blocks.
+    for i in 0..32 {
+        let _ = sink.try_send(format!("fill-{i}"));
+    }
+
+    // Spawn send_confirmed — it will block because the transport is full.
+    let sink_clone = sink.clone();
+    let handle =
+        tokio::spawn(async move { sink_clone.send_confirmed("blocked".to_string()).await });
+
+    // Give the forwarding task time to pick up the message and block on write.
+    tokio::task::yield_now().await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+    // Cancel the sink — this should unblock send_confirmed via the select arm.
+    sink.cancel(CancelReason::Removed);
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(5), handle)
+        .await
+        .expect("send_confirmed should complete after cancel")
+        .expect("task should not panic");
+
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, ConfirmedSendError::ChannelClosed(_)),
+        "expected ChannelClosed after cancellation, got {err:?}"
+    );
 }

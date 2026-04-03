@@ -80,7 +80,7 @@ pub(super) enum Envelope<S> {
     /// no interleaving from other senders.
     SendBatch(Vec<S>),
     /// Single message with transport-level delivery confirmation.
-    Confirm(S, oneshot::Sender<Result<(), ConfirmedSendError>>),
+    Confirm(S, oneshot::Sender<Result<(), ConfirmedSendError<S>>>),
     /// Batch with transport-level delivery confirmation. On partial failure,
     /// error carries unsent messages back to the caller.
     ConfirmBatch(Vec<S>, oneshot::Sender<Result<(), ConfirmedBatchError<S>>>),
@@ -88,11 +88,15 @@ pub(super) enum Envelope<S> {
 
 /// Single confirmed send failure.
 #[derive(Debug, thiserror::Error)]
-pub enum ConfirmedSendError {
+pub enum ConfirmedSendError<S> {
     /// Channel closed — forwarding task exited before processing this message.
-    /// The message never reached the transport.
+    ///
+    /// If the failure occurred at the mpsc enqueue (before the forwarding task
+    /// saw the message), the original message is returned in `Some(msg)`.
+    /// If the oneshot was dropped after enqueueing (forwarding task exited
+    /// mid-flight), the message was consumed and `None` is returned.
     #[error("channel closed before message reached forwarding task")]
-    ChannelClosed,
+    ChannelClosed(Option<S>),
 
     /// Transport write failed. The `FramedWrite::send` call returned an error.
     #[error("transport write failed: {0}")]
@@ -106,16 +110,32 @@ pub enum ConfirmedSendError {
 ///
 /// # Invariants
 ///
-/// - `sent + unsent.len()` equals the original batch size.
-/// - `unsent[0]` is the message that failed (if `source` is a transport error).
-/// - On channel-closed-before-processing: `sent == 0`, all messages in `unsent`.
+/// - On transport error: `sent` is the number written before the failure.
+///   `unsent` contains the messages AFTER the failed one (the failed message
+///   was consumed by `FramedWrite::send` and is unrecoverable). Thus
+///   `sent + 1 + unsent.len()` equals the original batch size.
+/// - On channel-closed-before-processing: `sent == 0` and `unsent` contains
+///   the full original batch (recovered from the `SendError`). Thus
+///   `sent + unsent.len()` equals the original batch size.
+/// - On cancellation during confirmation wait: `sent` is `0` because the
+///   caller cannot determine how many messages were actually written to the
+///   transport. `unsent` is empty because the messages are owned by the
+///   forwarding task. This does NOT mean zero messages were written — the
+///   actual count is unknown because the forwarding task owned the batch.
+///   The batch may have been partially or fully sent. Callers requiring
+///   exactly-once semantics must use per-message `send_confirmed` or
+///   implement their own tracking.
 #[derive(Debug, thiserror::Error)]
 #[error("batch send failed after {sent} messages: {source}")]
 pub struct ConfirmedBatchError<S> {
     /// Number of messages successfully written to the transport.
     pub sent: usize,
-    /// Messages NOT written. First element is the one that failed (transport error)
-    /// or the first unprocessed message (channel closed). Ownership returned to caller.
+    /// Messages NOT written. On transport error, the first element is the NEXT
+    /// unprocessed message after the one that failed (the failed message was
+    /// consumed by the transport write and is unrecoverable). On channel-closed
+    /// before processing, contains the full original batch (recovered from
+    /// `SendError`). On cancellation during confirmation wait, this is empty
+    /// (messages owned by the forwarding task). Ownership returned to caller.
     pub unsent: Vec<S>,
     /// The underlying error.
     pub source: anyhow::Error,
@@ -184,9 +204,14 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
         let cancel = CancelHandle::new(token);
 
         let task_cancel = cancel.clone();
+        let cancel_on_exit = cancel.clone();
         // JoinHandle dropped immediately — task is self-terminating (see contract above).
         drop(tokio::spawn(async move {
             Self::forwarding_task(transport_tx, rx, task_cancel).await;
+            // Guard: if the task exits without explicitly cancelling (e.g. panic
+            // caught by tokio, or a code path that missed cancel), ensure waiters
+            // on cancelled() are always unblocked. OnceLock makes this idempotent.
+            cancel_on_exit.cancel(CancelReason::SenderDropped);
         }));
 
         Self { tx, cancel }
@@ -215,7 +240,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
         mut rx: mpsc::Receiver<Envelope<S>>,
         cancel: CancelHandle,
     ) {
-        loop {
+        'outer: loop {
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
@@ -242,7 +267,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                                     // Fire-and-forget batch: remaining messages are dropped.
                                     // No error reporting channel — caller accepted this when
                                     // choosing fire-and-forget over confirmed.
-                                    return;
+                                    break 'outer;
                                 }
                             }
                         }
@@ -296,7 +321,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                                             "forwarding task: batch confirmed send transport error, cancelling stream"
                                         );
                                         cancel.cancel(CancelReason::TransportError);
-                                        return;
+                                        break 'outer;
                                     }
                                 }
                             }
@@ -379,22 +404,30 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     ///
     /// # Cancel Safety
     ///
-    /// Cancel-safe. If dropped mid-await, the message may or may not be written
-    /// (it's in the mpsc buffer). The forwarding task drops the oneshot response
-    /// sender if it processes the message after the caller stopped waiting.
-    /// No corruption occurs in either case.
-    pub async fn send_confirmed(&self, msg: S) -> Result<(), ConfirmedSendError> {
+    /// If dropped before the envelope is queued, no message is sent. If dropped
+    /// after the envelope is queued but before the response arrives, the message
+    /// may or may not have been written to the transport — the caller cannot
+    /// determine which. No corruption occurs in either case. Callers requiring
+    /// at-least-once delivery must not cancel this future after the envelope
+    /// is enqueued.
+    pub async fn send_confirmed(&self, msg: S) -> Result<(), ConfirmedSendError<S>> {
         let (response_tx, response_rx) = oneshot::channel();
-        self.tx
-            .send(Envelope::Confirm(msg, response_tx))
-            .await
-            .map_err(|_| ConfirmedSendError::ChannelClosed)?;
+        if let Err(err) = self.tx.send(Envelope::Confirm(msg, response_tx)).await {
+            let msg = match err.0 {
+                Envelope::Confirm(msg, _) => msg,
+                _ => unreachable!("we just sent a Confirm"),
+            };
+            return Err(ConfirmedSendError::ChannelClosed(Some(msg)));
+        }
 
-        // Wait for the forwarding task's confirmation.
-        // RecvError means the forwarding task dropped the sender (cancelled/exited).
-        match response_rx.await {
-            Ok(result) => result,
-            Err(_) => Err(ConfirmedSendError::ChannelClosed),
+        // Wait for the forwarding task's confirmation, but bail if the stream
+        // is cancelled (avoids hanging if the transport blocks indefinitely).
+        tokio::select! {
+            result = response_rx => match result {
+                Ok(result) => result,
+                Err(_) => Err(ConfirmedSendError::ChannelClosed(None)),
+            },
+            _ = self.cancel.cancelled() => Err(ConfirmedSendError::ChannelClosed(None)),
         }
     }
 
@@ -415,42 +448,57 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     ///
     /// # Cancel Safety
     ///
-    /// Cancel-safe. If dropped mid-await, the batch may be partially written
-    /// but the caller won't know which messages were sent. Acceptable for
-    /// at-least-once callers. Exactly-once callers should not cancel this future.
+    /// If dropped before the envelope is queued, no messages are sent. If dropped
+    /// after the envelope is queued but before the response arrives, the batch
+    /// may be partially or fully written to the transport — the caller cannot
+    /// determine which messages were sent. Callers with at-least-once or
+    /// exactly-once requirements should not cancel this future. If cancellation
+    /// is possible, treat all messages as potentially-sent.
     pub async fn send_confirmed_batch(&self, msgs: Vec<S>) -> Result<(), ConfirmedBatchError<S>> {
         if msgs.is_empty() {
             return Ok(());
         }
 
         let (response_tx, response_rx) = oneshot::channel();
-        if self
+        if let Err(err) = self
             .tx
             .send(Envelope::ConfirmBatch(msgs, response_tx))
             .await
-            .is_err()
         {
-            // Channel closed — forwarding task exited. Extract msgs from the
-            // failed Envelope. Unfortunately, mpsc::SendError consumes the
-            // Envelope and we can't destructure it after the send attempt.
-            // The messages are lost in the error value.
-            //
-            // To return them, we'd need to keep a clone, which defeats the
-            // zero-copy design. Instead, signal total failure.
+            let unsent = match err.0 {
+                Envelope::ConfirmBatch(msgs, _) => msgs,
+                _ => unreachable!("we just sent a ConfirmBatch"),
+            };
             return Err(ConfirmedBatchError {
                 sent: 0,
-                unsent: vec![], // Messages consumed by the failed send.
+                unsent,
                 source: anyhow::anyhow!("channel closed before batch reached forwarding task"),
             });
         }
 
-        match response_rx.await {
-            Ok(result) => result,
-            Err(_) => Err(ConfirmedBatchError {
-                sent: 0,
-                unsent: vec![],
-                source: anyhow::anyhow!("forwarding task dropped response channel"),
-            }),
+        // Wait for the forwarding task's confirmation, but bail if the stream
+        // is cancelled (avoids hanging if the transport blocks indefinitely).
+        tokio::select! {
+            result = response_rx => match result {
+                Ok(result) => result,
+                Err(_) => Err(ConfirmedBatchError {
+                    sent: 0,
+                    unsent: vec![],
+                    source: anyhow::anyhow!("forwarding task dropped response channel"),
+                }),
+            },
+            _ = self.cancel.cancelled() => {
+                // `sent: 0` because the forwarding task may have partially or
+                // fully written the batch before the cancel fired, but we have
+                // no way to observe how far it got. `unsent` is empty because
+                // the messages are owned by the forwarding task. Callers needing
+                // exactly-once semantics should use per-message `send_confirmed`.
+                Err(ConfirmedBatchError {
+                    sent: 0,
+                    unsent: vec![],
+                    source: anyhow::anyhow!("stream cancelled while waiting for batch confirmation"),
+                })
+            },
         }
     }
 

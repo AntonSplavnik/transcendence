@@ -29,6 +29,20 @@
 //! is defense-in-depth — if a callback panics despite the documented contract,
 //! the lock is released and subsequent operations can proceed.
 //!
+//! # Join Protocol (5-step flow)
+//!
+//! 1. **Reserve pending slot** — acquire lock, self-heal cancelled entries,
+//!    insert into pending set, release lock.
+//! 2. **Open transport stream** — async, no lock held. `PendingGuard` cleans
+//!    up on cancellation.
+//! 3. **Atomic join under lock** — acquire lock, call `on_member_joining`,
+//!    send `init_messages` via `try_send`, insert handle, remove pending,
+//!    call `on_member_joined`, broadcast join.
+//! 4. **Spawn cleanup task** — weak-guarded task that removes the member
+//!    when their `CancelHandle` fires.
+//! 5. **Spawn receive loop** — (bidi only) spawns `spawn_receive_loop` for
+//!    incoming client messages.
+//!
 //! # Callback Panic Recovery
 //!
 //! `PendingGuard::drop()` re-acquires the lock on panic. Partial state mutations
@@ -438,7 +452,8 @@ impl<P: RoomProtocol> StreamRoom<P> {
 
     /// Join a user to the room with caller-provided context.
     ///
-    /// This is the core join method. See module docs for the 5-step flow.
+    /// This is the core join method. See [module docs](self#join-protocol-5-step-flow)
+    /// for the 5-step flow.
     /// The `handler` closure is invoked for each message the client sends.
     ///
     /// **FIFO Guarantee**
@@ -549,6 +564,9 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// (backpressure/closed — stream is cancelled). Returns `true` only
     /// if the message was accepted into the mpsc channel.
     ///
+    /// This method is synchronous (uses `try_send` internally). Compare with
+    /// [`UserStream::send`](super::UserStream::send) which is async.
+    ///
     /// Same backpressure policy as `broadcast()`: cancels stream on Full
     /// (`BackpressureFull`) or Closed (`ChannelClosed`).
     #[must_use]
@@ -574,11 +592,12 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// # Cancel Safety
     ///
     /// Cancel-safe. See [`StreamSink::send_confirmed`] for details.
+    #[must_use = "returns None if user is not an active member"]
     pub async fn send_confirmed(
         &self,
         user_id: i32,
         msg: P::Send,
-    ) -> Option<Result<(), super::sink::ConfirmedSendError>> {
+    ) -> Option<Result<(), super::sink::ConfirmedSendError<P::Send>>> {
         let sink = {
             let inner = self.inner.lock();
             inner.handles.get(&user_id).cloned()
@@ -596,6 +615,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// # Cancel Safety
     ///
     /// Cancel-safe. See [`StreamSink::send_confirmed_batch`] for details.
+    #[must_use = "returns None if user is not an active member"]
     pub async fn send_confirmed_batch(
         &self,
         user_id: i32,
@@ -649,7 +669,10 @@ impl<P: RoomProtocol> StreamRoom<P> {
         }
     }
 
-    /// Atomic: mutate state, broadcast to all except one.
+    /// Atomic: mutate state and broadcast the result to all members except `exclude`.
+    ///
+    /// Same as [`mutate_and_broadcast`](Self::mutate_and_broadcast) but skips `exclude`
+    /// (typically the message originator).
     pub fn mutate_and_broadcast_except(&self, f: impl FnOnce(&mut P) -> P::Send, exclude: i32) {
         let mut inner = self.inner.lock();
         let msg = f(&mut inner.state);
@@ -693,8 +716,12 @@ impl<P: RoomProtocol> StreamRoom<P> {
     ///
     /// For non-member state only (e.g., game config, settings). Do NOT
     /// add/remove members via this method — use `join`/`remove` which
-    /// maintain the protocol-state-to-handles invariant. Member setup
-    /// belongs in `on_member_joining` via `JoinContext`.
+    /// maintain the protocol-state-to-handles invariant. Bypassing
+    /// `join`/`remove` desyncs protocol state from the handles map —
+    /// members added to state but not to handles won't receive broadcasts;
+    /// members removed from state but still in handles will continue
+    /// receiving them. Member setup belongs in `on_member_joining` via
+    /// `JoinContext`.
     pub fn with_state_mut<T>(&self, f: impl FnOnce(&mut P) -> T) -> T {
         let mut inner = self.inner.lock();
         f(&mut inner.state)
@@ -826,6 +853,10 @@ impl<P: RoomProtocol> StreamRoom<P> {
 /// Convenience: `join_send_only()` for protocols with `JoinContext = ()` (production).
 #[cfg(not(test))]
 impl<P: RoomProtocol<JoinContext = ()>> StreamRoom<P> {
+    /// Join with a uni-directional stream, no context needed.
+    ///
+    /// Convenience wrapper around [`join_send_only_with`](Self::join_send_only_with)
+    /// with `()` context. Only available when `P::JoinContext = ()`.
     pub async fn join_send_only(
         self: &Arc<Self>,
         user_id: i32,
@@ -1102,6 +1133,9 @@ pub struct GateHandle {
 #[cfg(test)]
 impl GateHandle {
     /// Unblock one waiting `open_stream` call.
+    ///
+    /// Each call unblocks exactly one waiting join. For N concurrent joins,
+    /// call `open()` N times.
     pub fn open(&self) {
         self.gate.notify_one();
     }

@@ -77,6 +77,14 @@ pub enum CancelReason {
     /// This is the expected reason when a room shuts down normally.
     RoomDestroyed,
 
+    /// All `StreamSink` senders were dropped, and the forwarding task
+    /// exited cleanly because its mpsc channel closed.
+    ///
+    /// This is NOT an error — it means nobody holds a sender anymore.
+    /// Distinct from `TransportError` (write failure) and `StreamEnded`
+    /// (client closed their send direction).
+    SenderDropped,
+
     /// The forwarding task encountered a transport write error.
     ///
     /// The WebTransport/QUIC layer reported a failure writing to
@@ -143,6 +151,14 @@ impl CancelHandle {
     ///
     /// Compile-time enforced: you MUST provide a reason. This prevents
     /// "silent cancellations" that are hard to debug in production.
+    ///
+    /// # Ordering
+    ///
+    /// Always use `is_cancelled()` or `cancelled().await` as the primary
+    /// cancellation signal -- not `reason()`. The reason is set slightly
+    /// before the token is cancelled, so a concurrent reader may briefly
+    /// observe `reason() == Some(...)` while `is_cancelled()` is still
+    /// `false`. After `cancel` returns, both are stable.
     pub fn cancel(&self, reason: CancelReason) {
         // First writer wins — OnceLock::set returns Err if already set,
         // which we intentionally discard. The first reason IS the root cause.
@@ -178,6 +194,11 @@ impl CancelHandle {
     }
 
     /// Borrow the underlying `CancellationToken`.
+    ///
+    /// Returns the raw token for waiting (`cancelled()`) or creating child
+    /// tokens. Callers **MUST NOT** call `.cancel()` on the returned token
+    /// directly — use [`CancelHandle::cancel(reason)`](Self::cancel) instead
+    /// to preserve the cancellation reason.
     ///
     /// `pub(crate)` — not exposed to consumers. External code should
     /// use [`cancelled()`](Self::cancelled) for waiting or
