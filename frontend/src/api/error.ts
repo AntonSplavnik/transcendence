@@ -83,6 +83,12 @@ function getMessageFromBrief(brief: string): string {
 		// Email confirmation errors
 		AlreadyConfirmed: 'Your email is already confirmed.',
 
+		// GDPR errors
+		InvalidToken: 'This request is invalid or has already been used. Please start over.',
+		TokenExpired: 'This request has expired (30-minute limit). Please start a new one.',
+		EmailConfirmationPending: 'Please confirm via the email we sent before proceeding.',
+		AlreadyDeleted: 'This account has already been deleted.',
+
 		// Success messages
 		DidLogout: 'You have been logged out successfully.',
 

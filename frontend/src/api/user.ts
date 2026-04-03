@@ -2,6 +2,8 @@ import apiClient from './client';
 import type {
 	AuthResponse,
 	ChangePasswordPayload,
+	DataExport,
+	GdprInitiateResponse,
 	PasswordMfaPayload,
 	Session,
 	SessionManagementPayload,
@@ -130,4 +132,32 @@ export async function logoutSessions(
 		mfa_code,
 	};
 	await apiClient.post('/user/logout-sessions', payload);
+}
+
+// ==================== GDPR: ACCOUNT DELETION ====================
+
+export async function deleteMyAccount(
+	password: string,
+	mfa_code?: string,
+	token?: string,
+): Promise<GdprInitiateResponse | void> {
+	const params = token ? { token } : undefined;
+	const response = await apiClient.delete('/user/delete-my-account', {
+		data: { password, mfa_code },
+		params,
+	});
+	if (response.status === 204) return;
+	return response.data as GdprInitiateResponse;
+}
+
+// ==================== GDPR: DATA EXPORT ====================
+
+export async function exportMyData(
+	password: string,
+	mfa_code?: string,
+	token?: string,
+): Promise<GdprInitiateResponse | DataExport> {
+	const params = token ? { token } : undefined;
+	const response = await apiClient.post('/user/export-my-data', { password, mfa_code }, { params });
+	return response.data;
 }

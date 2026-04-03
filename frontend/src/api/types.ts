@@ -82,6 +82,65 @@ export interface FriendRequestResponse {
 	updated_at: string;
 }
 
+// ==================== GDPR TYPES ====================
+
+export interface GdprInitiateResponse {
+	token: string;
+	email_confirmation_required: boolean;
+	expires_at: string;
+}
+
+export interface DataExport {
+	exported_at: string;
+	user: ExportUser;
+	sessions: ExportSession[];
+	friend_requests: ExportFriendRequest[];
+	notifications: ExportNotification[];
+	avatar_large_base64: string | null;
+	avatar_small_base64: string | null;
+}
+
+export interface ExportUser {
+	id: number;
+	email: string;
+	nickname: string;
+	totp_enabled: boolean;
+	totp_confirmed_at: string | null;
+	created_at: string;
+	description: string;
+	tos_accepted_at: string | null;
+	email_confirmed_at: string | null;
+	pending_email_change: string | null;
+}
+
+export interface ExportSession {
+	id: number;
+	user_id: number;
+	device_id: string;
+	device_name: string | null;
+	ip_address: string | null;
+	created_at: string;
+	refreshed_at: string;
+	last_used_at: string;
+	last_authenticated_at: string;
+}
+
+export interface ExportFriendRequest {
+	id: number;
+	sender_id: number;
+	receiver_id: number;
+	status: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ExportNotification {
+	id: number;
+	payload: unknown;
+	created_at: string;
+}
+
+
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {
