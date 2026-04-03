@@ -79,7 +79,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use serde::Serialize;
 use thiserror::Error;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard as AsyncOwnedMutexGuard};
 
 use super::StreamType;
 use super::cancel::CancelReason;
@@ -213,6 +213,7 @@ pub struct UserStream<P: UserStreamProtocol> {
 
 impl<P: UserStreamProtocol> UserStream<P> {
     /// Create a new, empty `UserStream` with the given protocol.
+    #[must_use]
     pub fn new(protocol: P) -> Arc<Self> {
         Arc::new(Self {
             users: DashMap::with_hasher(ahash::RandomState::new()),
@@ -223,6 +224,37 @@ impl<P: UserStreamProtocol> UserStream<P> {
     /// Read-only access to the protocol (for diagnostics, tests).
     pub fn protocol(&self) -> &P {
         &self.protocol
+    }
+
+    /// Atomically get-or-insert a user slot and return its owned lock guard.
+    ///
+    /// Bridges the DashMap shard lock and the per-user tokio Mutex without a
+    /// gap: when a new slot is created, the mutex is pre-locked inside
+    /// `or_insert_with` (where the shard is still held), so no other thread
+    /// can observe the empty slot before the creator holds its lock.
+    ///
+    /// For existing entries the shard lock is released first and we fall back
+    /// to a normal async `.lock_owned().await`.
+    async fn get_or_empty_init_user_slot(&self, user_id: i32) -> AsyncOwnedMutexGuard<UserSlot<P>> {
+        let mut lock = None;
+        let arc_slot = Arc::clone(
+            self.users
+                .entry(user_id)
+                .or_insert_with(|| {
+                    let slot = Arc::new(AsyncMutex::new(UserSlot { live: None }));
+                    lock = Some(
+                        Arc::clone(&slot)
+                            .try_lock_owned()
+                            .expect("freshly created mutex cannot be contended"),
+                    );
+                    slot
+                })
+                .value(),
+        );
+        match lock {
+            Some(guard) => guard,
+            None => arc_slot.lock_owned().await,
+        }
     }
 
     /// Whether a user has an active, non-cancelled stream.
@@ -268,14 +300,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
         context: P::OpenContext,
         sink: StreamSink<P::Send>,
     ) -> Result<(), OpenError<P::OpenReject>> {
-        let slot_arc = self
-            .users
-            .entry(user_id)
-            .or_insert_with(|| Arc::new(AsyncMutex::new(UserSlot { live: None })))
-            .value()
-            .clone();
-
-        let mut guard = slot_arc.lock().await;
+        let mut guard = self.get_or_empty_init_user_slot(user_id).await;
 
         // If a previous connection exists, close it.
         if let Some(prev) = guard.live.take() {
@@ -372,12 +397,11 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
     /// Close a user's stream immediately.
     pub fn close_stream(&self, user_id: i32) {
-        if let Some(entry) = self.users.get(&user_id) {
-            if let Ok(guard) = entry.value().try_lock() {
-                if let Some(live) = &guard.live {
-                    live.sink.cancel(CancelReason::Removed);
-                }
-            }
+        if let Some(entry) = self.users.get(&user_id)
+            && let Ok(guard) = entry.value().try_lock()
+            && let Some(live) = &guard.live
+        {
+            live.sink.cancel(CancelReason::Removed);
         }
     }
 
@@ -385,7 +409,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
     fn spawn_cleanup_task(self: &Arc<Self>, user_id: i32, sink: &StreamSink<P::Send>) {
         let weak = Arc::downgrade(self);
         let expected_sink = sink.clone();
-        let _ = tokio::spawn(async move {
+        drop(tokio::spawn(async move {
             expected_sink.cancel_handle().cancelled().await;
 
             let Some(us) = weak.upgrade() else {
@@ -393,7 +417,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
             };
 
             let slot_arc = match us.users.get(&user_id) {
-                Some(entry) => entry.value().clone(),
+                Some(entry) => Arc::clone(entry.value()),
                 None => return,
             };
 
@@ -422,7 +446,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
                     "user stream cleaned up after disconnect"
                 );
             }
-        });
+        }));
     }
 
     /// Fire-and-forget send. Returns the message on failure.
@@ -445,13 +469,14 @@ impl<P: UserStreamProtocol> UserStream<P> {
     ///
     /// Cancel-safe. See [`StreamSink::send`] for details.
     pub async fn send(&self, user_id: i32, msg: P::Send) -> Result<(), SendError<P::Send>> {
-        // Clone Arc out of DashMap immediately (releases shard lock).
+        // send() is read-only: it never creates a slot. A missing entry means
+        // the user has no stream — no need for get_or_empty_init_user_slot.
         let slot_arc = match self.users.get(&user_id) {
-            Some(entry) => entry.value().clone(),
+            Some(entry) => Arc::clone(entry.value()),
             None => return Err(SendError::NoStream(msg)),
         };
 
-        let guard = slot_arc.lock().await;
+        let guard = slot_arc.lock_owned().await;
         match &guard.live {
             Some(live) if !live.sink.is_cancelled() => live
                 .sink
@@ -473,14 +498,19 @@ impl<P: UserStreamProtocol> UserStream<P> {
     /// # Cancel Safety
     ///
     /// Cancel-safety depends on the closure. The lock is released on drop.
+    #[must_use = "returns None if user has no active stream"]
     pub async fn with_live<T, F, Fut>(&self, user_id: i32, f: F) -> Option<T>
     where
         F: FnOnce(&StreamSink<P::Send>, &mut P::State) -> Fut,
         Fut: Future<Output = T>,
     {
-        let slot_arc = self.users.get(&user_id)?.value().clone();
+        // with_live is read-only: returns None for missing users, never creates a slot.
+        let slot_arc = {
+            let entry = self.users.get(&user_id)?;
+            Arc::clone(entry.value())
+        };
 
-        let mut guard = slot_arc.lock().await;
+        let mut guard = slot_arc.lock_owned().await;
         let live = guard.live.as_mut()?;
 
         if live.sink.is_cancelled() {
@@ -490,21 +520,8 @@ impl<P: UserStreamProtocol> UserStream<P> {
         Some(f(&live.sink, &mut live.state).await)
     }
 
-    /// Race-safe access: call `on_live` if stream exists, `on_offline` if not.
-    ///
-    /// Both closures run under the per-user `tokio::Mutex`, ensuring atomic
-    /// coordination between `send()` and `open_stream()`. This is the primary
-    /// mechanism for eliminating the check-then-act race condition.
-    ///
-    /// If no DashMap entry exists, an ephemeral slot is created, the offline
-    /// closure runs under its lock, and the slot is removed immediately after.
-    ///
-    /// # When to use this vs `send()`
-    ///
-    /// - `send()` — fire-and-forget. Returns the message on failure. No lock
-    ///   coordination for the offline path.
-    /// - `with_live_or_else()` — the offline fallback (e.g., DB write) runs
-    ///   under the same lock that `open_stream()` holds during drain.
+    /// Delegates to [`with_live_or_else_ctx`](Self::with_live_or_else_ctx) with
+    /// `()` context. See that method for full documentation.
     ///
     /// # Cancel Safety
     ///
@@ -521,23 +538,66 @@ impl<P: UserStreamProtocol> UserStream<P> {
         F2: FnOnce() -> Fut2,
         Fut2: Future<Output = T>,
     {
-        // Atomically get or create the per-user slot.
-        let slot_arc = self
-            .users
-            .entry(user_id)
-            .or_insert_with(|| Arc::new(AsyncMutex::new(UserSlot { live: None })))
-            .value()
-            .clone();
+        self.with_live_or_else_ctx(
+            user_id,
+            (),
+            |sink, state, ()| on_live(sink, state),
+            |()| on_offline(),
+        )
+        .await
+    }
 
-        let mut guard = slot_arc.lock().await;
+    /// Like [`with_live_or_else`](Self::with_live_or_else) but passes a caller-provided
+    /// context `ctx` into whichever closure runs. This avoids cloning data that is
+    /// needed by both branches — the context moves into exactly one closure.
+    ///
+    /// Both closures run under the per-user `tokio::Mutex`, ensuring atomic
+    /// coordination between `send()` and `open_stream()`. This is the primary
+    /// mechanism for eliminating the check-then-act race condition.
+    ///
+    /// If no DashMap entry exists, an ephemeral slot is created, the offline
+    /// closure runs under its lock, and the slot is removed immediately after.
+    ///
+    /// # Parameters
+    ///
+    /// - `ctx` — Caller-owned context that is moved into whichever branch
+    ///   executes (live or offline). Typical use: pass expensive-to-clone data
+    ///   (e.g. a payload) so only the active branch owns it.
+    ///
+    /// # When to use this vs `send()`
+    ///
+    /// - `send()` — fire-and-forget. Returns the message on failure. No lock
+    ///   coordination for the offline path.
+    /// - `with_live_or_else_ctx()` — the offline fallback (e.g., DB write) runs
+    ///   under the same lock that `open_stream()` holds during drain.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safety depends on the closures. The lock is released on drop.
+    pub async fn with_live_or_else_ctx<T, C, F1, Fut1, F2, Fut2>(
+        &self,
+        user_id: i32,
+        ctx: C,
+        on_live: F1,
+        on_offline: F2,
+    ) -> T
+    where
+        F1: FnOnce(&StreamSink<P::Send>, &mut P::State, C) -> Fut1,
+        Fut1: Future<Output = T>,
+        F2: FnOnce(C) -> Fut2,
+        Fut2: Future<Output = T>,
+    {
+        let mut guard = self.get_or_empty_init_user_slot(user_id).await;
 
         let result = match &mut guard.live {
-            Some(live) if !live.sink.is_cancelled() => on_live(&live.sink, &mut live.state).await,
-            _ => on_offline().await,
+            Some(live) if !live.sink.is_cancelled() => {
+                on_live(&live.sink, &mut live.state, ctx).await
+            }
+            _ => on_offline(ctx).await,
         };
 
         // If the slot is empty (offline path or cancelled stream), clean up.
-        let is_empty = guard.live.as_ref().map_or(true, |l| l.sink.is_cancelled());
+        let is_empty = guard.live.as_ref().is_none_or(|l| l.sink.is_cancelled());
         if is_empty {
             drop(guard);
             self.try_remove_empty_slot(user_id);
