@@ -1,5 +1,5 @@
 use std::convert::Infallible;
-use std::future::Future;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -263,9 +263,7 @@ impl RoomProtocol for UniEchoProtocol {
 }
 
 /// No-op handler for tests that don't care about incoming messages.
-fn noop_handler(_msg: String) -> impl Future<Output = ()> + Send {
-    async {}
-}
+async fn noop_handler(_msg: String) {}
 
 // ── Tests ───────────────────────────────────────────────────────
 

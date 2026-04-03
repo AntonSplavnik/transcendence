@@ -190,7 +190,7 @@ where
     type Recv = <Self as RoomProtocol>::Recv;
 
     fn stream_type(&self) -> StreamType {
-        <Self as RoomProtocol>::stream_type(&self)
+        <Self as RoomProtocol>::stream_type(self)
     }
 }
 
@@ -273,12 +273,7 @@ impl<P: RoomProtocol> Drop for PendingGuard<P> {
 /// Generic over `R`: the protocol's rejection reason. For protocols that
 /// never reject (`JoinReject = Infallible`), the `Rejected` variant is
 /// unreachable at the type level.
-///
-/// # Extensibility
-///
-/// `#[non_exhaustive]` — future variants may be added.
 #[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
 pub enum JoinError<R: std::error::Error + Send + 'static = Infallible> {
     /// The user is already a member or has a pending join in progress.
     #[error("user {user_id} is already a member or pending")]
@@ -408,7 +403,8 @@ impl<P: RoomProtocol> StreamRoom<P> {
         let sink_snapshot = sink.clone();
         let cleanup_cancel = cancel_handle.clone();
         let cleanup_user_id = user_id;
-        tokio::spawn(async move {
+        // JoinHandle dropped — cleanup task is self-terminating (CancelHandle-governed).
+        drop(tokio::spawn(async move {
             cleanup_cancel.cancelled().await;
 
             let Some(room) = weak.upgrade() else {
@@ -437,7 +433,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
                     "member stream cancelled, cleaned up"
                 );
             }
-        });
+        }));
     }
 
     /// Join a user to the room with caller-provided context.

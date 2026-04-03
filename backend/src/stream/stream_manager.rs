@@ -378,10 +378,9 @@ impl StreamManager {
         if let Some(old) = self.connections.insert(
             session.user_id,
             ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
-        ) {
-            if let Err(e) = old.tx.try_send(ConnectionCommand::Displace) {
-                tracing::debug!(error = %e, "failed to send command");
-            }
+        ) && let Err(e) = old.tx.try_send(ConnectionCommand::Displace)
+        {
+            tracing::debug!(error = %e, "failed to send command");
         }
         tracing::debug!(
             session.user_id,
@@ -791,7 +790,7 @@ pub async fn connect_stream(
     // cmd_tx.  Those commands can only be fulfilled by the cmd_rx loop below.
     // Running both in the same select! avoids the deadlock that would occur if
     // on_connect were awaited *before* entering the loop.
-    let on_connect_fut = super::on_connect(user_session.user_id, &db, &*streams, depot);
+    let on_connect_fut = super::on_connect(user_session.user_id, &db, &streams, depot);
     tokio::pin!(on_connect_fut);
     let mut on_connect_done = false;
 

@@ -46,13 +46,7 @@ use tokio_util::sync::CancellationToken;
 ///
 /// `None` from [`CancelHandle::reason`] means external/parent cancellation
 /// (connection drop, server shutdown) — no stream-level reason was set.
-///
-/// # Extensibility
-///
-/// `#[non_exhaustive]` — future variants may carry diagnostic data.
-/// Match arms must include a wildcard.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum CancelReason {
     /// Client fell behind on messages (`try_send` returned `Full`).
     ///

@@ -55,7 +55,7 @@ pub const MAX_INIT_MESSAGES: usize = DEFAULT_SINK_BUFFER.get() - 1; // 31
 // Compile-time enforcement: init messages + 1 join broadcast must fit
 // in a fresh sink buffer. If this assertion fails, adjust the constants.
 const _: () = assert!(
-    MAX_INIT_MESSAGES + 1 <= DEFAULT_SINK_BUFFER.get(),
+    MAX_INIT_MESSAGES < DEFAULT_SINK_BUFFER.get(),
     "init messages + join broadcast must fit in a fresh sink buffer"
 );
 
@@ -87,12 +87,7 @@ pub(super) enum Envelope<S> {
 }
 
 /// Single confirmed send failure.
-///
-/// # Extensibility
-///
-/// `#[non_exhaustive]` — future variants may carry diagnostic data.
 #[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
 pub enum ConfirmedSendError {
     /// Channel closed — forwarding task exited before processing this message.
     /// The message never reached the transport.
@@ -190,9 +185,9 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
 
         let task_cancel = cancel.clone();
         // JoinHandle dropped immediately — task is self-terminating (see contract above).
-        let _ = tokio::spawn(async move {
+        drop(tokio::spawn(async move {
             Self::forwarding_task(transport_tx, rx, task_cancel).await;
-        });
+        }));
 
         Self { tx, cancel }
     }
@@ -263,7 +258,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                                     // Send error through oneshot before cancelling.
                                     // Receiver may have been dropped — benign.
                                     let _ = response_tx.send(Err(
-                                        ConfirmedSendError::Transport(err.into())
+                                        ConfirmedSendError::Transport(err)
                                     ));
                                     tracing::debug!(
                                         error = %err_string,
@@ -292,7 +287,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                                         let _ = response_tx.send(Err(ConfirmedBatchError {
                                             sent,
                                             unsent,
-                                            source: err.into(),
+                                            source: err,
                                         }));
                                         tracing::debug!(
                                             error = %err_string,
@@ -328,18 +323,15 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     /// Cancel-safe. If dropped before completion, the message is not sent
     /// and the channel state is unchanged.
     pub async fn send(&self, msg: S) -> Result<(), mpsc::error::SendError<S>> {
-        self.tx
-            .send(Envelope::Send(msg))
-            .await
-            .map_err(|e| {
-                // Extract the inner message from the Envelope for the caller.
-                let Envelope::Send(msg) = e.0 else {
-                    // INVARIANT: we just wrapped in Envelope::Send above. This branch
-                    // is unreachable — the match is exhaustive for safety.
-                    unreachable!("send() always wraps in Envelope::Send")
-                };
-                mpsc::error::SendError(msg)
-            })
+        self.tx.send(Envelope::Send(msg)).await.map_err(|e| {
+            // Extract the inner message from the Envelope for the caller.
+            let Envelope::Send(msg) = e.0 else {
+                // INVARIANT: we just wrapped in Envelope::Send above. This branch
+                // is unreachable — the match is exhaustive for safety.
+                unreachable!("send() always wraps in Envelope::Send")
+            };
+            mpsc::error::SendError(msg)
+        })
     }
 
     /// Send a batch of messages as a single atomic unit.
@@ -362,15 +354,12 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
         if msgs.is_empty() {
             return Ok(());
         }
-        self.tx
-            .send(Envelope::SendBatch(msgs))
-            .await
-            .map_err(|e| {
-                let Envelope::SendBatch(msgs) = e.0 else {
-                    unreachable!("send_batch always wraps in Envelope::SendBatch")
-                };
-                mpsc::error::SendError(msgs)
-            })
+        self.tx.send(Envelope::SendBatch(msgs)).await.map_err(|e| {
+            let Envelope::SendBatch(msgs) = e.0 else {
+                unreachable!("send_batch always wraps in Envelope::SendBatch")
+            };
+            mpsc::error::SendError(msgs)
+        })
     }
 
     /// Send a message with transport-level delivery confirmation.
@@ -429,10 +418,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     /// Cancel-safe. If dropped mid-await, the batch may be partially written
     /// but the caller won't know which messages were sent. Acceptable for
     /// at-least-once callers. Exactly-once callers should not cancel this future.
-    pub async fn send_confirmed_batch(
-        &self,
-        msgs: Vec<S>,
-    ) -> Result<(), ConfirmedBatchError<S>> {
+    pub async fn send_confirmed_batch(&self, msgs: Vec<S>) -> Result<(), ConfirmedBatchError<S>> {
         if msgs.is_empty() {
             return Ok(());
         }

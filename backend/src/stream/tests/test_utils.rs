@@ -62,6 +62,7 @@ pub fn test_sink_with_buffer<S: Serialize + DeserializeOwned + Send + 'static>(
 /// - `impl Stream<Item = Result<R, anyhow::Error>>` — server receive side
 /// - `TestClient<S>` — reads what server sends
 /// - `TestClientSender<R>` — sends messages as the "client"
+#[allow(clippy::type_complexity)]
 pub fn test_stream_pair<
     S: Serialize + DeserializeOwned + Send + 'static,
     R: Serialize + DeserializeOwned + Send + 'static,

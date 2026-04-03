@@ -239,7 +239,10 @@ async fn test_stream_sink_send_confirmed_transport_error() {
     // Drop client read end to break the transport pipe.
     drop(client);
 
-    let err = sink.send_confirmed("trigger".to_string()).await.unwrap_err();
+    let err = sink
+        .send_confirmed("trigger".to_string())
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, ConfirmedSendError::Transport(_)),
         "expected Transport error, got {err:?}"

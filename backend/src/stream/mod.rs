@@ -20,6 +20,7 @@
 //! | `sink` | [`StreamSink<S>`], buffer constants |
 //! | `stream_room` | [`StreamRoom<P>`], [`RoomProtocol`] — room lifecycle callbacks |
 //! | `stream_manager` | [`StreamManager`] — WebTransport connections |
+//! | `user_stream` | [`UserStream<P>`], [`UserStreamProtocol`] — per-user stream lifecycle |
 
 mod cancel;
 mod compress_cbor_codec;
@@ -55,13 +56,7 @@ use crate::notifications::NotificationManagerDepotExt;
 /// Stream-type header sent as the first CBOR frame on every server-opened stream.
 ///
 /// The client reads this to decide which handler to dispatch.
-///
-/// # Extensibility
-///
-/// `#[non_exhaustive]` — future modules (chat, game) add variants.
-/// Match arms must include a wildcard.
 #[derive(Debug, Clone, serde::Serialize)]
-#[non_exhaustive]
 pub enum StreamType {
     Notifications,
     /// Test-only variant. Not serialized over the wire.

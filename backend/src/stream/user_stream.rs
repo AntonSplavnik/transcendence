@@ -172,7 +172,6 @@ struct LiveConnection<P: UserStreamProtocol> {
 
 /// Errors from [`UserStream::open_stream`].
 #[derive(Debug, Error)]
-#[non_exhaustive]
 pub enum OpenError<R: std::error::Error + Send + 'static> {
     /// Failed to open the WebTransport stream.
     #[error("failed to open stream: {0}")]
@@ -185,7 +184,6 @@ pub enum OpenError<R: std::error::Error + Send + 'static> {
 
 /// Errors from [`UserStream::send`].
 #[derive(Debug, Error)]
-#[non_exhaustive]
 pub enum SendError<S> {
     /// No active stream for this user. Message returned.
     #[error("no active stream for user")]

@@ -40,7 +40,7 @@ impl UserStreamProtocol for TestProtocol {
         StreamType::Test
     }
 
-    fn init_state(&self, _user_id: i32, _context: &()) -> () {}
+    fn init_state(&self, _user_id: i32, _context: &()) {}
 
     async fn on_open(
         &self,
@@ -197,7 +197,7 @@ async fn test_user_stream_with_live_or_else_calls_offline_for_absent() {
 async fn test_user_stream_with_live_or_else_cleans_up_ephemeral_slot() {
     let us = UserStream::new_test(TestProtocol::new());
 
-    us.with_live_or_else(999, |_sink, _state| async { () }, || async { () })
+    us.with_live_or_else(999, |_sink, _state| async {}, || async {})
         .await;
 
     // The ephemeral slot should have been removed.
