@@ -7,39 +7,61 @@ namespace Presets {
 
 	// ── Player characters ──────────────────────────────────────────────
 	inline const CharacterPreset KNIGHT = {
-		.maxHealth           = 120.0f,
-		.armor               = 5.0f,
-		.resistance          = 0.1f,
-		.movementSpeed       = 1.5f,
-		.rotationSpeed       = 1.0f,
-		.baseDamage          = 18.0f,
-		.damageMultiplier    = 1.0f,
-		.criticalChance      = 0.15f,
-		.criticalMultiplier  = 1.5f,
-		.attackChain   = {
-			// Stage 0: overhead chop — slow, rooted, moderate hit (skill description and feel)
-			{ .damageMultiplier=0.9f,
-			.range=2.0f,
-			.duration=0.5f,
-			.movementMultiplier=0.0f,
-			.chainWindow=0.8f },
-			// Stage 1: shield bash — rooted, heavy hit, ends chain
-			{ .damageMultiplier=1.6f,
-			.range=1.8f,
-			.duration=0.6f,
-			.movementMultiplier=0.0f,
-			.chainWindow=0.0f },
+		.health = {
+			.maxHealth  = 120.0f,
+			.armor      = 5.0f,
+			.resistance = 0.1f,
 		},
-		.skill1 = { MeleeAOE{
-			.range=2.0f,
-			.movementMultiplier=0.0f,
-			.dmgMultiplier=1.5f },
-			.cooldown=5.0f },
-		.skill2 = { MeleeAOE{
-			.range=2.0f,
-			.movementMultiplier=0.7f,
-			.dmgMultiplier=1.5f },
-			.cooldown=10.0f },
+		.movement = {
+			.movementSpeed    = 1.5f,
+			.rotationSpeed    = 1.0f,
+			.sprintMultiplier = 2.5f,   // heavy armor limits sprint
+			.crouchMultiplier = 0.4f,   // slow crouch
+			.jumpVelocity     = 5.0f,   // low jump — armored
+			.dodgeVelocity    = 7.0f,   // slow dodge — armored
+			.airControlFactor = 0.1f,   // poor air control
+			.acceleration     = 60.0f,  // slow to get moving
+			.deceleration     = 90.0f,  // stops quickly (planted stance)
+			.mass             = 90.0f,
+			.friction         = 0.9f,   // high friction — doesn't slide
+			.drag             = 0.0f,
+			.maxSpeed         = 8.0f,
+			.maxFallSpeed     = 60.0f,  // heavy — falls fast
+		},
+		.collider = {
+			.radius = 0.45f,
+			.height = 1.9f,            // tall with armor
+		},
+		.combat = {
+			.baseDamage         = 18.0f,
+			.damageMultiplier   = 1.0f,
+			.criticalChance     = 0.15f,
+			.criticalMultiplier = 1.5f,
+			.attackChain = {
+				// Stage 0: overhead chop — slow, rooted, moderate hit
+				{ .damageMultiplier=0.9f,
+				.range=2.0f,
+				.duration=0.5f,
+				.movementMultiplier=0.0f,
+				.chainWindow=0.8f },
+				// Stage 1: shield bash — rooted, heavy hit, ends chain
+				{ .damageMultiplier=1.6f,
+				.range=1.8f,
+				.duration=0.6f,
+				.movementMultiplier=0.0f,
+				.chainWindow=0.0f },
+			},
+			.skill1 = { MeleeAOE{
+				.range=2.0f,
+				.movementMultiplier=0.0f,
+				.dmgMultiplier=1.5f },
+				.cooldown=5.0f },
+			.skill2 = { MeleeAOE{
+				.range=2.0f,
+				.movementMultiplier=0.7f,
+				.dmgMultiplier=1.5f },
+				.cooldown=10.0f },
+		},
 	};
 /*
 	// ── AI enemies ─────────────────────────────────────────────────────

@@ -195,46 +195,24 @@ enum class CharacterState : uint8_t {
 
 struct GameConfig {
 	// Arena dimensions (3D space)
-	static constexpr float ARENA_WIDTH = 50.0f;    // X axis (visual terrain is 50×50, centred at origin)
+	static constexpr float ARENA_WIDTH  = 50.0f;  // X axis (visual terrain is 50×50, centred at origin)
 	static constexpr float ARENA_LENGTH = 50.0f;  // Z axis
-	static constexpr float ARENA_HEIGHT = 20.0f;   // Y axis (ceiling)
-
-	// Character properties
-	static constexpr float CHARACTER_RADIUS = 0.5f;            // Collision radius
-	static constexpr float CHARACTER_HEIGHT = 1.8f;            // Character height
-	static constexpr float CHARACTER_COLLISION_RADIUS = 0.45f; // Slightly smaller for smooth collisions
-	static constexpr float CHARACTER_MOVE_SPEED = 2.5f;        // Base movement speed (m/s)
-	static constexpr float CHARACTER_MAX_SPEED = 10.0f;        // Maximum horizontal speed (m/s)
-	static constexpr float CHARACTER_MAX_HEALTH = 100.0f;      // Default max health
-
-	// Movement modifiers
-	static constexpr float SPRINT_MULTIPLIER = 4.0f;           // Speed when sprinting (1.5x = 50% faster)
-	static constexpr float CROUCH_MULTIPLIER = 0.5f;           // Speed when crouching (0.5x = 50% slower)
-	static constexpr float AIR_CONTROL_FACTOR = 0.3f;          // Movement control while airborne (0.0-1.0)
+	static constexpr float ARENA_HEIGHT = 20.0f;  // Y axis (ceiling)
 
 	// Physics
-	static constexpr float GRAVITY = -20.0f;                   // Gravity acceleration (m/s^2)
-	static constexpr float GROUND_Y = 0.0f;                    // Ground level
-	static constexpr float FRICTION = 0.85f;                   // Horizontal deceleration
-	static constexpr float MIN_VELOCITY = 0.1f;                // Stop moving below this
-	static constexpr float JUMP_VELOCITY = 8.0f;               // Initial jump velocity
-	static constexpr float DODGE_VELOCITY = 10.0f;             // Dodge/dash velocity
+	static constexpr float GRAVITY      = -20.0f;  // Gravity acceleration (m/s^2)
+	static constexpr float GROUND_Y     =   0.0f;  // Ground level
+	static constexpr float FRICTION     =  0.85f;  // Horizontal deceleration
+	static constexpr float MIN_VELOCITY =   0.1f;  // Stop moving below this
 
 	// Game loop timing
-	static constexpr int TARGET_FPS = 60;
-	static constexpr float FIXED_TIMESTEP = 1.0f / TARGET_FPS;  // ~16.67ms
-	static constexpr int MAX_PHYSICS_ITERATIONS = 5;            // Prevent spiral of death
-
-	// Combat
-	static constexpr float MELEE_DAMAGE = 15.0f;               // Base melee damage
-	static constexpr float ATTACK_RANGE = 2.0f;                // Melee attack range (alias)
-	static constexpr float PROJECTILE_SPEED = 20.0f;
-	static constexpr float MAX_ATTACK_RANGE = 30.0f;
-	static constexpr float MELEE_ATTACK_RANGE = 2.0f;
+	static constexpr int   TARGET_FPS            = 60;
+	static constexpr float FIXED_TIMESTEP        = 1.0f / TARGET_FPS;  // ~16.67ms
+	static constexpr int   MAX_PHYSICS_ITERATIONS = 5;                  // Prevent spiral of death
 
 	// Network
-	static constexpr int MAX_PLAYERS = 8;
-	static constexpr float SNAPSHOT_RATE = 60.0f;  // Send updates 60 times per second
+	static constexpr int   MAX_PLAYERS      = 8;
+	static constexpr float SNAPSHOT_RATE    = 60.0f;
 	static constexpr float SNAPSHOT_INTERVAL = 1.0f / SNAPSHOT_RATE;
 };
 

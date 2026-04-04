@@ -7,7 +7,6 @@
 
 using Game = ::ArenaGame::ArenaGame;
 using namespace ArenaGame;
-using namespace ArenaGame::Core;
 
 // Opaque pointer types for Rust
 extern "C" {

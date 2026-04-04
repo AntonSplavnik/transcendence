@@ -163,7 +163,7 @@ struct CombatController {
 		return cc;
 	}
 
-	static CombatController createFromPreset(const CharacterPreset& p) {
+	static CombatController createFromPreset(const CombatPreset& p) {
 		CombatController cc;
 		cc.baseDamage  = p.baseDamage;
 		cc.attackChain = p.attackChain;

@@ -83,12 +83,12 @@ public:
     size_t getPlayerCount() const { return m_world.getPlayerCount(); }
 
     // World access (for advanced usage)
-    Core::World& getWorld() { return m_world; }
-    const Core::World& getWorld() const { return m_world; }
+    World& getWorld() { return m_world; }
+    const World& getWorld() const { return m_world; }
 
 private:
     // World manages all entities and systems
-    Core::World m_world;
+    World m_world;
 
     // Game state (identical to ArenaGame)
     bool m_isRunning;
@@ -214,7 +214,7 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     snapshot.timestamp = m_gameTime;
 
     // Get all entities that represent players (have all player components)
-    auto& registry = const_cast<Core::World&>(m_world).getRegistry();
+    auto& registry = const_cast<World&>(m_world).getRegistry();
 
     // View of all entities with player components
     auto view = registry.view<

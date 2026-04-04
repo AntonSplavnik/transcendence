@@ -48,16 +48,16 @@ struct CharacterController {
 	// Constructors
 	CharacterController()
 		: input()
-		, movementSpeed(GameConfig::CHARACTER_MOVE_SPEED)
-		, sprintMultiplier(GameConfig::SPRINT_MULTIPLIER)
-		, crouchMultiplier(GameConfig::CROUCH_MULTIPLIER)
-		, jumpVelocity(GameConfig::JUMP_VELOCITY)
+		, movementSpeed(2.5f)
+		, sprintMultiplier(4.0f)
+		, crouchMultiplier(0.5f)
+		, jumpVelocity(8.0f)
 		, isSprinting(false)
 		, isCrouching(false)
 		, canJump(true)
 		, canMove(true)
 		, canRotate(true)
-		, airControlFactor(GameConfig::AIR_CONTROL_FACTOR)
+		, airControlFactor(0.3f)
 		, acceleration(100.0f)
 		, deceleration(100.0f)
 		, state(CharacterState::Idle)
@@ -129,25 +129,19 @@ struct CharacterController {
 	void enableRotation() { canRotate = true; }
 
 	// Static factory methods
-	static CharacterController createFromPreset(const CharacterPreset& preset) {
+	static CharacterController createFromPreset(const MovementPreset& preset) {
 		CharacterController cc;
-		cc.movementSpeed = preset.movementSpeed;
+		cc.movementSpeed    = preset.movementSpeed;
+		cc.sprintMultiplier = preset.sprintMultiplier;
+		cc.crouchMultiplier = preset.crouchMultiplier;
+		cc.jumpVelocity     = preset.jumpVelocity;
+		cc.airControlFactor = preset.airControlFactor;
+		cc.acceleration     = preset.acceleration;
+		cc.deceleration     = preset.deceleration;
 		return cc;
 	}
 	static CharacterController createDefault() {
 		return CharacterController();
-	}
-	static CharacterController createFast() {
-		CharacterController controller;
-		controller.movementSpeed = GameConfig::CHARACTER_MOVE_SPEED * 1.5f;
-		controller.jumpVelocity = GameConfig::JUMP_VELOCITY * 1.2f;
-		return controller;
-	}
-	static CharacterController createSlow() {
-		CharacterController controller;
-		controller.movementSpeed = GameConfig::CHARACTER_MOVE_SPEED * 0.7f;
-		controller.jumpVelocity = GameConfig::JUMP_VELOCITY * 0.8f;
-		return controller;
 	}
 	static CharacterController createAI() {
 		CharacterController controller;

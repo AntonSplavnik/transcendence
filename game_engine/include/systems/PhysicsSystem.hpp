@@ -3,6 +3,7 @@
 #include "System.hpp"
 #include "Components/Transform.hpp"
 #include "Components/PhysicsBody.hpp"
+#include "Components/Collider.hpp"
 #include "GameTypes.hpp"
 #include <entt/entt.hpp>
 
@@ -27,18 +28,18 @@ public:
 	const char* getName() const override { return "PhysicsSystem"; }
 	bool needsFixedUpdate() const override { return true; }
 
-	// Physics configuration (same as PhysicsSystem)
+	// Physics configuration
 	struct Config {
-		float gravity = GameConfig::GRAVITY;
-		float friction = GameConfig::FRICTION;
+		float gravity     = GameConfig::GRAVITY;
+		float friction    = GameConfig::FRICTION;
 		float minVelocity = GameConfig::MIN_VELOCITY;
-		float groundY = GameConfig::GROUND_Y;
+		float groundY     = GameConfig::GROUND_Y;
 
-		// Arena bounds (arena centered at origin: [-ARENA_WIDTH/2, ARENA_WIDTH/2])
-		float arenaMinX = -(GameConfig::ARENA_WIDTH  / 2.0f) + GameConfig::CHARACTER_RADIUS;
-		float arenaMaxX =  (GameConfig::ARENA_WIDTH  / 2.0f) - GameConfig::CHARACTER_RADIUS;
-		float arenaMinZ = -(GameConfig::ARENA_LENGTH / 2.0f) + GameConfig::CHARACTER_RADIUS;
-		float arenaMaxZ =  (GameConfig::ARENA_LENGTH / 2.0f) - GameConfig::CHARACTER_RADIUS;
+		// Raw arena edges (centred at origin) — collider radius offset applied per-entity
+		float arenaMinX = -(GameConfig::ARENA_WIDTH  / 2.0f);
+		float arenaMaxX =  (GameConfig::ARENA_WIDTH  / 2.0f);
+		float arenaMinZ = -(GameConfig::ARENA_LENGTH / 2.0f);
+		float arenaMaxZ =  (GameConfig::ARENA_LENGTH / 2.0f);
 	};
 
 	const Config& getConfig() const { return m_config; }
@@ -47,11 +48,11 @@ public:
 private:
 	Config m_config;
 
-	// Physics operations (same logic as PhysicsSystem)
+	// Physics operations
 	void applyGravity(Components::PhysicsBody& physics, float deltaTime);
 	void applyFriction(Components::PhysicsBody& physics, float deltaTime);
 	void integrateVelocity(Components::Transform& transform, Components::PhysicsBody& physics, float deltaTime);
-	void enforceArenaBounds(Components::Transform& transform);
+	void enforceArenaBounds(Components::Transform& transform, const Components::Collider& collider);
 	void checkGroundCollision(Components::Transform& transform, Components::PhysicsBody& physics);
 };
 
@@ -60,21 +61,13 @@ private:
 // =============================================================================
 
 inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
-	// EnTT view: iterate only entities with Transform AND PhysicsBody
-	auto view = m_registry->view<Components::Transform, Components::PhysicsBody>();
+	auto view = m_registry->view<Components::Transform, Components::PhysicsBody, Components::Collider>();
 
-	view.each([&](Components::Transform& transform,Components::PhysicsBody& physics){
-
-		// Apply physics forces
+	view.each([&](Components::Transform& transform, Components::PhysicsBody& physics, Components::Collider& collider) {
 		applyGravity(physics, fixedDeltaTime);
-
-		// Integrate velocity into position
 		integrateVelocity(transform, physics, fixedDeltaTime);
-
-		// Enforce constraints
-		enforceArenaBounds(transform);
+		enforceArenaBounds(transform, collider);
 		checkGroundCollision(transform, physics);
-
 	});
 }
 
@@ -113,16 +106,12 @@ inline void PhysicsSystem::integrateVelocity(Components::Transform& transform, C
 	transform.position += physics.velocity * deltaTime;
 }
 
-inline void PhysicsSystem::enforceArenaBounds(Components::Transform& transform) {
+inline void PhysicsSystem::enforceArenaBounds(Components::Transform& transform, const Components::Collider& collider) {
 	Vector3D& position = transform.position;
+	const float r = collider.radius;
 
-	// Clamp X coordinate
-	position.x = std::max(m_config.arenaMinX,
-						 std::min(m_config.arenaMaxX, position.x));
-
-	// Clamp Z coordinate
-	position.z = std::max(m_config.arenaMinZ,
-						 std::min(m_config.arenaMaxZ, position.z));
+	position.x = std::max(m_config.arenaMinX + r, std::min(m_config.arenaMaxX - r, position.x));
+	position.z = std::max(m_config.arenaMinZ + r, std::min(m_config.arenaMaxZ - r, position.z));
 }
 
 inline void PhysicsSystem::checkGroundCollision(Components::Transform& transform, Components::PhysicsBody& physics) {

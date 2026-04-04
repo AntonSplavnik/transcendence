@@ -243,10 +243,8 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 }
 
 inline void CombatSystem::executeSkill(SkillDefinition& skill, SkillContext& ctx) {
-	std::visit(overloaded{
-		[&](MeleeAOE& s) {
-			hitAllInRange(ctx, s.range, s.dmgMultiplier);
-		}
+	std::visit(overloaded {
+		[&](MeleeAOE& s) { hitAllInRange(ctx, s.range, s.dmgMultiplier); }
 	}, skill.params);
 }
 

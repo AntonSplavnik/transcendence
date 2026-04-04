@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
 
 namespace ArenaGame {
 namespace Components {
@@ -41,12 +42,12 @@ struct PhysicsBody {
 		: velocity(0.0f, 0.0f, 0.0f)
 		, acceleration(0.0f, 0.0f, 0.0f)
 		, mass(1.0f)
-		, friction(GameConfig::FRICTION)
+		, friction(0.85f)
 		, drag(0.0f)
 		, useGravity(true)
 		, isKinematic(false)
 		, isGrounded(false)
-		, maxSpeed(GameConfig::CHARACTER_MAX_SPEED)
+		, maxSpeed(10.0f)
 		, maxFallSpeed(50.0f)
 	{}
 
@@ -98,12 +99,14 @@ struct PhysicsBody {
 	}
 
 	// Static factory methods for common configurations
-	static PhysicsBody createCharacter() {
+	static PhysicsBody createFromPreset(const MovementPreset& preset) {
 		PhysicsBody body;
-		body.mass = 70.0f;  // Average human mass
-		body.friction = GameConfig::FRICTION;
-		body.useGravity = true;
-		body.maxSpeed = GameConfig::CHARACTER_MAX_SPEED;
+		body.mass         = preset.mass;
+		body.friction     = preset.friction;
+		body.drag         = preset.drag;
+		body.maxSpeed     = preset.maxSpeed;
+		body.maxFallSpeed = preset.maxFallSpeed;
+		body.useGravity   = true;
 		return body;
 	}
 	static PhysicsBody createProjectile() {

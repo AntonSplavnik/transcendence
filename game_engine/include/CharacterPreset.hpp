@@ -5,17 +5,37 @@
 
 namespace ArenaGame {
 
-	struct CharacterPreset {
-		// Health
+	struct HealthPreset {
 		float maxHealth;
 		float armor;
 		float resistance;
+	};
 
+	struct MovementPreset {
 		// CharacterController
 		float movementSpeed;
 		float rotationSpeed;
+		float sprintMultiplier;
+		float crouchMultiplier;
+		float jumpVelocity;
+		float dodgeVelocity;
+		float airControlFactor;
+		float acceleration;
+		float deceleration;
+		// PhysicsBody
+		float mass;
+		float friction;
+		float drag;
+		float maxSpeed;
+		float maxFallSpeed;
+	};
 
-		// CombatController
+	struct ColliderPreset {
+		float radius;
+		float height;
+	};
+
+	struct CombatPreset {
 		float baseDamage;
 		float damageMultiplier;
 		float criticalChance;
@@ -24,4 +44,12 @@ namespace ArenaGame {
 		SkillDefinition skill1;
 		SkillDefinition skill2;
 	};
+
+	struct CharacterPreset {
+		HealthPreset   health;
+		MovementPreset movement;
+		ColliderPreset collider;
+		CombatPreset   combat;
+	};
+
 };

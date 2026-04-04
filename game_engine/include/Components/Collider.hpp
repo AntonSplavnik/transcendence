@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
 
 namespace ArenaGame {
 namespace Components {
@@ -72,8 +73,8 @@ struct Collider {
 	// Constructors
 	Collider()
 		: shape(Shape::Cylinder)
-		, radius(GameConfig::CHARACTER_COLLISION_RADIUS)
-		, height(GameConfig::CHARACTER_HEIGHT)
+		, radius(0.45f)
+		, height(1.8f)
 		, halfExtents(0.5f, 1.0f, 0.5f)
 		, layer(CollisionLayer::Player)
 		, collidesWith(CollisionLayer::All)
@@ -133,6 +134,12 @@ struct Collider {
 	}
 
 	// Static factory methods for common collider types
+	static Collider createFromPreset(const ColliderPreset& preset, CollisionLayer layer) {
+		Collider collider = createCylinder(preset.radius, preset.height);
+		collider.layer        = layer;
+		collider.collidesWith = CollisionLayer::All;
+		return collider;
+	}
 	static Collider createCylinder(float radius, float height) {
 		Collider collider;
 		collider.shape = Shape::Cylinder;
@@ -154,13 +161,6 @@ struct Collider {
 		collider.shape = Shape::Box;
 		collider.halfExtents = halfExtents;
 		return collider;
-	}
-
-	static Collider createCharacter() {
-		return createCylinder(
-			GameConfig::CHARACTER_COLLISION_RADIUS,
-			GameConfig::CHARACTER_HEIGHT
-		);
 	}
 
 	static Collider createProjectile(float radius = 0.1f) {

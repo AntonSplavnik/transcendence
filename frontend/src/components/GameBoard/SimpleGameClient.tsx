@@ -596,7 +596,7 @@ export default function SimpleGameClient({
 				if (kbInfo.type === 1) {
 					keysPressed.add(kbInfo.event.key.toLowerCase());
 					// Attack is a one-shot trigger (keydown only, ignore keyboard repeat)
-					if (kbInfo.event.key.toLowerCase() === 'e' && !kbInfo.event.repeat)
+					if (kbInfo.event.key.toLowerCase() === 'e' && !(kbInfo.event as KeyboardEvent).repeat)
 						input.isAttacking = true;
 				} else if (kbInfo.type === 2) {
 					keysPressed.delete(kbInfo.event.key.toLowerCase());
