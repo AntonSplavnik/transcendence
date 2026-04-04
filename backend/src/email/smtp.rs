@@ -25,6 +25,9 @@ struct SmtpInner {
 
 impl SmtpEmailSender {
     /// Build a new sender from the application [`EmailConfig`].
+    ///
+    /// # Errors
+    /// Returns [`EmailError`] if the SMTP relay cannot be configured or the from-address is invalid.
     pub fn new(config: &EmailConfig) -> Result<Self, EmailError> {
         let builder = if config.smtp_tls {
             AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host)?

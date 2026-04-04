@@ -7,7 +7,7 @@ use salvo::test::ResponseExt;
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
-    /// `POST /api/auth/session-management/accept-tos` — accept the ToS,
+    /// `POST /api/auth/session-management/accept-tos` — accept the `ToS`,
     /// asserting success. Updates cookies.
     pub async fn accept_tos(&mut self) -> SessionInfo {
         let mut res = self.try_accept_tos().await;
@@ -28,14 +28,14 @@ impl mock::User<mock::Registered> {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/// Create a server whose ToS timestamp is in the future, so any user
-/// registered before this call will fail the ToS gate.
+/// Create a server whose `ToS` timestamp is in the future, so any user
+/// registered before this call will fail the `ToS` gate.
 ///
 /// Because the timestamp is in the future, `accept_tos` (which records
 /// `now()`) will **not** unblock the user. Use this only for tests that
 /// assert the **blocking** path (403) or ToS-exempt endpoints. For tests
 /// that need to accept-then-unblock, use a real `sleep`-to-next-second
-/// approach so that `now()` >= the ToS timestamp at acceptance time.
+/// approach so that `now()` >= the `ToS` timestamp at acceptance time.
 fn server_with_future_tos(server: &mock::Server) -> mock::Server {
     let future_ts = chrono::Utc::now() + chrono::Duration::seconds(2);
     server.with_tos(crate::tos::CurrentTosTimestamp::from_utc(future_ts))
@@ -67,7 +67,7 @@ async fn accept_tos_succeeds() {
 #[tokio::test]
 async fn accept_tos_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.post("/api/auth/session-management/accept-tos"))
         .await;
 }

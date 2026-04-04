@@ -70,7 +70,7 @@ async fn check_nickname(json: JsonBody<Nickname>, db: Db) -> JsonResult<CheckNic
     use crate::schema::users::dsl::*;
     let input = json.into_inner();
     let valid = crate::validate::nickname(&input).is_ok();
-    let input_clone = input.clone();
+    let input_clone = input;
 
     let exists = db
         .read(move |conn| {

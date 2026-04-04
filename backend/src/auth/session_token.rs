@@ -19,21 +19,21 @@ pub struct SessionToken([u8; 32]);
 
 impl SessionToken {
     pub fn generate() -> Self {
-        SessionToken(rand::random())
+        Self(rand::random())
     }
 
-    pub fn to_hash(&self) -> SessionTokenHash {
-        SessionTokenHash::from(*self)
+    pub fn to_hash(self) -> SessionTokenHash {
+        SessionTokenHash::from(self)
     }
 
     pub fn encoded(&self) -> String {
-        base64url.encode(&self.0)
+        base64url.encode(self.0)
     }
 }
 
 impl Default for SessionToken {
     fn default() -> Self {
-        SessionToken::generate()
+        Self::generate()
     }
 }
 
@@ -46,7 +46,7 @@ impl TryFrom<&str> for SessionToken {
                 actual: decoded.len(),
             });
         }
-        Ok(SessionToken(decoded.try_into().expect("length checked")))
+        Ok(Self(decoded.try_into().expect("length checked")))
     }
 
     type Error = TokenDecodeError;
@@ -54,7 +54,7 @@ impl TryFrom<&str> for SessionToken {
 
 impl TryFrom<String> for SessionToken {
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        SessionToken::try_from(s.as_str())
+        Self::try_from(s.as_str())
     }
 
     type Error = TokenDecodeError;
@@ -64,8 +64,8 @@ impl TryFrom<String> for SessionToken {
 pub struct SessionTokenHash(FixedBlob<32>);
 
 impl SessionTokenHash {
-    pub fn to_truncated(&self) -> SessionTokenHashTruncated {
-        SessionTokenHashTruncated::from(*self)
+    pub fn to_truncated(self) -> SessionTokenHashTruncated {
+        SessionTokenHashTruncated::from(self)
     }
 }
 
@@ -81,7 +81,7 @@ pub struct SessionTokenHashTruncated([u8; 16]);
 
 impl SessionTokenHashTruncated {
     pub fn encoded(&self) -> String {
-        base64url.encode(&self.0)
+        base64url.encode(self.0)
     }
 }
 
@@ -89,7 +89,7 @@ impl From<SessionTokenHash> for SessionTokenHashTruncated {
     fn from(hash: SessionTokenHash) -> Self {
         let mut truncated = [0u8; 16];
         truncated.copy_from_slice(&hash.0[..16]);
-        SessionTokenHashTruncated(truncated)
+        Self(truncated)
     }
 }
 
@@ -102,7 +102,7 @@ impl TryFrom<String> for SessionTokenHashTruncated {
                 actual: decoded.len(),
             });
         }
-        Ok(SessionTokenHashTruncated(
+        Ok(Self(
             decoded.try_into().expect("length checked"),
         ))
     }
@@ -119,20 +119,20 @@ impl From<SessionTokenHashTruncated> for String {
 // implement comparison between SessionTokenHash and SessionTokenHashTruncated where only the first 16 bytes are compared
 impl PartialEq<SessionTokenHashTruncated> for SessionTokenHash {
     fn eq(&self, other: &SessionTokenHashTruncated) -> bool {
-        &self.0[..16] == &other.0[..]
+        self.0[..16] == other.0[..]
     }
 }
 
 impl PartialEq<SessionTokenHash> for SessionTokenHashTruncated {
     fn eq(&self, other: &SessionTokenHash) -> bool {
-        &self.0[..] == &other.0[..16]
+        self.0[..] == other.0[..16]
     }
 }
 
 impl From<blake3::Hash> for FixedBlob<32> {
     fn from(value: blake3::Hash) -> Self {
         let bytes: [u8; 32] = value.into();
-        FixedBlob::from(bytes)
+        Self::from(bytes)
     }
 }
 
@@ -170,7 +170,7 @@ mod tests {
                 assert_eq!(expected, 32);
                 assert_eq!(actual, 16);
             }
-            err => panic!("unexpected error variant: {err:?}"),
+            err @ TokenDecodeError::Base64(_) => panic!("unexpected error variant: {err:?}"),
         }
     }
 

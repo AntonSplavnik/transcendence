@@ -478,7 +478,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// state is expected. Handlers needing per-connection state (e.g., sequence
     /// numbers) can use interior mutability (`Cell`, `AtomicU64`).
     ///
-    /// **JoinHandle Drop Policy**
+    /// **`JoinHandle` Drop Policy**
     ///
     /// The returned `JoinHandle<()>` may be safely dropped. The `CancelHandle` (owned
     /// by the `StreamSink`) governs the receive loop's lifetime independently.
@@ -1073,7 +1073,7 @@ impl<P: RoomProtocol> std::fmt::Debug for StreamRoom<P> {
         f.debug_struct("StreamRoom")
             .field("members", &inner.handles.len())
             .field("pending", &inner.pending.len())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

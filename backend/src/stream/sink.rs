@@ -243,7 +243,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
         'outer: loop {
             tokio::select! {
                 biased;
-                _ = cancel.cancelled() => break,
+                () = cancel.cancelled() => break,
                 envelope = rx.recv() => {
                     match envelope {
                         Some(Envelope::Send(msg)) => {
@@ -413,10 +413,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     pub async fn send_confirmed(&self, msg: S) -> Result<(), ConfirmedSendError<S>> {
         let (response_tx, response_rx) = oneshot::channel();
         if let Err(err) = self.tx.send(Envelope::Confirm(msg, response_tx)).await {
-            let msg = match err.0 {
-                Envelope::Confirm(msg, _) => msg,
-                _ => unreachable!("we just sent a Confirm"),
-            };
+            let Envelope::Confirm(msg, _) = err.0 else { unreachable!("we just sent a Confirm") };
             return Err(ConfirmedSendError::ChannelClosed(Some(msg)));
         }
 
@@ -427,7 +424,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                 Ok(result) => result,
                 Err(_) => Err(ConfirmedSendError::ChannelClosed(None)),
             },
-            _ = self.cancel.cancelled() => Err(ConfirmedSendError::ChannelClosed(None)),
+            () = self.cancel.cancelled() => Err(ConfirmedSendError::ChannelClosed(None)),
         }
     }
 
@@ -465,10 +462,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
             .send(Envelope::ConfirmBatch(msgs, response_tx))
             .await
         {
-            let unsent = match err.0 {
-                Envelope::ConfirmBatch(msgs, _) => msgs,
-                _ => unreachable!("we just sent a ConfirmBatch"),
-            };
+            let Envelope::ConfirmBatch(unsent, _) = err.0 else { unreachable!("we just sent a ConfirmBatch") };
             return Err(ConfirmedBatchError {
                 sent: 0,
                 unsent,
@@ -487,7 +481,7 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
                     source: anyhow::anyhow!("forwarding task dropped response channel"),
                 }),
             },
-            _ = self.cancel.cancelled() => {
+            () = self.cancel.cancelled() => {
                 // `sent: 0` because the forwarding task may have partially or
                 // fully written the batch before the cancel fired, but we have
                 // no way to observe how far it got. `unsent` is empty because

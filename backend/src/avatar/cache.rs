@@ -10,7 +10,7 @@ use std::sync::{Arc, LazyLock};
 /// Cache capacity (number of avatars to cache)
 const CACHE_CAPACITY: usize = 1000;
 
-/// Cached avatar data with timestamp for ETag generation
+/// Cached avatar data with timestamp for `ETag` generation
 #[derive(Clone)]
 pub struct CachedAvatar {
     pub data: Arc<Vec<u8>>,

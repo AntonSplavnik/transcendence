@@ -10,7 +10,7 @@ mod outgoing;
 mod reject;
 mod remove;
 mod send;
-pub(crate) mod types;
+pub mod types;
 
 #[cfg(test)]
 mod tests;

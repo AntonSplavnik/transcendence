@@ -12,7 +12,7 @@
 //! per-user `tokio::sync::Mutex` that covers ONE user. This allows I/O under the
 //! lock (DB reads/writes, confirmed sends) without blocking other users.
 //!
-//! | | StreamRoom | UserStream |
+//! | | `StreamRoom` | `UserStream` |
 //! |---|---|---|
 //! | Lock granularity | Entire room (all users) | Per-user |
 //! | Lock type | `parking_lot::Mutex` (sync) | `tokio::Mutex` (async) |
@@ -27,18 +27,18 @@
 //! - The `DashMap` shard lock is held only for the duration of a `get`/`entry` call
 //!   (nanoseconds). The `tokio::Mutex` is held across async work (DB I/O, confirmed
 //!   sends) — this is safe because it only blocks that one user.
-//! - No DashMap shard lock is ever held across an `.await` point.
+//! - No `DashMap` shard lock is ever held across an `.await` point.
 //!
 //! # Ephemeral Slot Lifecycle
 //!
-//! DashMap entries exist only while a stream is live or an operation is in progress:
+//! `DashMap` entries exist only while a stream is live or an operation is in progress:
 //!
 //! 1. **`open_stream`**: creates slot (locked), opens stream, initializes state,
 //!    calls `on_open`, releases lock. Entry persists with live stream.
 //! 2. **`with_live_or_else` for offline user**: creates ephemeral slot (locked),
 //!    calls offline fallback, releases lock, immediately removes slot.
 //! 3. **Cleanup task**: on stream cancel, acquires lock, calls `on_close`,
-//!    clears live connection, removes DashMap entry via `try_lock` + `remove_if`.
+//!    clears live connection, removes `DashMap` entry via `try_lock` + `remove_if`.
 //!
 //! Ghost entries cannot persist. Every code path that leaves a slot empty also
 //! calls `try_remove_empty_slot`. If `try_lock` fails because another operation
@@ -108,7 +108,7 @@ use super::stream_manager::{StreamManager, StreamManagerError};
 /// All callbacks are called while the per-user `tokio::Mutex` is held. They
 /// MAY perform I/O (DB reads/writes, confirmed sends). They MUST NOT:
 /// - **Panic** — leaves per-user state inconsistent.
-/// - **Acquire the DashMap shard lock** — it is not held, but acquiring it
+/// - **Acquire the `DashMap` shard lock** — it is not held, but acquiring it
 ///   could create lock-ordering issues with other operations.
 /// - **Call other `UserStream` methods for the same user** — would deadlock
 ///   (re-entrant lock on the same `tokio::Mutex`).
@@ -203,13 +203,13 @@ pub enum SendError<S> {
 /// # Invariants
 ///
 /// - At most one live (non-cancelled) stream per `user_id` at any time.
-/// - DashMap entries are ephemeral: they exist only while a stream is live
+/// - `DashMap` entries are ephemeral: they exist only while a stream is live
 ///   or an operation is in progress. No ghost entries in steady state.
 /// - Every successful `on_open` is paired with exactly one `on_close`.
 /// - Per-user state (`P::State`) is created fresh on each `open_stream`
 ///   and consumed on `on_close`. It does not persist across connections.
 ///
-/// # Lock Level: 1 (per-user tokio::Mutex)
+/// # Lock Level: 1 (per-user `tokio::Mutex`)
 pub struct UserStream<P: UserStreamProtocol> {
     users: DashMap<i32, Arc<AsyncMutex<UserSlot<P>>>, ahash::RandomState>,
     protocol: Arc<P>,
@@ -248,7 +248,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
     /// Atomically get-or-insert a user slot and return its owned lock guard.
     ///
-    /// Bridges the DashMap shard lock and the per-user tokio Mutex without a
+    /// Bridges the `DashMap` shard lock and the per-user tokio Mutex without a
     /// gap: when a new slot is created, the mutex is pre-locked inside
     /// `or_insert_with` (where the shard is still held), so no other thread
     /// can observe the empty slot before the creator holds its lock.
@@ -445,7 +445,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
     ///
     /// Acquires the per-user lock (async) to guarantee the cancel is issued
     /// even under contention. The actual cleanup (calling `on_close`, removing
-    /// the DashMap entry) is handled by the spawned cleanup task — this method
+    /// the `DashMap` entry) is handled by the spawned cleanup task — this method
     /// only issues the cancel signal.
     ///
     /// Note: `has_stream(user_id)` may still return `true` briefly after this
@@ -618,7 +618,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
     /// coordination between `send()` and `open_stream()`. This is the primary
     /// mechanism for eliminating the check-then-act race condition.
     ///
-    /// If no DashMap entry exists, an ephemeral slot is created, the offline
+    /// If no `DashMap` entry exists, an ephemeral slot is created, the offline
     /// closure runs under its lock, and the slot is removed immediately after.
     ///
     /// # Parameters
@@ -673,7 +673,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
         result
     }
 
-    /// Remove a DashMap entry if the slot is empty and unlocked.
+    /// Remove a `DashMap` entry if the slot is empty and unlocked.
     fn try_remove_empty_slot(&self, user_id: i32) {
         self.users
             .remove_if(&user_id, |_, slot_arc| match slot_arc.try_lock() {
@@ -685,7 +685,7 @@ impl<P: UserStreamProtocol> UserStream<P> {
 
 #[cfg(test)]
 impl<P: UserStreamProtocol> UserStream<P> {
-    /// Test helper: whether a DashMap entry exists for this user (even if empty).
+    /// Test helper: whether a `DashMap` entry exists for this user (even if empty).
     pub fn has_slot(&self, user_id: i32) -> bool {
         self.users.contains_key(&user_id)
     }

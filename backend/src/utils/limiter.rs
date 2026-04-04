@@ -94,7 +94,7 @@ impl RateLimit {
         Self::new(limit, Duration::from_secs(86400))
     }
 
-    async fn rate_limit<T: std::hash::Hash>(
+    fn rate_limit<T: std::hash::Hash>(
         &self,
         key: &T,
         res: &mut Response,
@@ -102,8 +102,13 @@ impl RateLimit {
     ) {
         let observed = self.rate.observe(key, 1);
 
-        if observed <= 0 || observed > self.limit as isize {
+        // self.limit is a u32 rate-limit value (always a small number, fits in isize)
+        #[allow(clippy::cast_possible_wrap)]
+        let limit_isize = self.limit as isize;
+        if observed <= 0 || observed > limit_isize {
             #[cfg(not(test))]
+            // observed is positive here (> 0 was excluded above), cast to usize is safe
+            #[allow(clippy::cast_sign_loss)]
             RATE_LIMITED_COUNTERS[observed as usize % RATE_LIMITED_COUNTERS.len()]
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             res.status_code(StatusCode::TOO_MANY_REQUESTS);
@@ -129,7 +134,7 @@ impl Handler for IpRateLimitHoop {
             salvo::conn::SocketAddr::IPv6(a) => *a.ip(),
             _ => return,
         };
-        self.0.rate_limit(&ip, res, ctrl).await;
+        self.0.rate_limit(&ip, res, ctrl);
     }
 }
 
@@ -146,7 +151,7 @@ impl Handler for UserRateLimitHoop {
         ctrl: &mut FlowCtrl,
     ) {
         let user_id = depot.user_id();
-        self.0.rate_limit(&user_id, res, ctrl).await;
+        self.0.rate_limit(&user_id, res, ctrl);
     }
 }
 

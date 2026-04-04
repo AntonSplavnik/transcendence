@@ -18,7 +18,7 @@ use salvo::oapi::extract::PathParam;
 use std::borrow::Cow;
 use std::sync::LazyLock;
 
-/// Hash bytes into a 18-char ETag: `"<16 hex chars>"`
+/// Hash bytes into a 18-char `ETag`: `"<16 hex chars>"`
 fn hexstr_hash(bytes: &[u8]) -> Box<str> {
     let mut hash = [0u8; 8];
     blake3::Hasher::new()
@@ -28,19 +28,19 @@ fn hexstr_hash(bytes: &[u8]) -> Box<str> {
     format!("\"{}\"", hex::encode(hash)).into_boxed_str()
 }
 
-/// Static ETag for the default large avatar (never changes)
+/// Static `ETag` for the default large avatar (never changes)
 static DEFAULT_AVATAR_ETAG_LARGE: LazyLock<Box<str>> =
     LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_LARGE));
-/// Static ETag for the default small avatar (never changes)
+/// Static `ETag` for the default small avatar (never changes)
 static DEFAULT_AVATAR_ETAG_SMALL: LazyLock<Box<str>> =
     LazyLock::new(|| hexstr_hash(DEFAULT_AVATAR_SMALL));
 
-/// Derive an ETag for an Avatar
+/// Derive an `ETag` for an Avatar
 ///
 /// 27-character fixed-length string containing quotes and:
-/// - 8 hex chars for user_id
-/// - 16 hex chars for updated_at timestamp in microseconds
-/// - 1 hex char for is_large flag (0 or 1)
+/// - 8 hex chars for `user_id`
+/// - 16 hex chars for `updated_at` timestamp in microseconds
+/// - 1 hex char for `is_large` flag (0 or 1)
 fn make_etag(user_id: i32, updated_at: DateTime<Utc>, is_large: bool) -> impl AsRef<str> {
     use crate::models::blob::Str;
     use crate::models::blob::WritableFixedBlob;
@@ -51,7 +51,7 @@ fn make_etag(user_id: i32, updated_at: DateTime<Utc>, is_large: bool) -> impl As
         "\"{:08X}{:016X}{:01X}\"",
         user_id,
         updated_at.timestamp_micros(),
-        is_large as u8
+        u8::from(is_large)
     )
     .unwrap();
     out.finish()
@@ -59,7 +59,7 @@ fn make_etag(user_id: i32, updated_at: DateTime<Utc>, is_large: bool) -> impl As
 
 /// Check whether the `If-None-Match` header matches `etag`.
 ///
-/// Handles the wildcard `*`, multiple comma-separated ETags, and weak tags
+/// Handles the wildcard `*`, multiple comma-separated `ETags`, and weak tags
 /// (`W/"…"`) by stripping the `W/` prefix before comparison (per RFC 7232 §3.2,
 /// weak comparison only checks the opaque-tag).
 fn etag_matches(if_none_match: &str, etag: &str) -> bool {
@@ -68,14 +68,14 @@ fn etag_matches(if_none_match: &str, etag: &str) -> bool {
         return true;
     }
     inm.split(',')
-        .any(|tag| tag.trim().strip_prefix("W/").unwrap_or(tag.trim()) == etag)
+        .any(|tag| tag.trim().strip_prefix("W/").unwrap_or_else(|| tag.trim()) == etag)
 }
 
-/// Write an avatar response with ETag support, returning 304 if the client's cache is fresh
+/// Write an avatar response with `ETag` support, returning 304 if the client's cache is fresh
 fn write_avatar_response(req: &Request, res: &mut Response, data: Cow<'_, [u8]>, etag: &str) {
-    if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH) {
-        if let Ok(value) = if_none_match.to_str() {
-            if etag_matches(value, etag) {
+    if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH)
+        && let Ok(value) = if_none_match.to_str()
+            && etag_matches(value, etag) {
                 res.status_code(StatusCode::NOT_MODIFIED);
                 res.headers_mut()
                     .insert(header::ETAG, etag.parse().unwrap());
@@ -83,8 +83,6 @@ fn write_avatar_response(req: &Request, res: &mut Response, data: Cow<'_, [u8]>,
                     .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
                 return;
             }
-        }
-    }
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());
@@ -194,9 +192,9 @@ async fn get_avatar_large(
     user_id: PathParam<i32>,
     db: Db,
 ) -> AppResult<()> {
+    use crate::schema::avatars_large::dsl;
     let user_id = user_id.into_inner();
 
-    use crate::schema::avatars_large::dsl;
     let avatar = db
         .read(move |conn| {
             dsl::avatars_large
@@ -234,6 +232,7 @@ async fn get_avatar_small(
     user_id: PathParam<i32>,
     db: Db,
 ) -> AppResult<()> {
+    use crate::schema::avatars_small::dsl;
     let user_id = user_id.into_inner();
 
     // Try cache first
@@ -244,7 +243,6 @@ async fn get_avatar_small(
     }
 
     // Fallback to database
-    use crate::schema::avatars_small::dsl;
     let avatar = db
         .read(move |conn| {
             dsl::avatars_small

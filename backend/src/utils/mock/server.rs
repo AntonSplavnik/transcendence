@@ -43,11 +43,11 @@ impl Server {
         }
     }
 
-    /// Create a default test server with the given database and ToS timestamp.
+    /// Create a default test server with the given database and `ToS` timestamp.
     pub fn default_with(db: Db, tos_timestamp: CurrentTosTimestamp) -> Self {
         let mailer = Mailer::new();
         let router = crate::routers::rest_api(db.clone(), tos_timestamp, mailer.clone());
-        Server {
+        Self {
             host: "http://localhost".into(),
             db,
             mailer,
@@ -58,7 +58,7 @@ impl Server {
     }
 
     /// Create a new server sharing this server's database but with a
-    /// different ToS timestamp. Useful for testing ToS version changes.
+    /// different `ToS` timestamp. Useful for testing `ToS` version changes.
     pub fn with_tos(&self, tos_timestamp: CurrentTosTimestamp) -> Self {
         Self::default_with(self.db.clone(), tos_timestamp)
     }
@@ -74,7 +74,7 @@ impl Server {
     }
 
     pub fn user_generator(&self) -> UserGenerator<'_> {
-        UserGenerator { server: &self }
+        UserGenerator { server: self }
     }
 }
 

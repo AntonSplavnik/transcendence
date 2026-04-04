@@ -193,7 +193,7 @@ pub enum NotificationOpenError {
 /// All invariants are enforced by the underlying [`UserStream`]:
 /// - At most one live stream per user.
 /// - Race-free send/open via per-user `tokio::Mutex`.
-/// - No ghost DashMap entries after disconnect.
+/// - No ghost `DashMap` entries after disconnect.
 #[derive(Clone)]
 pub struct NotificationManager {
     user_stream: Arc<UserStream<NotificationProtocol>>,
@@ -249,18 +249,15 @@ impl NotificationManager {
                             payload: payload.clone(),
                             created_at,
                         };
-                        match sink.send(wire).await {
-                            Ok(()) => Ok(()),
-                            Err(_) => {
-                                // Channel closed — fall back to DB.
-                                tracing::warn!(
-                                    user_id,
-                                    "notification stream channel closed, falling back to DB"
-                                );
-                                store_to_db(&db, user_id, payload, created_at)
-                                    .await
-                                    .map_err(NotificationError::from)
-                            }
+                        if sink.send(wire).await.is_ok() { Ok(()) } else {
+                            // Channel closed — fall back to DB.
+                            tracing::warn!(
+                                user_id,
+                                "notification stream channel closed, falling back to DB"
+                            );
+                            store_to_db(&db, user_id, payload, created_at)
+                                .await
+                                .map_err(NotificationError::from)
                         }
                     }
                 },
