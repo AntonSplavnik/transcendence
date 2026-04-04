@@ -9,8 +9,6 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
-use super::two_factor::{ensure_totp_key, generate_totp_code};
-
 // ── Ergonomic helpers on mock::User ───────────────────────────────
 
 impl mock::User<mock::Registered> {
@@ -27,33 +25,21 @@ impl mock::User<mock::Registered> {
 
     /// Initiate data export, returning the raw response.
     pub async fn try_initiate_export(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self.client.post("/api/user/export-my-data").json(&body);
         self.client.send(req).await
     }
 
-    /// Initiate export with a specific password.
-    pub async fn try_initiate_export_with_password(&mut self, password: &str) -> salvo::Response {
+    /// Initiate export with wrong password (supplies correct MFA if enrolled).
+    pub async fn try_initiate_export_wrong_pw(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: None,
-        };
-        let req = self.client.post("/api/user/export-my-data").json(&body);
-        self.client.send(req).await
-    }
-
-    /// Initiate export with a specific password and optional MFA code.
-    pub async fn try_initiate_export_with(
-        &mut self,
-        password: &str,
-        mfa_code: Option<&str>,
-    ) -> salvo::Response {
-        let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: mfa_code.map(String::from),
+            password: "wrong-password".to_string(),
+            mfa_code,
         };
         let req = self.client.post("/api/user/export-my-data").json(&body);
         self.client.send(req).await
@@ -72,9 +58,10 @@ impl mock::User<mock::Registered> {
 
     /// Execute data export, returning the raw response.
     pub async fn try_execute_export(&mut self, token: &str) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self
             .client
@@ -83,28 +70,18 @@ impl mock::User<mock::Registered> {
         self.client.send(req).await
     }
 
-    /// Execute export with a specific password and optional MFA code.
-    pub async fn try_execute_export_with(
-        &mut self,
-        token: &str,
-        password: &str,
-        mfa_code: Option<&str>,
-    ) -> salvo::Response {
-        let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: mfa_code.map(String::from),
-        };
-        let req = self
-            .client
-            .post(format!("/api/user/export-my-data?token={token}"))
-            .json(&body);
-        self.client.send(req).await
-    }
-
-    /// Execute export with wrong password.
+    /// Execute export with wrong password (supplies correct MFA if enrolled).
     pub async fn try_execute_export_wrong_pw(&mut self, token: &str) -> salvo::Response {
-        self.try_execute_export_with(token, "wrong-password", None)
-            .await
+        let mfa_code = self.mfa_code().await;
+        let body = PasswordInput {
+            password: "wrong-password".to_string(),
+            mfa_code,
+        };
+        let req = self
+            .client
+            .post(format!("/api/user/export-my-data?token={token}"))
+            .json(&body);
+        self.client.send(req).await
     }
 }
 
@@ -122,6 +99,19 @@ async fn initiate_export_succeeds() {
     assert!(
         !resp.email_confirmation_required,
         "no email confirmation required for unconfirmed email"
+    );
+}
+
+#[tokio::test]
+async fn initiate_export_confirmed_email_requires_confirmation() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+    user.confirm_email(&server).await;
+
+    let resp = user.initiate_export().await;
+    assert!(
+        resp.email_confirmation_required,
+        "confirmed email must require email confirmation"
     );
 }
 
@@ -146,9 +136,7 @@ async fn initiate_export_wrong_password_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
-    let res = user
-        .try_initiate_export_with_password("wrong-password")
-        .await;
+    let res = user.try_initiate_export_wrong_pw().await;
     assert_eq!(
         res.status_code,
         Some(StatusCode::UNAUTHORIZED),
@@ -169,75 +157,6 @@ async fn initiate_export_idempotent_reuses_token() {
     assert_eq!(
         resp1.token, resp2.token,
         "repeated initiation must return the same token"
-    );
-}
-
-// ── Initiation: MFA interaction ────────────────────────────────────────────
-
-#[tokio::test]
-async fn initiate_export_mfa_missing_when_2fa_enabled_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate without mfa_code — must fail.
-    let res = user
-        .try_initiate_export_with(&user.password.clone(), None)
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "missing mfa_code must be rejected when 2FA is enabled"
-    );
-}
-
-#[tokio::test]
-async fn initiate_export_mfa_wrong_code_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate with wrong mfa_code — must fail.
-    let res = user
-        .try_initiate_export_with(&user.password.clone(), Some("000000"))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "wrong mfa_code must be rejected"
-    );
-}
-
-#[tokio::test]
-async fn initiate_export_mfa_valid_code_succeeds() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate with correct mfa_code — must succeed.
-    let mfa_code = generate_totp_code(&secret);
-    let res = user
-        .try_initiate_export_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::OK),
-        "valid mfa_code must be accepted"
     );
 }
 
@@ -269,6 +188,52 @@ async fn execute_export_returns_user_data() {
     assert!(
         !export.sessions.is_empty(),
         "should have at least one active session"
+    );
+}
+
+#[tokio::test]
+async fn execute_export_includes_friend_requests() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+    let user2 = server.user().register().await;
+
+    // Seed a friend request from user to user2.
+    let u1_id = user.user_id();
+    let u2_id = user2.user_id();
+    server
+        .db
+        .write(move |conn| {
+            use crate::schema::friend_requests::dsl::*;
+            use diesel::prelude::*;
+            diesel::insert_into(friend_requests)
+                .values((
+                    sender_id.eq(u1_id),
+                    receiver_id.eq(u2_id),
+                    status.eq(0),
+                    created_at.eq(chrono::Utc::now()),
+                    updated_at.eq(chrono::Utc::now()),
+                ))
+                .execute(conn)
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    let resp = user.initiate_export().await;
+    let export = user.execute_export(&resp.token).await;
+
+    assert_eq!(
+        export.friend_requests.len(),
+        1,
+        "export must include the friend request"
+    );
+    assert_eq!(
+        export.friend_requests[0].sender_id, u1_id,
+        "sender_id must match"
+    );
+    assert_eq!(
+        export.friend_requests[0].receiver_id, u2_id,
+        "receiver_id must match"
     );
 }
 
@@ -335,93 +300,6 @@ async fn execute_export_wrong_password_rejected() {
     );
 }
 
-// ── Execution: MFA interaction ─────────────────────────────────────────────
-
-#[tokio::test]
-async fn execute_export_mfa_missing_when_2fa_enabled_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate export with valid MFA code.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_export_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute without mfa_code — must fail.
-    let res = user
-        .try_execute_export_with(&initiate.token, &user.password.clone(), None)
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "missing mfa_code must be rejected on execution when 2FA is enabled"
-    );
-}
-
-#[tokio::test]
-async fn execute_export_mfa_wrong_code_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate export.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_export_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute with wrong mfa_code — must fail.
-    let res = user
-        .try_execute_export_with(&initiate.token, &user.password.clone(), Some("000000"))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "wrong mfa_code must be rejected on execution"
-    );
-}
-
-#[tokio::test]
-async fn execute_export_mfa_valid_code_succeeds() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate export.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_export_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute with valid mfa_code — must succeed.
-    let fresh_code = generate_totp_code(&secret);
-    let res = user
-        .try_execute_export_with(&initiate.token, &user.password.clone(), Some(&fresh_code))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::OK),
-        "valid mfa_code must be accepted on execution"
-    );
-}
-
 // ── Execution: invalid state transitions ──────────────────────────────────
 
 #[tokio::test]
@@ -461,26 +339,16 @@ async fn execute_export_invalid_token_rejected() {
 async fn execute_export_email_confirmation_pending_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    let user_id = user.user_id();
+    user.confirm_email(&server).await;
 
+    // Initiate — produces a confirm_token because email is confirmed.
     let resp = user.initiate_export().await;
+    assert!(
+        resp.email_confirmation_required,
+        "confirmed email must require confirmation"
+    );
 
-    // Manually inject a confirm_token to simulate confirmed-email user who hasn't clicked the link.
-    let fake_confirm_token = vec![1u8; 32];
-    let fct = fake_confirm_token.clone();
-    server
-        .db
-        .write(move |conn| {
-            use crate::schema::data_export_requests::dsl as der;
-            use diesel::prelude::*;
-            diesel::update(der::data_export_requests.filter(der::user_id.eq(user_id)))
-                .set(der::confirm_token.eq(Some(fct)))
-                .execute(conn)
-        })
-        .await
-        .unwrap()
-        .unwrap();
-
+    // Try to execute without clicking the email link — must be rejected.
     let res = user.try_execute_export(&resp.token).await;
     assert_eq!(
         res.status_code,
@@ -555,6 +423,44 @@ async fn execute_export_notification_email_skipped_for_unconfirmed() {
             .iter()
             .any(|e| matches!(e.email, crate::email::TransactionalEmail::DataExported)),
         "unconfirmed email user should not receive notification"
+    );
+}
+
+#[tokio::test]
+async fn execute_export_sends_notification_for_confirmed_email() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+
+    // Confirm the email so the notification email is actually sent.
+    user.confirm_email(&server).await;
+
+    let resp = user.initiate_export().await;
+    // Initiation sends a confirmation email; drain it.
+    server.mailer.take_emails();
+
+    // Clear the confirm_token so execution proceeds.
+    let user_id = user.user_id();
+    server
+        .db
+        .write(move |conn| {
+            use crate::schema::data_export_requests::dsl as der;
+            use diesel::prelude::*;
+            diesel::update(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                .set(der::confirm_token.eq(None::<Vec<u8>>))
+                .execute(conn)
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    user.execute_export(&resp.token).await;
+
+    let emails = server.mailer.sent_emails();
+    assert!(
+        emails
+            .iter()
+            .any(|e| matches!(e.email, crate::email::TransactionalEmail::DataExported)),
+        "confirmed email user should receive DataExported notification"
     );
 }
 

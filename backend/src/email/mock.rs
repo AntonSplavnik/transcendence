@@ -61,7 +61,6 @@ impl EmailSender for MockEmailSender {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::email::EmailSender as _;
 
     fn unconfirmed_user() -> crate::models::User {
         crate::models::User {
@@ -151,7 +150,11 @@ mod tests {
             .unwrap();
 
         let first_drain = mailer.take_emails();
-        assert_eq!(first_drain.len(), 1, "take_emails must return the sent email");
+        assert_eq!(
+            first_drain.len(),
+            1,
+            "take_emails must return the sent email"
+        );
         let second_drain = mailer.take_emails();
         assert_eq!(
             second_drain.len(),
@@ -189,8 +192,14 @@ mod tests {
         let mailer = MockEmailSender::new();
         let user = confirmed_user();
 
-        mailer.send(&user, TransactionalEmail::AccountDeleted).await.unwrap();
-        mailer.send(&user, TransactionalEmail::DataExported).await.unwrap();
+        mailer
+            .send(&user, TransactionalEmail::AccountDeleted)
+            .await
+            .unwrap();
+        mailer
+            .send(&user, TransactionalEmail::DataExported)
+            .await
+            .unwrap();
 
         let emails = mailer.take_emails();
         assert_eq!(emails.len(), 2, "both emails must be recorded");

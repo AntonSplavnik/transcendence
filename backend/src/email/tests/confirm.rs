@@ -377,7 +377,10 @@ async fn send_confirmation_new_token_overwrites_old_token() {
     user.send_confirmation_email().await;
     let token_b = extract_token_from_mock(&server);
 
-    assert_ne!(token_a, token_b, "each issuance must produce a distinct token");
+    assert_ne!(
+        token_a, token_b,
+        "each issuance must produce a distinct token"
+    );
 
     // Token A must now be invalid (its hash was overwritten)
     let mut anon = server.client();
@@ -439,6 +442,7 @@ async fn confirm_email_sets_confirmed_at_in_db() {
     assert_eq!(res.status_code, Some(StatusCode::OK));
 
     // After confirmation: email_confirmed_at must be set and token columns cleared
+    #[allow(clippy::type_complexity)]
     let (confirmed_after, tok_hash, tok_expires, tok_email): (
         Option<chrono::DateTime<Utc>>,
         Option<Vec<u8>>,
@@ -486,11 +490,11 @@ async fn confirm_valid_format_but_unknown_token_rejected() {
     // Use a well-formed token (valid base64url, 32 bytes) that was never stored
     let unknown_token = {
         use base64::Engine as _;
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([0xde, 0xad, 0xbe, 0xef,
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
-            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-            0x19, 0x1a, 0x1b, 0x1c])
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([
+            0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+            0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+            0x19, 0x1a, 0x1b, 0x1c,
+        ])
     };
 
     let mut client = server.client();

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::{fmt::Display, sync::Arc};
 
 use salvo::http::StatusCode;
@@ -17,6 +18,12 @@ pub struct User<T = Unregistered> {
     pub email: Box<str>,
     pub password: Arc<str>,
     pub id: T,
+    /// Base32-encoded TOTP secret.  Populated after 2FA enrollment regardless
+    /// of which feature mode is active — required for TOTP-based cycling.
+    pub totp_secret: Option<String>,
+    /// Remaining one-time recovery codes.  Only populated in `2fa-recovery`
+    /// mode; `None` otherwise.
+    pub recovery_codes: Option<VecDeque<String>>,
 }
 
 impl User<Unregistered> {
@@ -32,6 +39,8 @@ impl User<Unregistered> {
             email: email.into(),
             password: password.into(),
             id: Unregistered,
+            totp_secret: None,
+            recovery_codes: None,
         }
     }
 }

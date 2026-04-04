@@ -2,7 +2,7 @@ use crate::auth::user::ChangePasswordInput;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 
-use super::two_factor::{ensure_totp_key, generate_totp_code};
+use super::two_factor::{ensure_2fa_disabled, generate_totp_code};
 
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
@@ -27,9 +27,10 @@ impl mock::User<mock::Registered> {
         new_password: &str,
         keep_other_sessions: bool,
     ) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = ChangePasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
             new_password: new_password.to_string(),
             keep_other_sessions_logged_in: keep_other_sessions,
         };
@@ -145,6 +146,8 @@ async fn change_password_invalidates_other_sessions() {
         email: user.email.clone(),
         password: user.password.clone(),
         id: mock::Registered(user.user_id()),
+        totp_secret: user.totp_secret.clone(),
+        recovery_codes: None, // uses TOTP fallback in recovery mode
     };
     second.login().await;
 
@@ -238,6 +241,8 @@ async fn change_password_keeps_other_sessions_when_flag_true() {
         email: user.email.clone(),
         password: user.password.clone(),
         id: mock::Registered(user.user_id()),
+        totp_secret: user.totp_secret.clone(),
+        recovery_codes: None, // uses TOTP fallback in recovery mode
     };
     second.login().await;
 
@@ -266,7 +271,7 @@ async fn change_password_keeps_other_sessions_when_flag_true() {
 async fn change_password_with_2fa_requires_mfa_code() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -286,7 +291,7 @@ async fn change_password_with_2fa_requires_mfa_code() {
 async fn change_password_with_2fa_wrong_mfa_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -308,7 +313,7 @@ async fn change_password_with_2fa_wrong_mfa_rejected() {
 async fn change_password_with_2fa_valid_mfa_accepted() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;

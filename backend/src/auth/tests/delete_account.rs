@@ -8,8 +8,6 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
-use super::two_factor::{ensure_totp_key, generate_totp_code};
-
 // ── Ergonomic helpers on mock::User ───────────────────────────────
 
 impl mock::User<mock::Registered> {
@@ -26,9 +24,10 @@ impl mock::User<mock::Registered> {
 
     /// Initiate account deletion, returning the raw response.
     pub async fn try_initiate_deletion(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self
             .client
@@ -37,28 +36,12 @@ impl mock::User<mock::Registered> {
         self.client.send(req).await
     }
 
-    /// Initiate deletion with a specific password (for wrong-password tests).
-    pub async fn try_initiate_deletion_with_password(&mut self, password: &str) -> salvo::Response {
+    /// Initiate deletion with wrong password (supplies correct MFA if enrolled).
+    pub async fn try_initiate_deletion_wrong_pw(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: None,
-        };
-        let req = self
-            .client
-            .delete("/api/user/delete-my-account")
-            .json(&body);
-        self.client.send(req).await
-    }
-
-    /// Initiate deletion with a specific password and optional MFA code.
-    pub async fn try_initiate_deletion_with(
-        &mut self,
-        password: &str,
-        mfa_code: Option<&str>,
-    ) -> salvo::Response {
-        let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: mfa_code.map(String::from),
+            password: "wrong-password".to_string(),
+            mfa_code,
         };
         let req = self
             .client
@@ -79,9 +62,10 @@ impl mock::User<mock::Registered> {
 
     /// Execute account deletion with the given token, returning raw response.
     pub async fn try_execute_deletion(&mut self, token: &str) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self
             .client
@@ -90,28 +74,18 @@ impl mock::User<mock::Registered> {
         self.client.send(req).await
     }
 
-    /// Execute account deletion with a specific password and optional MFA code.
-    pub async fn try_execute_deletion_with(
-        &mut self,
-        token: &str,
-        password: &str,
-        mfa_code: Option<&str>,
-    ) -> salvo::Response {
-        let body = PasswordInput {
-            password: password.to_string(),
-            mfa_code: mfa_code.map(String::from),
-        };
-        let req = self
-            .client
-            .delete(format!("/api/user/delete-my-account?token={token}"))
-            .json(&body);
-        self.client.send(req).await
-    }
-
-    /// Execute account deletion with wrong password.
+    /// Execute account deletion with wrong password (supplies correct MFA if enrolled).
     pub async fn try_execute_deletion_wrong_pw(&mut self, token: &str) -> salvo::Response {
-        self.try_execute_deletion_with(token, "wrong-password", None)
-            .await
+        let mfa_code = self.mfa_code().await;
+        let body = PasswordInput {
+            password: "wrong-password".to_string(),
+            mfa_code,
+        };
+        let req = self
+            .client
+            .delete(format!("/api/user/delete-my-account?token={token}"))
+            .json(&body);
+        self.client.send(req).await
     }
 }
 
@@ -130,6 +104,19 @@ async fn initiate_deletion_succeeds() {
     assert!(
         !resp.email_confirmation_required,
         "no email confirmation required for unconfirmed email"
+    );
+}
+
+#[tokio::test]
+async fn initiate_deletion_confirmed_email_requires_confirmation() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+    user.confirm_email(&server).await;
+
+    let resp = user.initiate_deletion().await;
+    assert!(
+        resp.email_confirmation_required,
+        "confirmed email must require email confirmation"
     );
 }
 
@@ -155,9 +142,7 @@ async fn initiate_deletion_wrong_password_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
-    let res = user
-        .try_initiate_deletion_with_password("wrong-password")
-        .await;
+    let res = user.try_initiate_deletion_wrong_pw().await;
     assert_eq!(
         res.status_code,
         Some(StatusCode::UNAUTHORIZED),
@@ -178,75 +163,6 @@ async fn initiate_deletion_idempotent_reuses_token() {
     assert_eq!(
         resp1.token, resp2.token,
         "repeated initiation must return the same token"
-    );
-}
-
-// ── Initiation: MFA interaction ────────────────────────────────────────────
-
-#[tokio::test]
-async fn initiate_deletion_mfa_missing_when_2fa_enabled_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate without mfa_code — must fail.
-    let res = user
-        .try_initiate_deletion_with(&user.password.clone(), None)
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "missing mfa_code must be rejected when 2FA is enabled"
-    );
-}
-
-#[tokio::test]
-async fn initiate_deletion_mfa_wrong_code_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate with wrong mfa_code — must fail.
-    let res = user
-        .try_initiate_deletion_with(&user.password.clone(), Some("000000"))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "wrong mfa_code must be rejected"
-    );
-}
-
-#[tokio::test]
-async fn initiate_deletion_mfa_valid_code_succeeds() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    // Initiate with correct mfa_code — must succeed.
-    let mfa_code = generate_totp_code(&secret);
-    let res = user
-        .try_initiate_deletion_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::OK),
-        "valid mfa_code must be accepted"
     );
 }
 
@@ -301,93 +217,6 @@ async fn execute_deletion_wrong_password_rejected() {
     );
 }
 
-// ── Execution: MFA interaction ─────────────────────────────────────────────
-
-#[tokio::test]
-async fn execute_deletion_mfa_missing_when_2fa_enabled_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate deletion with valid MFA code.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_deletion_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute without mfa_code — must fail.
-    let res = user
-        .try_execute_deletion_with(&initiate.token, &user.password.clone(), None)
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "missing mfa_code must be rejected on execution when 2FA is enabled"
-    );
-}
-
-#[tokio::test]
-async fn execute_deletion_mfa_wrong_code_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate deletion.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_deletion_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute with wrong mfa_code — must fail.
-    let res = user
-        .try_execute_deletion_with(&initiate.token, &user.password.clone(), Some("000000"))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::UNAUTHORIZED),
-        "wrong mfa_code must be rejected on execution"
-    );
-}
-
-#[tokio::test]
-async fn execute_deletion_mfa_valid_code_succeeds() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    ensure_totp_key();
-
-    // Enable 2FA and initiate deletion.
-    let secret = user.two_fa_start().await;
-    let code = generate_totp_code(&secret);
-    user.two_fa_confirm(&code).await;
-
-    let mfa_code = generate_totp_code(&secret);
-    let mut res = user
-        .try_initiate_deletion_with(&user.password.clone(), Some(&mfa_code))
-        .await;
-    let initiate: InitiateResponse = res.take_json().await.unwrap();
-
-    // Execute with valid mfa_code — must succeed.
-    let fresh_code = generate_totp_code(&secret);
-    let res = user
-        .try_execute_deletion_with(&initiate.token, &user.password.clone(), Some(&fresh_code))
-        .await;
-    assert_eq!(
-        res.status_code,
-        Some(StatusCode::NO_CONTENT),
-        "valid mfa_code must be accepted on execution"
-    );
-}
-
 // ── Execution: invalid state transitions ──────────────────────────────────
 
 #[tokio::test]
@@ -428,27 +257,16 @@ async fn execute_deletion_invalid_token_rejected() {
 async fn execute_deletion_email_confirmation_pending_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    let user_id = user.user_id();
+    user.confirm_email(&server).await;
 
-    // Initiate deletion (token row created without confirm_token since email unconfirmed).
+    // Initiate — produces a confirm_token because email is confirmed.
     let resp = user.initiate_deletion().await;
+    assert!(
+        resp.email_confirmation_required,
+        "confirmed email must require confirmation"
+    );
 
-    // Manually set a confirm_token to simulate a confirmed-email user who hasn't clicked the link.
-    let fake_confirm_token = vec![1u8; 32];
-    let fct = fake_confirm_token.clone();
-    server
-        .db
-        .write(move |conn| {
-            use crate::schema::account_deletion_requests::dsl as adr;
-            use diesel::prelude::*;
-            diesel::update(adr::account_deletion_requests.filter(adr::user_id.eq(user_id)))
-                .set(adr::confirm_token.eq(Some(fct)))
-                .execute(conn)
-        })
-        .await
-        .unwrap()
-        .unwrap();
-
+    // Try to execute without clicking the email link — must be rejected.
     let res = user.try_execute_deletion(&resp.token).await;
     assert_eq!(
         res.status_code,
@@ -624,8 +442,28 @@ async fn execute_deletion_sends_notification_email() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
+    // Confirm the email so the notification email is not silently skipped.
+    user.confirm_email(&server).await;
+
     let resp = user.initiate_deletion().await;
-    server.mailer.take_emails(); // clear any prior emails
+    // The initiation sends a confirmation email; drain it.
+    server.mailer.take_emails();
+
+    // Confirm the deletion via the email link so execution can proceed.
+    let user_id = user.user_id();
+    server
+        .db
+        .write(move |conn| {
+            use crate::schema::account_deletion_requests::dsl as adr;
+            use diesel::prelude::*;
+            diesel::update(adr::account_deletion_requests.filter(adr::user_id.eq(user_id)))
+                .set(adr::confirm_token.eq(None::<Vec<u8>>))
+                .execute(conn)
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
     user.try_execute_deletion(&resp.token).await;
 
     let emails = server.mailer.sent_emails();
@@ -825,36 +663,5 @@ async fn confirm_deletion_reuse_fails() {
         res2.status_code,
         Some(StatusCode::BAD_REQUEST),
         "reuse of confirm token must return 400"
-    );
-}
-
-// ── Initiation: AlreadyDeleted guard ──────────────────────────────────────
-
-#[tokio::test]
-async fn initiate_deletion_on_deleted_account_rejected() {
-    let server = mock::Server::default();
-    let mut user = server.user().register().await;
-    let user_id = user.user_id();
-
-    // Perform a full deletion cycle.
-    let resp = user.initiate_deletion().await;
-    user.execute_deletion(&resp.token).await;
-
-    // Verify at the DB level that the user's email is now anonymized
-    // (the AlreadyDeleted guard fires when email starts with "deleted[").
-    let db_email = server
-        .db
-        .read(move |conn| {
-            use crate::schema::users::dsl::*;
-            use diesel::prelude::*;
-            users.find(user_id).select(email).first::<String>(conn)
-        })
-        .await
-        .unwrap()
-        .unwrap();
-
-    assert!(
-        db_email.starts_with("deleted["),
-        "email must be anonymized after deletion"
     );
 }

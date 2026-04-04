@@ -86,10 +86,7 @@ fn account_deletion_confirmation_body_contains_url_and_minutes() {
         body.contains("https://example.com/confirm-delete"),
         "body must contain the confirmation URL"
     );
-    assert!(
-        body.contains("30"),
-        "body must mention remaining minutes"
-    );
+    assert!(body.contains("30"), "body must mention remaining minutes");
 }
 
 // ── AccountDeleted ───────────────────────────────────────────────────────
@@ -136,10 +133,7 @@ fn data_export_confirmation_body_contains_url_and_minutes() {
         body.contains("https://example.com/confirm-export"),
         "body must contain the confirmation URL"
     );
-    assert!(
-        body.contains("15"),
-        "body must mention remaining minutes"
-    );
+    assert!(body.contains("15"), "body must mention remaining minutes");
 }
 
 // ── DataExported ─────────────────────────────────────────────────────────

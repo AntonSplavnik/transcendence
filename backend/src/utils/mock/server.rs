@@ -80,9 +80,32 @@ impl Server {
 
 impl Default for Server {
     fn default() -> Self {
+        ensure_test_config();
         let db = Db::new_test().expect("Failed to create test database");
         Self::default_with(db, CurrentTosTimestamp::now())
     }
+}
+
+/// Ensure a minimal [`ServerConfig`] is available for test code that
+/// transitively calls `crate::config::get()` (e.g. GDPR confirmation
+/// emails that read `config.email.base_url`).
+///
+/// Safe to call from multiple tests in parallel — uses `OnceLock`.
+fn ensure_test_config() {
+    use crate::config::{CONFIG, EmailConfig, LogConfig, ServerConfig};
+
+    let _ = CONFIG.set(ServerConfig {
+        listen_addr: "::".into(),
+        listen_http_port: 8080,
+        listen_https_port: 8443,
+        domain: None,
+        acme_cache_dir: "./acme".into(),
+        database_url: ":memory:".into(),
+        log: LogConfig::default(),
+        tls: None,
+        serve_dir: "/www".into(),
+        email: EmailConfig::default(),
+    });
 }
 
 impl SendTarget for &Server {

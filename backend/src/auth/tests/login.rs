@@ -4,16 +4,24 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
-use super::two_factor::ensure_totp_key;
+use super::two_factor::{ensure_2fa_disabled, generate_totp_code};
 
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
     /// Login with the stored credentials, asserting success.
     ///
-    /// Overwrites the client's cookies with the fresh session + JWT.
+    /// Supplies the current MFA code automatically (no-op when 2FA is not
+    /// enrolled).  Overwrites the client's cookies with the fresh session + JWT.
     pub async fn login(&mut self) {
-        let mut res = self.try_login().await;
+        let mfa_code = self.mfa_code().await;
+        let body = LoginInput {
+            email: self.email.to_string(),
+            password: self.password.to_string(),
+            mfa_code,
+        };
+        let req = self.client.post("/api/auth/login").json(&body);
+        let mut res = self.client.send(req).await;
         assert_eq!(
             res.status_code,
             Some(StatusCode::OK),
@@ -23,7 +31,10 @@ impl mock::User<mock::Registered> {
         let _: UserSessionInfo = res.take_json().await.unwrap();
     }
 
-    /// Send a login request *without* asserting on the outcome.
+    /// Send a login request *without* an MFA code.
+    ///
+    /// Useful for testing that login fails when 2FA is enabled but no code is
+    /// supplied.  For the normal login path use [`login`].
     pub async fn try_login(&mut self) -> salvo::Response {
         let body = LoginInput {
             email: self.email.to_string(),
@@ -67,7 +78,15 @@ async fn login_returns_user_info() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
-    let mut res = user.try_login().await;
+    // Use login() which automatically supplies an MFA code in 2FA feature modes.
+    let mfa_code = user.mfa_code().await;
+    let body = LoginInput {
+        email: user.email.to_string(),
+        password: user.password.to_string(),
+        mfa_code,
+    };
+    let req = user.client.post("/api/auth/login").json(&body);
+    let mut res = user.client.send(req).await;
     assert_eq!(res.status_code, Some(StatusCode::OK));
 
     let info: UserSessionInfo = res.take_json().await.unwrap();
@@ -146,11 +165,11 @@ async fn login_after_logout_succeeds() {
 async fn login_with_wrong_mfa_code_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
-    let code = super::two_factor::generate_totp_code(&secret);
+    let code = generate_totp_code(&secret);
     let _recovery = user.two_fa_confirm(&code).await;
 
     // Try login with wrong MFA code.

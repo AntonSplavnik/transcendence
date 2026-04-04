@@ -4,8 +4,11 @@
 #![allow(clippy::default_trait_access)] // ::new() is more idiomatic than ::default()
 #![allow(clippy::too_many_lines)] // threshold is arbitrary
 #![allow(clippy::future_not_send)] // Salvo handlers are intentionally !Send on some paths
-#![allow(clippy::struct_excessive_bools)] // refactor to enum/bitflags is premature here
+#![allow(clippy::struct_excessive_bools)] // refactor to enum/bitflags is permissible here
 #![allow(clippy::similar_names)] // too many false positives (e.g. https/http3)
+
+#[cfg(all(feature = "2fa-totp", feature = "2fa-recovery"))]
+compile_error!("features `2fa-totp` and `2fa-recovery` are mutually exclusive");
 
 mod auth;
 mod avatar;

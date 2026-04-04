@@ -22,13 +22,26 @@ impl mock::User<mock::Unregistered> {
 
         let info: UserSessionInfo = res.take_json().await.unwrap();
 
-        mock::User {
+        let registered = mock::User {
             client: self.client,
             nickname: self.nickname,
             email: self.email,
             password: self.password,
             id: mock::Registered(info.user.id),
-        }
+            totp_secret: None,
+            recovery_codes: None,
+        };
+
+        // In 2FA feature modes, enroll the user immediately after registration.
+        // The shadow binding makes `r` mutable only when enroll_2fa is compiled.
+        #[cfg(any(feature = "2fa-totp", feature = "2fa-recovery"))]
+        let registered = {
+            let mut r = registered;
+            r.enroll_2fa().await;
+            r
+        };
+
+        registered
     }
 
     /// Send a registration request *without* asserting on the outcome.
