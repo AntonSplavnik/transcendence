@@ -411,8 +411,8 @@ pub async fn confirm_account_deletion(
     match result {
         Ok(true) => {
             res.render(salvo::writing::Text::Html(html_action_result_card(
-                "Deletion Confirmed",
-                "Email Confirmed",
+                "Account deletion Confirmed",
+                "Account deletion Confirmed",
                 true,
                 "Your account deletion request has been confirmed. You may now complete the deletion from the app.",
             )));

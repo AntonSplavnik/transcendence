@@ -446,8 +446,8 @@ pub async fn confirm_data_export(
     match result {
         Ok(true) => {
             res.render(salvo::writing::Text::Html(html_action_result_card(
-                "Export Confirmed",
-                "Email Confirmed",
+                "Data export confirmed",
+                "Data export confirmed",
                 true,
                 "Your data export request has been confirmed. You may now download your data from the app.",
             )));
