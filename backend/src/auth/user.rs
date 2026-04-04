@@ -333,7 +333,7 @@ pub async fn all_sessions(
     let user_id_value = session.user_id;
 
     let user_sessions = db
-        .read(move |conn| {
+        .write(move |conn| {
             util::check_password_and_mfa_if_enabled(
                 user_id_value,
                 &password,
