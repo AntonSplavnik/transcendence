@@ -355,4 +355,45 @@ mod unit_tests {
             "unconfirmed user must produce UnconfirmedEmail"
         );
     }
+
+    #[test]
+    fn encoded_token_has_expected_length() {
+        // base64url (no padding) of 32 bytes = ceil(32 * 4 / 3) = 43 chars
+        let token = ConfirmationToken([0u8; 32]);
+        assert_eq!(
+            token.encoded().len(),
+            43,
+            "base64url encoding of 32 bytes must be 43 characters"
+        );
+    }
+
+    #[test]
+    fn hash_is_32_bytes() {
+        let token = ConfirmationToken([7u8; 32]);
+        assert_eq!(
+            token.to_hash().len(),
+            32,
+            "blake3 hash output must be 32 bytes"
+        );
+    }
+
+    #[test]
+    fn hash_differs_from_raw_token_bytes() {
+        let raw = [0xab_u8; 32];
+        let token = ConfirmationToken(raw);
+        assert_ne!(
+            token.to_hash(),
+            raw.to_vec(),
+            "stored hash must differ from the raw token bytes"
+        );
+    }
+
+    #[test]
+    fn from_encoded_empty_string_returns_invalid_token() {
+        let result = ConfirmationToken::from_encoded("");
+        assert!(
+            matches!(result, Err(EmailConfirmationError::InvalidToken)),
+            "empty string must produce InvalidToken"
+        );
+    }
 }
