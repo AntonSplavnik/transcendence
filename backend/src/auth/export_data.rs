@@ -3,16 +3,15 @@ use base64::engine::general_purpose::STANDARD as base64std;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 use chrono::{DateTime, Duration, Utc};
 use diesel::OptionalExtension;
+use diesel::prelude::*;
 use salvo::http::StatusCode;
 use salvo::oapi::extract::QueryParam;
 
 use crate::email::{EmailSender, TransactionalEmail};
 use crate::error::GdprError;
 use crate::models::blob::{Bytes, FixedBlob};
-use crate::models::{
-    AvatarLarge, AvatarSmall, DataExportRequest, FriendRequest, FriendRequestStatus,
-    OfflineNotification, Session, User,
-};
+use crate::models::cbor_blob::CborBlob;
+use crate::models::{AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
@@ -36,7 +35,8 @@ pub struct DataExport {
 /// User profile data for export. Security-sensitive fields (`password_hash`,
 /// `totp_secret_enc`, `email_confirmation_token_hash`,
 /// `email_confirmation_token_expires_at`) are intentionally excluded.
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Queryable, Selectable, Serialize, Deserialize, ToSchema)]
+#[diesel(table_name = crate::schema::users)]
 pub struct ExportUser {
     pub id: i32,
     pub email: String,
@@ -48,10 +48,12 @@ pub struct ExportUser {
     pub tos_accepted_at: Option<DateTime<Utc>>,
     pub email_confirmed_at: Option<DateTime<Utc>>,
     /// Pending email change (from `email_confirmation_token_email`)
-    pub pending_email_change: Option<String>,
+    #[diesel(column_name = email_confirmation_token_email)]
+    pub pending_confirm_email: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Queryable, Selectable, Serialize, Deserialize, ToSchema)]
+#[diesel(table_name = crate::schema::sessions)]
 pub struct ExportSession {
     pub id: i32,
     pub user_id: i32,
@@ -64,7 +66,8 @@ pub struct ExportSession {
     pub last_authenticated_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Queryable, Selectable, Serialize, Deserialize, ToSchema)]
+#[diesel(table_name = crate::schema::friend_requests)]
 pub struct ExportFriendRequest {
     pub id: i32,
     pub sender_id: i32,
@@ -74,10 +77,12 @@ pub struct ExportFriendRequest {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Queryable, Selectable, Serialize, Deserialize, ToSchema)]
+#[diesel(table_name = crate::schema::notifications)]
 pub struct ExportNotification {
     pub id: i32,
-    pub payload: NotificationPayload,
+    #[salvo(schema(value_type = NotificationPayload))]
+    pub data: CborBlob<NotificationPayload>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -328,71 +333,35 @@ async fn execute_export(
                 .execute(conn)?;
 
             let user: User = u::users.find(user_id).first(conn)?;
-            let user_sessions: Vec<Session> =
-                s::sessions.filter(s::user_id.eq(user_id)).load(conn)?;
-            let user_friend_requests: Vec<FriendRequest> = fr::friend_requests
-                .filter(fr::sender_id.eq(user_id).or(fr::receiver_id.eq(user_id)))
-                .load(conn)?;
-            let user_notifications: Vec<OfflineNotification> =
-                n::notifications.filter(n::user_id.eq(user_id)).load(conn)?;
-            let avatar_large: Option<AvatarLarge> = al::avatars_large
-                .filter(al::user_id.eq(user_id))
-                .first(conn)
-                .optional()?;
-            let avatar_small: Option<AvatarSmall> = as_::avatars_small
-                .filter(as_::user_id.eq(user_id))
-                .first(conn)
-                .optional()?;
 
             let export = DataExport {
                 exported_at: Utc::now(),
-                user: ExportUser {
-                    id: user.id,
-                    email: user.email.clone(),
-                    nickname: user.nickname.to_string(),
-                    totp_enabled: user.totp_enabled,
-                    totp_confirmed_at: user.totp_confirmed_at,
-                    created_at: user.created_at,
-                    description: user.description.clone(),
-                    tos_accepted_at: user.tos_accepted_at,
-                    email_confirmed_at: user.email_confirmed_at,
-                    pending_email_change: user.email_confirmation_token_email.clone(),
-                },
-                sessions: user_sessions
-                    .into_iter()
-                    .map(|sess| ExportSession {
-                        id: sess.id,
-                        user_id: sess.user_id,
-                        device_id: sess.device_id,
-                        device_name: sess.device_name,
-                        ip_address: sess.ip_address,
-                        created_at: sess.created_at,
-                        refreshed_at: sess.refreshed_at,
-                        last_used_at: sess.last_used_at,
-                        last_authenticated_at: sess.last_authenticated_at,
-                    })
-                    .collect(),
-                friend_requests: user_friend_requests
-                    .into_iter()
-                    .map(|fr| ExportFriendRequest {
-                        id: fr.id,
-                        sender_id: fr.sender_id,
-                        receiver_id: fr.receiver_id,
-                        status: fr.status,
-                        created_at: fr.created_at,
-                        updated_at: fr.updated_at,
-                    })
-                    .collect(),
-                notifications: user_notifications
-                    .into_iter()
-                    .map(|notif| ExportNotification {
-                        id: notif.id,
-                        payload: (*notif.data).clone(),
-                        created_at: notif.created_at,
-                    })
-                    .collect(),
-                avatar_large_base64: avatar_large.map(|a| base64std.encode(&a.data)),
-                avatar_small_base64: avatar_small.map(|a| base64std.encode(&a.data)),
+                user: u::users
+                    .find(user_id)
+                    .select(ExportUser::as_select())
+                    .first(conn)?,
+                sessions: s::sessions
+                    .filter(s::user_id.eq(user_id))
+                    .select(ExportSession::as_select())
+                    .load(conn)?,
+                friend_requests: fr::friend_requests
+                    .filter(fr::sender_id.eq(user_id).or(fr::receiver_id.eq(user_id)))
+                    .select(ExportFriendRequest::as_select())
+                    .load(conn)?,
+                notifications: n::notifications
+                    .filter(n::user_id.eq(user_id))
+                    .select(ExportNotification::as_select())
+                    .load(conn)?,
+                avatar_large_base64: al::avatars_large
+                    .filter(al::user_id.eq(user_id))
+                    .first::<AvatarLarge>(conn)
+                    .optional()?
+                    .map(|a| base64std.encode(&a.data)),
+                avatar_small_base64: as_::avatars_small
+                    .filter(as_::user_id.eq(user_id))
+                    .first::<AvatarSmall>(conn)
+                    .optional()?
+                    .map(|a| base64std.encode(&a.data)),
             };
 
             Ok::<_, ApiError>((export, user))

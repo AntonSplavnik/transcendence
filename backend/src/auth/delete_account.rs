@@ -263,7 +263,7 @@ async fn execute_deletion(
 
             let user: crate::models::User = u::users.find(user_id).first(conn)?;
 
-            conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            conn.immediate_transaction::<_, diesel::result::Error, _>(|conn| {
                 let deleted_email = format!("deleted[{user_id}]");
                 let deleted_nickname =
                     crate::models::nickname::Nickname::from_str(format!("deleted[{user_id}]"));
