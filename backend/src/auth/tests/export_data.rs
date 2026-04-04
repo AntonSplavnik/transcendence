@@ -1,7 +1,9 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 
-use crate::auth::export_data::{DataExport, InitiateResponse};
+use crate::auth::export_data::DataExport;
+use crate::auth::gdpr_common::InitiateResponse;
+use crate::db::Database;
 use crate::auth::router::PasswordInput;
 use crate::utils::mock;
 use salvo::http::StatusCode;
@@ -128,7 +130,7 @@ async fn initiate_export_succeeds() {
 #[tokio::test]
 async fn initiate_export_unauthenticated_rejected() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
 
     user.assert_requires_auth(|c| {
         c.post("/api/user/export-my-data").json(&PasswordInput {
@@ -464,7 +466,6 @@ async fn execute_export_email_confirmation_pending_rejected() {
     let resp = user.initiate_export().await;
 
     // Manually inject a confirm_token to simulate confirmed-email user who hasn't clicked the link.
-    use crate::db::Database;
     let fake_confirm_token = vec![1u8; 32];
     let fct = fake_confirm_token.clone();
     server
@@ -517,7 +518,6 @@ async fn export_request_row_cleaned_after_execution() {
     let resp = user.initiate_export().await;
     user.execute_export(&resp.token).await;
 
-    use crate::db::Database;
     let count = server
         .db
         .read(move |conn| {
@@ -568,7 +568,6 @@ async fn execute_export_sessions_not_deleted() {
     let resp = user.initiate_export().await;
     user.execute_export(&resp.token).await;
 
-    use crate::db::Database;
     let session_count = server
         .db
         .read(move |conn| {
@@ -662,7 +661,6 @@ async fn confirm_export_happy_path_clears_confirm_token() {
     let user_id = user.user_id();
 
     // Create an export request row with a known confirm_token.
-    use crate::db::Database;
     let confirm_token = rand::random::<[u8; 32]>().to_vec();
     let main_token = rand::random::<[u8; 32]>().to_vec();
     let ct = confirm_token.clone();
@@ -724,7 +722,6 @@ async fn confirm_export_reuse_fails() {
     let user = server.user().register().await;
     let user_id = user.user_id();
 
-    use crate::db::Database;
     let confirm_token = rand::random::<[u8; 32]>().to_vec();
     let main_token = rand::random::<[u8; 32]>().to_vec();
     let ct = confirm_token.clone();

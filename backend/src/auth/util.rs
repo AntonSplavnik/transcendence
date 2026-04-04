@@ -192,7 +192,7 @@ pub fn verify_password(
     }
 }
 
-pub(crate) fn delete_auth_cookies(res: &mut salvo::Response) {
+pub fn delete_auth_cookies(res: &mut salvo::Response) {
     res.remove_cookie(super::SESSION_COOKIE_NAME);
     res.remove_cookie(super::JWT_COOKIE_NAME);
 }

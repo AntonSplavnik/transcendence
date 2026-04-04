@@ -219,18 +219,15 @@ async fn send_confirmation(depot: &mut Depot, db: Db) -> AppResult<()> {
 async fn confirm(token: QueryParam<String, false>, res: &mut Response, db: Db) {
     use crate::utils::html_action_result_card;
 
-    let token = match token.into_inner() {
-        Some(t) => t,
-        None => {
-            res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(html_action_result_card(
-                "Confirmation Failed",
-                "Confirmation Failed",
-                false,
-                "This confirmation link is invalid or has expired. Please request a new one.",
-            )));
-            return;
-        }
+    let Some(token) = token.into_inner() else {
+        res.status_code(StatusCode::BAD_REQUEST);
+        res.render(salvo::writing::Text::Html(html_action_result_card(
+            "Confirmation Failed",
+            "Confirmation Failed",
+            false,
+            "This confirmation link is invalid or has expired. Please request a new one.",
+        )));
+        return;
     };
 
     match confirm_email(&db, &token).await {

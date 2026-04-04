@@ -1,7 +1,8 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 
-use crate::auth::delete_account::InitiateResponse;
+use crate::auth::gdpr_common::InitiateResponse;
+use crate::db::Database;
 use crate::auth::router::PasswordInput;
 use crate::utils::mock;
 use salvo::http::StatusCode;
@@ -137,7 +138,7 @@ async fn initiate_deletion_succeeds() {
 #[tokio::test]
 async fn initiate_deletion_unauthenticated_rejected() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
 
     user.assert_requires_auth(|c| {
         c.delete("/api/user/delete-my-account")
@@ -433,7 +434,6 @@ async fn execute_deletion_email_confirmation_pending_rejected() {
     let resp = user.initiate_deletion().await;
 
     // Manually set a confirm_token to simulate a confirmed-email user who hasn't clicked the link.
-    use crate::db::Database;
     let fake_confirm_token = vec![1u8; 32];
     let fct = fake_confirm_token.clone();
     server
@@ -487,7 +487,6 @@ async fn execute_deletion_anonymizes_user() {
     let resp = user.initiate_deletion().await;
     user.try_execute_deletion(&resp.token).await;
 
-    use crate::db::Database;
     let db_user = server
         .db
         .read(move |conn| {
@@ -537,7 +536,6 @@ async fn execute_deletion_clears_sessions() {
     let resp = user.initiate_deletion().await;
     user.try_execute_deletion(&resp.token).await;
 
-    use crate::db::Database;
     let session_count = server
         .db
         .read(move |conn| {
@@ -579,7 +577,6 @@ async fn execute_deletion_clears_friend_requests() {
     let user2 = server.user().register().await;
 
     // Create a friend request from user1 to user2
-    use crate::db::Database;
     let u1_id = user1.user_id();
     let u2_id = user2.user_id();
     server
@@ -649,7 +646,6 @@ async fn deletion_request_row_cleaned_after_execution() {
     let resp = user.initiate_deletion().await;
     user.try_execute_deletion(&resp.token).await;
 
-    use crate::db::Database;
     let count = server
         .db
         .read(move |conn| {
@@ -726,7 +722,6 @@ async fn confirm_deletion_happy_path_clears_confirm_token() {
     let user_id = user.user_id();
 
     // Create a deletion request row with a known confirm_token.
-    use crate::db::Database;
     let confirm_token = rand::random::<[u8; 32]>().to_vec();
     let main_token = rand::random::<[u8; 32]>().to_vec();
     let ct = confirm_token.clone();
@@ -788,7 +783,6 @@ async fn confirm_deletion_reuse_fails() {
     let user = server.user().register().await;
     let user_id = user.user_id();
 
-    use crate::db::Database;
     let confirm_token = rand::random::<[u8; 32]>().to_vec();
     let main_token = rand::random::<[u8; 32]>().to_vec();
     let ct = confirm_token.clone();
@@ -838,7 +832,6 @@ async fn confirm_deletion_reuse_fails() {
 
 #[tokio::test]
 async fn initiate_deletion_on_deleted_account_rejected() {
-    use crate::db::Database;
 
     let server = mock::Server::default();
     let mut user = server.user().register().await;
