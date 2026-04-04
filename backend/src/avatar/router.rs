@@ -75,14 +75,15 @@ fn etag_matches(if_none_match: &str, etag: &str) -> bool {
 fn write_avatar_response(req: &Request, res: &mut Response, data: Cow<'_, [u8]>, etag: &str) {
     if let Some(if_none_match) = req.headers().get(header::IF_NONE_MATCH)
         && let Ok(value) = if_none_match.to_str()
-            && etag_matches(value, etag) {
-                res.status_code(StatusCode::NOT_MODIFIED);
-                res.headers_mut()
-                    .insert(header::ETAG, etag.parse().unwrap());
-                res.headers_mut()
-                    .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
-                return;
-            }
+        && etag_matches(value, etag)
+    {
+        res.status_code(StatusCode::NOT_MODIFIED);
+        res.headers_mut()
+            .insert(header::ETAG, etag.parse().unwrap());
+        res.headers_mut()
+            .insert(header::CACHE_CONTROL, "no-cache".parse().unwrap());
+        return;
+    }
 
     res.headers_mut()
         .insert(header::CONTENT_TYPE, "image/avif".parse().unwrap());

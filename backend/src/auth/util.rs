@@ -26,7 +26,8 @@ pub fn prune_excess_sessions(
         .select(id)
         .load(conn)?;
 
-    #[allow(clippy::cast_possible_truncation)] // MAX_SESSIONS_PER_USER is a small config constant (e.g. 10-20)
+    #[allow(clippy::cast_possible_truncation)]
+    // MAX_SESSIONS_PER_USER is a small config constant (e.g. 10-20)
     let max_to_keep = super::MAX_SESSIONS_PER_USER as usize;
 
     // Ensure we never delete the explicitly kept session, and adjust how many
@@ -152,13 +153,11 @@ pub fn get_user_by_credentials(email: &str, password: &str, conn: &mut DbConn) -
 }
 
 pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
-    let device = req
-        .header::<&str>("User-Agent")
-        .and_then(|ua| {
-            woothee::parser::Parser::new()
-                .parse(ua)
-                .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
-        });
+    let device = req.header::<&str>("User-Agent").and_then(|ua| {
+        woothee::parser::Parser::new()
+            .parse(ua)
+            .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
+    });
     let ip = req
         .remote_addr()
         .to_owned()
@@ -168,9 +167,7 @@ pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
 }
 
 static RANDOM_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
-    hash_password("dummy password")
-        .expect("Failed to generate dummy password hash")
-        
+    hash_password("dummy password").expect("Failed to generate dummy password hash")
 });
 
 static ARGON2: LazyLock<Argon2<'static>> = LazyLock::new(Argon2::default);

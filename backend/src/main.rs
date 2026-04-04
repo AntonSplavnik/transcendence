@@ -138,7 +138,7 @@ async fn setup_acceptor_socket(
     // Enable QUIC/HTTP3 support on the same port
     let http3 = QuinnListener::new(tls_config, (cfg.listen_addr.clone(), cfg.listen_https_port));
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
-    
+
     http3.join(https).join(http).bind().await
 }
 
@@ -158,7 +158,7 @@ async fn setup_acme_acceptor_socket(
         .http01_challenge(router) // Add routes to handle ACME challenge requests
         .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
-    
+
     https.join(http).bind().await
 }
 

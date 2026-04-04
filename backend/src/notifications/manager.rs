@@ -249,7 +249,9 @@ impl NotificationManager {
                             payload: payload.clone(),
                             created_at,
                         };
-                        if sink.send(wire).await.is_ok() { Ok(()) } else {
+                        if sink.send(wire).await.is_ok() {
+                            Ok(())
+                        } else {
                             // Channel closed — fall back to DB.
                             tracing::warn!(
                                 user_id,

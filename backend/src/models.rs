@@ -138,7 +138,11 @@ impl Session {
             created_at: self.created_at,
             refreshed_at: now,
             last_used_at: now,
-            last_authenticated_at: if DO_REAUTH { now } else { self.last_authenticated_at },
+            last_authenticated_at: if DO_REAUTH {
+                now
+            } else {
+                self.last_authenticated_at
+            },
         }
     }
 }

@@ -68,9 +68,7 @@ async fn send_request_by_nickname_succeeds() {
     let mut alice = server.user().register().await;
     let bob = server.user().register().await;
 
-    let res = alice
-        .send_friend_request_to_nick(bob.nickname)
-        .await;
+    let res = alice.send_friend_request_to_nick(bob.nickname).await;
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());

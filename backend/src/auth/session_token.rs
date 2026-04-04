@@ -102,9 +102,7 @@ impl TryFrom<String> for SessionTokenHashTruncated {
                 actual: decoded.len(),
             });
         }
-        Ok(Self(
-            decoded.try_into().expect("length checked"),
-        ))
+        Ok(Self(decoded.try_into().expect("length checked")))
     }
 
     type Error = TokenDecodeError;

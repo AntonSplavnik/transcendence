@@ -145,8 +145,7 @@ type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Byte
 /// Internal framed sender type. Used by `frame_stream`, `frame_uni_stream`,
 /// and `open_ctrl_stream`. Public callers receive [`StreamSink`](super::StreamSink)
 /// from [`StreamManager::request_stream`] / [`StreamManager::request_uni_stream`].
-pub type Sender<S, BP = CodecBufferParams> =
-    FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
+pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -482,7 +481,9 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await { result.map(|stream| (stream, connection_id, token)) } else {
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
             self.unregister(user_id, Some(connection_id), None);
             Err(StreamManagerError::ConnectionClosed {
                 user_id,
@@ -531,7 +532,9 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await { result.map(|stream| (stream, connection_id, token)) } else {
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
             self.unregister(user_id, Some(connection_id), None);
             Err(StreamManagerError::ConnectionClosed {
                 user_id,

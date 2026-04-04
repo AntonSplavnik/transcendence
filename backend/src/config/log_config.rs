@@ -98,9 +98,8 @@ impl LogConfig {
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi)
                     .pretty();
-                let with_location = base_internal
-                    
-                    .with_source_location(is_debug && self.with_source_location);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
                 let without_location = base_external.with_source_location(false);
                 subscriber
                     .pretty()
@@ -128,9 +127,8 @@ impl LogConfig {
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi)
                     .compact();
-                let with_location = base_internal
-                    
-                    .with_source_location(is_debug && self.with_source_location);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
                 let without_location = base_external.with_source_location(false);
                 subscriber
                     .compact()
@@ -156,9 +154,8 @@ impl LogConfig {
                     .with_thread_ids(display_thread_ids)
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi);
-                let with_location = base_internal
-                    
-                    .with_source_location(is_debug && self.with_source_location);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
                 let without_location = base_external.with_source_location(false);
                 subscriber
                     .event_format(SelectiveLocationFormat::new(

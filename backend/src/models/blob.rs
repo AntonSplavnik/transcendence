@@ -857,13 +857,11 @@ impl<const N: usize, K1: BlobKind, const M: usize, K2: BlobKind> PartialOrd<VarB
         let common = if N < M { N } else { M };
 
         match self.0[..common].cmp(&other.0[..common]) {
-            Ordering::Equal => {
-                match N.cmp(&M) {
-                    std::cmp::Ordering::Greater => Some(self.0[M].cmp(&0)),
-                    std::cmp::Ordering::Less => Some(0.cmp(&other.0[N])),
-                    std::cmp::Ordering::Equal => Some(Ordering::Equal),
-                }
-            }
+            Ordering::Equal => match N.cmp(&M) {
+                std::cmp::Ordering::Greater => Some(self.0[M].cmp(&0)),
+                std::cmp::Ordering::Less => Some(0.cmp(&other.0[N])),
+                std::cmp::Ordering::Equal => Some(Ordering::Equal),
+            },
             ord => Some(ord),
         }
     }
@@ -997,7 +995,9 @@ impl<const N: usize> oapi::ToSchema for VarBlob<N, Str> {
 
 #[inline]
 fn format_blob(bytes: &[u8], f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if let Ok(s) = std::str::from_utf8(bytes) { write!(f, "{s}") } else {
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        write!(f, "{s}")
+    } else {
         let encoded = base64url.encode(bytes);
         write!(f, "base64:{encoded}")
     }

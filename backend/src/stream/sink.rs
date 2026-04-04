@@ -413,7 +413,9 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
     pub async fn send_confirmed(&self, msg: S) -> Result<(), ConfirmedSendError<S>> {
         let (response_tx, response_rx) = oneshot::channel();
         if let Err(err) = self.tx.send(Envelope::Confirm(msg, response_tx)).await {
-            let Envelope::Confirm(msg, _) = err.0 else { unreachable!("we just sent a Confirm") };
+            let Envelope::Confirm(msg, _) = err.0 else {
+                unreachable!("we just sent a Confirm")
+            };
             return Err(ConfirmedSendError::ChannelClosed(Some(msg)));
         }
 
@@ -462,7 +464,9 @@ impl<S: Serialize + Send + 'static> StreamSink<S> {
             .send(Envelope::ConfirmBatch(msgs, response_tx))
             .await
         {
-            let Envelope::ConfirmBatch(unsent, _) = err.0 else { unreachable!("we just sent a ConfirmBatch") };
+            let Envelope::ConfirmBatch(unsent, _) = err.0 else {
+                unreachable!("we just sent a ConfirmBatch")
+            };
             return Err(ConfirmedBatchError {
                 sent: 0,
                 unsent,

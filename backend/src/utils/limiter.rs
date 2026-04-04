@@ -94,12 +94,7 @@ impl RateLimit {
         Self::new(limit, Duration::from_secs(86400))
     }
 
-    fn rate_limit<T: std::hash::Hash>(
-        &self,
-        key: &T,
-        res: &mut Response,
-        ctrl: &mut FlowCtrl,
-    ) {
+    fn rate_limit<T: std::hash::Hash>(&self, key: &T, res: &mut Response, ctrl: &mut FlowCtrl) {
         let observed = self.rate.observe(key, 1);
 
         // self.limit is a u32 rate-limit value (always a small number, fits in isize)

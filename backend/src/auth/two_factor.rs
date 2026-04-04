@@ -40,16 +40,18 @@ fn parse_32_byte_key(s: &str) -> Option<[u8; 32]> {
     // Hex (64 chars)
     if trimmed.len() == 64
         && let Ok(bytes) = hex::decode(trimmed)
-            && bytes.len() == 32 {
-                return bytes.try_into().ok();
-            }
+        && bytes.len() == 32
+    {
+        return bytes.try_into().ok();
+    }
 
     // Base64url no pad or standard base64
     for engine in [base64url, base64std] {
         if let Ok(bytes) = engine.decode(trimmed.as_bytes())
-            && bytes.len() == 32 {
-                return bytes.try_into().ok();
-            }
+            && bytes.len() == 32
+        {
+            return bytes.try_into().ok();
+        }
     }
 
     None

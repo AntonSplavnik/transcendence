@@ -126,7 +126,9 @@ pub fn load_pending_requests(
                 RequestDirection::Incoming => request.sender_id,
                 RequestDirection::Outgoing => request.receiver_id,
             };
-            let other = if let Some(user) = others.get(&other_id) { user.clone() } else {
+            let other = if let Some(user) = others.get(&other_id) {
+                user.clone()
+            } else {
                 tracing::warn!(
                     request_id = request.id,
                     user_id = other_id,
@@ -163,7 +165,12 @@ impl SendFriendRequestInput {
     /// Validate that at least one identifier is provided.
     /// If both are given, `user_id` takes precedence.
     pub fn validate_target(&self) -> Result<(), FriendError> {
-        if self.user_id.is_none() && self.nickname.as_ref().is_none_or(super::super::models::blob::VarBlob::is_empty) {
+        if self.user_id.is_none()
+            && self
+                .nickname
+                .as_ref()
+                .is_none_or(super::super::models::blob::VarBlob::is_empty)
+        {
             return Err(FriendError::InvalidParam(
                 "provide user_id or nickname".into(),
             ));
