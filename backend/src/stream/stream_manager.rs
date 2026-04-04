@@ -118,7 +118,7 @@ pub fn router(path: impl Into<String>) -> Router {
 }
 
 /// Because the connect request doesnt have cookies attached,
-/// auth using Router.requires_user_login() is not possible here.
+/// auth using `Router.requires_user_login()` is not possible here.
 pub fn webtransport_router(path: impl Into<String>) -> Router {
     Router::with_path(path)
         .hoop(crate::utils::logger::Logger)
@@ -145,8 +145,7 @@ type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Byte
 /// Internal framed sender type. Used by `frame_stream`, `frame_uni_stream`,
 /// and `open_ctrl_stream`. Public callers receive [`StreamSink`](super::StreamSink)
 /// from [`StreamManager::request_stream`] / [`StreamManager::request_uni_stream`].
-pub(crate) type Sender<S, BP = CodecBufferParams> =
-    FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
+pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -336,8 +335,7 @@ impl StreamManager {
     pub fn is_connected(&self, user_id: i32) -> bool {
         self.connections
             .get(&user_id)
-            .map(|conn| !conn.tx.is_closed())
-            .unwrap_or(false)
+            .is_some_and(|conn| !conn.tx.is_closed())
     }
 
     pub fn shutdown(&self) {
@@ -352,7 +350,7 @@ impl StreamManager {
             .and_modify(|c| c.refresh_auth(Arc::downgrade(self), session));
     }
 
-    fn register_pending<'a>(&'a self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'a>) {
+    fn register_pending(&self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'_>) {
         let connection_id = self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
         let key = PendingConnectionKey::new(connection_id);
         let (tx, rx) = oneshot::channel();
@@ -483,15 +481,14 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
-            Ok(Err(_)) | Err(_) => {
-                self.unregister(user_id, Some(connection_id), None);
-                Err(StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: "handler unresponsive or crashed".into(),
-                })
-            }
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
+            self.unregister(user_id, Some(connection_id), None);
+            Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler unresponsive or crashed".into(),
+            })
         }
     }
 
@@ -535,15 +532,14 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
-            Ok(Err(_)) | Err(_) => {
-                self.unregister(user_id, Some(connection_id), None);
-                Err(StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: "handler unresponsive or crashed".into(),
-                })
-            }
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
+            self.unregister(user_id, Some(connection_id), None);
+            Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler unresponsive or crashed".into(),
+            })
         }
     }
 
@@ -698,7 +694,7 @@ where
     sender
         .send(&r#type)
         .await
-        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+        .with_context(|| format!("failed to send stream type: {type:?}"))?;
     let sender = sender.map_encoder(|_| CompressedCborEncoder::new());
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
@@ -718,7 +714,7 @@ where
     sender
         .send(&r#type)
         .await
-        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+        .with_context(|| format!("failed to send stream type: {type:?}"))?;
     Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
 }
 
@@ -827,7 +823,7 @@ pub async fn connect_stream(
                                 tracing::warn!(user_session.user_id, connection_id, error = %e, "Stream open failed");
                                 Err(StreamManagerError::ConnectionClosed {
                                     user_id: user_session.user_id,
-                                    reason: format!("stream open failed: {}", e),
+                                    reason: format!("stream open failed: {e}"),
                                 })
                             }
                         };
@@ -840,7 +836,7 @@ pub async fn connect_stream(
                                 tracing::warn!(user_session.user_id, connection_id, error = %e, "Uni stream open failed");
                                 Err(StreamManagerError::ConnectionClosed {
                                     user_id: user_session.user_id,
-                                    reason: format!("uni stream open failed: {}", e),
+                                    reason: format!("uni stream open failed: {e}"),
                                 })
                             }
                         };

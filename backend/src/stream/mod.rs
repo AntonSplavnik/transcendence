@@ -147,7 +147,7 @@ where
         loop {
             tokio::select! {
                 biased;
-                _ = cancel.cancelled() => break,
+                () = cancel.cancelled() => break,
                 item = rx.next() => {
                     match item {
                         Some(Ok(msg)) => handler(msg).await,
@@ -179,7 +179,7 @@ async fn on_connect(
     user_id: i32,
     _db: &Db,
     streams: &StreamManager,
-    depot: &mut Depot,
+    depot: &Depot,
 ) -> anyhow::Result<()> {
     depot
         .notification_manager()

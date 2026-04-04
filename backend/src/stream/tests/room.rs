@@ -119,7 +119,7 @@ impl RoomProtocol for ContextProtocol {
 
 // ── CountingProtocol (for leave_count via AtomicUsize) ──────────
 
-/// Protocol that tracks leave_count via AtomicUsize for post-drop inspection.
+/// Protocol that tracks `leave_count` via `AtomicUsize` for post-drop inspection.
 #[derive(Debug)]
 struct CountingProtocol {
     join_count: Arc<AtomicUsize>,
@@ -152,7 +152,7 @@ impl RoomProtocol for CountingProtocol {
 
 // ── CountingNoBroadcastProtocol ─────────────────────────────────────────────
 
-/// Like CountingProtocol but with no init messages and no join/leave broadcasts.
+/// Like `CountingProtocol` but with no init messages and no join/leave broadcasts.
 ///
 /// Used in concurrency tests where broadcast storms would cancel members via
 /// backpressure, obscuring the behaviour under test.
@@ -188,7 +188,7 @@ impl RoomProtocol for CountingNoBroadcastProtocol {
 
 // ── OverflowInitProtocol ────────────────────────────────────────
 
-/// Protocol that returns more than MAX_INIT_MESSAGES init messages.
+/// Protocol that returns more than `MAX_INIT_MESSAGES` init messages.
 #[derive(Debug)]
 struct OverflowInitProtocol {
     init_count: usize,
@@ -203,7 +203,7 @@ impl RoomProtocol for OverflowInitProtocol {
 
 // ── MaxInitProtocol ─────────────────────────────────────────────
 
-/// Protocol that returns exactly MAX_INIT_MESSAGES (31) init messages.
+/// Protocol that returns exactly `MAX_INIT_MESSAGES` (31) init messages.
 ///
 /// Tests the boundary: 31 init messages + 1 join broadcast = 32 = full buffer.
 /// `try_send` must accept all of them (fresh buffer has exactly enough space).

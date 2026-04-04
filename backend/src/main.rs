@@ -1,3 +1,12 @@
+#![allow(clippy::missing_const_for_fn)] // locks API into const-compatibility; nursery FP risk
+#![allow(clippy::wildcard_imports)] // intentionally permitted in this codebase
+#![allow(clippy::option_if_let_else)] // map_or_else is often harder to read than if let
+#![allow(clippy::default_trait_access)] // ::new() is more idiomatic than ::default()
+#![allow(clippy::too_many_lines)] // threshold is arbitrary
+#![allow(clippy::future_not_send)] // Salvo handlers are intentionally !Send on some paths
+#![allow(clippy::struct_excessive_bools)] // refactor to enum/bitflags is premature here
+#![allow(clippy::similar_names)] // too many false positives (e.g. https/http3)
+
 mod auth;
 mod avatar;
 mod config;
@@ -39,7 +48,7 @@ fn main() -> std::process::ExitCode {
         .thread_name_fn(|| {
             static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
             let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
-            format!("tokio-{}", id)
+            format!("tokio-{id}")
         })
         .build()
         .expect("Failed building the Runtime")
@@ -83,7 +92,7 @@ async fn async_main() -> std::process::ExitCode {
 
     // Load (or create) the current ToS version timestamp from the database.
     let tos_timestamp = database
-        .write(|conn| tos::load_current_tos_timestamp(conn))
+        .write(tos::load_current_tos_timestamp)
         .await
         .expect("Failed to initialize ToS version");
 
@@ -97,10 +106,10 @@ async fn async_main() -> std::process::ExitCode {
     let mut router = routers::root(database, tos_timestamp, mailer, config.listen_https_port);
 
     if let Some(tls) = &config.tls {
-        let acceptor = setup_acceptor_socket(&config, tls).await;
+        let acceptor = setup_acceptor_socket(config, tls).await;
         run_server(acceptor, router).await;
     } else if let Some(domain) = &config.domain {
-        let acceptor = setup_acme_acceptor_socket(&config, domain, &mut router).await;
+        let acceptor = setup_acme_acceptor_socket(config, domain, &mut router).await;
         run_server(acceptor, router).await;
     } else {
         eprintln!("⚠️  No TLS configuration and no domain provided. Exiting.");
@@ -129,14 +138,14 @@ async fn setup_acceptor_socket(
     // Enable QUIC/HTTP3 support on the same port
     let http3 = QuinnListener::new(tls_config, (cfg.listen_addr.clone(), cfg.listen_https_port));
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
-    let acceptor = http3.join(https).join(http).bind().await;
-    acceptor
+
+    http3.join(https).join(http).bind().await
 }
 
 async fn setup_acme_acceptor_socket(
     cfg: &crate::config::ServerConfig,
     domain: &String,
-    mut router: &mut salvo::Router,
+    router: &mut salvo::Router,
 ) -> impl salvo::conn::Acceptor + use<> {
     use salvo::prelude::*;
     // Set up a TCP listener on port 80 for HTTP
@@ -146,11 +155,11 @@ async fn setup_acme_acceptor_socket(
         .acme() // Enable ACME for automatic SSL certificate management
         .cache_path(&acme_cache) // Persisted in Docker volume via data/acme/<domain>/
         .add_domain(domain)
-        .http01_challenge(&mut router) // Add routes to handle ACME challenge requests
+        .http01_challenge(router) // Add routes to handle ACME challenge requests
         .quinn((cfg.listen_addr.clone(), cfg.listen_https_port)); // Enable QUIC/HTTP3 support
     // Combine HTTP, HTTPS, and HTTP3 listeners into a single acceptor
-    let acceptor = https.join(http).bind().await;
-    acceptor
+
+    https.join(http).bind().await
 }
 
 // generic helper to enable using different acceptor types
@@ -188,8 +197,8 @@ async fn shutdown_signal(handle: salvo::server::ServerHandle) {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => tracing::info!("ctrl_c signal received"),
-        _ = terminate => tracing::info!("terminate signal received"),
+        () = ctrl_c => tracing::info!("ctrl_c signal received"),
+        () = terminate => tracing::info!("terminate signal received"),
     }
     handle.stop_graceful(Duration::from_secs(10));
     tokio::time::sleep(Duration::from_secs(1)).await;

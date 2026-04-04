@@ -277,7 +277,7 @@ async fn test_user_stream_open_and_send_race() {
     assert_eq!(us.protocol().opens(), 1);
 }
 
-/// Cleanup after cancel doesn't race with a concurrent open_stream for
+/// Cleanup after cancel doesn't race with a concurrent `open_stream` for
 /// the same user — the new stream survives.
 #[tokio::test]
 async fn test_user_stream_cleanup_does_not_remove_new_stream() {

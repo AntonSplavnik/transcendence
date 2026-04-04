@@ -24,7 +24,7 @@ impl mock::User<mock::Registered> {
 #[tokio::test]
 async fn bind_pending_stream_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     let key = PendingConnectionKey::new(1);
 
     user.assert_requires_auth(|c| c.post("/api/stream/bind").json(&key))

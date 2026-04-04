@@ -1,5 +1,6 @@
 use super::super::{CancelHandle, CancelReason, spawn_receive_loop};
 use super::test_utils::DUPLEX_BUFFER;
+use tokio::io::AsyncWriteExt;
 
 #[tokio::test]
 async fn test_stream_sink_decode_error_sets_reason() {
@@ -18,7 +19,6 @@ async fn test_stream_sink_decode_error_sets_reason() {
     let _handle2 = spawn_receive_loop(server_rx_stream, cancel2.clone(), |_msg: String| async {});
 
     // Write garbage bytes — not valid CBOR framing.
-    use tokio::io::AsyncWriteExt;
     let mut writer = client_write;
     writer
         .write_all(&[0xFF, 0xFE, 0xFD, 0xFC, 0x00, 0x00, 0x00, 0x05])

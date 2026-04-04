@@ -5,6 +5,61 @@ edition = "2024"
 rust-version = "1.94"
 readme = "./README.md"
 
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# --- pedantic: enabled and fixed ---
+uninlined_format_args = "deny"
+explicit_iter_loop = "deny"
+cast_lossless = "deny"
+map_unwrap_or = "deny"
+semicolon_if_nothing_returned = "deny"
+ignored_unit_patterns = "deny"
+redundant_closure_for_method_calls = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+match_wild_err_arm = "deny"
+missing_fields_in_debug = "deny"
+unused_async = "deny"
+match_same_arms = "deny"
+match_bool = "deny"
+single_match_else = "deny"
+manual_let_else = "deny"
+doc_markdown = "deny"
+# --- nursery: enabled and fixed ---
+redundant_pub_crate = "deny"
+redundant_clone = "deny"
+needless_pass_by_ref_mut = "deny"
+# --- category 1: mechanical/auto-fixed ---
+iter_on_single_items = "deny"
+unnested_or_patterns = "deny"
+elidable_lifetime_names = "deny"
+equatable_if_let = "deny"
+match_wildcard_for_single_variants = "deny"
+# --- category 2: hand-fixed ---
+missing_errors_doc = "deny"
+items_after_statements = "deny"
+or_fun_call = "deny"
+comparison_chain = "deny"
+trivially_copy_pass_by_ref = "deny"
+unused_self = "deny"
+needless_pass_by_value = "deny"
+# --- nursery: use_self ---
+use_self = "deny"
+# --- explicitly silenced: noisy or intentionally not enforced ---
+missing_const_for_fn = "allow"
+wildcard_imports = "allow"
+option_if_let_else = "allow"
+default_trait_access = "allow"
+too_many_lines = "allow"
+future_not_send = "allow"
+struct_excessive_bools = "allow"
+similar_names = "allow"
+must_use_candidate = "deny"
+unnecessary_wraps = "allow"
+used_underscore_binding = "allow"
+
 [dependencies]
 # simple error handling
 anyhow = "1"
@@ -133,7 +188,9 @@ lettre = { version = "0.11", default-features = false, features = [
 	"hostname",
 ] }
 # TLS (explicit dep so we can install the default CryptoProvider)
-rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
+rustls = { version = "0.23", default-features = false, features = [
+	"aws_lc_rs",
+] }
 
 [dev-dependencies]
 tokio-test = "0.4"

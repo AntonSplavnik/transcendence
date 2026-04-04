@@ -6,39 +6,39 @@ use crate::prelude::*;
 
 // ── ToS version enum ─────────────────────────────────────────────────────
 
-/// Every ToS revision gets its own variant, named after the date the ToS
+/// Every `ToS` revision gets its own variant, named after the date the `ToS`
 /// text was updated. Add a new variant here and update [`CURRENT_TOS`]
 /// to force all users to re-accept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TosVersion {
     /// Initial Terms of Service — matches "Last updated: 25.02.2026" on
-    /// the frontend ToS page.
+    /// the frontend `ToS` page.
     V2026_02_25,
 }
 
 impl TosVersion {
-    /// Returns the string key for this ToS version, used as the primary
+    /// Returns the string key for this `ToS` version, used as the primary
     /// key in the `tos_versions` database table.
-    pub const fn key(&self) -> &'static str {
+    pub const fn key(self) -> &'static str {
         match self {
-            TosVersion::V2026_02_25 => "2026-02-25",
+            Self::V2026_02_25 => "2026-02-25",
         }
     }
 }
 
-/// The current ToS version. Change this to a new variant to force
+/// The current `ToS` version. Change this to a new variant to force
 /// all users to re-accept.
 pub const CURRENT_TOS: TosVersion = TosVersion::V2026_02_25;
 
-/// The key string for the current ToS version, derived from [`CURRENT_TOS`].
+/// The key string for the current `ToS` version, derived from [`CURRENT_TOS`].
 /// Used as the primary key in the `tos_versions` database table.
 pub const CURRENT_TOS_KEY: &str = CURRENT_TOS.key();
 
 // ── Injected timestamp ───────────────────────────────────────────────────
 
-/// The effective timestamp for the current ToS version, injected into the
+/// The effective timestamp for the current `ToS` version, injected into the
 /// Salvo depot via `affix_state::inject`. A user's `tos_accepted_at` must
-/// be `>=` this value to pass the ToS gate.
+/// be `>=` this value to pass the `ToS` gate.
 /// Timestamps are truncated to second precision because JWT claims store
 /// `tos_accepted_at` as a unix timestamp (`i64`). Without truncation,
 /// nanosecond differences would cause spurious comparison failures.
@@ -63,7 +63,7 @@ impl CurrentTosTimestamp {
     }
 }
 
-/// Load (or create) the current ToS version timestamp from the database.
+/// Load (or create) the current `ToS` version timestamp from the database.
 ///
 /// If an entry for [`CURRENT_TOS_KEY`] already exists, its `created_at`
 /// timestamp is used.  Otherwise a new row is inserted with `now()` and
@@ -78,20 +78,17 @@ pub fn load_current_tos_timestamp(conn: &mut DbConn) -> CurrentTosTimestamp {
         .optional()
         .expect("failed to query tos_versions table");
 
-    let ts = match existing {
-        Some(ts) => {
-            tracing::info!("ToS version {CURRENT_TOS_KEY} found in database (created {ts})");
-            ts
-        }
-        None => {
-            let now = CurrentTosTimestamp::now().timestamp();
-            diesel::insert_into(tos_versions)
-                .values((key.eq(CURRENT_TOS_KEY), created_at.eq(now)))
-                .execute(conn)
-                .expect("failed to insert new tos_versions row");
-            tracing::info!("ToS version {CURRENT_TOS_KEY} not found — created new entry at {now}");
-            now
-        }
+    let ts = if let Some(ts) = existing {
+        tracing::info!("ToS version {CURRENT_TOS_KEY} found in database (created {ts})");
+        ts
+    } else {
+        let now = CurrentTosTimestamp::now().timestamp();
+        diesel::insert_into(tos_versions)
+            .values((key.eq(CURRENT_TOS_KEY), created_at.eq(now)))
+            .execute(conn)
+            .expect("failed to insert new tos_versions row");
+        tracing::info!("ToS version {CURRENT_TOS_KEY} not found — created new entry at {now}");
+        now
     };
 
     CurrentTosTimestamp::from_utc(ts)
@@ -120,21 +117,21 @@ pub fn has_accepted_current_tos(
     tos_accepted_at: Option<DateTime<Utc>>,
     tos_timestamp: DateTime<Utc>,
 ) -> bool {
-    tos_accepted_at.map_or(false, |ts| ts >= tos_timestamp)
+    tos_accepted_at.is_some_and(|ts| ts >= tos_timestamp)
 }
 
 // ── Unauthenticated endpoint ─────────────────────────────────────────────
 
 #[derive(Debug, Serialize, ToSchema)]
 #[cfg_attr(test, derive(serde::Deserialize))]
-pub(crate) struct TosInfo {
+pub struct TosInfo {
     pub current_tos_timestamp: DateTime<Utc>,
 }
 
-/// Returns the current ToS version timestamp.
+/// Returns the current `ToS` version timestamp.
 ///
 /// Unauthenticated. The client compares this against the user's
-/// `tos_accepted_at` to decide whether ToS acceptance is needed.
+/// `tos_accepted_at` to decide whether `ToS` acceptance is needed.
 #[endpoint]
 pub async fn current_tos(depot: &mut Depot) -> JsonResult<TosInfo> {
     let ts = depot.current_tos_timestamp();
@@ -145,7 +142,7 @@ pub async fn current_tos(depot: &mut Depot) -> JsonResult<TosInfo> {
 
 // ── Hoop ─────────────────────────────────────────────────────────────────
 
-/// Hoop that checks whether the authenticated user has accepted the current ToS.
+/// Hoop that checks whether the authenticated user has accepted the current `ToS`.
 ///
 /// Reads the `tos` claim from the JWT (stored in the depot by `access_hoop`)
 /// and the [`CurrentTosTimestamp`] from the depot (injected via `affix_state`).
@@ -163,7 +160,7 @@ pub async fn tos_hoop(depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl
 }
 
 pub trait RouterTosExt {
-    /// Guard routes behind ToS acceptance. See [`tos_hoop`].
+    /// Guard routes behind `ToS` acceptance. See [`tos_hoop`].
     fn requires_tos_accepted(self) -> Self;
 }
 

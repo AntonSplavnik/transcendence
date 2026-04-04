@@ -11,6 +11,15 @@ pass_filenames = false
 stages = ["pre-push", "manual"]
 
 [[repos.hooks]]
+id = "cargo-clippy"
+name = "Cargo Clippy"
+entry = "bash -c 'cd backend && cargo clippy --all-targets'"
+language = "system"
+files = '^backend/'
+pass_filenames = false
+stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
 id = "cargo-check-debug"
 name = "Cargo Check (Debug)"
 entry = "bash -c 'cd backend && RUSTFLAGS=\"-D warnings\" cargo check --all-targets'"

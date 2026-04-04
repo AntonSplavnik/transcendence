@@ -239,7 +239,7 @@ impl PartialEq for CancelHandle {
 impl Eq for CancelHandle {}
 
 impl std::hash::Hash for CancelHandle {
-    /// Hash by pointer identity — consistent with `PartialEq` (ptr_eq semantics).
+    /// Hash by pointer identity — consistent with `PartialEq` (`ptr_eq` semantics).
     ///
     /// Allows `CancelHandle` to be stored in `HashSet` or used as a `HashMap` key.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

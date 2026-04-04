@@ -15,7 +15,7 @@ const TOTP_ISSUER: &str = "Transcendence";
 const ENV_TOTP_ENC_KEY: &str = "TOTP_ENC_KEY";
 
 const RECOVERY_CODE_BYTES: usize = 16; // 128-bit
-pub(crate) const DEFAULT_RECOVERY_CODE_COUNT: usize = 10;
+pub const DEFAULT_RECOVERY_CODE_COUNT: usize = 10;
 
 #[derive(Error, Debug, strum::IntoStaticStr)]
 pub enum TwoFactorError {
@@ -38,20 +38,19 @@ fn parse_32_byte_key(s: &str) -> Option<[u8; 32]> {
     let trimmed = s.trim();
 
     // Hex (64 chars)
-    if trimmed.len() == 64 {
-        if let Ok(bytes) = hex::decode(trimmed) {
-            if bytes.len() == 32 {
-                return Some(bytes.try_into().ok()?);
-            }
-        }
+    if trimmed.len() == 64
+        && let Ok(bytes) = hex::decode(trimmed)
+        && bytes.len() == 32
+    {
+        return bytes.try_into().ok();
     }
 
     // Base64url no pad or standard base64
     for engine in [base64url, base64std] {
-        if let Ok(bytes) = engine.decode(trimmed.as_bytes()) {
-            if bytes.len() == 32 {
-                return Some(bytes.try_into().ok()?);
-            }
+        if let Ok(bytes) = engine.decode(trimmed.as_bytes())
+            && bytes.len() == 32
+        {
+            return bytes.try_into().ok();
         }
     }
 
@@ -66,8 +65,7 @@ static TOTP_ENC_KEY: LazyLock<Option<[u8; 32]>> = LazyLock::new(|| {
 fn totp_enc_key() -> AppResult<[u8; 32]> {
     TOTP_ENC_KEY.as_ref().copied().ok_or_else(|| {
         ApiError::TwoFa(TwoFactorError::Internal(format!(
-            "Bad server configuration: Missing/invalid TOTP encryption key in env var {}",
-            ENV_TOTP_ENC_KEY
+            "Bad server configuration: Missing/invalid TOTP encryption key in env var {ENV_TOTP_ENC_KEY}"
         )))
     })
 }
@@ -90,8 +88,7 @@ pub fn encrypt_totp_secret(user_id: i32, secret: &[u8]) -> AppResult<String> {
         )
         .map_err(|err| {
             ApiError::TwoFa(TwoFactorError::Internal(format!(
-                "Failed to encrypt TOTP secret: {}",
-                err
+                "Failed to encrypt TOTP secret: {err}"
             )))
         })?;
 
@@ -105,8 +102,7 @@ pub fn encrypt_totp_secret(user_id: i32, secret: &[u8]) -> AppResult<String> {
 pub fn decrypt_totp_secret(user_id: i32, secret_enc: &str) -> AppResult<Vec<u8>> {
     let bytes = base64std.decode(secret_enc.as_bytes()).map_err(|err| {
         ApiError::TwoFa(TwoFactorError::Internal(format!(
-            "Invalid base64 for encrypted TOTP secret: {}",
-            err
+            "Invalid base64 for encrypted TOTP secret: {err}"
         )))
     })?;
 
@@ -128,8 +124,7 @@ pub fn decrypt_totp_secret(user_id: i32, secret_enc: &str) -> AppResult<Vec<u8>>
         )
         .map_err(|err| {
             ApiError::TwoFa(TwoFactorError::Internal(format!(
-                "Failed to decrypt TOTP secret: {}",
-                err
+                "Failed to decrypt TOTP secret: {err}"
             )))
         })
 }

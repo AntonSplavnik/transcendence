@@ -1,4 +1,4 @@
-//! DELETE /api/friends/remove/{user_id} - Remove a friend
+//! DELETE /`api/friends/remove/{user_id`} - Remove a friend
 
 use crate::error::FriendError;
 use crate::notifications::NotificationPayload;

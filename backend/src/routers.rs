@@ -119,5 +119,5 @@ fn openapi_doc(to_document: &Router) -> OpenApi {
                 Short-lived (a few minutes) and rotated on each refresh."),
             )),
         )
-        .merge_router(&to_document)
+        .merge_router(to_document)
 }

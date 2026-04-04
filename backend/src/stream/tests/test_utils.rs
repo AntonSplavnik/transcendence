@@ -24,11 +24,11 @@ use super::super::cancel::CancelHandle;
 use super::super::compress_cbor_codec::{CompressedCborDecoder, CompressedCborEncoder};
 use super::super::sink::{DEFAULT_SINK_BUFFER, StreamSink};
 
-/// DuplexStream buffer size for tests.
+/// `DuplexStream` buffer size for tests.
 ///
 /// 64 KiB — comfortably fits any test message burst without
 /// `poll_write` returning `Pending` and causing timeouts.
-pub(crate) const DUPLEX_BUFFER: usize = 65536;
+pub const DUPLEX_BUFFER: usize = 65536;
 
 /// Timeout for test assertions that wait for async events.
 const TEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -148,15 +148,14 @@ impl<S: DeserializeOwned> TestClient<S> {
     pub async fn expect_closed(&mut self) {
         let result = tokio::time::timeout(TEST_TIMEOUT, self.reader.next()).await;
         match result {
-            Ok(None) => {} // Stream closed — expected.
+            Ok(None | Some(Err(_))) => {} // Stream closed or decode error on close — expected.
             Ok(Some(Ok(_))) => {
                 panic!(
                     "expected stream to close, but received a message of type {}",
                     std::any::type_name::<S>()
                 );
             }
-            Ok(Some(Err(_))) => {} // Decode error on close is acceptable.
-            Err(_) => panic!("timed out waiting for stream to close"),
+            Err(e) => panic!("timed out waiting for stream to close: {e}"),
         }
     }
 }
