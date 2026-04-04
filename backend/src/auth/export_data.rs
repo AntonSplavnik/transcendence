@@ -69,7 +69,7 @@ pub struct ExportFriendRequest {
     pub id: i32,
     pub sender_id: i32,
     pub receiver_id: i32,
-    pub status: String,
+    pub status: FriendRequestStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -117,15 +117,6 @@ pub async fn confirm_data_export(
 
     let user_id = user_id.into_inner();
     let token = token.into_inner();
-
-    let error_html = || {
-        html_action_result_card(
-            "Confirmation Failed",
-            "Confirmation Failed",
-            false,
-            "This confirmation link is invalid or has expired. Please request a new export.",
-        )
-    };
 
     let confirmed = match db
         .write(move |conn| -> Result<bool, diesel::result::Error> {
@@ -176,7 +167,12 @@ pub async fn confirm_data_export(
         )));
     } else {
         res.status_code(StatusCode::BAD_REQUEST);
-        res.render(salvo::writing::Text::Html(error_html()));
+        res.render(salvo::writing::Text::Html(html_action_result_card(
+            "Confirmation Failed",
+            "Confirmation Failed",
+            false,
+            "This confirmation link is invalid or has expired. Please request a new export.",
+        )));
     }
 }
 
@@ -382,11 +378,7 @@ async fn execute_export(
                         id: fr.id,
                         sender_id: fr.sender_id,
                         receiver_id: fr.receiver_id,
-                        status: match fr.status {
-                            FriendRequestStatus::Pending => "pending",
-                            FriendRequestStatus::Accepted => "accepted",
-                        }
-                        .to_string(),
+                        status: fr.status,
                         created_at: fr.created_at,
                         updated_at: fr.updated_at,
                     })

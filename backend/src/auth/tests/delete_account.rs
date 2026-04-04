@@ -2,8 +2,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as base64url;
 
 use crate::auth::gdpr_common::InitiateResponse;
-use crate::db::Database;
 use crate::auth::router::PasswordInput;
+use crate::db::Database;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
@@ -832,7 +832,6 @@ async fn confirm_deletion_reuse_fails() {
 
 #[tokio::test]
 async fn initiate_deletion_on_deleted_account_rejected() {
-
     let server = mock::Server::default();
     let mut user = server.user().register().await;
     let user_id = user.user_id();

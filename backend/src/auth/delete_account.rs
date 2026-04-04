@@ -51,15 +51,6 @@ pub async fn confirm_account_deletion(
     let user_id = user_id.into_inner();
     let token = token.into_inner();
 
-    let error_html = || {
-        html_action_result_card(
-            "Confirmation Failed",
-            "Confirmation Failed",
-            false,
-            "This confirmation link is invalid or has expired. Please request a new deletion.",
-        )
-    };
-
     let confirmed = match db
         .write(move |conn| -> Result<bool, diesel::result::Error> {
             use crate::schema::account_deletion_requests::dsl as adr;
@@ -109,7 +100,12 @@ pub async fn confirm_account_deletion(
         )));
     } else {
         res.status_code(StatusCode::BAD_REQUEST);
-        res.render(salvo::writing::Text::Html(error_html()));
+        res.render(salvo::writing::Text::Html(html_action_result_card(
+            "Confirmation Failed",
+            "Confirmation Failed",
+            false,
+            "This confirmation link is invalid or has expired. Please request a new deletion.",
+        )));
     }
 }
 
