@@ -318,12 +318,12 @@ async fn execute_deletion_anonymizes_user() {
 
     assert_eq!(
         db_user.email,
-        format!("deleted[{user_id}]"),
+        format!("user[{user_id}]"),
         "email must be anonymized"
     );
     assert_eq!(
         db_user.nickname.to_string(),
-        format!("deleted[{user_id}]"),
+        format!("user[{user_id}]"),
         "nickname must be anonymized"
     );
     assert!(

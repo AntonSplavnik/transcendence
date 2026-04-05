@@ -140,7 +140,7 @@ async fn initiate_deletion(
 
             let user: crate::models::User = u::users.find(user_id).first(conn)?;
 
-            if user.email.starts_with("deleted[") {
+            if user.nickname.as_str_unchecked().contains('[') {
                 return Err(ApiError::Gdpr(GdprError::AlreadyDeleted));
             }
 
@@ -264,9 +264,9 @@ async fn execute_deletion(
             let user: crate::models::User = u::users.find(user_id).first(conn)?;
 
             conn.immediate_transaction::<_, diesel::result::Error, _>(|conn| {
-                let deleted_email = format!("deleted[{user_id}]");
+                let deleted_email = format!("user[{user_id}]");
                 let deleted_nickname =
-                    crate::models::nickname::Nickname::from_str(format!("deleted[{user_id}]"));
+                    crate::models::nickname::Nickname::from_str(format!("user[{user_id}]"));
                 diesel::update(u::users.find(user_id))
                     .set((
                         u::email.eq(&deleted_email),

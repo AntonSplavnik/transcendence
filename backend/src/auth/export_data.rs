@@ -329,9 +329,6 @@ async fn execute_export(
                 return Err(ApiError::Gdpr(GdprError::EmailConfirmationPending));
             }
 
-            diesel::delete(der::data_export_requests.filter(der::user_id.eq(user_id)))
-                .execute(conn)?;
-
             let user: User = u::users.find(user_id).first(conn)?;
 
             let export = DataExport {
@@ -363,6 +360,9 @@ async fn execute_export(
                     .optional()?
                     .map(|a| base64std.encode(&a.data)),
             };
+
+            diesel::delete(der::data_export_requests.filter(der::user_id.eq(user_id)))
+                .execute(conn)?;
 
             Ok::<_, ApiError>((export, user))
         })
