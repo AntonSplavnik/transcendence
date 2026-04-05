@@ -98,7 +98,11 @@ impl GameManager {
 				return Err(GameError::AlreadyInLobby);
 			}
 
-			let mode_type = parse_game_mode(&settings.gamemode).ok_or(GameError::InvalidGameMode)?;
+			let mode_type = if let Some(ref name) = settings.gamemode {
+				Some(parse_game_mode(name).ok_or(GameError::InvalidGameMode)?)
+			} else {
+				None
+			};
 			let lobby = Lobby::new(lobby_id, host_id, settings, mode_type);
 			let lobby_arc = Arc::new(Mutex::new(lobby));
 			state.lobbies.insert(lobby_id, Arc::clone(&lobby_arc));
@@ -463,9 +467,15 @@ impl GameManager {
 
 			players = lobby.player_data().collect::<Vec<_>>();
 
+			// Safety: evaluate_countdown never starts the countdown without a game
+			// mode set, so game is always Some by the time we reach here.
+			let game_ref = lobby
+				.game()
+				.expect("game mode must be set before countdown can start");
+
 			// Guard: players may have left in the race window between the countdown
 			// timer firing and this task acquiring the lobby lock.
-			if players.len() < lobby.game().min_players() as usize {
+			if players.len() < game_ref.min_players() as usize {
 				warn!(
 					lobby_id = %lobby_id,
 					players = players.len(),
@@ -476,7 +486,7 @@ impl GameManager {
 			}
 
 			spectators = lobby.spectator_ids().collect::<Vec<_>>();
-			game = Arc::clone(lobby.game());
+			game = Arc::clone(game_ref);
 			lobby.start_game_session();
 			lobby
 				.lobby_streams()

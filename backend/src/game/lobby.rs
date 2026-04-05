@@ -28,7 +28,7 @@ const CLEANUP_DELAY: Duration = Duration::from_secs(30);
 pub struct LobbySettings {
     pub name: String,
     pub public: bool,
-    pub gamemode: String,
+    pub gamemode: Option<String>,
 }
 
 /// Partial update for lobby settings. Only provided fields are changed.
@@ -88,8 +88,8 @@ pub struct LobbyPlayerInfo {
 pub struct Lobby {
     pub id: Ulid,
     settings: LobbySettings,
-    /// Validated C++ GameModeType value — always in sync with `settings.gamemode`.
-    mode_type: u8,
+    /// Validated C++ GameModeType value — `None` until the host picks a mode.
+    mode_type: Option<u8>,
     host_id: i32,
     players: IndexMap<i32, PlayerState, RandomState>,
     /// Spectators receive lobby-stream broadcasts (join/leave/countdown events)
@@ -98,9 +98,9 @@ pub struct Lobby {
     spectators: IndexSet<i32, RandomState>,
     lobby_streams: Arc<StreamGroup<LobbyServerMessage>>,
     game_streams: Arc<StreamGroup<GameServerMessage>>,
-    /// The game handle for this lobby. Replaced with a fresh handle after each
-    /// match ends so the engine state is clean for the next game.
-    game: Arc<Game>,
+    /// The game handle for this lobby. `None` until a mode is set.
+    /// Replaced with a fresh handle after each match ends.
+    game: Option<Arc<Game>>,
     /// Whether a game loop is currently running.
     game_active: bool,
     countdown: CountdownState,
@@ -108,8 +108,8 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: u8) -> Self {
-        let game = Arc::new(Game::new(mode_type));
+    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: Option<u8>) -> Self {
+        let game = mode_type.map(|mt| Arc::new(Game::new(mt)));
         Self {
             id,
             settings,
@@ -133,7 +133,10 @@ impl Lobby {
     }
 
     pub fn is_full(&self) -> bool {
-        self.players.len() >= self.game.max_players() as usize
+        match &self.game {
+            Some(game) => self.players.len() >= game.max_players() as usize,
+            None => false,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -156,10 +159,9 @@ impl Lobby {
         &self.settings
     }
 
-    /// The game handle for this lobby. Always present; use [`is_game_active`]
-    /// to check whether the game loop is currently running.
-    pub fn game(&self) -> &Arc<Game> {
-        &self.game
+    /// The game handle for this lobby. `None` until a game mode is set.
+    pub fn game(&self) -> Option<&Arc<Game>> {
+        self.game.as_ref()
     }
 
     /// Whether a game loop is currently running for this lobby.
@@ -252,7 +254,9 @@ impl Lobby {
         self.game_streams.destroy_handle(user_id);
 
         if self.game_active {
-            self.game.on_disconnect(user_id as u32);
+            if let Some(game) = &self.game {
+                game.on_disconnect(user_id as u32);
+            }
         }
 
         self.lobby_streams
@@ -329,9 +333,10 @@ impl Lobby {
             self.settings.public = public;
         }
         if let Some(gamemode) = patch.gamemode {
-            self.settings.gamemode = gamemode;
-            self.mode_type = mode_type.expect("mode_type must be provided when gamemode changes");
-            self.game = Arc::new(Game::new(self.mode_type));
+            self.settings.gamemode = Some(gamemode);
+            let mt = mode_type.expect("mode_type must be provided when gamemode changes");
+            self.mode_type = Some(mt);
+            self.game = Some(Arc::new(Game::new(mt)));
         }
         self.lobby_streams
             .broadcast(&LobbyServerMessage::SettingsChanged(self.settings.clone()));
@@ -344,6 +349,8 @@ impl Lobby {
     /// `start_game_fn` is called when the countdown fires — it should call
     /// `GameManager::start_game`.
     pub fn evaluate_countdown(&mut self, start_game_fn: impl FnOnce(Ulid) + Send + 'static) {
+        let Some(game) = &self.game else { return };
+
         let player_count = self.players.len();
         let ready_count = self.players.values().filter(|p| p.ready).count();
 
@@ -351,7 +358,7 @@ impl Lobby {
         // AND there are enough players for the game.
         let ready_threshold = std::cmp::max(2, player_count.div_ceil(2));
         let can_start =
-            player_count >= self.game.min_players() as usize && ready_count >= ready_threshold;
+            player_count >= game.min_players() as usize && ready_count >= ready_threshold;
 
         if !can_start {
             if matches!(self.countdown, CountdownState::Running { .. }) {
@@ -442,7 +449,7 @@ impl Lobby {
         self.game_active = false;
         self.countdown = CountdownState::Idle;
         // Fresh game handle so the next match starts with clean engine state.
-        self.game = Arc::new(Game::new(self.mode_type));
+        self.game = self.mode_type.map(|mt| Arc::new(Game::new(mt)));
         // The old game_streams Arc refcount drops from 2 → 1 here.
         // The game thread holds the last reference via `gs`; when that
         // thread exits, refcount → 0 and StreamGroup::Drop cancels all tokens.

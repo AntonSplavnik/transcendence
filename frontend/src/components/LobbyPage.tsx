@@ -19,7 +19,7 @@ interface SettingsFormProps {
 
 function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	const [name, setName] = useState(settings.name);
-	const [gamemode, _setGamemode] = useState(settings.gamemode);
+	const [gamemode, _setGamemode] = useState(settings.gamemode ?? '');
 	// Settings only shown for private lobbies; user may promote to public (one-way).
 	const [makePublic, setMakePublic] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
