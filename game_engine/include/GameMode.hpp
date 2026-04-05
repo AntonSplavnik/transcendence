@@ -137,7 +137,7 @@ public:
 		// Re-rank all players by kills descending
 		std::vector<std::pair<entt::entity, int>> ranked;
 		ranked.reserve(stats.playerStats.size());
-		for (auto [entity, ps] : ctx.registry.view<PlayerTag>().each())
+		for (auto entity : ctx.registry.view<PlayerTag>())
 			ranked.push_back({ entity, stats.playerStats[entity].kills });
 
 		std::sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {

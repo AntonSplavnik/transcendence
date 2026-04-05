@@ -82,7 +82,7 @@ public:
 
 	// Convenience methods for player management
 	entt::entity createPlayer(PlayerID id, const std::string& name, Vector3D pos, const CharacterPreset& preset);
-	void World::respawnPlayer(entt::entity player, const Vector3D& pos);
+	void respawnPlayer(entt::entity player, const Vector3D& pos);
 	bool removePlayer(PlayerID id);
 	size_t getPlayerCount() const { return m_playerToEntity.size(); }
 
