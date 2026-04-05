@@ -88,6 +88,8 @@ pub struct LobbyPlayerInfo {
 pub struct Lobby {
     pub id: Ulid,
     settings: LobbySettings,
+    /// Validated C++ GameModeType value — always in sync with `settings.gamemode`.
+    mode_type: u8,
     host_id: i32,
     players: IndexMap<i32, PlayerState, RandomState>,
     /// Spectators receive lobby-stream broadcasts (join/leave/countdown events)
@@ -96,9 +98,8 @@ pub struct Lobby {
     spectators: IndexSet<i32, RandomState>,
     lobby_streams: Arc<StreamGroup<LobbyServerMessage>>,
     game_streams: Arc<StreamGroup<GameServerMessage>>,
-    /// The game handle for this lobby. Created at lobby creation with the
-    /// configured gamemode. Replaced with a fresh handle after each match ends
-    /// so the engine state is clean for the next game.
+    /// The game handle for this lobby. Replaced with a fresh handle after each
+    /// match ends so the engine state is clean for the next game.
     game: Arc<Game>,
     /// Whether a game loop is currently running.
     game_active: bool,
@@ -107,11 +108,12 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings) -> Self {
-        let game = Arc::new(Game::new(&settings.gamemode));
+    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: u8) -> Self {
+        let game = Arc::new(Game::new(mode_type));
         Self {
             id,
             settings,
+            mode_type,
             host_id,
             players: IndexMap::default(),
             spectators: IndexSet::default(),
@@ -315,7 +317,8 @@ impl Lobby {
 
     /// Apply a partial settings update. Only allowed while the lobby is still private.
     /// Returns `false` if the lobby is already public (settings are locked).
-    pub fn update_settings(&mut self, patch: LobbySettingsPatch) -> bool {
+    /// `mode_type` must be pre-validated by the caller via `parse_game_mode`.
+    pub fn update_settings(&mut self, patch: LobbySettingsPatch, mode_type: Option<u8>) -> bool {
         if self.settings.public {
             return false;
         }
@@ -327,6 +330,8 @@ impl Lobby {
         }
         if let Some(gamemode) = patch.gamemode {
             self.settings.gamemode = gamemode;
+            self.mode_type = mode_type.expect("mode_type must be provided when gamemode changes");
+            self.game = Arc::new(Game::new(self.mode_type));
         }
         self.lobby_streams
             .broadcast(&LobbyServerMessage::SettingsChanged(self.settings.clone()));
@@ -437,7 +442,7 @@ impl Lobby {
         self.game_active = false;
         self.countdown = CountdownState::Idle;
         // Fresh game handle so the next match starts with clean engine state.
-        self.game = Arc::new(Game::new(&self.settings.gamemode));
+        self.game = Arc::new(Game::new(self.mode_type));
         // The old game_streams Arc refcount drops from 2 → 1 here.
         // The game thread holds the last reference via `gs`; when that
         // thread exits, refcount → 0 and StreamGroup::Drop cancels all tokens.

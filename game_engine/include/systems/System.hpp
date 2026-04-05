@@ -60,9 +60,14 @@ public:
 		m_registry = registry;
 	}
 
+	void setGameManager(entt::entity gameManager) {
+		m_gameManager = gameManager;
+	}
+
 protected:
 	// Protected access to registry for derived systems
 	entt::registry* m_registry = nullptr;
+	entt::entity m_gameManager = entt::null;
 };
 
 } // namespace ArenaGame

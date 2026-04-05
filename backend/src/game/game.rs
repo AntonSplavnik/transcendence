@@ -1,9 +1,9 @@
 use parking_lot::{Mutex, MutexGuard};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, info};
+use tracing::info;
 
-use super::ffi::GameHandle;
+use super::ffi::{mode_type_name, GameHandle};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
@@ -11,12 +11,16 @@ use super::messages::{GameClientMessage, GameServerMessage};
 /// Networking-agnostic; exposes on_connect / on_disconnect hooks.
 pub struct Game {
 	handle: Mutex<GameHandle>,
+	mode_type: u8,
 }
 
 impl Game {
-	pub fn new(gamemode: &str) -> Self {
+	/// `mode_type` must come from `parse_game_mode` — callers are responsible
+	/// for validation before constructing a `Game`.
+	pub fn new(mode_type: u8) -> Self {
 		Self {
-			handle: Mutex::new(GameHandle::new(gamemode)),
+			handle: Mutex::new(GameHandle::new()),
+			mode_type,
 		}
 	}
 
@@ -33,8 +37,8 @@ impl Game {
 		self.handle.lock().max_players()
 	}
 
-	pub fn gamemode(&self) -> String {
-		self.handle.lock().gamemode().to_owned()
+	pub fn gamemode(&self) -> &'static str {
+		mode_type_name(self.mode_type)
 	}
 
 	/// Called when a player connects to the game.
@@ -83,18 +87,7 @@ impl Game {
 	/// Synchronous game loop — blocks the calling thread.
 	///
 	/// Updates physics every tick and broadcasts snapshots at ~60 Hz.
-	/// The caller is responsible for running this on a dedicated thread, e.g.:
-	///
-	/// ```ignore
-	/// let game = Arc::new(Game::new());
-	/// let g = Arc::clone(&game);
-	/// std::thread::spawn(move || {
-	///     g.update_loop(
-	///         |msg| { /* broadcast to all players */ },
-	///         |player_id, msg| { /* send to one player */ },
-	///     );
-	/// });
-	/// ```
+	/// The caller is responsible for running this on a dedicated thread.
 	pub fn update_loop(
 		&self,
 		broadcast: impl Fn(Arc<GameServerMessage>),
@@ -102,8 +95,8 @@ impl Game {
 	) {
 		const TICK_DURATION: Duration = Duration::from_micros(1_000_000 / 60); // ~60 Hz (16_667 µs)
 
-		info!("Game loop started");
-		self.lock().start();
+		info!("Game loop started (mode: {})", self.gamemode());
+		self.lock().start(self.mode_type);
 
 		loop {
 			let tick_start = Instant::now();

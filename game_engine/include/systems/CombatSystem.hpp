@@ -7,8 +7,17 @@
 #include "Components/Health.hpp"
 #include "Components/CombatController.hpp"
 #include "Components/CharacterController.hpp"
+#include "Components/GameModeComponent.hpp"
+#include "Components/MatchStatsComponent.hpp"
+#include "Components/InternalEventsComponent.hpp"
+#include "Components/NetworkEventsComponent.hpp"
+#include "Components/PlayerInfo.hpp"
+#include "Events/InternalEvents.hpp"
+#include "Events/NetworkEvents.hpp"
 #include "GameTypes.hpp"
 #include "Skills.hpp"
+#include "Helpers.hpp"
+
 #include <entt/entt.hpp>
 #include <queue>
 #include <variant>
@@ -45,13 +54,6 @@ namespace ArenaGame {
 //     → useAbility1/2()           (starts cooldown timer)
 // =============================================================================
 
-// Visitor helper for std::visit over SkillVariant
-template<typename... Ts>
-struct overloaded : Ts... {
-	using Ts::operator()...;
-};
-template<typename... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
 
 // Returns final damage: baseDamage × stageMultiplier × globalMultiplier ± crit.
 // stageMultiplier comes from AttackStage::damageMultiplier or SkillDefinition::dmgMultiplier.
@@ -115,6 +117,11 @@ private:
 	void processDamage();
 	void updateCooldowns(float deltaTime);
 
+	PlayerID getPlayerID(entt::entity entity) const {
+		auto* info = m_registry->try_get<Components::PlayerInfo>(entity);
+		return info ? info->playerID : 0;
+	}
+
 	// Queue hits for all living, in-range targets (excludes attacker). Full 360°.
 	void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
 
@@ -137,6 +144,8 @@ inline void CombatSystem::update(float deltaTime) {
 
 inline void CombatSystem::processInputAttacks() {
 	using namespace Components;
+
+	auto* ne = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
 
 	auto view = m_registry->view<
 		CharacterController,
@@ -171,6 +180,7 @@ inline void CombatSystem::processInputAttacks() {
 			comcon.startAttack();
 			comcon.hitPending = true;   // hit lands at swing end, not swing start
 			charcon.setState(CharacterState::Attacking);
+			if (ne) ne->events.push_back(NetEvents::StateChangeEvent{ getPlayerID(entity), CharacterState::Attacking });
 
 			if (stage.movementMultiplier == 0.0f) {
 				charcon.canMove = false;
@@ -184,6 +194,7 @@ inline void CombatSystem::processInputAttacks() {
 			executeSkill(comcon.ability1, ctx);
 			comcon.useAbility1();
 			charcon.setState(CharacterState::Casting);
+			if (ne) ne->events.push_back(NetEvents::StateChangeEvent{ getPlayerID(entity), CharacterState::Casting });
 		}
 
 		// ── Ability 2 ─────────────────────────────────────────────────────
@@ -193,6 +204,7 @@ inline void CombatSystem::processInputAttacks() {
 			executeSkill(comcon.ability2, ctx);
 			comcon.useAbility2();
 			charcon.setState(CharacterState::Casting);
+			if (ne) ne->events.push_back(NetEvents::StateChangeEvent{ getPlayerID(entity), CharacterState::Casting });
 		}
 	});
 }
@@ -249,6 +261,12 @@ inline void CombatSystem::executeSkill(SkillDefinition& skill, SkillContext& ctx
 }
 
 inline void CombatSystem::processDamage() {
+	auto* gmc   = m_registry->try_get<Components::GameModeComponent>(m_gameManager);
+	auto* stats = m_registry->try_get<Components::MatchStatsComponent>(m_gameManager);
+	auto* ie    = m_registry->try_get<Components::InternalEventsComponent>(m_gameManager);
+	auto* ne    = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
+	const bool trackStats = gmc && stats && gmc->matchStatus == MatchStatus::InProgress;
+
 	while (!m_pendingHits.empty()) {
 		PendingHit hit = m_pendingHits.front();
 		m_pendingHits.pop();
@@ -256,17 +274,38 @@ inline void CombatSystem::processDamage() {
 		auto* health = m_registry->try_get<Components::Health>(hit.victim);
 		if (!health || !health->isAlive()) continue;
 
-		float hpBefore = health->current;
+		float hpBefore     = health->current;
 		health->takeDamage(hit.damage, hit.attacker);
-		float hpAfter  = health->current;
+		float hpAfter      = health->current;
+		float actualDamage = hpBefore - hpAfter;
 
 		fprintf(stderr, "[COMBAT] attacker=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f%s\n",
 			static_cast<unsigned>(hit.attacker),
 			static_cast<unsigned>(hit.victim),
 			hit.damage,
-			hpBefore - hpAfter,
+			actualDamage,
 			hpBefore, hpAfter, health->maximum,
 			health->isAlive() ? "" : "  DEAD");
+
+		if (trackStats) {
+			auto& aStats = stats->playerStats.try_emplace(hit.attacker).first->second;
+			auto& vStats = stats->playerStats.try_emplace(hit.victim).first->second;
+			aStats.damageDealt += actualDamage;
+			vStats.damageTaken += actualDamage;
+
+			if (ne && actualDamage > 0.0f)
+				ne->events.push_back(NetEvents::DamageEvent{ getPlayerID(hit.attacker), getPlayerID(hit.victim), actualDamage });
+
+			if (!health->isAlive()) {
+				aStats.kills++;
+				vStats.deaths++;
+				if (ie) ie->events.push_back(Events::DeathEvent{ hit.attacker, hit.victim });
+				if (ne) ne->events.push_back(NetEvents::DeathEvent{ getPlayerID(hit.attacker), getPlayerID(hit.victim) });
+				fprintf(stderr, "[COMBAT] KILL  killer=%u  victim=%u\n",
+					static_cast<unsigned>(hit.attacker),
+					static_cast<unsigned>(hit.victim));
+			}
+		}
 
 		if (!health->isAlive()) {
 			if (auto* controller = m_registry->try_get<Components::CharacterController>(hit.victim)) {

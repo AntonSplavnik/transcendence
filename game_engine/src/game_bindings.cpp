@@ -23,8 +23,8 @@ void game_destroy(Game* game) {
 	delete game;
 }
 
-void game_start(Game* game) {
-	game->start();
+void game_start_with_mode(Game* game, uint8_t mode_type) {
+	game->start(static_cast<GameModeType>(mode_type));
 }
 
 void game_stop(Game* game) {
@@ -268,6 +268,32 @@ void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
 		dst.health = src.health;
 		dst.max_health = src.maxHealth;
 	}
+}
+
+// =============================================================================
+// Match State
+// =============================================================================
+
+bool game_is_match_over(Game* game) {
+	bool over = false;
+	auto& registry = game->getWorld().getRegistry();
+	registry.view<GameManagerTag, Components::GameModeComponent>().each(
+		[&](GameManagerTag, Components::GameModeComponent& gm) {
+			over = (gm.matchStatus == MatchStatus::Over);
+		}
+	);
+	return over;
+}
+
+uint8_t game_get_match_status(Game* game) {
+	uint8_t status = static_cast<uint8_t>(MatchStatus::WaitingToStart);
+	auto& registry = game->getWorld().getRegistry();
+	registry.view<GameManagerTag, Components::GameModeComponent>().each(
+		[&](GameManagerTag, Components::GameModeComponent& gm) {
+			status = static_cast<uint8_t>(gm.matchStatus);
+		}
+	);
+	return status;
 }
 
 // =============================================================================

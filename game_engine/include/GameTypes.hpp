@@ -190,6 +190,24 @@ enum class CharacterState : uint8_t {
 };
 
 // =============================================================================
+// Game Mode types
+// =============================================================================
+
+enum class GameModeType : uint8_t {
+	None           = 0xFF,
+	Deathmatch     = 0,
+	LastStanding   = 1,
+	WaveSurvival   = 2,
+	TeamDeathmatch = 3,
+};
+
+enum class MatchStatus : uint8_t {
+	WaitingToStart = 0,
+	InProgress     = 1,
+	Over           = 2,
+};
+
+// =============================================================================
 // Game Configuration
 // =============================================================================
 

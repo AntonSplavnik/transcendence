@@ -61,7 +61,7 @@ public:
     ~ArenaGame() = default;
 
     // Game lifecycle
-    void start();
+    void start(GameModeType mode);
     void stop();
     bool isRunning() const { return m_isRunning; }
 
@@ -124,7 +124,7 @@ inline ArenaGame::ArenaGame()
     initializeSpawnPositions(GameConfig::MAX_PLAYERS);
 }
 
-inline void ArenaGame::start() {
+inline void ArenaGame::start(GameModeType mode) {
     // Compute spawn circle based on the players already registered
     const int playerCount = static_cast<int>(m_world.getPlayerCount());
     initializeSpawnPositions(playerCount > 0 ? playerCount : GameConfig::MAX_PLAYERS);
@@ -134,6 +134,8 @@ inline void ArenaGame::start() {
     m_gameTime = 0.0;
     m_accumulator = 0.0;
     m_lastUpdateTime = std::chrono::steady_clock::now();
+
+    m_world.setGameMode(mode);
 }
 
 inline void ArenaGame::stop() {
@@ -157,6 +159,9 @@ inline void ArenaGame::update() {
 
     // Accumulate time for fixed timestep
     m_accumulator += deltaTime;
+
+    // Clear events collected during the previous frame
+    m_world.clearNetrowEvents();
 
     // PHASE 1: EarlyUpdate - Input processing (variable dt)
     m_world.earlyUpdate(deltaTime);

@@ -35,10 +35,14 @@ extern "C" {
 	// Game lifecycle
 	fn game_create() -> RawGameHandle;
 	fn game_destroy(game: RawGameHandle);
-	fn game_start(game: RawGameHandle);
+	fn game_start_with_mode(game: RawGameHandle, mode_type: u8);
 	fn game_stop(game: RawGameHandle);
 	fn game_update(game: RawGameHandle);
 	fn game_is_running(game: RawGameHandle) -> bool;
+
+	// Match state
+	fn game_is_match_over(game: RawGameHandle) -> bool;
+	fn game_get_match_status(game: RawGameHandle) -> u8;
 
 	// Player management
 	fn game_add_player(game: RawGameHandle, player_id: u32, name: *const i8) -> bool;
@@ -113,7 +117,7 @@ extern "C" {
 		y: f32,
 		z: f32,
 	) -> bool;
- */
+*/
 	// Input handling
 	fn game_set_input(
 		game: RawGameHandle,
@@ -181,6 +185,27 @@ pub struct GameStateSnapshot {
 	pub characters: Vec<CharacterSnapshot>,
 }
 
+/// Maps a gamemode name to its C++ `GameModeType` u8 value.
+/// Returns `None` for unknown names.
+pub fn parse_game_mode(name: &str) -> Option<u8> {
+	match name.to_lowercase().as_str() {
+		"deathmatch" | "ffa" | "free_for_all"       => Some(0),
+		"last_standing" | "laststanding"             => Some(1),
+		"wave_survival" | "wavesurvival"             => Some(2),
+		"team_deathmatch" | "teamdeathmatch" | "tdm" => Some(3),
+		_ => None,
+	}
+}
+
+pub fn mode_type_name(mode_type: u8) -> &'static str {
+	match mode_type {
+		1 => "Last Standing",
+		2 => "Wave Survival",
+		3 => "Team Deathmatch",
+		_ => "Deathmatch",
+	}
+}
+
 pub struct GameHandle(RawGameHandle);
 
 // SAFETY: The underlying C++ game engine is only accessed through
@@ -190,20 +215,22 @@ unsafe impl Send for GameHandle {}
 
 #[allow(dead_code)]
 impl GameHandle {
-	pub(super) fn new(_gamemode: &str) -> Self {
+	pub(super) fn new() -> Self {
 		Self(unsafe { game_create() })
 	}
 
-	/// The gamemode name for this game.
-	///
-	/// TODO: replace with `game_get_gamemode(RawGameHandle) -> *const c_char`
-	/// FFI call once the C++ side exposes per-gamemode configuration.
-	pub fn gamemode(&self) -> &str {
-		"Free for all"
+	/// `mode_type` must come from `parse_game_mode` — the C++ engine will
+	/// invoke undefined behaviour for any value outside 0–3.
+	pub fn start(&mut self, mode_type: u8) {
+		unsafe { game_start_with_mode(self.0, mode_type) }
 	}
 
-	pub fn start(&mut self) {
-		unsafe { game_start(self.0) }
+	pub fn is_match_over(&self) -> bool {
+		unsafe { game_is_match_over(self.0) }
+	}
+
+	pub fn get_match_status(&self) -> u8 {
+		unsafe { game_get_match_status(self.0) }
 	}
 
 	pub fn stop(&mut self) {

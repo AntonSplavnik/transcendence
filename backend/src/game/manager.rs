@@ -8,7 +8,7 @@ use thiserror::Error;
 use tracing::{debug, info, warn};
 use ulid::Ulid;
 
-use super::ffi::CharacterClass;
+use super::ffi::{parse_game_mode, CharacterClass};
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
 use super::messages::{GameClientMessage, GameServerMessage};
@@ -41,6 +41,9 @@ pub enum GameError {
 	/// The user is in a lobby, but not the one specified in the request.
 	#[error("lobby id mismatch")]
 	LobbyMismatch,
+
+	#[error("unknown game mode")]
+	InvalidGameMode,
 
 	#[error("stream error: {0}")]
 	Stream(#[from] anyhow::Error),
@@ -95,7 +98,8 @@ impl GameManager {
 				return Err(GameError::AlreadyInLobby);
 			}
 
-			let lobby = Lobby::new(lobby_id, host_id, settings);
+			let mode_type = parse_game_mode(&settings.gamemode).ok_or(GameError::InvalidGameMode)?;
+			let lobby = Lobby::new(lobby_id, host_id, settings, mode_type);
 			let lobby_arc = Arc::new(Mutex::new(lobby));
 			state.lobbies.insert(lobby_id, Arc::clone(&lobby_arc));
 			state.user_lobby.insert(host_id, lobby_id);
@@ -381,12 +385,19 @@ impl GameManager {
 		lobby_id: Ulid,
 		patch: LobbySettingsPatch,
 	) -> Result<(), GameError> {
+		// Validate the new gamemode before acquiring the lobby lock.
+		let mode_type = if let Some(ref name) = patch.gamemode {
+			Some(parse_game_mode(name).ok_or(GameError::InvalidGameMode)?)
+		} else {
+			None
+		};
+
 		let lobby_arc = self.get_lobby_arc_verified(lobby_id, user_id)?;
 		let mut lobby = lobby_arc.lock();
 		if lobby.host_id() != user_id {
 			return Err(GameError::NotHost);
 		}
-		if !lobby.update_settings(patch) {
+		if !lobby.update_settings(patch, mode_type) {
 			return Err(GameError::SettingsLocked);
 		}
 		Ok(())
