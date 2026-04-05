@@ -171,7 +171,7 @@ pub fn random_password_hash() -> String {
     let salt = SaltString::generate(&mut OsRng);
     ARGON2
         .hash_password(&rndm, &salt)
-        .expect("Failed to generate dummy password hash")
+        .expect("Failed to generate random password hash")
         .to_string()
 }
 
