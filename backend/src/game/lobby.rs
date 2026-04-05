@@ -319,11 +319,14 @@ impl Lobby {
         true
     }
 
-    /// Apply a partial settings update. Only allowed while the lobby is still private.
-    /// Returns `false` if the lobby is already public (settings are locked).
+    /// Apply a partial settings update.
+    /// Name and visibility are locked once the lobby is public.
+    /// Game mode can always be changed by the host (until the game starts).
+    /// Returns `false` if trying to change locked fields on a public lobby.
     /// `mode_type` must be pre-validated by the caller via `parse_game_mode`.
     pub fn update_settings(&mut self, patch: LobbySettingsPatch, mode_type: Option<u8>) -> bool {
-        if self.settings.public {
+        let changing_locked = patch.name.is_some() || patch.public.is_some();
+        if self.settings.public && changing_locked {
             return false;
         }
         if let Some(name) = patch.name {
