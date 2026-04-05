@@ -4,7 +4,7 @@ import type { Engine, Scene, UniversalCamera, Vector3 } from '@babylonjs/core';
 import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
-import type { GameStateSnapshot, Vector3D } from '../../game/types';
+import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
@@ -409,6 +409,34 @@ class GameClient {
 			this.playAnimation('idle');
 		}
 	}
+
+	/** Process a batch of game events drained from the event queue. */
+	processEvents(events: GameEvent[]) {
+		for (const event of events) {
+			switch (event.type) {
+				case 'Death':
+					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
+					// TODO: play death animation on victim, show kill feed
+					break;
+				case 'Damage':
+					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
+					// TODO: spawn floating damage number above victim
+					break;
+				case 'Spawn':
+					console.debug('[Game] Spawn: player=%d', event.player_id);
+					// TODO: play spawn effect / reset character state
+					break;
+				case 'StateChange':
+					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
+					// TODO: trigger state-specific animation
+					break;
+				case 'MatchEnd':
+					console.debug('[Game] MatchEnd');
+					// TODO: show match-end screen
+					break;
+			}
+		}
+	}
 }
 
 // ============ MINIMAL REACT WRAPPER ============
@@ -418,6 +446,8 @@ interface Props {
 	snapshotRef: RefObject<GameStateSnapshot | null>;
 	/** Ref mapping player_id → character_class string. Populated from PlayerJoined messages. */
 	characterClassesRef: RefObject<Map<number, string>>;
+	/** Ref containing queued game events. Drained each frame by the Babylon render loop. */
+	eventsRef: RefObject<GameEvent[]>;
 	onSendInput: (
 		movement: Vector3D,
 		lookDirection: Vector3D,
@@ -432,6 +462,7 @@ interface Props {
 export default function SimpleGameClient({
 	snapshotRef,
 	characterClassesRef,
+	eventsRef,
 	onSendInput,
 	localPlayerId,
 	characterConfig,
@@ -672,6 +703,13 @@ export default function SimpleGameClient({
 					now - lastFrameTime > TARGET_FRAME_MS * 2
 						? now
 						: lastFrameTime + TARGET_FRAME_MS;
+
+				// Drain queued game events (Death, Damage, Spawn, etc.) before the snapshot
+				// so animations/effects start before the authoritative state update.
+				const events = eventsRef.current.splice(0);
+				if (events.length > 0) {
+					gameClient.processEvents(events);
+				}
 
 				// Apply the latest snapshot from the server (consumed once per frame).
 				const snap = snapshotRef.current;

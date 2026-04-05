@@ -14,6 +14,21 @@ pub enum GameServerMessage {
 	/// Another player left the game
 	PlayerLeft { player_id: u32 },
 
+	/// A player was killed
+	Death { killer: u32, victim: u32 },
+
+	/// A player took damage
+	Damage { attacker: u32, victim: u32, damage: f32 },
+
+	/// A player spawned
+	Spawn { player_id: u32, position: Vector3D },
+
+	/// A player's state changed
+	StateChange { player_id: u32, state: u8 },
+
+	/// The match has ended
+	MatchEnd,
+
 	/// Error occurred during gameplay
 	Error { message: String },
 }

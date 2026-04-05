@@ -141,6 +141,8 @@ extern "C" {
 	fn game_get_frame_number(game: RawGameHandle) -> u64;
 	fn game_get_game_time(game: RawGameHandle) -> f64;
 
+	// Network events
+	fn game_pop_network_event(game: RawGameHandle, out_event: *mut CNetworkEvent) -> bool;
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
@@ -183,6 +185,102 @@ pub struct GameStateSnapshot {
 	pub frame_number: u64,
 	pub timestamp: f64,
 	pub characters: Vec<CharacterSnapshot>,
+}
+
+// =============================================================================
+// Network Events (tagged union mirrored from C++)
+// =============================================================================
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CDeathEventPayload {
+	pub killer: u32,
+	pub victim: u32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CDamageEventPayload {
+	pub attacker: u32,
+	pub victim: u32,
+	pub damage: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CSpawnEventPayload {
+	pub player_id: u32,
+	pub pos_x: f32,
+	pub pos_y: f32,
+	pub pos_z: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct CStateChangePayload {
+	pub player_id: u32,
+	pub state: u8,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union CNetworkEventPayload {
+	pub death: CDeathEventPayload,
+	pub damage: CDamageEventPayload,
+	pub spawn: CSpawnEventPayload,
+	pub state_change: CStateChangePayload,
+	pub _empty: [u8; 0],
+}
+
+#[repr(C)]
+pub struct CNetworkEvent {
+	pub tag: u8,
+	pub payload: CNetworkEventPayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum NetworkEvent {
+	Death { killer: u32, victim: u32 },
+	Damage { attacker: u32, victim: u32, damage: f32 },
+	Spawn { player_id: u32, position: Vector3D },
+	StateChange { player_id: u32, state: u8 },
+	MatchEnd,
+}
+
+fn network_event_from_raw(raw: &CNetworkEvent) -> Option<NetworkEvent> {
+	// SAFETY: `tag` selects which union variant is active. The C++ side only
+	// writes the field matching `tag`, so reading the matching Rust union
+	// field is well-defined.
+	unsafe {
+		match raw.tag {
+			0 => {
+				let p = raw.payload.death;
+				Some(NetworkEvent::Death { killer: p.killer, victim: p.victim })
+			}
+			1 => {
+				let p = raw.payload.damage;
+				Some(NetworkEvent::Damage {
+					attacker: p.attacker,
+					victim: p.victim,
+					damage: p.damage,
+				})
+			}
+			2 => {
+				let p = raw.payload.spawn;
+				Some(NetworkEvent::Spawn {
+					player_id: p.player_id,
+					position: Vector3D { x: p.pos_x, y: p.pos_y, z: p.pos_z },
+				})
+			}
+			3 => {
+				let p = raw.payload.state_change;
+				Some(NetworkEvent::StateChange { player_id: p.player_id, state: p.state })
+			}
+			4 => Some(NetworkEvent::MatchEnd),
+			_ => None,
+		}
+	}
 }
 
 /// Maps a gamemode name to its C++ `GameModeType` u8 value.
@@ -417,6 +515,24 @@ impl GameHandle {
 		unsafe { game_get_game_time(self.0) }
 	}
 
+	pub fn pop_network_event(&mut self) -> Option<NetworkEvent> {
+		let mut raw = std::mem::MaybeUninit::<CNetworkEvent>::uninit();
+		unsafe {
+			if !game_pop_network_event(self.0, raw.as_mut_ptr()) {
+				return None;
+			}
+			network_event_from_raw(&raw.assume_init())
+		}
+	}
+
+	pub fn drain_network_events(&mut self) -> Vec<NetworkEvent> {
+		let mut out = Vec::new();
+		while let Some(ev) = self.pop_network_event() {
+			out.push(ev);
+		}
+		out
+	}
+
 	/// Minimum number of players required to start a game.
 	///
 	/// TODO: replace with `game_get_min_players(RawGameHandle) -> u32` FFI call
@@ -437,5 +553,102 @@ impl GameHandle {
 impl Drop for GameHandle {
 	fn drop(&mut self) {
 		unsafe { game_destroy(self.0) }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn converts_death_event() {
+		let raw = CNetworkEvent {
+			tag: 0,
+			payload: CNetworkEventPayload {
+				death: CDeathEventPayload { killer: 7, victim: 3 },
+			},
+		};
+		match network_event_from_raw(&raw) {
+			Some(NetworkEvent::Death { killer, victim }) => {
+				assert_eq!(killer, 7);
+				assert_eq!(victim, 3);
+			}
+			other => panic!("expected Death, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn converts_damage_event() {
+		let raw = CNetworkEvent {
+			tag: 1,
+			payload: CNetworkEventPayload {
+				damage: CDamageEventPayload { attacker: 11, victim: 22, damage: 17.5 },
+			},
+		};
+		match network_event_from_raw(&raw) {
+			Some(NetworkEvent::Damage { attacker, victim, damage }) => {
+				assert_eq!(attacker, 11);
+				assert_eq!(victim, 22);
+				assert_eq!(damage, 17.5);
+			}
+			other => panic!("expected Damage, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn converts_spawn_event() {
+		let raw = CNetworkEvent {
+			tag: 2,
+			payload: CNetworkEventPayload {
+				spawn: CSpawnEventPayload { player_id: 5, pos_x: 1.0, pos_y: 2.0, pos_z: 3.0 },
+			},
+		};
+		match network_event_from_raw(&raw) {
+			Some(NetworkEvent::Spawn { player_id, position }) => {
+				assert_eq!(player_id, 5);
+				assert_eq!(position.x, 1.0);
+				assert_eq!(position.y, 2.0);
+				assert_eq!(position.z, 3.0);
+			}
+			other => panic!("expected Spawn, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn converts_state_change_event() {
+		let raw = CNetworkEvent {
+			tag: 3,
+			payload: CNetworkEventPayload {
+				state_change: CStateChangePayload { player_id: 9, state: 2 },
+			},
+		};
+		match network_event_from_raw(&raw) {
+			Some(NetworkEvent::StateChange { player_id, state }) => {
+				assert_eq!(player_id, 9);
+				assert_eq!(state, 2);
+			}
+			other => panic!("expected StateChange, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn converts_match_end_event() {
+		let raw = CNetworkEvent {
+			tag: 4,
+			payload: CNetworkEventPayload { _empty: [] },
+		};
+		match network_event_from_raw(&raw) {
+			Some(NetworkEvent::MatchEnd) => {}
+			other => panic!("expected MatchEnd, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn unknown_tag_returns_none() {
+		let raw = CNetworkEvent {
+			tag: 99,
+			payload: CNetworkEventPayload { _empty: [] },
+		};
+		assert!(network_event_from_raw(&raw).is_none());
 	}
 }

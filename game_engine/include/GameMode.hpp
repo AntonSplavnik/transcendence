@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../GameTypes.hpp"
+#include "GameTypes.hpp"
 #include "Events/InternalEvents.hpp"
 #include "ISpawner.hpp"
 #include "Components/GameModeComponent.hpp"

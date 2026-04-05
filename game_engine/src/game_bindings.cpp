@@ -4,6 +4,7 @@
 
 #include "../include/ArenaGame.hpp"
 #include <cstring>
+#include <variant>
 
 using Game = ::ArenaGame::ArenaGame;
 using namespace ArenaGame;
@@ -278,7 +279,7 @@ bool game_is_match_over(Game* game) {
 	bool over = false;
 	auto& registry = game->getWorld().getRegistry();
 	registry.view<GameManagerTag, Components::GameModeComponent>().each(
-		[&](GameManagerTag, Components::GameModeComponent& gm) {
+		[&](Components::GameModeComponent& gm) {
 			over = (gm.matchStatus == MatchStatus::Over);
 		}
 	);
@@ -289,11 +290,61 @@ uint8_t game_get_match_status(Game* game) {
 	uint8_t status = static_cast<uint8_t>(MatchStatus::WaitingToStart);
 	auto& registry = game->getWorld().getRegistry();
 	registry.view<GameManagerTag, Components::GameModeComponent>().each(
-		[&](GameManagerTag, Components::GameModeComponent& gm) {
+		[&](Components::GameModeComponent& gm) {
 			status = static_cast<uint8_t>(gm.matchStatus);
 		}
 	);
 	return status;
+}
+
+// =============================================================================
+// Network Events (tagged union for Rust FFI)
+// =============================================================================
+
+struct CDeathEventPayload    { uint32_t killer; uint32_t victim; };
+struct CDamageEventPayload   { uint32_t attacker; uint32_t victim; float damage; };
+struct CSpawnEventPayload    { uint32_t player_id; float pos_x, pos_y, pos_z; };
+struct CStateChangePayload   { uint32_t player_id; uint8_t state; };
+
+struct CNetworkEvent {
+	uint8_t tag; // 0=Death, 1=Damage, 2=Spawn, 3=StateChange, 4=MatchEnd
+	union {
+		CDeathEventPayload    death;
+		CDamageEventPayload   damage;
+		CSpawnEventPayload    spawn;
+		CStateChangePayload   state_change;
+	} payload;
+};
+
+bool game_pop_network_event(Game* game, CNetworkEvent* out) {
+	auto& registry = game->getWorld().getRegistry();
+	Components::NetworkEventsComponent* ne = nullptr;
+	registry.view<GameManagerTag, Components::NetworkEventsComponent>().each(
+		[&](Components::NetworkEventsComponent& comp) { ne = &comp; }
+	);
+	if (!ne || ne->events.empty()) return false;
+
+	std::visit([out](auto&& ev) {
+		using T = std::decay_t<decltype(ev)>;
+		if constexpr (std::is_same_v<T, NetEvents::DeathEvent>) {
+			out->tag = 0;
+			out->payload.death = { ev.killer, ev.victim };
+		} else if constexpr (std::is_same_v<T, NetEvents::DamageEvent>) {
+			out->tag = 1;
+			out->payload.damage = { ev.attacker, ev.victim, ev.damage };
+		} else if constexpr (std::is_same_v<T, NetEvents::SpawnEvent>) {
+			out->tag = 2;
+			out->payload.spawn = { ev.playerID, ev.position.x, ev.position.y, ev.position.z };
+		} else if constexpr (std::is_same_v<T, NetEvents::StateChangeEvent>) {
+			out->tag = 3;
+			out->payload.state_change = { ev.playerID, static_cast<uint8_t>(ev.state) };
+		} else if constexpr (std::is_same_v<T, NetEvents::MatchEndEvent>) {
+			out->tag = 4;
+		}
+	}, ne->events.front());
+
+	ne->events.pop_front();
+	return true;
 }
 
 // =============================================================================

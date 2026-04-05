@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::info;
 
-use super::ffi::{mode_type_name, GameHandle};
+use super::ffi::{mode_type_name, GameHandle, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
@@ -101,7 +101,7 @@ impl Game {
 		loop {
 			let tick_start = Instant::now();
 
-			let update_snapshot = {
+			let (snapshot, events) = {
 				let mut handle = self.lock();
 
 				if !handle.is_running() || handle.get_player_count() == 0 {
@@ -110,11 +110,31 @@ impl Game {
 				}
 
 				handle.update();
-				handle.get_snapshot()
+				let snapshot = handle.get_snapshot();
+				let events = handle.drain_network_events();
+				(snapshot, events)
 			};
 
-			let msg = Arc::new(GameServerMessage::Snapshot(update_snapshot));
-			broadcast(msg);
+			for event in events {
+				let msg = Arc::new(match event {
+					NetworkEvent::Death { killer, victim } => {
+						GameServerMessage::Death { killer, victim }
+					}
+					NetworkEvent::Damage { attacker, victim, damage } => {
+						GameServerMessage::Damage { attacker, victim, damage }
+					}
+					NetworkEvent::Spawn { player_id, position } => {
+						GameServerMessage::Spawn { player_id, position }
+					}
+					NetworkEvent::StateChange { player_id, state } => {
+						GameServerMessage::StateChange { player_id, state }
+					}
+					NetworkEvent::MatchEnd => GameServerMessage::MatchEnd,
+				});
+				broadcast(msg);
+			}
+
+			broadcast(Arc::new(GameServerMessage::Snapshot(snapshot)));
 
 			let elapsed = tick_start.elapsed();
 			if let Some(remaining) = TICK_DURATION.checked_sub(elapsed) {
