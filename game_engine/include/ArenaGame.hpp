@@ -21,6 +21,12 @@ struct CharacterSnapshot {
     CharacterState state;
     float health;
     float maxHealth;
+    // Cooldown data for HUD
+    float ability1Timer;     // seconds remaining on ability 1 cooldown (0 = ready)
+    float ability1Cooldown;  // max cooldown duration (for computing fill ratio)
+    float ability2Timer;     // seconds remaining on ability 2 cooldown
+    float ability2Cooldown;  // max cooldown duration
+    float swingProgress;     // 0.0–1.0 progress through current attack swing (0 = not attacking)
 
     CharacterSnapshot() = default;
 };
@@ -227,7 +233,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
         Components::Transform,
         Components::PhysicsBody,
         Components::Health,
-        Components::CharacterController
+        Components::CharacterController,
+        Components::CombatController
     >();
 
     // Convert entities to character snapshots
@@ -235,7 +242,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
                   Components::Transform& transform,
                   Components::PhysicsBody& physics,
                   Components::Health& health,
-                  Components::CharacterController& controller) {
+                  Components::CharacterController& controller,
+                  Components::CombatController& combat) {
 
         // Skip dead entities
         /**
@@ -254,6 +262,15 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
         charSnapshot.state = controller.state;
         charSnapshot.health = health.current;
         charSnapshot.maxHealth = health.maximum;
+
+        // Cooldown data from CombatController
+        charSnapshot.ability1Timer    = combat.ability1.timer;
+        charSnapshot.ability1Cooldown = combat.ability1.cooldown;
+        charSnapshot.ability2Timer    = combat.ability2.timer;
+        charSnapshot.ability2Cooldown = combat.ability2.cooldown;
+        charSnapshot.swingProgress    = (combat.isAttacking && !combat.attackChain.empty())
+            ? combat.swingTimer / combat.currentStage().duration
+            : 0.0f;
 
         snapshot.characters.push_back(charSnapshot);
     });

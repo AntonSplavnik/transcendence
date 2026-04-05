@@ -15,6 +15,12 @@ export interface CharacterSnapshot {
 	state: number;
 	health: number;
 	max_health: number;
+	// Cooldown data
+	ability1_timer: number;
+	ability1_cooldown: number;
+	ability2_timer: number;
+	ability2_cooldown: number;
+	swing_progress: number;
 }
 
 export interface GameStateSnapshot {

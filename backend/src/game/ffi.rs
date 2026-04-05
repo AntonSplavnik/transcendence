@@ -20,6 +20,12 @@ pub struct CCharacterSnapshot {
 	pub state: u8,
 	pub health: f32,
 	pub max_health: f32,
+	// Cooldown data
+	pub ability1_timer: f32,
+	pub ability1_cooldown: f32,
+	pub ability2_timer: f32,
+	pub ability2_cooldown: f32,
+	pub swing_progress: f32,
 }
 
 #[repr(C)]
@@ -178,6 +184,12 @@ pub struct CharacterSnapshot {
 	pub state: u8,
 	pub health: f32,
 	pub max_health: f32,
+	// Cooldown data
+	pub ability1_timer: f32,
+	pub ability1_cooldown: f32,
+	pub ability2_timer: f32,
+	pub ability2_cooldown: f32,
+	pub swing_progress: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -496,6 +508,11 @@ impl GameHandle {
 						state: c.state,
 						health: c.health,
 						max_health: c.max_health,
+						ability1_timer: c.ability1_timer,
+						ability1_cooldown: c.ability1_cooldown,
+						ability2_timer: c.ability2_timer,
+						ability2_cooldown: c.ability2_cooldown,
+						swing_progress: c.swing_progress,
 					}
 				})
 				.collect();

@@ -237,6 +237,12 @@ struct CCharacterSnapshot {
 	uint8_t state;
 	float health;
 	float max_health;
+	// Cooldown data
+	float ability1_timer;
+	float ability1_cooldown;
+	float ability2_timer;
+	float ability2_cooldown;
+	float swing_progress;
 };
 
 struct CGameStateSnapshot {
@@ -268,6 +274,11 @@ void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
 		dst.state = static_cast<uint8_t>(src.state);
 		dst.health = src.health;
 		dst.max_health = src.maxHealth;
+		dst.ability1_timer    = src.ability1Timer;
+		dst.ability1_cooldown = src.ability1Cooldown;
+		dst.ability2_timer    = src.ability2Timer;
+		dst.ability2_cooldown = src.ability2Cooldown;
+		dst.swing_progress    = src.swingProgress;
 	}
 }
 

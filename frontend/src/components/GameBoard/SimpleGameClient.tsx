@@ -22,6 +22,12 @@ interface CharacterSnapshot {
 	state: number;
 	health: number;
 	max_health: number;
+	// Cooldown data
+	ability1_timer: number;
+	ability1_cooldown: number;
+	ability2_timer: number;
+	ability2_cooldown: number;
+	swing_progress: number;
 }
 
 interface InputState {
@@ -122,6 +128,7 @@ class GameClient {
 	private gui: any = null;
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
+	private cooldownBars: { attack: any; ability1: any; ability2: any } | null = null;
 
 	constructor(
 		scene: Scene,
@@ -177,6 +184,46 @@ class GameClient {
 		localBg.addControl(localFill);
 
 		this.localHealthFill = localFill;
+
+		// Cooldown bars — row below health bar
+		const cdContainer = new GUI.StackPanel('cd-container');
+		cdContainer.isVertical = false;
+		cdContainer.height = '12px';
+		cdContainer.width = '200px';
+		cdContainer.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+		cdContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+		cdContainer.top = '-10px';
+		cdContainer.spacing = 4;
+		this.gui.addControl(cdContainer);
+
+		const makeCdBar = (name: string, color: string) => {
+			const bg = new GUI.Rectangle(`cd-bg-${name}`);
+			bg.width = '62px';
+			bg.height = '10px';
+			bg.cornerRadius = 2;
+			bg.color = '#00000099';
+			bg.thickness = 1;
+			bg.background = '#1a1a1a';
+			cdContainer.addControl(bg);
+
+			const fill = new GUI.Rectangle(`cd-fill-${name}`);
+			fill.width = '0%';
+			fill.height = '100%';
+			fill.cornerRadius = 0;
+			fill.color = 'transparent';
+			fill.thickness = 0;
+			fill.background = color;
+			fill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+			bg.addControl(fill);
+
+			return fill;
+		};
+
+		this.cooldownBars = {
+			attack:   makeCdBar('attack',   '#e67e22'),
+			ability1: makeCdBar('ability1', '#3498db'),
+			ability2: makeCdBar('ability2', '#9b59b6'),
+		};
 	}
 
 	private createEnemyBar(playerID: number): void {
@@ -248,6 +295,22 @@ class GameClient {
 				if (this.localHealthFill) {
 					const pct = char.max_health > 0 ? char.health / char.max_health : 0;
 					this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+				}
+
+				// Update cooldown bars
+				if (this.cooldownBars) {
+					this.cooldownBars.attack.width =
+						`${(Math.max(0, Math.min(1, char.swing_progress)) * 100).toFixed(1)}%`;
+
+					const cd1 = char.ability1_cooldown > 0
+						? char.ability1_timer / char.ability1_cooldown : 0;
+					this.cooldownBars.ability1.width =
+						`${(Math.max(0, Math.min(1, cd1)) * 100).toFixed(1)}%`;
+
+					const cd2 = char.ability2_cooldown > 0
+						? char.ability2_timer / char.ability2_cooldown : 0;
+					this.cooldownBars.ability2.width =
+						`${(Math.max(0, Math.min(1, cd2)) * 100).toFixed(1)}%`;
 				}
 
 				// Update camera to follow player
