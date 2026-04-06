@@ -3,3 +3,4 @@ node_modules/
 *.exe
 game_server
 *__pycache__
+compile_commands.json

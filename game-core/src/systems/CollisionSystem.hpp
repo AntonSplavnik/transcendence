@@ -68,7 +68,7 @@ private:
 // Implementation
 // =============================================================================
 
-inline void CollisionSystem::fixedUpdate(float fixedDeltaTime) {
+inline void CollisionSystem::fixedUpdate([[maybe_unused]] float fixedDeltaTime) {
 	if (!m_config.enableCharacterCollision) {
 		return;
 	}
@@ -80,7 +80,7 @@ inline void CollisionSystem::fixedUpdate(float fixedDeltaTime) {
 	// Convert view to vector for indexed access (needed for O(n²) pair iteration)
 	std::vector<entt::entity> entities;
 	entities.reserve(view.size_hint());
-	view.each([&](auto entity, Components::Transform& transform, Components::Collider& collider) {
+	view.each([&](auto entity, [[maybe_unused]] Components::Transform& transform, [[maybe_unused]] Components::Collider& collider) {
 		entities.push_back(entity);
 	});
 

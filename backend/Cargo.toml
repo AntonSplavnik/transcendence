@@ -2,7 +2,7 @@
 name = "transcendence-backend"
 version = "0.1.1"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.94"
 readme = "./README.md"
 
 [dependencies]
@@ -128,14 +128,23 @@ indexmap = "2.11.4"
 [dev-dependencies]
 tokio-test = "0.4"
 
+[dependencies.cxx]
+version = "1.0"
+
 [build-dependencies]
-cc = "1.0"
+cxx-build = "1.0"
 
 # ---------------------------------------------------------------------------
 # Always compile CPU-intensive dependencies with optimizations, even in
 # debug / test builds.  This makes argon2 hashing ~20–40× faster and avoids
 # blocking the tokio runtime during tests.
 # ---------------------------------------------------------------------------
+[profile.release]
+opt-level = 3
+lto = "thin"         # cross-language LTO with Clang — inlines across Rust/C++ boundary
+codegen-units = 1    # single CGU; not implied by thin LTO, must be set explicitly
+strip = "symbols"    # smaller binary; requires Rust 1.77+
+
 [profile.dev.package.argon2]
 opt-level = 3
 [profile.dev.package.blake3]

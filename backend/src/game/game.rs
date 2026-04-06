@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::info;
 
-use super::ffi::{mode_type_name, GameHandle, NetworkEvent};
+use super::ffi::{mode_type_name, GameHandle, GameModeType, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
@@ -11,13 +11,13 @@ use super::messages::{GameClientMessage, GameServerMessage};
 /// Networking-agnostic; exposes on_connect / on_disconnect hooks.
 pub struct Game {
     handle: Mutex<GameHandle>,
-    mode_type: u8,
+    mode_type: GameModeType,
 }
 
 impl Game {
     /// `mode_type` must come from `parse_game_mode` — callers are responsible
     /// for validation before constructing a `Game`.
-    pub fn new(mode_type: u8) -> Self {
+    pub fn new(mode_type: GameModeType) -> Self {
         Self {
             handle: Mutex::new(GameHandle::new()),
             mode_type,

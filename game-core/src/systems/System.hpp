@@ -41,10 +41,10 @@ public:
 	virtual void start() {}
 
 	// Update phases (override what you need)
-	virtual void earlyUpdate(float deltaTime) {}
-	virtual void fixedUpdate(float fixedDeltaTime) {}
-	virtual void update(float deltaTime) {}
-	virtual void lateUpdate(float deltaTime) {}
+	virtual void earlyUpdate([[maybe_unused]] float deltaTime) {}
+	virtual void fixedUpdate([[maybe_unused]] float fixedDeltaTime) {}
+	virtual void update([[maybe_unused]] float deltaTime) {}
+	virtual void lateUpdate([[maybe_unused]] float deltaTime) {}
 
 	// System metadata
 	virtual const char* getName() const = 0;

@@ -34,9 +34,9 @@ public:
 	virtual ~IGameMode() = default;
 
 	// Called once when the match begins. Use to spawn initial entities or set up mode state.
-	virtual void onStart(GameModeContext& ctx,
-						 Components::GameModeComponent& gm,
-						 Components::MatchStatsComponent& stats) {}
+	virtual void onStart([[maybe_unused]] GameModeContext& ctx,
+						 [[maybe_unused]] Components::GameModeComponent& gm,
+						 [[maybe_unused]] Components::MatchStatsComponent& stats) {}
 
 	// Called for every death this frame, after CombatSystem has finished. Use to queue
 	// respawns, update kill counts, or check win conditions.
@@ -66,7 +66,7 @@ class LastStanding : public IGameMode {
 public:
 	void onDeath(const Events::DeathEvent& e,
 				 GameModeContext& ctx,
-				 Components::GameModeComponent& gm,
+				 [[maybe_unused]] Components::GameModeComponent& gm,
 				 Components::MatchStatsComponent& stats) override
 	{
 		auto view = ctx.registry.view<PlayerTag, Components::Health>();
@@ -88,10 +88,10 @@ public:
 		}
 	}
 
-	void tick(float dt,
-			  GameModeContext& ctx,
-			  Components::GameModeComponent& gm,
-			  Components::MatchStatsComponent& stats) override {}
+	void tick([[maybe_unused]] float dt,
+			  [[maybe_unused]] GameModeContext& ctx,
+			  [[maybe_unused]] Components::GameModeComponent& gm,
+			  [[maybe_unused]] Components::MatchStatsComponent& stats) override {}
 
 	bool isOver() const override { return m_over; }
 
@@ -150,8 +150,8 @@ public:
 
 	void tick(float dt,
 			  GameModeContext& ctx,
-			  Components::GameModeComponent& gm,
-			  Components::MatchStatsComponent& stats) override
+			  [[maybe_unused]] Components::GameModeComponent& gm,
+			  [[maybe_unused]] Components::MatchStatsComponent& stats) override
 	{
 		for (auto& timer : m_respawnQueue) {
 			timer.remaining -= dt;
@@ -216,6 +216,7 @@ inline std::unique_ptr<IGameMode> IGameMode::create(GameModeType type) {
 		case GameModeType::LastStanding:   return std::make_unique<LastStanding>();
 		case GameModeType::WaveSurvival:   return std::make_unique<WaveSurvival>();
 		case GameModeType::TeamDeathmatch: return std::make_unique<TeamDeathmatch>();
+		case GameModeType::None:           break;
 	}
 	return std::make_unique<Deathmatch>(); // fallback
 }

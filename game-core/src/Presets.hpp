@@ -51,12 +51,12 @@ namespace Presets {
 				.movementMultiplier=0.0f,
 				.chainWindow=0.0f },
 			},
-			.skill1 = { MeleeAOE{
+			.skill1 = { .params = MeleeAOE{
 				.range=2.0f,
 				.movementMultiplier=0.0f,
 				.dmgMultiplier=1.5f },
 				.cooldown=5.0f },
-			.skill2 = { MeleeAOE{
+			.skill2 = { .params = MeleeAOE{
 				.range=2.0f,
 				.movementMultiplier=0.7f,
 				.dmgMultiplier=1.5f },

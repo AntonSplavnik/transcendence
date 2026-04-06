@@ -24,9 +24,11 @@
 #include "../ISpawner.hpp"
 
 #include "../../entt/entt.hpp"
-#include <unordered_map>
-#include <vector>
 #include <memory>
+#include <vector>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace ArenaGame {
 
@@ -69,6 +71,9 @@ public:
 
 	// Clear events collected during the previous frame
 	void clearNetrowEvents();
+
+	// Move all queued network events out of the ECS component (one registry lookup).
+	std::vector<NetEvents::NetworkEvent> takeNetworkEvents();
 
 	// Entity management
 	entt::entity createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
@@ -265,6 +270,12 @@ inline void World::setGameMode(GameModeType mode) {
 inline void World::clearNetrowEvents() {
 	auto* ne = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
 	if (ne) ne->events.clear();
+}
+
+inline std::vector<NetEvents::NetworkEvent> World::takeNetworkEvents() {
+	auto* ne = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
+	if (!ne || ne->events.empty()) return {};
+	return std::exchange(ne->events, {});  // move out, leave component empty
 }
 
 // General entity

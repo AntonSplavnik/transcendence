@@ -12,7 +12,7 @@ use ulid::Ulid;
 
 use tracing::debug;
 
-use super::ffi::CharacterClass;
+use super::ffi::{CharacterClass, GameModeType};
 use super::game::Game;
 use super::lobby_messages::LobbyServerMessage;
 use super::messages::GameServerMessage;
@@ -89,7 +89,7 @@ pub struct Lobby {
     pub id: Ulid,
     settings: LobbySettings,
     /// Validated C++ GameModeType value — `None` until the host picks a mode.
-    mode_type: Option<u8>,
+    mode_type: Option<GameModeType>,
     host_id: i32,
     players: IndexMap<i32, PlayerState, RandomState>,
     /// Spectators receive lobby-stream broadcasts (join/leave/countdown events)
@@ -108,7 +108,7 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: Option<u8>) -> Self {
+    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: Option<GameModeType>) -> Self {
         let game = mode_type.map(|mt| Arc::new(Game::new(mt)));
         Self {
             id,
@@ -324,7 +324,7 @@ impl Lobby {
     /// Game mode can always be changed by the host (until the game starts).
     /// Returns `false` if trying to change locked fields on a public lobby.
     /// `mode_type` must be pre-validated by the caller via `parse_game_mode`.
-    pub fn update_settings(&mut self, patch: LobbySettingsPatch, mode_type: Option<u8>) -> bool {
+    pub fn update_settings(&mut self, patch: LobbySettingsPatch, mode_type: Option<GameModeType>) -> bool {
         let changing_locked = patch.name.is_some() || patch.public.is_some();
         if self.settings.public && changing_locked {
             return false;

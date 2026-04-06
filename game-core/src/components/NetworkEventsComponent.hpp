@@ -1,12 +1,12 @@
 #pragma once
 
 #include "../events/NetworkEvents.hpp"
-#include <deque>
+#include <vector>
 
 namespace ArenaGame {
 namespace Components {
 	struct NetworkEventsComponent {
-		std::deque<NetEvents::NetworkEvent> events;
+		std::vector<NetEvents::NetworkEvent> events;
 	};
 } // namespace Components
 } // namespace ArenaGame

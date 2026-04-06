@@ -59,7 +59,7 @@ namespace ArenaGame {
 // stageMultiplier comes from AttackStage::damageMultiplier or SkillDefinition::dmgMultiplier.
 inline float calculateCombatDamage(const Components::CombatController& cc, float stageMultiplier) {
 	float dmg = cc.baseDamage * stageMultiplier * cc.damageMultiplier;
-	bool isCrit = (static_cast<float>(std::rand()) / RAND_MAX) < cc.criticalChance;
+	bool isCrit = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) < cc.criticalChance;
 	return isCrit ? dmg * cc.criticalMultiplier : dmg;
 }
 

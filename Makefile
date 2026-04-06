@@ -12,7 +12,7 @@ FRONTEND_SRC = $(shell find frontend/src frontend/public -type f 2>/dev/null) \
 BACKEND_SRC = $(shell find backend/src backend/migrations backend/assets -type f 2>/dev/null) \
               backend/Cargo.toml backend/Cargo.lock
 
-.PHONY: all dev run-opt run setup check-cert chrome-dev reset-db create-db install-prek prek-update prek clean
+.PHONY: all dev run-opt run setup check-cert chrome-dev reset-db create-db install-prek prek-update prek clean bear
 
 all: run
 
@@ -141,6 +141,26 @@ prek-update:
 
 prek:
 	@prek run --all-files --stage manual
+
+bear:
+	@echo "🐻 Generating compile_commands.json via bear..."
+	@command -v bear >/dev/null 2>&1 || { \
+		echo "❌ bear not found."; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			echo "   Install with: brew install bear"; \
+		else \
+			echo "   Install with: apt install bear"; \
+		fi; \
+		exit 1; \
+	}
+	@cd backend && bear -- cargo build
+	@mv backend/compile_commands.json compile_commands.json
+	@echo "✅ compile_commands.json written to repo root."
+	@echo ""
+	@echo "   VS Code setup:"
+	@echo "   - Recommended: install the clangd extension (llvm-vs-code-extensions.vscode-clangd)"
+	@echo "   - Microsoft C/C++ extension: add to .vscode/settings.json:"
+	@echo '     "C_Cpp.default.compileCommands": ["$${workspaceFolder}/compile_commands.json"]'
 
 clean:
 	@echo "🗑️  Cleaning build artifacts..."

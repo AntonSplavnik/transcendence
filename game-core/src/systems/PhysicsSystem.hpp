@@ -83,7 +83,7 @@ inline void PhysicsSystem::applyGravity(Components::PhysicsBody& physics, float 
 	}
 }
 
-inline void PhysicsSystem::applyFriction(Components::PhysicsBody& physics, float deltaTime) {
+inline void PhysicsSystem::applyFriction(Components::PhysicsBody& physics, [[maybe_unused]] float deltaTime) {
 	// Apply friction only to horizontal movement (X and Z)
 	physics.velocity.x *= m_config.friction;
 	physics.velocity.z *= m_config.friction;
