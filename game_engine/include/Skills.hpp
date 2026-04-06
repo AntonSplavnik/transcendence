@@ -26,7 +26,7 @@ namespace ArenaGame {
 		float duration;               // swing length — gates next input (chain or new attack)
 		float movementMultiplier;     // caster speed during swing (0=rooted, 1=free)
 		float chainWindow;            // time after duration expires to press again and continue
-		                              // 0 on last stage means chain wraps back to stage 0
+									  // 0 on last stage means chain wraps back to stage 0
 		float attackAngle = 1.047f;   // half-angle in radians (≈60° → 120° frontal cone)
 	};
 

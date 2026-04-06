@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type {
 	GameClientMessage,
+	GameEvent,
 	GameServerMessage,
 	GameStateSnapshot,
 	Vector3D,
@@ -112,6 +113,12 @@ export interface GameContextType {
 	 */
 	characterClassesRef: RefObject<Map<number, string>>;
 	/**
+	 * Ref containing a queue of game events (Death, Damage, Spawn, etc.).
+	 * Pushed by GameContext on message arrival; drained by the Babylon render
+	 * loop each frame via `splice(0)`.
+	 */
+	eventsRef: RefObject<GameEvent[]>;
+	/**
 	 * Send a player input frame to the server.
 	 * No-op when the game is not active or the send callback is not set.
 	 */
@@ -141,6 +148,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 	// Character class map — keyed by player_id, populated from PlayerJoined messages.
 	const characterClassesRef = useRef<Map<number, string>>(new Map());
+
+	// Event queue — drained by the Babylon render loop each frame.
+	const eventsRef = useRef<GameEvent[]>([]);
 
 	// Send callback captured from the bidi factory.  Cleared in onClose.
 	const sendRef = useRef<((msg: GameClientMessage) => void) | null>(null);
@@ -228,6 +238,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 						dispatch({ type: 'PLAYER_LEFT', player_id: msg.player_id });
 						return;
 					}
+					if (
+						msg.type === 'Death' ||
+						msg.type === 'Damage' ||
+						msg.type === 'Spawn' ||
+						msg.type === 'StateChange' ||
+						msg.type === 'MatchEnd'
+					) {
+						eventsRef.current.push(msg);
+						return;
+					}
 					if (msg.type === 'Error') {
 						console.warn('[Game] server error:', msg.message);
 					}
@@ -238,6 +258,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 					sendRef.current = null;
 					snapshotRef.current = null;
 					characterClassesRef.current.clear();
+					eventsRef.current.length = 0;
 					dispatch({ type: 'CLOSE' });
 					// Navigate back to lobby if still in one, otherwise home.
 					if (lobbyStateRef.current.status === 'active') {
@@ -291,7 +312,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, sendInput }}>
+		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput }}>
 			{children}
 		</GameContext.Provider>
 	);

@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Clock, Copy, Crown, LogOut, Pencil, Users, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clock, Copy, Crown, LogOut, Pencil, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
@@ -19,7 +19,7 @@ interface SettingsFormProps {
 
 function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	const [name, setName] = useState(settings.name);
-	const [gamemode, _setGamemode] = useState(settings.gamemode);
+	const [gamemode, _setGamemode] = useState(settings.gamemode ?? '');
 	// Settings only shown for private lobbies; user may promote to public (one-way).
 	const [makePublic, setMakePublic] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -94,6 +94,88 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				</Button>
 			</div>
 		</div>
+	);
+}
+
+// ─── Game Mode Picker ─────────────────────────────────────────────────────────
+
+const GAME_MODES = [
+	{ id: 'deathmatch', label: 'Deathmatch', description: 'Free for all — most kills wins' },
+	{ id: 'last_standing', label: 'Last Standing', description: 'Survive while others fall' },
+	{ id: 'wave_survival', label: 'Wave Survival', description: 'Hold out against enemy waves' },
+	{ id: 'team_deathmatch', label: 'Team Deathmatch', description: 'Coordinate and eliminate' },
+] as const;
+
+interface GameModePickerProps {
+	current: string | null;
+	canEdit: boolean;
+	onSelect: (modeId: string) => Promise<void>;
+}
+
+function GameModePicker({ current, canEdit, onSelect }: GameModePickerProps) {
+	const [isSaving, setIsSaving] = useState(false);
+	const currentIndex = GAME_MODES.findIndex((m) => m.id === current);
+	const mode = currentIndex >= 0 ? GAME_MODES[currentIndex] : null;
+
+	const navigate = (dir: 1 | -1) => {
+		if (isSaving) return;
+		const next = currentIndex < 0
+			? (dir === 1 ? 0 : GAME_MODES.length - 1)
+			: (currentIndex + dir + GAME_MODES.length) % GAME_MODES.length;
+		setIsSaving(true);
+		void onSelect(GAME_MODES[next].id).finally(() => setIsSaving(false));
+	};
+
+	return (
+		<section aria-label="Game mode selection" className="mb-4">
+			<h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
+				Game Mode
+			</h2>
+			<div className="flex items-center gap-2">
+				{canEdit && (
+					<button
+						type="button"
+						onClick={() => navigate(-1)}
+						disabled={isSaving}
+						aria-label="Previous game mode"
+						className="shrink-0 p-1.5 rounded-lg border border-stone-700 bg-stone-900/60 text-stone-400 hover:text-stone-200 hover:border-stone-500 disabled:opacity-40 transition-colors"
+					>
+						<ChevronLeft className="w-4 h-4" />
+					</button>
+				)}
+
+				<div
+					className={`flex-1 rounded-lg border-2 bg-stone-900/60 px-4 py-3 text-center transition-all duration-200 ${
+						mode
+							? 'border-gold-400 shadow-[0_0_12px_1px_rgba(217,119,6,0.25)]'
+							: 'border-stone-700'
+					}`}
+				>
+					{mode ? (
+						<>
+							<p className="text-sm font-semibold text-gold-400 tracking-wide">
+								{mode.label}
+							</p>
+							<p className="text-xs text-stone-400 mt-0.5">{mode.description}</p>
+						</>
+					) : (
+						<p className="text-sm text-stone-500 italic">No mode selected</p>
+					)}
+				</div>
+
+				{canEdit && (
+					<button
+						type="button"
+						onClick={() => navigate(1)}
+						disabled={isSaving}
+						aria-label="Next game mode"
+						className="shrink-0 p-1.5 rounded-lg border border-stone-700 bg-stone-900/60 text-stone-400 hover:text-stone-200 hover:border-stone-500 disabled:opacity-40 transition-colors"
+					>
+						<ChevronRight className="w-4 h-4" />
+					</button>
+				)}
+			</div>
+		</section>
 	);
 }
 
@@ -231,8 +313,6 @@ export default function LobbyPage() {
 						</div>
 
 						<p className="text-stone-400 text-sm mt-0.5">
-							{settings.gamemode}
-							<span className="mx-1.5 text-stone-600">·</span>
 							{settings.public ? (
 								<Badge variant="info" size="sm">
 									Public
@@ -308,6 +388,15 @@ export default function LobbyPage() {
 							onCancel={() => setShowSettings(false)}
 						/>
 					</div>
+				)}
+
+				{/* Game mode picker */}
+				{!gameActive && (
+					<GameModePicker
+						current={settings.gamemode}
+						canEdit={isHost}
+						onSelect={(modeId) => updateSettings({ gamemode: modeId })}
+					/>
 				)}
 
 				{/* Player list */}

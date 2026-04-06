@@ -4,7 +4,7 @@ import type { Engine, Scene, UniversalCamera, Vector3 } from '@babylonjs/core';
 import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
-import type { GameStateSnapshot, Vector3D } from '../../game/types';
+import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
@@ -22,6 +22,12 @@ interface CharacterSnapshot {
 	state: number;
 	health: number;
 	max_health: number;
+	// Cooldown data
+	ability1_timer: number;
+	ability1_cooldown: number;
+	ability2_timer: number;
+	ability2_cooldown: number;
+	swing_progress: number;
 }
 
 interface InputState {
@@ -122,6 +128,7 @@ class GameClient {
 	private gui: any = null;
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
+	private cooldownBars: { attack: any; ability1: any; ability2: any } | null = null;
 
 	constructor(
 		scene: Scene,
@@ -177,6 +184,46 @@ class GameClient {
 		localBg.addControl(localFill);
 
 		this.localHealthFill = localFill;
+
+		// Cooldown bars — row below health bar
+		const cdContainer = new GUI.StackPanel('cd-container');
+		cdContainer.isVertical = false;
+		cdContainer.height = '12px';
+		cdContainer.width = '200px';
+		cdContainer.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+		cdContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+		cdContainer.top = '-10px';
+		cdContainer.spacing = 4;
+		this.gui.addControl(cdContainer);
+
+		const makeCdBar = (name: string, color: string) => {
+			const bg = new GUI.Rectangle(`cd-bg-${name}`);
+			bg.width = '62px';
+			bg.height = '10px';
+			bg.cornerRadius = 2;
+			bg.color = '#00000099';
+			bg.thickness = 1;
+			bg.background = '#1a1a1a';
+			cdContainer.addControl(bg);
+
+			const fill = new GUI.Rectangle(`cd-fill-${name}`);
+			fill.width = '0%';
+			fill.height = '100%';
+			fill.cornerRadius = 0;
+			fill.color = 'transparent';
+			fill.thickness = 0;
+			fill.background = color;
+			fill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+			bg.addControl(fill);
+
+			return fill;
+		};
+
+		this.cooldownBars = {
+			attack:   makeCdBar('attack',   '#e67e22'),
+			ability1: makeCdBar('ability1', '#3498db'),
+			ability2: makeCdBar('ability2', '#9b59b6'),
+		};
 	}
 
 	private createEnemyBar(playerID: number): void {
@@ -248,6 +295,22 @@ class GameClient {
 				if (this.localHealthFill) {
 					const pct = char.max_health > 0 ? char.health / char.max_health : 0;
 					this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+				}
+
+				// Update cooldown bars
+				if (this.cooldownBars) {
+					this.cooldownBars.attack.width =
+						`${(Math.max(0, Math.min(1, char.swing_progress)) * 100).toFixed(1)}%`;
+
+					const cd1 = char.ability1_cooldown > 0
+						? char.ability1_timer / char.ability1_cooldown : 0;
+					this.cooldownBars.ability1.width =
+						`${(Math.max(0, Math.min(1, cd1)) * 100).toFixed(1)}%`;
+
+					const cd2 = char.ability2_cooldown > 0
+						? char.ability2_timer / char.ability2_cooldown : 0;
+					this.cooldownBars.ability2.width =
+						`${(Math.max(0, Math.min(1, cd2)) * 100).toFixed(1)}%`;
 				}
 
 				// Update camera to follow player
@@ -409,6 +472,34 @@ class GameClient {
 			this.playAnimation('idle');
 		}
 	}
+
+	/** Process a batch of game events drained from the event queue. */
+	processEvents(events: GameEvent[]) {
+		for (const event of events) {
+			switch (event.type) {
+				case 'Death':
+					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
+					// TODO: play death animation on victim, show kill feed
+					break;
+				case 'Damage':
+					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
+					// TODO: spawn floating damage number above victim
+					break;
+				case 'Spawn':
+					console.debug('[Game] Spawn: player=%d', event.player_id);
+					// TODO: play spawn effect / reset character state
+					break;
+				case 'StateChange':
+					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
+					// TODO: trigger state-specific animation
+					break;
+				case 'MatchEnd':
+					console.debug('[Game] MatchEnd');
+					// TODO: show match-end screen
+					break;
+			}
+		}
+	}
 }
 
 // ============ MINIMAL REACT WRAPPER ============
@@ -418,6 +509,8 @@ interface Props {
 	snapshotRef: RefObject<GameStateSnapshot | null>;
 	/** Ref mapping player_id → character_class string. Populated from PlayerJoined messages. */
 	characterClassesRef: RefObject<Map<number, string>>;
+	/** Ref containing queued game events. Drained each frame by the Babylon render loop. */
+	eventsRef: RefObject<GameEvent[]>;
 	onSendInput: (
 		movement: Vector3D,
 		lookDirection: Vector3D,
@@ -432,6 +525,7 @@ interface Props {
 export default function SimpleGameClient({
 	snapshotRef,
 	characterClassesRef,
+	eventsRef,
 	onSendInput,
 	localPlayerId,
 	characterConfig,
@@ -596,7 +690,7 @@ export default function SimpleGameClient({
 				if (kbInfo.type === 1) {
 					keysPressed.add(kbInfo.event.key.toLowerCase());
 					// Attack is a one-shot trigger (keydown only, ignore keyboard repeat)
-					if (kbInfo.event.key.toLowerCase() === 'e' && !kbInfo.event.repeat)
+					if (kbInfo.event.key.toLowerCase() === 'e' && !(kbInfo.event as KeyboardEvent).repeat)
 						input.isAttacking = true;
 				} else if (kbInfo.type === 2) {
 					keysPressed.delete(kbInfo.event.key.toLowerCase());
@@ -672,6 +766,13 @@ export default function SimpleGameClient({
 					now - lastFrameTime > TARGET_FRAME_MS * 2
 						? now
 						: lastFrameTime + TARGET_FRAME_MS;
+
+				// Drain queued game events (Death, Damage, Spawn, etc.) before the snapshot
+				// so animations/effects start before the authoritative state update.
+				const events = eventsRef.current.splice(0);
+				if (events.length > 0) {
+					gameClient.processEvents(events);
+				}
 
 				// Apply the latest snapshot from the server (consumed once per frame).
 				const snap = snapshotRef.current;

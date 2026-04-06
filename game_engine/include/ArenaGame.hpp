@@ -21,6 +21,12 @@ struct CharacterSnapshot {
     CharacterState state;
     float health;
     float maxHealth;
+    // Cooldown data for HUD
+    float ability1Timer;     // seconds remaining on ability 1 cooldown (0 = ready)
+    float ability1Cooldown;  // max cooldown duration (for computing fill ratio)
+    float ability2Timer;     // seconds remaining on ability 2 cooldown
+    float ability2Cooldown;  // max cooldown duration
+    float swingProgress;     // 0.0–1.0 progress through current attack swing (0 = not attacking)
 
     CharacterSnapshot() = default;
 };
@@ -61,7 +67,7 @@ public:
     ~ArenaGame() = default;
 
     // Game lifecycle
-    void start();
+    void start(GameModeType mode);
     void stop();
     bool isRunning() const { return m_isRunning; }
 
@@ -83,12 +89,12 @@ public:
     size_t getPlayerCount() const { return m_world.getPlayerCount(); }
 
     // World access (for advanced usage)
-    Core::World& getWorld() { return m_world; }
-    const Core::World& getWorld() const { return m_world; }
+    World& getWorld() { return m_world; }
+    const World& getWorld() const { return m_world; }
 
 private:
     // World manages all entities and systems
-    Core::World m_world;
+    World m_world;
 
     // Game state (identical to ArenaGame)
     bool m_isRunning;
@@ -124,7 +130,7 @@ inline ArenaGame::ArenaGame()
     initializeSpawnPositions(GameConfig::MAX_PLAYERS);
 }
 
-inline void ArenaGame::start() {
+inline void ArenaGame::start(GameModeType mode) {
     // Compute spawn circle based on the players already registered
     const int playerCount = static_cast<int>(m_world.getPlayerCount());
     initializeSpawnPositions(playerCount > 0 ? playerCount : GameConfig::MAX_PLAYERS);
@@ -134,6 +140,8 @@ inline void ArenaGame::start() {
     m_gameTime = 0.0;
     m_accumulator = 0.0;
     m_lastUpdateTime = std::chrono::steady_clock::now();
+
+    m_world.setGameMode(mode);
 }
 
 inline void ArenaGame::stop() {
@@ -157,6 +165,9 @@ inline void ArenaGame::update() {
 
     // Accumulate time for fixed timestep
     m_accumulator += deltaTime;
+
+    // Clear events collected during the previous frame
+    m_world.clearNetrowEvents();
 
     // PHASE 1: EarlyUpdate - Input processing (variable dt)
     m_world.earlyUpdate(deltaTime);
@@ -214,7 +225,7 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     snapshot.timestamp = m_gameTime;
 
     // Get all entities that represent players (have all player components)
-    auto& registry = const_cast<Core::World&>(m_world).getRegistry();
+    auto& registry = const_cast<World&>(m_world).getRegistry();
 
     // View of all entities with player components
     auto view = registry.view<
@@ -222,7 +233,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
         Components::Transform,
         Components::PhysicsBody,
         Components::Health,
-        Components::CharacterController
+        Components::CharacterController,
+        Components::CombatController
     >();
 
     // Convert entities to character snapshots
@@ -230,7 +242,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
                   Components::Transform& transform,
                   Components::PhysicsBody& physics,
                   Components::Health& health,
-                  Components::CharacterController& controller) {
+                  Components::CharacterController& controller,
+                  Components::CombatController& combat) {
 
         // Skip dead entities
         /**
@@ -249,6 +262,15 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
         charSnapshot.state = controller.state;
         charSnapshot.health = health.current;
         charSnapshot.maxHealth = health.maximum;
+
+        // Cooldown data from CombatController
+        charSnapshot.ability1Timer    = combat.ability1.timer;
+        charSnapshot.ability1Cooldown = combat.ability1.cooldown;
+        charSnapshot.ability2Timer    = combat.ability2.timer;
+        charSnapshot.ability2Cooldown = combat.ability2.cooldown;
+        charSnapshot.swingProgress    = (combat.isAttacking && !combat.attackChain.empty())
+            ? combat.swingTimer / combat.currentStage().duration
+            : 0.0f;
 
         snapshot.characters.push_back(charSnapshot);
     });

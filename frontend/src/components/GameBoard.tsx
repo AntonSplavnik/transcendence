@@ -22,7 +22,7 @@ import SimpleGameClient from './GameBoard/SimpleGameClient';
  * a direct URL visit.
  */
 export default function GameBoard() {
-	const { gameState, snapshotRef, characterClassesRef, sendInput } = useGame();
+	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput } = useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
 
@@ -44,6 +44,7 @@ export default function GameBoard() {
 		<SimpleGameClient
 			snapshotRef={snapshotRef}
 			characterClassesRef={characterClassesRef}
+			eventsRef={eventsRef}
 			onSendInput={sendInput}
 			localPlayerId={user.id}
 			characterConfig={characterConfig}

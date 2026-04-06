@@ -4,10 +4,10 @@
 
 #include "../include/ArenaGame.hpp"
 #include <cstring>
+#include <variant>
 
 using Game = ::ArenaGame::ArenaGame;
 using namespace ArenaGame;
-using namespace ArenaGame::Core;
 
 // Opaque pointer types for Rust
 extern "C" {
@@ -17,27 +17,27 @@ extern "C" {
 // =============================================================================
 
 Game* game_create() {
-    return new Game();
+	return new Game();
 }
 
 void game_destroy(Game* game) {
-    delete game;
+	delete game;
 }
 
-void game_start(Game* game) {
-    game->start();
+void game_start_with_mode(Game* game, uint8_t mode_type) {
+	game->start(static_cast<GameModeType>(mode_type));
 }
 
 void game_stop(Game* game) {
-    game->stop();
+	game->stop();
 }
 
 void game_update(Game* game) {
-    game->update();
+	game->update();
 }
 
 bool game_is_running(Game* game) {
-    return game->isRunning();
+	return game->isRunning();
 }
 
 // =============================================================================
@@ -45,15 +45,15 @@ bool game_is_running(Game* game) {
 // =============================================================================
 
 bool game_add_player(Game* game, uint32_t player_id, const char* name) {
-    return game->addPlayer(player_id, std::string(name));
+	return game->addPlayer(player_id, std::string(name));
 }
 
 bool game_remove_player(Game* game, uint32_t player_id) {
-    return game->removePlayer(player_id);
+	return game->removePlayer(player_id);
 }
 
 size_t game_get_player_count(Game* game) {
-    return game->getPlayerCount();
+	return game->getPlayerCount();
 }
 
 // =============================================================================
@@ -62,50 +62,50 @@ size_t game_get_player_count(Game* game) {
 /*
 // Create a projectile entity
 bool game_create_projectile(
-    Game* game,
-    uint32_t entity_id,
-    float pos_x, float pos_y, float pos_z,
-    float vel_x, float vel_y, float vel_z
+	Game* game,
+	uint32_t entity_id,
+	float pos_x, float pos_y, float pos_z,
+	float vel_x, float vel_y, float vel_z
 ) {
-    Vector3D position(pos_x, pos_y, pos_z);
-    Vector3D velocity(vel_x, vel_y, vel_z);
+	Vector3D position(pos_x, pos_y, pos_z);
+	Vector3D velocity(vel_x, vel_y, vel_z);
 
-    entt::entity entity = game->getWorld().createProjectile(entity_id, position, velocity);
-    return entity != entt::null;
+	entt::entity entity = game->getWorld().createProjectile(entity_id, position, velocity);
+	return entity != entt::null;
 }
 
 // Create a wall entity
 bool game_create_wall(
-    Game* game,
-    uint32_t entity_id,
-    float pos_x, float pos_y, float pos_z,
-    float half_x, float half_y, float half_z
+	Game* game,
+	uint32_t entity_id,
+	float pos_x, float pos_y, float pos_z,
+	float half_x, float half_y, float half_z
 ) {
-    Vector3D position(pos_x, pos_y, pos_z);
-    Vector3D halfExtents(half_x, half_y, half_z);
+	Vector3D position(pos_x, pos_y, pos_z);
+	Vector3D halfExtents(half_x, half_y, half_z);
 
-    entt::entity entity = game->getWorld().createWall(entity_id, position, halfExtents);
-    return entity != entt::null;
+	entt::entity entity = game->getWorld().createWall(entity_id, position, halfExtents);
+	return entity != entt::null;
 }
 
 // Destroy any entity by ID
 bool game_destroy_entity(Game* game, uint32_t entity_id) {
-    return game->getWorld().destroyEntity(entity_id);
+	return game->getWorld().destroyEntity(entity_id);
 }
 
 // Check if entity exists
 bool game_entity_exists(Game* game, uint32_t entity_id) {
-    return game->getEntity(entity_id) != entt::null;
+	return game->getEntity(entity_id) != entt::null;
 }
 
 // Check if entity is alive (has health and health > 0)
 bool game_entity_is_alive(Game* game, uint32_t entity_id) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* health = registry.try_get<Components::Health>(entity);
-    return health && health->isAlive();
+	auto& registry = game->getWorld().getRegistry();
+	auto* health = registry.try_get<Components::Health>(entity);
+	return health && health->isAlive();
 }
  */
 // =============================================================================
@@ -114,85 +114,85 @@ bool game_entity_is_alive(Game* game, uint32_t entity_id) {
 
 /* // Get entity health
 bool game_get_entity_health(Game* game, uint32_t entity_id, float* out_current, float* out_max) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* health = registry.try_get<Components::Health>(entity);
-    if (!health) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* health = registry.try_get<Components::Health>(entity);
+	if (!health) return false;
 
-    *out_current = health->current;
-    *out_max = health->maximum;
-    return true;
+	*out_current = health->current;
+	*out_max = health->maximum;
+	return true;
 }
 
 // Set entity health
 bool game_set_entity_health(Game* game, uint32_t entity_id, float health) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* healthComp = registry.try_get<Components::Health>(entity);
-    if (!healthComp) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* healthComp = registry.try_get<Components::Health>(entity);
+	if (!healthComp) return false;
 
-    healthComp->setHealth(health);
-    return true;
+	healthComp->setHealth(health);
+	return true;
 }
 
 // Get entity position
 bool game_get_entity_position(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* transform = registry.try_get<Components::Transform>(entity);
-    if (!transform) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* transform = registry.try_get<Components::Transform>(entity);
+	if (!transform) return false;
 
-    *out_x = transform->position.x;
-    *out_y = transform->position.y;
-    *out_z = transform->position.z;
-    return true;
+	*out_x = transform->position.x;
+	*out_y = transform->position.y;
+	*out_z = transform->position.z;
+	return true;
 }
 
 // Set entity position
 bool game_set_entity_position(Game* game, uint32_t entity_id, float x, float y, float z) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* transform = registry.try_get<Components::Transform>(entity);
-    if (!transform) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* transform = registry.try_get<Components::Transform>(entity);
+	if (!transform) return false;
 
-    transform->position = Vector3D(x, y, z);
-    return true;
+	transform->position = Vector3D(x, y, z);
+	return true;
 }
 
 // Get entity velocity
 bool game_get_entity_velocity(Game* game, uint32_t entity_id, float* out_x, float* out_y, float* out_z) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* physics = registry.try_get<Components::PhysicsBody>(entity);
-    if (!physics) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* physics = registry.try_get<Components::PhysicsBody>(entity);
+	if (!physics) return false;
 
-    *out_x = physics->velocity.x;
-    *out_y = physics->velocity.y;
-    *out_z = physics->velocity.z;
-    return true;
+	*out_x = physics->velocity.x;
+	*out_y = physics->velocity.y;
+	*out_z = physics->velocity.z;
+	return true;
 }
 
 // Set entity velocity
 bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, float z) {
-    entt::entity entity = game->getEntity(entity_id);
-    if (entity == entt::null) return false;
+	entt::entity entity = game->getEntity(entity_id);
+	if (entity == entt::null) return false;
 
-    auto& registry = game->getWorld().getRegistry();
-    auto* physics = registry.try_get<Components::PhysicsBody>(entity);
-    if (!physics) return false;
+	auto& registry = game->getWorld().getRegistry();
+	auto* physics = registry.try_get<Components::PhysicsBody>(entity);
+	if (!physics) return false;
 
-    physics->velocity = Vector3D(x, y, z);
-    return true;
+	physics->velocity = Vector3D(x, y, z);
+	return true;
 } */
 
 // =============================================================================
@@ -200,28 +200,28 @@ bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, 
 // =============================================================================
 
 void game_set_input(
-    Game* game,
-    uint32_t player_id,
-    float move_x, float move_y, float move_z,
-    float look_x, float look_y, float look_z,
-    bool attacking,
-    bool jumping,
-    bool ability1,
-    bool ability2,
-    bool dodging,
-    bool sprinting
+	Game* game,
+	uint32_t player_id,
+	float move_x, float move_y, float move_z,
+	float look_x, float look_y, float look_z,
+	bool attacking,
+	bool jumping,
+	bool ability1,
+	bool ability2,
+	bool dodging,
+	bool sprinting
 ) {
-    InputState input;
-    input.movementDirection = Vector3D(move_x, move_y, move_z);
-    input.lookDirection = Vector3D(look_x, look_y, look_z);
-    input.isAttacking = attacking;
-    input.isJumping = jumping;
-    input.isUsingAbility1 = ability1;
-    input.isUsingAbility2 = ability2;
-    input.isDodging = dodging;
-    input.isSprinting = sprinting;
+	InputState input;
+	input.movementDirection = Vector3D(move_x, move_y, move_z);
+	input.lookDirection = Vector3D(look_x, look_y, look_z);
+	input.isAttacking = attacking;
+	input.isJumping = jumping;
+	input.isUsingAbility1 = ability1;
+	input.isUsingAbility2 = ability2;
+	input.isDodging = dodging;
+	input.isSprinting = sprinting;
 
-    game->setPlayerInput(player_id, input);
+	game->setPlayerInput(player_id, input);
 }
 
 // =============================================================================
@@ -230,45 +230,132 @@ void game_set_input(
 
 // C-compatible snapshot structure
 struct CCharacterSnapshot {
-    uint32_t player_id;
-    float pos_x, pos_y, pos_z;
-    float vel_x, vel_y, vel_z;
-    float yaw;
-    uint8_t state;
-    float health;
-    float max_health;
+	uint32_t player_id;
+	float pos_x, pos_y, pos_z;
+	float vel_x, vel_y, vel_z;
+	float yaw;
+	uint8_t state;
+	float health;
+	float max_health;
+	// Cooldown data
+	float ability1_timer;
+	float ability1_cooldown;
+	float ability2_timer;
+	float ability2_cooldown;
+	float swing_progress;
 };
 
 struct CGameStateSnapshot {
-    uint64_t frame_number;
-    double timestamp;
-    size_t character_count;
-    CCharacterSnapshot characters[GameConfig::MAX_PLAYERS]; // Max 32 players
+	uint64_t frame_number;
+	double timestamp;
+	size_t character_count;
+	CCharacterSnapshot characters[GameConfig::MAX_PLAYERS]; // Max 32 players
 };
 
 void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
-    GameStateSnapshot snapshot = game->createSnapshot();
+	GameStateSnapshot snapshot = game->createSnapshot();
 
-    out_snapshot->frame_number = snapshot.frameNumber;
-    out_snapshot->timestamp = snapshot.timestamp;
-    out_snapshot->character_count = std::min(snapshot.characters.size(), size_t(GameConfig::MAX_PLAYERS));
+	out_snapshot->frame_number = snapshot.frameNumber;
+	out_snapshot->timestamp = snapshot.timestamp;
+	out_snapshot->character_count = std::min(snapshot.characters.size(), size_t(GameConfig::MAX_PLAYERS));
 
-    for (size_t i = 0; i < out_snapshot->character_count; ++i) {
-        const auto& src = snapshot.characters[i];
-        auto& dst = out_snapshot->characters[i];
+	for (size_t i = 0; i < out_snapshot->character_count; ++i) {
+		const auto& src = snapshot.characters[i];
+		auto& dst = out_snapshot->characters[i];
 
-        dst.player_id = src.playerID;
-        dst.pos_x = src.position.x;
-        dst.pos_y = src.position.y;
-        dst.pos_z = src.position.z;
-        dst.vel_x = src.velocity.x;
-        dst.vel_y = src.velocity.y;
-        dst.vel_z = src.velocity.z;
-        dst.yaw = src.yaw;
-        dst.state = static_cast<uint8_t>(src.state);
-        dst.health = src.health;
-        dst.max_health = src.maxHealth;
-    }
+		dst.player_id = src.playerID;
+		dst.pos_x = src.position.x;
+		dst.pos_y = src.position.y;
+		dst.pos_z = src.position.z;
+		dst.vel_x = src.velocity.x;
+		dst.vel_y = src.velocity.y;
+		dst.vel_z = src.velocity.z;
+		dst.yaw = src.yaw;
+		dst.state = static_cast<uint8_t>(src.state);
+		dst.health = src.health;
+		dst.max_health = src.maxHealth;
+		dst.ability1_timer    = src.ability1Timer;
+		dst.ability1_cooldown = src.ability1Cooldown;
+		dst.ability2_timer    = src.ability2Timer;
+		dst.ability2_cooldown = src.ability2Cooldown;
+		dst.swing_progress    = src.swingProgress;
+	}
+}
+
+// =============================================================================
+// Match State
+// =============================================================================
+
+bool game_is_match_over(Game* game) {
+	bool over = false;
+	auto& registry = game->getWorld().getRegistry();
+	registry.view<GameManagerTag, Components::GameModeComponent>().each(
+		[&](Components::GameModeComponent& gm) {
+			over = (gm.matchStatus == MatchStatus::Over);
+		}
+	);
+	return over;
+}
+
+uint8_t game_get_match_status(Game* game) {
+	uint8_t status = static_cast<uint8_t>(MatchStatus::WaitingToStart);
+	auto& registry = game->getWorld().getRegistry();
+	registry.view<GameManagerTag, Components::GameModeComponent>().each(
+		[&](Components::GameModeComponent& gm) {
+			status = static_cast<uint8_t>(gm.matchStatus);
+		}
+	);
+	return status;
+}
+
+// =============================================================================
+// Network Events (tagged union for Rust FFI)
+// =============================================================================
+
+struct CDeathEventPayload    { uint32_t killer; uint32_t victim; };
+struct CDamageEventPayload   { uint32_t attacker; uint32_t victim; float damage; };
+struct CSpawnEventPayload    { uint32_t player_id; float pos_x, pos_y, pos_z; };
+struct CStateChangePayload   { uint32_t player_id; uint8_t state; };
+
+struct CNetworkEvent {
+	uint8_t tag; // 0=Death, 1=Damage, 2=Spawn, 3=StateChange, 4=MatchEnd
+	union {
+		CDeathEventPayload    death;
+		CDamageEventPayload   damage;
+		CSpawnEventPayload    spawn;
+		CStateChangePayload   state_change;
+	} payload;
+};
+
+bool game_pop_network_event(Game* game, CNetworkEvent* out) {
+	auto& registry = game->getWorld().getRegistry();
+	Components::NetworkEventsComponent* ne = nullptr;
+	registry.view<GameManagerTag, Components::NetworkEventsComponent>().each(
+		[&](Components::NetworkEventsComponent& comp) { ne = &comp; }
+	);
+	if (!ne || ne->events.empty()) return false;
+
+	std::visit([out](auto&& ev) {
+		using T = std::decay_t<decltype(ev)>;
+		if constexpr (std::is_same_v<T, NetEvents::DeathEvent>) {
+			out->tag = 0;
+			out->payload.death = { ev.killer, ev.victim };
+		} else if constexpr (std::is_same_v<T, NetEvents::DamageEvent>) {
+			out->tag = 1;
+			out->payload.damage = { ev.attacker, ev.victim, ev.damage };
+		} else if constexpr (std::is_same_v<T, NetEvents::SpawnEvent>) {
+			out->tag = 2;
+			out->payload.spawn = { ev.playerID, ev.position.x, ev.position.y, ev.position.z };
+		} else if constexpr (std::is_same_v<T, NetEvents::StateChangeEvent>) {
+			out->tag = 3;
+			out->payload.state_change = { ev.playerID, static_cast<uint8_t>(ev.state) };
+		} else if constexpr (std::is_same_v<T, NetEvents::MatchEndEvent>) {
+			out->tag = 4;
+		}
+	}, ne->events.front());
+
+	ne->events.pop_front();
+	return true;
 }
 
 // =============================================================================
@@ -276,11 +363,11 @@ void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
 // =============================================================================
 
 uint64_t game_get_frame_number(Game* game) {
-    return game->getFrameNumber();
+	return game->getFrameNumber();
 }
 
 double game_get_game_time(Game* game) {
-    return game->getGameTime();
+	return game->getGameTime();
 }
 
 } // extern "C"

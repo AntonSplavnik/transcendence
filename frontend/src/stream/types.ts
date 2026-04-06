@@ -230,7 +230,7 @@ export type BidiHandlerFactory<TRecv = unknown, TSend = unknown> = (
 export interface LobbySettings {
 	name: string;
 	public: boolean;
-	gamemode: string;
+	gamemode: string | null;
 }
 
 /**

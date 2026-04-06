@@ -15,6 +15,12 @@ export interface CharacterSnapshot {
 	state: number;
 	health: number;
 	max_health: number;
+	// Cooldown data
+	ability1_timer: number;
+	ability1_cooldown: number;
+	ability2_timer: number;
+	ability2_cooldown: number;
+	swing_progress: number;
 }
 
 export interface GameStateSnapshot {
@@ -29,7 +35,18 @@ export type GameServerMessage =
 	| ({ type: 'Snapshot' } & GameStateSnapshot)
 	| { type: 'PlayerJoined'; player_id: number; name: string; character_class: string }
 	| { type: 'PlayerLeft'; player_id: number }
+	| { type: 'Death'; killer: number; victim: number }
+	| { type: 'Damage'; attacker: number; victim: number; damage: number }
+	| { type: 'Spawn'; player_id: number; position: Vector3D }
+	| { type: 'StateChange'; player_id: number; state: number }
+	| { type: 'MatchEnd' }
 	| { type: 'Error'; message: string };
+
+/** Subset of GameServerMessage that represents in-game events (not snapshots or meta). */
+export type GameEvent = Extract<
+	GameServerMessage,
+	{ type: 'Death' | 'Damage' | 'Spawn' | 'StateChange' | 'MatchEnd' }
+>;
 
 export type GameClientMessage =
 	| {
