@@ -293,7 +293,6 @@ export default function LobbyPage() {
 							size="sm"
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
-							icon={myPlayer.ready ? <Check className="w-3.5 h-3.5 text-success" aria-hidden="true" /> : undefined}
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>
