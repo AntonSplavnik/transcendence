@@ -8,6 +8,9 @@ import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
+import { GameAudioEngine } from '@/audio/AudioEngine';
+import { SoundBank } from '@/audio/SoundBank';
+import { AudioEventSystem } from '@/audio/AudioEventSystem';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -125,6 +128,12 @@ class GameClient {
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
+	// Audio
+	private audioEngine: GameAudioEngine | null = null;
+	private soundBank: SoundBank | null = null;
+	private audioEventSystem: AudioEventSystem | null = null;
+	private ambientSound: import('@babylonjs/core/AudioV2').StaticSound | null = null;
+	// HUD
 	private gui: any = null;
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
@@ -142,7 +151,48 @@ class GameClient {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
 		this.characterClassesRef = characterClassesRef;
+		this.initAudio();
 		this.setupHUD();
+	}
+
+	private async initAudio(): Promise<void> {
+		try {
+			const audioEngine = new GameAudioEngine();
+			const soundBank = new SoundBank();
+			await audioEngine.initialize();
+			await soundBank.loadAll(audioEngine);
+			audioEngine.attachListenerToCamera(this.camera);
+			this.audioEngine = audioEngine;
+			this.soundBank = soundBank;
+			const aes = new AudioEventSystem(audioEngine, soundBank);
+			aes.setLocalPlayerId(this.localPlayerID);
+			this.audioEventSystem = aes;
+
+			// Start ambient loop
+			const ambientSound = soundBank.getRandomSound('amb_forest');
+			if (ambientSound) {
+				const ambDef = soundBank.getDefinition('amb_forest');
+				if (ambDef) {
+					ambientSound.volume = ambDef.volume.min + Math.random() * (ambDef.volume.max - ambDef.volume.min);
+				}
+				(ambientSound as any).loop = true;
+				ambientSound.play();
+				this.ambientSound = ambientSound;
+			}
+
+			console.log('[Audio] Game audio initialized');
+		} catch (err) {
+			console.warn('[Audio] Failed to initialize game audio:', err);
+		}
+	}
+
+	disposeAudio(): void {
+		(this.ambientSound as any)?.stop?.();
+		this.ambientSound = null;
+		this.audioEngine?.dispose();
+		this.audioEngine = null;
+		this.soundBank = null;
+		this.audioEventSystem = null;
 	}
 
 	private setupHUD(): void {
@@ -442,6 +492,18 @@ class GameClient {
 
 		const isGrounded = this.position.y <= 1.1;
 		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+
+		// Trigger audio for local player input
+		this.audioEventSystem?.onLocalInput(
+			{
+				movementDirection: input.movementDirection,
+				isAttacking: input.isAttacking,
+				isJumping: input.isJumping,
+				isSprinting: input.isSprinting,
+				isGrounded,
+			},
+			{ x: this.position.x, y: this.position.y, z: this.position.z },
+		);
 
 		this.jumpState = tickJumpState(
 			this.localCharacter,
@@ -814,6 +876,7 @@ export default function SimpleGameClient({
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
+			gameClientRef.current?.disposeAudio();
 			gameClientRef.current = null;
 			engineRef.current?.stopRenderLoop();
 			sceneInstance?.dispose();
