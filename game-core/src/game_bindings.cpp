@@ -2,7 +2,7 @@
 // This file provides a C-compatible API that Rust can call
 // Uses EnTT-based Entity-Component-System architecture
 
-#include "../include/ArenaGame.hpp"
+#include "ArenaGame.hpp"
 #include <cstring>
 #include <variant>
 

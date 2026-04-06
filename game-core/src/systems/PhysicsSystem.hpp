@@ -1,10 +1,10 @@
 #pragma once
 
 #include "System.hpp"
-#include "components/Transform.hpp"
-#include "components/PhysicsBody.hpp"
-#include "components/Collider.hpp"
-#include "GameTypes.hpp"
+#include "../components/Transform.hpp"
+#include "../components/PhysicsBody.hpp"
+#include "../components/Collider.hpp"
+#include "../GameTypes.hpp"
 #include <entt/entt.hpp>
 
 namespace ArenaGame {

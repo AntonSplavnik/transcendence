@@ -1,22 +1,22 @@
 #pragma once
 
 #include "System.hpp"
-#include "components/Transform.hpp"
+#include "../components/Transform.hpp"
 #include <cstdio>
-#include "components/PhysicsBody.hpp"
-#include "components/Health.hpp"
-#include "components/CombatController.hpp"
-#include "components/CharacterController.hpp"
-#include "components/GameModeComponent.hpp"
-#include "components/MatchStatsComponent.hpp"
-#include "components/InternalEventsComponent.hpp"
-#include "components/NetworkEventsComponent.hpp"
-#include "components/PlayerInfo.hpp"
-#include "events/InternalEvents.hpp"
-#include "events/NetworkEvents.hpp"
-#include "GameTypes.hpp"
-#include "Skills.hpp"
-#include "Helpers.hpp"
+#include "../components/PhysicsBody.hpp"
+#include "../components/Health.hpp"
+#include "../components/CombatController.hpp"
+#include "../components/CharacterController.hpp"
+#include "../components/GameModeComponent.hpp"
+#include "../components/MatchStatsComponent.hpp"
+#include "../components/InternalEventsComponent.hpp"
+#include "../components/NetworkEventsComponent.hpp"
+#include "../components/PlayerInfo.hpp"
+#include "../events/InternalEvents.hpp"
+#include "../events/NetworkEvents.hpp"
+#include "../GameTypes.hpp"
+#include "../Skills.hpp"
+#include "../Helpers.hpp"
 
 #include <entt/entt.hpp>
 #include <queue>

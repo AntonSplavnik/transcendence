@@ -1,6 +1,6 @@
 #pragma once
 
-#include "events/NetworkEvents.hpp"
+#include "../events/NetworkEvents.hpp"
 #include <deque>
 
 namespace ArenaGame {

@@ -1,14 +1,14 @@
 #pragma once
 
-#include "components/GameModeComponent.hpp"
-#include "components/MatchStatsComponent.hpp"
-#include "components/InternalEventsComponent.hpp"
-#include "components/NetworkEventsComponent.hpp"
-#include "events/InternalEvents.hpp"
-#include "events/NetworkEvents.hpp"
+#include "../components/GameModeComponent.hpp"
+#include "../components/MatchStatsComponent.hpp"
+#include "../components/InternalEventsComponent.hpp"
+#include "../components/NetworkEventsComponent.hpp"
+#include "../events/InternalEvents.hpp"
+#include "../events/NetworkEvents.hpp"
 #include "System.hpp"
-#include "Helpers.hpp"
-#include "GameMode.hpp"
+#include "../Helpers.hpp"
+#include "../GameMode.hpp"
 
 #include <memory>
 

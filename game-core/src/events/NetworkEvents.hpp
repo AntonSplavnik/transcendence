@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameTypes.hpp"
+#include "../GameTypes.hpp"
 #include <variant>
 
 namespace ArenaGame {

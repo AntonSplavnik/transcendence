@@ -1,11 +1,11 @@
 #pragma once
 
 #include "System.hpp"
-#include "components/Transform.hpp"
-#include "components/Collider.hpp"
-#include "components/PhysicsBody.hpp"
-#include "components/Health.hpp"
-#include "GameTypes.hpp"
+#include "../components/Transform.hpp"
+#include "../components/Collider.hpp"
+#include "../components/PhysicsBody.hpp"
+#include "../components/Health.hpp"
+#include "../GameTypes.hpp"
 #include <entt/entt.hpp>
 #include <algorithm>
 
