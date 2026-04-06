@@ -21,6 +21,7 @@ export class AudioEventSystem {
   private soundBank: SoundBank;
   private lastPlayTimes = new Map<string, number>();
   private localPlayerId: number | null = null;
+  private characterClass: string | null = null;
   // Pipeline 1: edge-detection state — auto-initialised from LOCAL_INPUT_TRIGGERS
   private prevInputState: Record<string, boolean> = {};
   // Pipeline 2: per-player adaptive footstep timers
@@ -38,6 +39,29 @@ export class AudioEventSystem {
 
   setLocalPlayerId(id: number): void {
     this.localPlayerId = id;
+  }
+
+  setCharacterClass(cls: string): void {
+    this.characterClass = cls;
+  }
+
+  /**
+   * Resolve a generic sound ID to a class-specific one if available.
+   * e.g. "player_footstep" + class "knight" → "knight_footstep" (if loaded),
+   * otherwise falls back to "player_footstep".
+   */
+  private resolveSoundId(baseSoundId: string): string {
+    if (!this.characterClass) return baseSoundId;
+
+    // "player_footstep" → "footstep", "player_attack_swing" → "attack_swing"
+    const suffix = baseSoundId.replace(/^player_/, '');
+    const classSpecificId = `${this.characterClass}_${suffix}`;
+
+    // Use class-specific only if real sound files were loaded (not just procedural fallbacks)
+    if (this.soundBank.hasLoadedFiles(classSpecificId)) {
+      return classSpecificId;
+    }
+    return baseSoundId;
   }
 
   /** Pipeline 1: local player input (0 ms, same trigger as updateLocalAnimation) */
@@ -115,15 +139,16 @@ export class AudioEventSystem {
     overridePitch?: number,
     disableSpatial?: boolean,
   ): void {
-    const def = this.soundBank.getDefinition(soundId);
+    const resolved = this.resolveSoundId(soundId);
+    const def = this.soundBank.getDefinition(resolved);
     if (!def) return;
 
     const now = performance.now();
-    const lastPlay = this.lastPlayTimes.get(soundId) ?? 0;
+    const lastPlay = this.lastPlayTimes.get(resolved) ?? 0;
     if (now - lastPlay < def.cooldown) return;
-    this.lastPlayTimes.set(soundId, now);
+    this.lastPlayTimes.set(resolved, now);
 
-    const sound = this.soundBank.getRandomSound(soundId);
+    const sound = this.soundBank.getRandomSound(resolved);
     if (!sound) return;
 
     sound.volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);

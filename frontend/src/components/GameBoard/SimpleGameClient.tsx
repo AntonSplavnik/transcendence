@@ -166,6 +166,7 @@ class GameClient {
 			this.soundBank = soundBank;
 			const aes = new AudioEventSystem(audioEngine, soundBank);
 			aes.setLocalPlayerId(this.localPlayerID);
+			aes.setCharacterClass(this.characterConfig.label.toLowerCase());
 			this.audioEventSystem = aes;
 
 			// Start ambient loop

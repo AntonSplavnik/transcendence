@@ -19,6 +19,7 @@ export interface SoundDefinition {
 export class SoundBank {
   private definitions = new Map<string, SoundDefinition>();
   private sounds = new Map<string, StaticSound[]>();
+  private loadedFromFile = new Set<string>();
 
   async loadAll(engine: GameAudioEngine): Promise<void> {
     for (const def of SOUND_DEFINITIONS) {
@@ -58,6 +59,7 @@ export class SoundBank {
           spatialPanningModel: 'HRTF',
         });
         variations.push(sound);
+        this.loadedFromFile.add(def.id);
       } catch {
         console.warn(`Failed to load sound "${def.id}" from ${url}, using procedural fallback`);
         const fallbackSound = await this.createProceduralFallback(def, engine, audioEngine);
@@ -128,6 +130,11 @@ export class SoundBank {
 
   getDefinition(id: string): SoundDefinition | undefined {
     return this.definitions.get(id);
+  }
+
+  /** Returns true if at least one real (non-fallback) sound file was loaded for this ID. */
+  hasLoadedFiles(id: string): boolean {
+    return this.loadedFromFile.has(id);
   }
 
   getRandomSound(id: string): StaticSound | undefined {

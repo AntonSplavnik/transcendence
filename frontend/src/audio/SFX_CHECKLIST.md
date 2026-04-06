@@ -19,7 +19,7 @@
 | `knight_jump`           | Heavy jump impulse                   | 2-3        | TODO   |
 | `knight_land`           | Heavy landing impact                 | 2-3        | TODO   |
 | `knight_armor_foley`    | Plate armor clinking on movement     | 3-4        | TODO   |
-| `knight_dodge`          | Heavy dodge/roll swish               | 2-3        | TODO   |
+| `knight_dodge`          | Heavy dodge/roll swish               | 2-3        | LATER  |
 
 ### Movement - Rogue
 
@@ -29,7 +29,7 @@
 | `rogue_jump`            | Light agile jump                     | 2-3        | TODO   |
 | `rogue_land`            | Soft silent landing                  | 2-3        | TODO   |
 | `rogue_leather_foley`   | Leather gear rustling on movement    | 3-4        | TODO   |
-| `rogue_dodge`           | Fast dash whoosh                     | 2-3        | TODO   |
+| `rogue_dodge`           | Fast dash whoosh                     | 2-3        | LATER  |
 
 ### Movement - Generic (fallback)
 
@@ -38,7 +38,7 @@
 | `player_footstep`       | Generic footsteps                    | 5          | DONE   |
 | `player_jump`           | Jump launch                          | 4          | DONE   |
 | `player_land`           | Landing impact                       | 1          | DONE   |
-| `player_dodge`          | Dodge/roll swish                     | 2-3        | TODO   |
+| `player_dodge`          | Dodge/roll swish                     | 2-3        | LATER  |
 
 ### Combat - Knight
 
@@ -47,11 +47,11 @@
 | `knight_attack_swing`       | Heavy sword whoosh                   | 3-4        | TODO   |
 | `knight_attack_hit`         | Sword impact on target               | 3-4        | TODO   |
 | `knight_attack_grunt`       | Effort grunt on swing                | 3-4        | TODO   |
-| `knight_shield_block`       | Shield block metallic clang          | 2-3        | TODO   |
-| `knight_sword_draw`         | Unsheathe sword                      | 1-2        | TODO   |
 | `knight_hit_react`          | Pain grunt on damage taken           | 3-4        | TODO   |
 | `knight_death`              | Death scream/collapse                | 2-3        | TODO   |
-| `knight_stun`               | Stunned daze                         | 1-2        | TODO   |
+| `knight_stun`               | Stunned daze                         | 1-2        | LATER  |
+| `knight_shield_block`       | Shield block metallic clang          | 2-3        | LATER  |
+| `knight_sword_draw`         | Unsheathe sword                      | 1-2        | LATER  |
 
 ### Combat - Rogue
 
@@ -60,10 +60,10 @@
 | `rogue_attack_swing`        | Quick dagger swoosh                  | 3-4        | TODO   |
 | `rogue_attack_hit`          | Dagger stab/slice impact             | 3-4        | TODO   |
 | `rogue_attack_grunt`        | Fast effort grunt on combo           | 3-4        | TODO   |
-| `rogue_dagger_draw`         | Unsheathe daggers (light metallic)   | 1-2        | TODO   |
 | `rogue_hit_react`           | Pain grunt on damage taken           | 3-4        | TODO   |
 | `rogue_death`               | Death sound                          | 2-3        | TODO   |
-| `rogue_stun`                | Stunned                              | 1-2        | TODO   |
+| `rogue_stun`                | Stunned                              | 1-2        | LATER  |
+| `rogue_dagger_draw`         | Unsheathe daggers (light metallic)   | 1-2        | LATER  |
 
 ### Combat - Generic (fallback if no class-specific)
 
@@ -83,7 +83,7 @@
 | `game_end`                  | Match over (fanfare or defeat)       | 2          | TODO   |
 | `player_spawn`              | Spawn/teleport in                    | 1-2        | TODO   |
 | `player_kill`               | Kill confirmation                    | 1-2        | TODO   |
-| `score_point`               | Point scored                         | 1          | TODO   |
+| `score_point`               | Point scored                         | 1          | LATER  |
 
 ### UI
 

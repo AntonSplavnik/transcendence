@@ -52,9 +52,15 @@ const isRunning = (input: InputState) =>
   input.isSprinting &&
   (input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
 
+const isMoving = (input: InputState) =>
+  input.isGrounded &&
+  (input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
+
 export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
   { soundId: 'player_footstep', predicate: isWalking, intervalMs: 550 },
   { soundId: 'player_footstep', predicate: isRunning,  intervalMs: 320, volume: 0.4 },
+  // Foley layer: armor clink (knight) or leather rustle (rogue) — resolved per class
+  { soundId: 'player_foley', predicate: isMoving, intervalMs: 400 },
 ];
 
 // ─── Pipeline 2: Remote snapshot triggers ────────────────────────────────────
