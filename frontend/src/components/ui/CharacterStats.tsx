@@ -6,10 +6,10 @@ export interface CharacterStatsProps {
 }
 
 const STAT_BARS = [
-	{ key: 'attack' as const, label: 'Attack', barClass: 'from-gold-400 to-gold-300' },
-	{ key: 'defense' as const, label: 'Defense', barClass: 'from-info to-info-light' },
-	{ key: 'speed' as const, label: 'Speed', barClass: 'from-success to-success-light' },
-	{ key: 'health' as const, label: 'Health', barClass: 'from-danger to-danger-light' },
+	{ key: 'attack' as const, label: 'Attack', gradient: 'linear-gradient(to right, #d97706, #f59e0b)' },
+	{ key: 'defense' as const, label: 'Defense', gradient: 'linear-gradient(to right, #3b82f6, #60a5fa)' },
+	{ key: 'speed' as const, label: 'Speed', gradient: 'linear-gradient(to right, #10b981, #34d399)' },
+	{ key: 'health' as const, label: 'Health', gradient: 'linear-gradient(to right, #ef4444, #f87171)' },
 ];
 
 export default function CharacterStats({ character }: CharacterStatsProps) {
@@ -28,15 +28,15 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 	return (
 		<div
-			className="flex flex-col gap-4 p-5 bg-stone-900 border-l border-stone-800 overflow-y-auto"
-			style={{ flex: '8 1 0%' }}
+			className="flex flex-col overflow-y-auto bg-stone-900 border-l border-stone-800"
+			style={{ flex: '8 1 0%', gap: '14px', padding: '20px 22px' }}
 		>
 			{/* Name + class */}
 			<div>
 				<h2 className="text-2xl font-black text-gold-400 uppercase tracking-wide leading-tight">
 					{cfg.label}
 				</h2>
-				<p className="text-xs text-stone-400 uppercase tracking-widest mt-1">
+				<p className="uppercase tracking-widest mt-1 text-stone-400" style={{ fontSize: '11px' }}>
 					{cfg.characterClass}
 				</p>
 			</div>
@@ -44,16 +44,24 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 			<div className="h-px bg-gradient-to-r from-gold-400 to-transparent opacity-25" />
 
 			{/* Stat bars */}
-			<div className="flex flex-col gap-3">
-				{STAT_BARS.map(({ key, label, barClass }) => (
+			<div className="flex flex-col" style={{ gap: '11px' }}>
+				{STAT_BARS.map(({ key, label, gradient }) => (
 					<div key={key}>
-						<span className="text-[10px] text-stone-500 uppercase tracking-widest">
+						<div className="uppercase text-stone-500" style={{ fontSize: '10px', marginBottom: '4px' }}>
 							{label}
-						</span>
-						<div className="mt-1 h-[7px] rounded bg-stone-950 border border-stone-800">
+						</div>
+						<div
+							className="border border-stone-800"
+							style={{ height: '9px', background: '#0e0e10', borderRadius: '3px' }}
+						>
 							<div
-								className={`h-full rounded bg-gradient-to-r ${barClass} transition-all duration-300`}
-								style={{ width: `${cfg.stats[key] * 10}%` }}
+								style={{
+									height: '100%',
+									width: `${cfg.stats[key] * 10}%`,
+									background: gradient,
+									borderRadius: '3px',
+									transition: 'width 300ms',
+								}}
 							/>
 						</div>
 					</div>
@@ -64,12 +72,12 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Weapons */}
 			<div>
-				<span className="text-[9px] text-stone-500 uppercase tracking-widest block mb-2">
+				<div className="uppercase text-stone-500 block" style={{ fontSize: '9px', marginBottom: '5px', letterSpacing: '0.12em' }}>
 					Equipment
-				</span>
+				</div>
 				<div className="flex flex-col gap-1">
 					{cfg.weapons.map((w) => (
-						<span key={w} className="text-sm text-stone-300">
+						<span key={w} className="text-stone-300" style={{ fontSize: '12px' }}>
 							{w}
 						</span>
 					))}
@@ -78,10 +86,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Playstyle */}
 			<div>
-				<span className="text-[9px] text-stone-500 uppercase tracking-widest block mb-2">
+				<div className="uppercase text-stone-500 block" style={{ fontSize: '9px', marginBottom: '5px', letterSpacing: '0.12em' }}>
 					Playstyle
-				</span>
-				<p className="text-sm text-stone-400 leading-relaxed">{cfg.description}</p>
+				</div>
+				<p className="text-stone-400" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>{cfg.description}</p>
 			</div>
 		</div>
 	);
