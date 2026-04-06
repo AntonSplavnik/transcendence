@@ -113,9 +113,9 @@ struct Health {
 		float finalDamage = damageAfterArmor * (1.0f - resistance);
 
 		fprintf(stderr, "[HEALTH] raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
-			rawDamage, armor, damageAfterArmor,
-			resistance * 100.0f, finalDamage,
-			current, std::max(0.0f, current - finalDamage));
+			static_cast<double>(rawDamage), static_cast<double>(armor), static_cast<double>(damageAfterArmor),
+			static_cast<double>(resistance * 100.0f), static_cast<double>(finalDamage),
+			static_cast<double>(current), static_cast<double>(std::max(0.0f, current - finalDamage)));
 
 		// Apply damage
 		current -= finalDamage;

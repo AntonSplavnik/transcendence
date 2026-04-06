@@ -175,7 +175,7 @@ inline void CombatSystem::processInputAttacks() {
 
 			fprintf(stderr, "[COMBAT] ATTACK  entity=%u  chain_stage=%d  range=%.1f  dmg_mul=%.2f  base_dmg=%.1f\n",
 				static_cast<unsigned>(entity), comcon.chainStage,
-				stage.range, stage.damageMultiplier, comcon.baseDamage);
+				static_cast<double>(stage.range), static_cast<double>(stage.damageMultiplier), static_cast<double>(comcon.baseDamage));
 
 			comcon.startAttack();
 			comcon.hitPending = true;   // hit lands at swing end, not swing start
@@ -190,7 +190,7 @@ inline void CombatSystem::processInputAttacks() {
 		// ── Ability 1 ─────────────────────────────────────────────────────
 		if (charcon.input.isUsingAbility1 && comcon.canUseAbility1()) {
 			fprintf(stderr, "[COMBAT] ABILITY1 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), comcon.ability1.timer);
+				static_cast<unsigned>(entity), static_cast<double>(comcon.ability1.timer));
 			executeSkill(comcon.ability1, ctx);
 			comcon.useAbility1();
 			charcon.setState(CharacterState::Casting);
@@ -200,7 +200,7 @@ inline void CombatSystem::processInputAttacks() {
 		// ── Ability 2 ─────────────────────────────────────────────────────
 		if (charcon.input.isUsingAbility2 && comcon.canUseAbility2()) {
 			fprintf(stderr, "[COMBAT] ABILITY2 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), comcon.ability2.timer);
+				static_cast<unsigned>(entity), static_cast<double>(comcon.ability2.timer));
 			executeSkill(comcon.ability2, ctx);
 			comcon.useAbility2();
 			charcon.setState(CharacterState::Casting);
@@ -223,7 +223,7 @@ inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dm
 			float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
 			fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
 				static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
-				dist, dmg);
+				static_cast<double>(dist), static_cast<double>(dmg));
 			ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
 		}
 	});
@@ -249,7 +249,7 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
 		fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
 			static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
-			dist, dmg);
+			static_cast<double>(dist), static_cast<double>(dmg));
 		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
 	});
 }
@@ -282,9 +282,9 @@ inline void CombatSystem::processDamage() {
 		fprintf(stderr, "[COMBAT] attacker=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f%s\n",
 			static_cast<unsigned>(hit.attacker),
 			static_cast<unsigned>(hit.victim),
-			hit.damage,
-			actualDamage,
-			hpBefore, hpAfter, health->maximum,
+			static_cast<double>(hit.damage),
+			static_cast<double>(actualDamage),
+			static_cast<double>(hpBefore), static_cast<double>(hpAfter), static_cast<double>(health->maximum),
 			health->isAlive() ? "" : "  DEAD");
 
 		if (trackStats) {

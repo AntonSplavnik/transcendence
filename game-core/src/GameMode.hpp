@@ -145,7 +145,7 @@ public:
 		});
 
 		for (int i = 0; i < static_cast<int>(ranked.size()); i++)
-			stats.playerStats[ranked[i].first].placement = i + 1;
+			stats.playerStats[ranked[static_cast<size_t>(i)].first].placement = i + 1;
 	}
 
 	void tick(float dt,

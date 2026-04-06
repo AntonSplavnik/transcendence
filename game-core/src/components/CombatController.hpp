@@ -71,7 +71,7 @@ struct CombatController {
 
 	// Returns the stage that fires on the next attack input.
 	const AttackStage& currentStage() const {
-		return attackChain[chainStage];
+		return attackChain[static_cast<size_t>(chainStage)];
 	}
 
 	// Ready to accept an attack input — not mid-swing and attacks are enabled.
@@ -88,7 +88,7 @@ struct CombatController {
 	void startAttack() {
 		fprintf(stderr, "[CHAIN] startAttack  stage=%d/%d  duration=%.2f  range=%.1f  window=%.2f\n",
 			chainStage, static_cast<int>(attackChain.size()) - 1,
-			currentStage().duration, currentStage().range, currentStage().chainWindow);
+			static_cast<double>(currentStage().duration), static_cast<double>(currentStage().range), static_cast<double>(currentStage().chainWindow));
 		isAttacking = true;
 		swingTimer  = 0.0f;
 		chainTimer  = 0.0f;  // player acted in time — reset window clock
@@ -99,7 +99,7 @@ struct CombatController {
 	// Called by CombatSystem once per successful hit, not per frame.
 	void advanceChain() {
 		const bool lastStage = (chainStage + 1 >= static_cast<int>(attackChain.size()));
-		const bool chainEnds = lastStage || attackChain[chainStage].chainWindow <= 0.0f;
+		const bool chainEnds = lastStage || attackChain[static_cast<size_t>(chainStage)].chainWindow <= 0.0f;
 
 		int prevStage = chainStage;
 		chainStage = chainEnds ? 0 : chainStage + 1;
@@ -132,7 +132,7 @@ struct CombatController {
 		// Advance chain window — break chain if player is too slow
 		if (chainStage > 0) {
 			chainTimer += deltaTime;
-			const float window = attackChain[chainStage - 1].chainWindow;
+			const float window = attackChain[static_cast<size_t>(chainStage - 1)].chainWindow;
 			if (chainTimer > window) {
 				chainStage = 0;
 				chainTimer = 0.0f;

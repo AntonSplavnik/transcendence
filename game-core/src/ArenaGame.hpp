@@ -179,7 +179,7 @@ inline void ArenaGame::update() {
 
         m_accumulator -= GameConfig::FIXED_TIMESTEP;
         m_frameNumber++;
-        m_gameTime += GameConfig::FIXED_TIMESTEP;
+        m_gameTime += static_cast<double>(GameConfig::FIXED_TIMESTEP);
         iterations++;
     }
 
@@ -283,13 +283,13 @@ inline void ArenaGame::initializeSpawnPositions(int numPlayers) {
     // Divide the full circle equally among the given number of players.
     const float radius = GameConfig::ARENA_WIDTH * 0.35f;  // 35% of arena width (~17.5 units)
     const int numSpawns = numPlayers > 0 ? numPlayers : GameConfig::MAX_PLAYERS;
-    const float angleStep = 2.0f * 3.14159265359f / numSpawns;
+    const float angleStep = 2.0f * 3.14159265359f / static_cast<float>(numSpawns);
 
     m_spawnPositions.clear();
-    m_spawnPositions.reserve(numSpawns);
+    m_spawnPositions.reserve(static_cast<size_t>(numSpawns));
 
     for (int i = 0; i < numSpawns; ++i) {
-        float angle = i * angleStep;
+        float angle = static_cast<float>(i) * angleStep;
         float x = radius * std::cos(angle);
         float z = radius * std::sin(angle);
         m_spawnPositions.push_back(Vector3D(x, GameConfig::GROUND_Y, z));
