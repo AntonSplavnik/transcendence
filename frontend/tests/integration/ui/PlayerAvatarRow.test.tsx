@@ -35,7 +35,7 @@ describe('PlayerAvatarRow', () => {
 		expect(screen.getByText(/2 ready/i)).toBeInTheDocument();
 	});
 
-	it('applies gold border to host avatar', () => {
+	it('marks host avatar with data-ready-state="host"', () => {
 		const players = makePlayers([[1, { nickname: 'Anton', ready: true }]]);
 		const { container } = render(
 			<PlayerAvatarRow players={players} hostId={1} />,
@@ -43,10 +43,10 @@ describe('PlayerAvatarRow', () => {
 		);
 
 		const avatarDiv = container.querySelector('[data-testid="avatar-1"]');
-		expect(avatarDiv).toHaveClass('border-gold-400');
+		expect(avatarDiv).toHaveAttribute('data-ready-state', 'host');
 	});
 
-	it('applies success border to ready non-host player', () => {
+	it('marks ready non-host avatar with data-ready-state="ready"', () => {
 		const players = makePlayers([[2, { nickname: 'Bob', ready: true }]]);
 		const { container } = render(
 			<PlayerAvatarRow players={players} hostId={1} />,
@@ -54,10 +54,10 @@ describe('PlayerAvatarRow', () => {
 		);
 
 		const avatarDiv = container.querySelector('[data-testid="avatar-2"]');
-		expect(avatarDiv).toHaveClass('border-success');
+		expect(avatarDiv).toHaveAttribute('data-ready-state', 'ready');
 	});
 
-	it('applies warning border to not-ready player', () => {
+	it('marks not-ready avatar with data-ready-state="waiting"', () => {
 		const players = makePlayers([[2, { nickname: 'Bob', ready: false }]]);
 		const { container } = render(
 			<PlayerAvatarRow players={players} hostId={1} />,
@@ -65,6 +65,6 @@ describe('PlayerAvatarRow', () => {
 		);
 
 		const avatarDiv = container.querySelector('[data-testid="avatar-2"]');
-		expect(avatarDiv).toHaveClass('border-warning');
+		expect(avatarDiv).toHaveAttribute('data-ready-state', 'waiting');
 	});
 });
