@@ -1,25 +1,28 @@
-import {
-	Check,
-	ChevronLeft,
-	ChevronRight,
-	Clock,
-	Copy,
-	Crown,
-	LogOut,
-	Pencil,
-	Users,
-	X,
-} from 'lucide-react';
+import { Check, ChevronLeft, Clock, Copy, Crown, LogOut, Pencil, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
-import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
-import type { GameMode } from '../stream/types';
-import type { CharacterChoice } from './ui';
-import { Badge, Button, Card, CharacterPicker, Input } from './ui';
+import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import type { CharacterChoice } from '../components/ui';
+import {
+	Badge,
+	Button,
+	CharacterSelector,
+	Input,
+	PlayerAvatarRow,
+} from './ui';
+
+// ─── Game modes ───────────────────────────────────────────────────────────────
+
+const GAME_MODES = [
+	{ id: 'deathmatch', label: 'Deathmatch' },
+	{ id: 'last_standing', label: 'Last Standing' },
+	{ id: 'wave_survival', label: 'Wave Survival' },
+	{ id: 'team_deathmatch', label: 'Team Deathmatch' },
+] as const;
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
 
@@ -61,10 +64,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	return (
 		<div className="space-y-3">
 			{error && (
-				<p
-					className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2"
-					role="alert"
-				>
+				<p className="text-sm text-danger-light rounded bg-danger/10 px-3 py-2" role="alert">
 					{error}
 				</p>
 			)}
@@ -83,9 +83,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				/>
 				<span className="text-sm text-stone-300 group-hover:text-stone-100 transition-colors">
 					Make lobby public{' '}
-					<span className="text-xs text-stone-500">
-						(visible in lobby list — cannot be undone)
-					</span>
+					<span className="text-xs text-stone-500">(cannot be undone)</span>
 				</span>
 			</label>
 			<div className="flex gap-2 pt-1">
@@ -106,100 +104,15 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	);
 }
 
-// ─── Game Mode Picker ─────────────────────────────────────────────────────────
-
-const GAME_MODES = [
-	{ id: 'Deathmatch', label: 'Deathmatch', description: 'Free for all — most kills wins' },
-	{ id: 'LastStanding', label: 'Last Standing', description: 'Survive while others fall' },
-	{ id: 'WaveSurvival', label: 'Wave Survival', description: 'Hold out against enemy waves' },
-	{ id: 'TeamDeathmatch', label: 'Team Deathmatch', description: 'Coordinate and eliminate' },
-] as const;
-
-interface GameModePickerProps {
-	current: GameMode | null;
-	canEdit: boolean;
-	onSelect: (modeId: GameMode) => Promise<void>;
-}
-
-function GameModePicker({ current, canEdit, onSelect }: GameModePickerProps) {
-	const [isSaving, setIsSaving] = useState(false);
-	const currentIndex = GAME_MODES.findIndex((m) => m.id === current);
-	const mode = currentIndex >= 0 ? GAME_MODES[currentIndex] : null;
-
-	const navigate = (dir: 1 | -1) => {
-		if (isSaving) return;
-		const next =
-			currentIndex < 0
-				? dir === 1
-					? 0
-					: GAME_MODES.length - 1
-				: (currentIndex + dir + GAME_MODES.length) % GAME_MODES.length;
-		setIsSaving(true);
-		void onSelect(GAME_MODES[next].id).finally(() => setIsSaving(false));
-	};
-
-	return (
-		<section aria-label="Game mode selection" className="mb-4">
-			<h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
-				Game Mode
-			</h2>
-			<div className="flex items-center gap-2">
-				{canEdit && (
-					<button
-						type="button"
-						onClick={() => navigate(-1)}
-						disabled={isSaving}
-						aria-label="Previous game mode"
-						className="shrink-0 p-1.5 rounded-lg border border-stone-700 bg-stone-900/60 text-stone-400 hover:text-stone-200 hover:border-stone-500 disabled:opacity-40 transition-colors"
-					>
-						<ChevronLeft className="w-4 h-4" />
-					</button>
-				)}
-
-				<div
-					className={`flex-1 rounded-lg border-2 bg-stone-900/60 px-4 py-3 text-center transition-all duration-200 ${
-						mode
-							? 'border-gold-400 shadow-[0_0_12px_1px_rgba(217,119,6,0.25)]'
-							: 'border-stone-700'
-					}`}
-				>
-					{mode ? (
-						<>
-							<p className="text-sm font-semibold text-gold-400 tracking-wide">
-								{mode.label}
-							</p>
-							<p className="text-xs text-stone-400 mt-0.5">{mode.description}</p>
-						</>
-					) : (
-						<p className="text-sm text-stone-500 italic">No mode selected</p>
-					)}
-				</div>
-
-				{canEdit && (
-					<button
-						type="button"
-						onClick={() => navigate(1)}
-						disabled={isSaving}
-						aria-label="Next game mode"
-						className="shrink-0 p-1.5 rounded-lg border border-stone-700 bg-stone-900/60 text-stone-400 hover:text-stone-200 hover:border-stone-500 disabled:opacity-40 transition-colors"
-					>
-						<ChevronRight className="w-4 h-4" />
-					</button>
-				)}
-			</div>
-		</section>
-	);
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LobbyPage() {
 	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
 
-	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const codeCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 	const [isLeaving, setIsLeaving] = useState(false);
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
@@ -214,10 +127,9 @@ export default function LobbyPage() {
 		void setCharacter(char);
 	};
 
-	// Restore stored character preference to server once on mount (when a player).
 	useEffect(() => {
 		if (lobbyState.status !== 'active' || lobbyState.gameActive) return;
-		if (user && !lobbyState.players.has(user.id)) return; // spectator
+		if (user && !lobbyState.players.has(user.id)) return;
 		void setCharacter(selectedCharacter);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -282,15 +194,14 @@ export default function LobbyPage() {
 		}, 2500);
 	};
 
-	// Show last 4 chars of the 26-char ULID; pad with bullets to total 12 display chars.
 	const SUFFIX_LEN = 4;
 	const DISPLAY_LEN = 12;
 	const maskedCode = '•'.repeat(DISPLAY_LEN - SUFFIX_LEN) + lobbyId.slice(-SUFFIX_LEN);
 
 	return (
-		<main className="p-6 max-w-2xl mx-auto w-full">
-			{/* Back navigation — goes to /home without leaving the lobby */}
-			<div className="mb-4">
+		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ minHeight: '100vh', zoom: 1.12 }}>
+			{/* Back link */}
+			<div className="px-6 pt-4">
 				<Link
 					to="/home"
 					className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-200 transition-colors"
@@ -300,190 +211,157 @@ export default function LobbyPage() {
 				</Link>
 			</div>
 
-			<Card variant="elevated">
-				{/* Header */}
-				<div className="flex items-start justify-between mb-6">
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2">
-							<h1 className="text-2xl font-bold text-stone-50 truncate">
-								{settings.name}
-							</h1>
-							{canEditSettings && (
-								<button
-									onClick={() => setShowSettings((s) => !s)}
-									className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
-									aria-label={
-										showSettings
-											? 'Cancel editing settings'
-											: 'Edit lobby settings'
-									}
-									title={showSettings ? 'Cancel edit' : 'Edit settings'}
-								>
-									<Pencil className="w-4 h-4" aria-hidden="true" />
-								</button>
-							)}
-						</div>
-
-						<p className="text-stone-400 text-sm mt-0.5">
-							{settings.public ? (
-								<Badge variant="info" size="sm">
-									Public
-								</Badge>
-							) : (
-								<Badge variant="neutral" size="sm">
-									Private
-								</Badge>
-							)}
-						</p>
-
-						{/* Masked lobby code with copy button */}
-						<div className="mt-1.5 flex items-center gap-1">
-							<span
-								className="font-mono text-xs text-stone-500 tracking-wider select-none"
-								title="Click the copy icon to copy the full lobby code"
-								aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}
-							>
-								{maskedCode}
-							</span>
+			{/* ── Top bar ──────────────────────────────────────────────────── */}
+			<div className="flex items-center justify-between gap-6 px-6 py-3 bg-stone-900 border-b border-stone-800 mt-3 rounded-t-xl">
+				{/* Left: name + code */}
+				<div className="flex flex-col gap-1 min-w-0 shrink-0">
+					<div className="flex items-center gap-2">
+						<h1 className="text-lg font-bold text-stone-50 truncate">{settings.name}</h1>
+						{canEditSettings && (
 							<button
-								onClick={copyCode}
-								className="p-0.5 rounded text-stone-500 hover:text-stone-300 transition-colors"
-								aria-label={
-									codeCopied ? 'Lobby code copied' : 'Copy full lobby code'
-								}
-								title={codeCopied ? 'Copied!' : 'Copy lobby code'}
+								onClick={() => setShowSettings((s) => !s)}
+								className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
+								aria-label={showSettings ? 'Cancel editing settings' : 'Edit lobby settings'}
 							>
-								{codeCopied ? (
-									<Check
-										className="w-3.5 h-3.5 text-success"
-										aria-hidden="true"
-									/>
-								) : (
-									<Copy className="w-3.5 h-3.5" aria-hidden="true" />
-								)}
+								<Pencil className="w-3.5 h-3.5" aria-hidden="true" />
 							</button>
-							{codeCopied && (
-								<span className="text-xs text-success" aria-live="polite">
-									Copied!
-								</span>
-							)}
-						</div>
-					</div>
-
-					<div className="flex flex-col items-end gap-2 shrink-0 ml-4">
-						{gameActive && (
-							<Badge variant="success" dot>
-								Game in progress
-							</Badge>
 						)}
-						{!gameActive && secondsLeft !== null && (
-							<div
-								className="flex items-center gap-1 text-gold-400"
-								aria-label={`Game starts in ${secondsLeft} seconds`}
-							>
-								<Clock className="w-4 h-4" aria-hidden="true" />
-								<span className="text-lg font-bold tabular-nums">
-									{secondsLeft}s
-								</span>
-							</div>
+						{settings.public ? (
+							<Badge variant="info" size="sm">Public</Badge>
+						) : (
+							<Badge variant="neutral" size="sm">Private</Badge>
+						)}
+						{gameActive && (
+							<Badge variant="success" dot>Game in progress</Badge>
+						)}
+					</div>
+					<div className="flex items-center gap-1">
+						<span
+							className="font-mono text-xs text-stone-600 tracking-wider select-none"
+							aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}
+						>
+							{maskedCode}
+						</span>
+						<button
+							onClick={copyCode}
+							className="p-0.5 rounded text-stone-600 hover:text-stone-300 transition-colors"
+							aria-label={codeCopied ? 'Lobby code copied' : 'Copy full lobby code'}
+						>
+							{codeCopied ? (
+								<Check className="w-3 h-3 text-success" aria-hidden="true" />
+							) : (
+								<Copy className="w-3 h-3" aria-hidden="true" />
+							)}
+						</button>
+						{codeCopied && (
+							<span className="text-xs text-success" aria-live="polite">Copied!</span>
 						)}
 					</div>
 				</div>
 
-				{/* Settings editor (host only, private lobby only) */}
-				{showSettings && canEditSettings && (
-					<div className="mb-5 rounded-lg border border-stone-700 bg-stone-900/50 p-4">
-						<h2 className="text-sm font-semibold text-stone-300 mb-3">Edit Settings</h2>
-						<SettingsForm
-							settings={settings}
-							onSave={updateSettings}
-							onCancel={() => setShowSettings(false)}
-						/>
-					</div>
-				)}
-
-				{/* Game mode picker */}
-				{!gameActive && (
-					<GameModePicker
-						current={settings.gamemode}
-						canEdit={isHost}
-						onSelect={(modeId) => updateSettings({ gamemode: modeId })}
-					/>
-				)}
-
-				{/* Player list */}
-				<section aria-label="Players" className="mb-4">
-					<h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-400">
-						<Users className="w-3.5 h-3.5" aria-hidden="true" />
-						Players ({players.size})
-					</h2>
-					{players.size === 0 ? (
-						<p className="text-sm text-stone-500 italic">No players yet.</p>
+				{/* Center: countdown when all ready, otherwise player avatars */}
+				<div className="flex-1 flex justify-center items-center">
+					{secondsLeft !== null ? (
+						<div className="flex flex-col items-center gap-1">
+							<span className="text-[8px] text-amber-700 uppercase tracking-widest">
+								{players.size} / {players.size} players ready
+							</span>
+							<div className="flex items-baseline gap-1.5">
+								<span className="text-2xl font-black text-gold-400 tabular-nums leading-none">
+									{secondsLeft}s
+								</span>
+								<span className="text-[9px] text-stone-600 tracking-wide">until game starts</span>
+							</div>
+						</div>
+					) : players.size > 0 ? (
+						<PlayerAvatarRow players={players} hostId={hostId} />
 					) : (
-						<ul className="space-y-1.5">
-							{[...players.entries()].map(([uid, p]) => (
-								<li
-									key={uid}
-									className="flex items-center justify-between rounded-lg bg-stone-800/50 px-3 py-2"
-								>
-									<span className="flex items-center gap-2 text-sm text-stone-200">
-										{uid === hostId && (
-											<Crown
-												className="w-3.5 h-3.5 text-gold-400 shrink-0"
-												aria-label="Host"
-											/>
-										)}
-										{p.nickname}
-										{user && uid === user.id && (
-											<span className="text-xs text-stone-500">(you)</span>
-										)}
-									</span>
-									{!gameActive && (
-										<Badge variant={p.ready ? 'success' : 'warning'} size="sm">
-											{p.ready ? 'Ready' : 'Not ready'}
-										</Badge>
-									)}
-								</li>
-							))}
-						</ul>
+						<span className="text-sm text-stone-500 italic">No players yet.</span>
 					)}
-				</section>
+					{spectators.size > 0 && secondsLeft === null && (
+						<span className="text-xs text-stone-500 ml-4 self-center">
+							+{spectators.size} spectator{spectators.size !== 1 ? 's' : ''}
+						</span>
+					)}
+				</div>
 
-				{/* Spectators */}
-				{spectators.size > 0 && (
-					<p className="mb-4 text-sm text-stone-400">
-						{spectators.size} spectator{spectators.size !== 1 ? 's' : ''} watching
-					</p>
-				)}
-
-				{/* Character selection */}
-				{isPlayer && !gameActive && (
-					<CharacterPicker value={selectedCharacter} onChange={handleCharacterChange} />
-				)}
-
-				{/* Actions */}
-				<div className="flex gap-3 border-t border-stone-700 pt-4">
+				{/* Right: actions */}
+				<div className="flex gap-2 shrink-0">
 					{isPlayer && !gameActive && (
 						<Button
 							variant={myPlayer.ready ? 'secondary' : 'primary'}
+							size="sm"
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
-							fullWidth
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>
 					)}
 					<Button
 						variant="danger"
+						size="sm"
 						onClick={() => void handleLeave()}
 						loading={isLeaving}
 						icon={<LogOut className="w-4 h-4" aria-hidden="true" />}
-						fullWidth={!isPlayer || gameActive}
 					>
 						Leave
 					</Button>
 				</div>
-			</Card>
+			</div>
+
+			{/* Settings editor (host only) */}
+			{showSettings && canEditSettings && (
+				<div className="px-6 py-3 bg-stone-900/50 border-b border-stone-800">
+					<SettingsForm
+						settings={settings}
+						onSave={updateSettings}
+						onCancel={() => setShowSettings(false)}
+					/>
+				</div>
+			)}
+
+			{/* ── Game mode row ─────────────────────────────────────────────── */}
+			{!gameActive && (
+				<div className="flex items-center gap-3 px-6 py-2 bg-stone-950 border-b border-stone-800">
+					<span className="text-[9px] text-stone-500 uppercase tracking-widest shrink-0">
+						Game Mode
+					</span>
+					<div className="flex gap-2 flex-wrap">
+						{GAME_MODES.map((mode) => {
+							const active = settings.gamemode === mode.id;
+							return (
+								<button
+									key={mode.id}
+									type="button"
+									disabled={!isHost}
+									onClick={() => {
+										if (isHost) void updateSettings({ gamemode: mode.id });
+									}}
+									className={`px-3 py-1 rounded-md border text-xs font-medium transition-all duration-150 ${
+										active
+											? 'border-gold-400 bg-gold-400/10 text-gold-400'
+											: isHost
+												? 'border-stone-700 text-stone-500 hover:border-stone-500 hover:text-stone-300 cursor-pointer'
+												: 'border-stone-800 text-stone-600 cursor-default'
+									}`}
+								>
+									{mode.label}
+								</button>
+							);
+						})}
+					</div>
+				</div>
+			)}
+
+			{/* ── Character selector ────────────────────────────────────────── */}
+			{isPlayer && !gameActive && (
+				<div className="flex-1 flex min-h-0" style={{ minHeight: '480px' }}>
+					<CharacterSelector
+						value={selectedCharacter}
+						onChange={handleCharacterChange}
+					/>
+				</div>
+			)}
 		</main>
 	);
 }
