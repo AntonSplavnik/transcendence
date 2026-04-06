@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Clock, Copy, Crown, LogOut, Pencil, X } from 'lucide-react';
+import { Check, ChevronLeft, Copy, LogOut, Pencil, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
