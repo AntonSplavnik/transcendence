@@ -23,6 +23,11 @@ export interface ModelPreviewProps {
 	/** Rotation speed in radians per frame. 0 to disable. Defaults to 0.008. */
 	rotationSpeed?: number;
 	/**
+	 * When true the WebGL canvas is rendered with a transparent background so the
+	 * parent element's CSS background shows through.
+	 */
+	transparent?: boolean;
+	/**
 	 * When true, the user can drag horizontally on the canvas to rotate the model.
 	 * Auto-rotation pauses while dragging and resumes 1.5s after the drag ends.
 	 */
@@ -43,6 +48,7 @@ export default function ModelPreview({
 	bgColor = '#582880',
 	rotationSpeed = 0.008,
 	draggable = false,
+	transparent = false,
 }: ModelPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -50,10 +56,10 @@ export default function ModelPreview({
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
-		const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+		const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, alpha: transparent });
 		const scene = new Scene(engine);
 
-		scene.clearColor = hexToColor4(bgColor);
+		scene.clearColor = transparent ? new Color4(0, 0, 0, 0) : hexToColor4(bgColor);
 
 		const camera = new UniversalCamera('cam', new Vector3(0, 1.0, 3.5), scene);
 		camera.setTarget(new Vector3(0, 0.7, 0));
@@ -154,7 +160,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable]);
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent]);
 
 	return (
 		<canvas

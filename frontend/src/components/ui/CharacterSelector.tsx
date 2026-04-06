@@ -19,19 +19,42 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 
 			{/* Center: 3D preview */}
 			<div
-				className="flex flex-col bg-stone-950 overflow-hidden"
-				style={{ flex: '12 1 0%' }}
+				className="flex flex-col overflow-hidden"
+				style={{
+					flex: '12 1 0%',
+					background: cfg
+						? `radial-gradient(ellipse at 50% 30%, ${cfg.previewBgColor}30 0%, ${cfg.previewBgColor}08 45%, #070b0a 70%)`
+						: '#070b0a',
+					transition: 'background 0.4s ease',
+				}}
 			>
 				<div className="flex-1 min-h-0 relative">
 					{cfg && (
-						<ModelPreview
-							key={value}
-							modelUrl={cfg.model}
-							characterConfig={cfg}
-							bgColor={cfg.previewBgColor}
-							rotationSpeed={0.006}
-							draggable
-						/>
+						<>
+							<ModelPreview
+								key={value}
+								modelUrl={cfg.model}
+								characterConfig={cfg}
+								bgColor={cfg.previewBgColor}
+								rotationSpeed={0.006}
+								draggable
+								transparent
+							/>
+							{/* Floor glow */}
+							<div
+								style={{
+									position: 'absolute',
+									bottom: '19%',
+									left: '50%',
+									transform: 'translateX(-50%)',
+									width: '48%',
+									height: '16px',
+									background: `radial-gradient(ellipse, ${cfg.previewBgColor}cc 0%, transparent 70%)`,
+									filter: 'blur(10px)',
+									pointerEvents: 'none',
+								}}
+							/>
+						</>
 					)}
 				</div>
 				<p className="shrink-0 py-2 text-center text-[10px] text-stone-700 tracking-wider select-none">
