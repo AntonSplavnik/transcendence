@@ -25,6 +25,7 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 				<div className="flex-1 min-h-0 relative">
 					{cfg && (
 						<ModelPreview
+							key={value}
 							modelUrl={cfg.model}
 							characterConfig={cfg}
 							bgColor={cfg.previewBgColor}

@@ -4,7 +4,7 @@ import {
 	Engine,
 	HemisphericLight,
 	Scene,
-	SceneLoader,
+	ImportMeshAsync,
 	TransformNode,
 	UniversalCamera,
 	Vector3,
@@ -55,7 +55,7 @@ export default function ModelPreview({
 
 		scene.clearColor = hexToColor4(bgColor);
 
-		const camera = new UniversalCamera('cam', new Vector3(0, 1.0, 2.5), scene);
+		const camera = new UniversalCamera('cam', new Vector3(0, 1.0, 3.5), scene);
 		camera.setTarget(new Vector3(0, 0.7, 0));
 		camera.minZ = 0.1;
 
@@ -80,13 +80,14 @@ export default function ModelPreview({
 				animationSets: [characterConfig.animationSets[0]],
 			};
 			const char = new AnimatedCharacter(scene);
+			char.rootNode.scaling.setAll(0);
 			loadCharacter(char, previewConfig).then(() => {
 				char.rootNode.scaling.setAll(0.6);
 				char.playAnimation(characterConfig.idleAnimation, true);
 				rootNode = char.rootNode;
 			});
 		} else {
-			SceneLoader.ImportMeshAsync('', '', modelUrl, scene).then((result) => {
+			ImportMeshAsync(modelUrl, scene).then((result) => {
 				const root = new TransformNode('modelRoot', scene);
 				result.meshes.forEach((mesh) => {
 					if (!mesh.parent) mesh.parent = root;
@@ -117,7 +118,7 @@ export default function ModelPreview({
 			if (!isDragging || !rootNode) return;
 			const delta = e.clientX - lastX;
 			lastX = e.clientX;
-			rootNode.rotation.y += delta * SENSITIVITY;
+			rootNode.rotation.y -= delta * SENSITIVITY;
 		};
 
 		const stopDrag = () => {
@@ -159,6 +160,8 @@ export default function ModelPreview({
 		<canvas
 			ref={canvasRef}
 			style={{
+				position: 'absolute',
+				inset: 0,
 				width: '100%',
 				height: '100%',
 				display: 'block',
