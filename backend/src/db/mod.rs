@@ -132,7 +132,7 @@ impl salvo::oapi::EndpointArgRegister for Db {
 pub trait DepotDatabaseExt {
     /// Retrieve a reference to the injected database.
     ///
-    /// Panics if the database is not present in the depot. Make sure to inject it in the router with affix_state::inject or similar.
+    /// Panics if the database is not present in the depot. Make sure to inject it in the router with `affix_state::inject` or similar.
     fn db(&self) -> &Db;
 }
 
@@ -183,6 +183,8 @@ mod tests {
         let mut handles = Vec::new();
         for i in 0..N {
             let db_clone = db.clone();
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            // i is 0..100, safely fits in u8
             let value = vec![i as u8; 20000]; // arbitrary data to write
             let barrier_clone = barrier.clone();
             let handle = tokio::spawn(async move {

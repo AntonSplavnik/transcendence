@@ -7,7 +7,7 @@ use salvo::test::ResponseExt;
 // ── Ergonomic helpers on mock::User ──────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
-    /// POST /api/friends/request by user_id — asserts 200, returns parsed response.
+    /// POST /api/friends/request by `user_id` — asserts 200, returns parsed response.
     pub async fn send_friend_request_to(&mut self, target_id: i32) -> FriendRequestResponse {
         let input = SendFriendRequestInput {
             user_id: Some(target_id),
@@ -68,9 +68,7 @@ async fn send_request_by_nickname_succeeds() {
     let mut alice = server.user().register().await;
     let bob = server.user().register().await;
 
-    let res = alice
-        .send_friend_request_to_nick(bob.nickname.clone())
-        .await;
+    let res = alice.send_friend_request_to_nick(bob.nickname).await;
 
     assert_eq!(res.sender.id, alice.user_id());
     assert_eq!(res.receiver.id, bob.user_id());
@@ -80,7 +78,7 @@ async fn send_request_by_nickname_succeeds() {
 #[tokio::test]
 async fn send_request_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.post("/api/friends/request"))
         .await;
 }

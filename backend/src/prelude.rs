@@ -8,6 +8,7 @@ pub use validator::Validate;
 
 pub use crate::auth::{DepotAuthExt as _, RouterAuthExt as _};
 pub use crate::db::{self, Database, Db, DbConn, DbError, DepotDatabaseExt as _};
+pub use crate::email::{DepotEmailExt as _, Mailer};
 pub use crate::error::ApiError;
 pub use crate::game::GameManagerDepotExt as _;
 pub use crate::notifications::NotificationManagerDepotExt as _;

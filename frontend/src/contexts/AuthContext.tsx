@@ -28,6 +28,7 @@ interface AuthContextType {
 	 * prompt before we know whether acceptance is actually needed.
 	 */
 	tosLoaded: boolean;
+	isEmailConfirmed: boolean;
 	login: (email: string, password: string, mfaCode?: string) => Promise<void>;
 	register: (nickname: string, email: string, password: string, tos: boolean) => Promise<void>;
 	reauth: (password: string, mfa_code?: string) => Promise<void>;
@@ -204,6 +205,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setAuthData(data);
 	};
 
+	const isEmailConfirmed = user?.email_confirmed_at != null;
+
 	return (
 		<AuthContext.Provider
 			value={{
@@ -213,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				hasAcceptedTos,
 				tosLoaded: tosTimestamp !== null || tosRequired,
 				acceptTos,
+				isEmailConfirmed,
 				login,
 				register,
 				reauth,

@@ -127,7 +127,7 @@ where
         let blob = bytes.read_blob();
         let value = ciborium::from_reader(blob)
             .map_err(|e| format!("CborBlob deserialization failed: {e}"))?;
-        Ok(CborBlob(value))
+        Ok(Self(value))
     }
 }
 
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn debug_delegates() {
         let blob = CborBlob::new(TestEnum::Foo { x: 99 });
-        let dbg = format!("{:?}", blob);
+        let dbg = format!("{blob:?}");
         assert!(dbg.contains("Foo"));
         assert!(dbg.contains("99"));
     }

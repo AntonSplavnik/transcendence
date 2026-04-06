@@ -5,7 +5,7 @@
 //! - Large: 450x450 pixels (~12kb)
 //! - Small: 200x200 pixels (~4kb)
 //!
-//! Images are stored in SQLite for transactional consistency.
+//! Images are stored in `SQLite` for transactional consistency.
 //! Small avatars are cached in memory for fast retrieval.
 
 pub mod cache;

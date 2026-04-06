@@ -87,7 +87,7 @@ async fn get_me(depot: &mut Depot, db: Db) -> JsonResult<UserSessionInfo> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct UpdateDescriptionInput {
+pub struct UpdateDescriptionInput {
     #[validate(custom(function = "crate::validate::description"))]
     pub description: String,
 }
@@ -122,7 +122,7 @@ async fn update_description(
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct ChangePasswordInput {
+pub struct ChangePasswordInput {
     pub password: String,
     #[serde(default)]
     pub mfa_code: Option<String>,
@@ -199,7 +199,7 @@ async fn logout(depot: &mut Depot, res: &mut Response, db: Db) -> JsonResult<()>
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub(crate) struct SessionsInput {
+pub struct SessionsInput {
     pub password: String,
     #[serde(default)]
     pub mfa_code: Option<String>,
@@ -292,7 +292,7 @@ pub struct SessionInfo {
 
 impl From<&Session> for SessionInfo {
     fn from(session: &Session) -> Self {
-        SessionInfo {
+        Self {
             session_id: session.id,
             user_id: session.user_id,
             device_name: session.device_name.clone(),
@@ -333,7 +333,7 @@ pub async fn all_sessions(
     let user_id_value = session.user_id;
 
     let user_sessions = db
-        .read(move |conn| {
+        .write(move |conn| {
             util::check_password_and_mfa_if_enabled(
                 user_id_value,
                 &password,
@@ -452,7 +452,7 @@ fn deauth_sessions(
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub(crate) struct TwoFaStartInput {
+pub struct TwoFaStartInput {
     pub password: String,
 }
 
@@ -494,8 +494,7 @@ async fn two_fa_start(
             let url = totp.get_url();
             let qr_base64 = totp.get_qr_base64().map_err(|err| {
                 ApiError::TwoFa(TwoFactorError::Internal(format!(
-                    "Failed to generate QR code: {}",
-                    err
+                    "Failed to generate QR code: {err}"
                 )))
             })?;
 
@@ -526,7 +525,7 @@ async fn two_fa_start(
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub(crate) struct TwoFaConfirmInput {
+pub struct TwoFaConfirmInput {
     pub password: String,
     pub code: String,
 }
@@ -566,8 +565,7 @@ async fn two_fa_confirm(
             let totp = two_factor::totp_for_user(&user, secret_raw);
             let ok = totp.check_current(&code).map_err(|err| {
                 ApiError::TwoFa(TwoFactorError::Internal(format!(
-                    "Failed to validate TOTP code (Time went backwards): {}",
-                    err
+                    "Failed to validate TOTP code (Time went backwards): {err}"
                 )))
             })?;
 
@@ -604,7 +602,7 @@ async fn two_fa_confirm(
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub(crate) struct TwoFaDisableInput {
+pub struct TwoFaDisableInput {
     pub password: String,
     pub mfa_code: String,
 }

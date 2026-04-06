@@ -5,7 +5,7 @@ use salvo::http::StatusCode;
 // ── Ergonomic helpers on mock::User ──────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
-    /// DELETE /api/friends/remove/{user_id} — asserts 200.
+    /// DELETE /`api/friends/remove/{user_id`} — asserts 200.
     pub async fn remove_friend(&mut self, friend_id: i32) {
         let res = self.try_remove_friend(friend_id).await;
         assert_eq!(
@@ -15,7 +15,7 @@ impl mock::User<mock::Registered> {
         );
     }
 
-    /// DELETE /api/friends/remove/{user_id} — returns raw response without asserting.
+    /// DELETE /`api/friends/remove/{user_id`} — returns raw response without asserting.
     pub async fn try_remove_friend(&mut self, friend_id: i32) -> salvo::Response {
         let req = self
             .client
@@ -49,7 +49,7 @@ async fn remove_friend_succeeds() {
 #[tokio::test]
 async fn remove_friend_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.delete("/api/friends/remove/1"))
         .await;
 }

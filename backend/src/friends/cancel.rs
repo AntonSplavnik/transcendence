@@ -1,4 +1,4 @@
-//! DELETE /api/friends/request/{request_id} - Cancel a friend request
+//! DELETE /`api/friends/request/{request_id`} - Cancel a friend request
 
 use crate::error::FriendError;
 use crate::notifications::NotificationPayload;

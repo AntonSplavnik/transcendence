@@ -31,7 +31,7 @@ impl NickGenerator {
         let mut nickname = WritableVarBlob::<NICK_MAX_LEN, Str>::new();
         for i in 0..self.len {
             nickname
-                .write(&[NICK_CHARSET[self.indices[i]]])
+                .write_all(&[NICK_CHARSET[self.indices[i]]])
                 .expect("writing nickname bytes should not fail");
         }
         let nickname = nickname.finish();
@@ -85,9 +85,9 @@ impl Iterator for UserGenerator<'_> {
         static PASSWORD: LazyLock<Arc<str>> = LazyLock::new(|| "securepass".into());
 
         let nickname = { self.server.unique_nicks.lock().next()? };
-        let email = format!("{}@te.st", nickname);
+        let email = format!("{nickname}@te.st");
         Some(User::new(
-            &self.server,
+            self.server,
             nickname,
             email,
             Arc::clone(&*PASSWORD),

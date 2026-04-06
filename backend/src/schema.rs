@@ -80,6 +80,10 @@ diesel::table! {
         created_at -> TimestamptzSqlite,
         description -> Text,
         tos_accepted_at -> Nullable<TimestamptzSqlite>,
+        email_confirmed_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_hash -> Nullable<Binary>,
+        email_confirmation_token_expires_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_email -> Nullable<Text>,
     }
 }
 

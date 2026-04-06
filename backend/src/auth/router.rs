@@ -46,7 +46,7 @@ pub fn router(path: &str) -> Router {
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct RegisterInput {
+pub struct RegisterInput {
     #[validate(email(message = "Must be a valid email address."))]
     pub email: String,
     #[validate(custom(function = "crate::validate::password"))]
@@ -121,7 +121,7 @@ async fn register(
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct LoginInput {
+pub struct LoginInput {
     pub email: String,
     pub password: String,
     #[serde(default)]
@@ -130,7 +130,7 @@ pub(crate) struct LoginInput {
 
 /// Login a User and create a new Session
 ///
-/// We will try to find a session to reauth for the user with the matching device_id.
+/// We will try to find a session to reauth for the user with the matching `device_id`.
 /// Otherwise, a new session will be created.
 #[endpoint]
 async fn login(
@@ -415,11 +415,12 @@ fn create_session(
 }
 
 pub(super) async fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
-    req: &mut Request,
+    req: &Request,
     depot: &mut Depot,
     res: &mut Response,
     db: Db,
 ) -> Result<(), ApiError> {
+    use crate::schema::sessions::dsl::*;
     let session_token = SessionToken::try_from(
         req.cookie(super::SESSION_COOKIE_NAME)
             .ok_or(AuthError::MissingSessionCookie)?
@@ -427,7 +428,6 @@ pub(super) async fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
     )
     .map_err(|_| AuthError::InvalidSessionToken)?;
 
-    use crate::schema::sessions::dsl::*;
     let token_hash_value = session_token.to_hash();
     let session: Session = db
         .read(move |conn| sessions.filter(token_hash.eq(token_hash_value)).first(conn))

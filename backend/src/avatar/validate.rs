@@ -150,7 +150,8 @@ fn decode_avif_with_dims(
         });
     }
     let mut img = RgbaImage::new(dims.0, dims.1);
-    if img.as_bytes().len() != decoder.total_bytes() as usize {
+    let total_bytes = usize::try_from(decoder.total_bytes()).unwrap_or(usize::MAX);
+    if img.as_bytes().len() != total_bytes {
         return Err(AvatarValidationError::NotRgba8);
     }
     decoder.read_image(&mut img)?;
