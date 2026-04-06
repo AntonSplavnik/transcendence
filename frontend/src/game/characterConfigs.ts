@@ -65,7 +65,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		model: rogueModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
 		equipment: [
-			{ model: daggerModel, bone: 'handslot.r', rotation: [0, 3.14, 0] },
+			{ model: daggerModel, bone: 'handslot.r', rotation: [0, Math.PI, 0] },
 			{ model: daggerModel, bone: 'handslot.l' },
 		],
 		scale: 1,
