@@ -18,7 +18,7 @@
 #include "../Skills.hpp"
 #include "../Helpers.hpp"
 
-#include <entt/entt.hpp>
+#include "../../entt/entt.hpp"
 #include <queue>
 #include <variant>
 #include <cstdio>

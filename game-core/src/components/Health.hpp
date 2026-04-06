@@ -2,7 +2,7 @@
 
 #include "../GameTypes.hpp"
 #include "../CharacterPreset.hpp"
-#include <entt/entt.hpp>
+#include "../../entt/entt.hpp"
 #include <algorithm>
 #include <cstdio>
 

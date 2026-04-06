@@ -5,7 +5,7 @@
 #include "../components/PhysicsBody.hpp"
 #include "../components/CharacterController.hpp"
 #include "../GameTypes.hpp"
-#include <entt/entt.hpp>
+#include "../../entt/entt.hpp"
 
 namespace ArenaGame {
 

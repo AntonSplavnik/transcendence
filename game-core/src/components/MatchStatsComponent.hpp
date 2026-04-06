@@ -1,7 +1,7 @@
 #pragma once
 
 #include <unordered_map>
-#include <entt/entt.hpp>
+#include "../../entt/entt.hpp"
 
 namespace ArenaGame {
 namespace Components {

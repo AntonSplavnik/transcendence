@@ -6,7 +6,7 @@
 #include "../components/PhysicsBody.hpp"
 #include "../components/Health.hpp"
 #include "../GameTypes.hpp"
-#include <entt/entt.hpp>
+#include "../../entt/entt.hpp"
 #include <algorithm>
 
 namespace ArenaGame {

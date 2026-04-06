@@ -2,7 +2,7 @@
 
 fn main() {
     // Path to game engine
-    let game_engine_path = "../game_engine";
+    let game_engine_path = "../game-core";
 
     println!(
         "cargo:rerun-if-changed={}/src/game_bindings.cpp",
@@ -13,6 +13,7 @@ fn main() {
     // Compile C++ code
     cc::Build::new()
         .cpp(true)
+        .compiler("/usr/lib/llvm-20/bin/clang++")
         .file(format!("{}/src/game_bindings.cpp", game_engine_path))
         .include(format!("{}/include", game_engine_path))
         .include(format!("{}/external/entt/src", game_engine_path))

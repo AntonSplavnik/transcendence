@@ -8,7 +8,7 @@
 #include "components/Tags.hpp"
 #include "components/Health.hpp"
 #include "components/PlayerInfo.hpp"
-#include <entt/entt.hpp>
+#include "../entt/entt.hpp"
 #include <memory>
 #include <unordered_map>
 #include <vector>

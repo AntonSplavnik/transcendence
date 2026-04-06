@@ -1,7 +1,7 @@
 #pragma once
 #include "CharacterPreset.hpp"
 #include "GameTypes.hpp"
-#include "entt/entt.hpp"
+#include "../entt/entt.hpp"
 
 namespace ArenaGame {
 	class ISpawner {
