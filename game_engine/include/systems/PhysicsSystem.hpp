@@ -9,17 +9,13 @@
 namespace ArenaGame {
 
 // =============================================================================
-// PhysicsSystem - EnTT-based physics simulation
+// PhysicsSystem - Simulates gravity, friction, and positional integration
 // =============================================================================
-// Drop-in replacement for PhysicsSystem using EnTT views
-// - Uses view<Transform, PhysicsBody> for cache-friendly iteration
-// - No manual entity tracking (EnTT handles this)
-// - Identical physics logic to PhysicsSystem.hpp
+// - Applies gravity and friction to all entities with PhysicsBody
+// - Integrates velocity into position (Euler integration)
+// - Enforces arena bounds and ground collision
 //
-// Performance improvements:
-// - 10-20x faster iteration (packed component storage)
-// - No need to check hasPhysics() (view filters automatically)
-// - Better cache locality
+// Should run in fixedUpdate phase (before collision)
 // =============================================================================
 
 class PhysicsSystem : public System {
@@ -65,12 +61,9 @@ private:
 
 inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
     // EnTT view: iterate only entities with Transform AND PhysicsBody
-    // This is cached and very fast (packed storage)
     auto view = m_registry->view<Components::Transform, Components::PhysicsBody>();
 
-    for (auto entity : view) {
-        auto& transform = view.get<Components::Transform>(entity);
-        auto& physics = view.get<Components::PhysicsBody>(entity);
+    view.each([&](Components::Transform& transform,Components::PhysicsBody& physics){
 
         // Apply physics forces
         applyGravity(physics, fixedDeltaTime);
@@ -81,7 +74,8 @@ inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
         // Enforce constraints
         enforceArenaBounds(transform);
         checkGroundCollision(transform, physics);
-    }
+
+    });
 }
 
 inline void PhysicsSystem::applyGravity(Components::PhysicsBody& physics, float deltaTime) {

@@ -106,7 +106,6 @@ struct PhysicsBody {
         body.maxSpeed = GameConfig::CHARACTER_MAX_SPEED;
         return body;
     }
-
     static PhysicsBody createProjectile() {
         PhysicsBody body;
         body.mass = 0.5f;
@@ -116,7 +115,6 @@ struct PhysicsBody {
         body.maxSpeed = 100.0f;  // Fast projectiles
         return body;
     }
-
     static PhysicsBody createStatic() {
         PhysicsBody body;
         body.isKinematic = true;

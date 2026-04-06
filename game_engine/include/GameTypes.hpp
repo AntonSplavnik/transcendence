@@ -203,12 +203,12 @@ struct GameConfig {
     static constexpr float CHARACTER_RADIUS = 0.5f;            // Collision radius
     static constexpr float CHARACTER_HEIGHT = 1.8f;            // Character height
     static constexpr float CHARACTER_COLLISION_RADIUS = 0.45f; // Slightly smaller for smooth collisions
-    static constexpr float CHARACTER_MOVE_SPEED = 8.0f;        // Base movement speed (m/s)
+    static constexpr float CHARACTER_MOVE_SPEED = 2.5f;        // Base movement speed (m/s)
     static constexpr float CHARACTER_MAX_SPEED = 10.0f;        // Maximum horizontal speed (m/s)
     static constexpr float CHARACTER_MAX_HEALTH = 100.0f;      // Default max health
 
     // Movement modifiers
-    static constexpr float SPRINT_MULTIPLIER = 2.5f;           // Speed when sprinting (1.5x = 50% faster)
+    static constexpr float SPRINT_MULTIPLIER = 4.0f;           // Speed when sprinting (1.5x = 50% faster)
     static constexpr float CROUCH_MULTIPLIER = 0.5f;           // Speed when crouching (0.5x = 50% slower)
     static constexpr float AIR_CONTROL_FACTOR = 0.3f;          // Movement control while airborne (0.0-1.0)
 

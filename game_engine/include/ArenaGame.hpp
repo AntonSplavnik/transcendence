@@ -2,6 +2,7 @@
 
 #include "Core/World.hpp"
 #include "GameTypes.hpp"
+#include "Presets.hpp"
 #include <vector>
 #include <chrono>
 #include <cmath>
@@ -72,10 +73,6 @@ public:
     bool addPlayer(PlayerID playerID, const std::string& name);
     bool removePlayer(PlayerID playerID);
 
-    // Direct entity access (returns entt::entity)
-    entt::entity getEntity(PlayerID playerID) { return m_world.getEntity(playerID); }
-    entt::entity getEntity(PlayerID playerID) const { return m_world.getEntity(playerID); }
-
     // Input handling
     void setPlayerInput(PlayerID playerID, const InputState& input);
 
@@ -85,15 +82,12 @@ public:
     double getGameTime() const { return m_gameTime; }
     size_t getPlayerCount() const { return m_world.getPlayerCount(); }
 
-    // Combat
-    void registerHit(PlayerID attackerID, PlayerID victimID, float damage);
-
     // World access (for advanced usage)
     Core::World& getWorld() { return m_world; }
     const Core::World& getWorld() const { return m_world; }
 
 private:
-    // World manages all entities and systems (EnTT version)
+    // World manages all entities and systems
     Core::World m_world;
 
     // Game state (identical to ArenaGame)
@@ -195,7 +189,7 @@ inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name) {
     Vector3D spawnPos = getSpawnPosition();
 
     // Create player entity through World
-    entt::entity entity = m_world.addPlayer(playerID, name, spawnPos);
+    entt::entity entity = m_world.createPlayer(playerID, name, spawnPos, Presets::KNIGHT);
 
     if (entity != entt::null) {
         // Face the arena centre (origin): yaw = atan2(-x, -z) for convention yaw=0 → +Z
@@ -211,7 +205,6 @@ inline bool ArenaGame::removePlayer(PlayerID playerID) {
 }
 
 inline void ArenaGame::setPlayerInput(PlayerID playerID, const InputState& input) {
-    // Delegate to World
     m_world.setPlayerInput(playerID, input);
 }
 
@@ -221,7 +214,6 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     snapshot.timestamp = m_gameTime;
 
     // Get all entities that represent players (have all player components)
-    // Using EnTT view for efficient iteration
     auto& registry = const_cast<Core::World&>(m_world).getRegistry();
 
     // View of all entities with player components
@@ -234,14 +226,17 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     >();
 
     // Convert entities to character snapshots
-    // Use view.each() for better C++20 compatibility
-    view.each([&](auto entity,
-                  Components::PlayerInfo& playerInfo,
+    view.each([&](Components::PlayerInfo& playerInfo,
                   Components::Transform& transform,
                   Components::PhysicsBody& physics,
                   Components::Health& health,
                   Components::CharacterController& controller) {
+
         // Skip dead entities
+        /**
+         * Inside a lambda, continue doesn't exist — return is used instead,
+         * which exits thecurrent lambda call and each() moves on to the next entity.
+         */
         if (!health.isAlive()) {
             return;  // continue in lambda
         }
@@ -259,11 +254,6 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
     });
 
     return snapshot;
-}
-
-inline void ArenaGame::registerHit(PlayerID attackerID, PlayerID victimID, float damage) {
-    // Delegate to World (which delegates to CombatSystem)
-    m_world.registerHit(attackerID, victimID, damage);
 }
 
 inline void ArenaGame::initializeSpawnPositions(int numPlayers) {

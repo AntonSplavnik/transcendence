@@ -59,7 +59,7 @@ size_t game_get_player_count(Game* game) {
 // =============================================================================
 // Entity Management
 // =============================================================================
-
+/*
 // Create a projectile entity
 bool game_create_projectile(
     Game* game,
@@ -107,12 +107,12 @@ bool game_entity_is_alive(Game* game, uint32_t entity_id) {
     auto* health = registry.try_get<Components::Health>(entity);
     return health && health->isAlive();
 }
-
+ */
 // =============================================================================
 // Component Access
 // =============================================================================
 
-// Get entity health
+/* // Get entity health
 bool game_get_entity_health(Game* game, uint32_t entity_id, float* out_current, float* out_max) {
     entt::entity entity = game->getEntity(entity_id);
     if (entity == entt::null) return false;
@@ -193,7 +193,7 @@ bool game_set_entity_velocity(Game* game, uint32_t entity_id, float x, float y, 
 
     physics->velocity = Vector3D(x, y, z);
     return true;
-}
+} */
 
 // =============================================================================
 // Input Handling
@@ -243,7 +243,7 @@ struct CGameStateSnapshot {
     uint64_t frame_number;
     double timestamp;
     size_t character_count;
-    CCharacterSnapshot characters[32]; // Max 32 players
+    CCharacterSnapshot characters[GameConfig::MAX_PLAYERS]; // Max 32 players
 };
 
 void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
@@ -251,7 +251,7 @@ void game_get_snapshot(Game* game, CGameStateSnapshot* out_snapshot) {
 
     out_snapshot->frame_number = snapshot.frameNumber;
     out_snapshot->timestamp = snapshot.timestamp;
-    out_snapshot->character_count = std::min(snapshot.characters.size(), size_t(32));
+    out_snapshot->character_count = std::min(snapshot.characters.size(), size_t(GameConfig::MAX_PLAYERS));
 
     for (size_t i = 0; i < out_snapshot->character_count; ++i) {
         const auto& src = snapshot.characters[i];
@@ -281,14 +281,6 @@ uint64_t game_get_frame_number(Game* game) {
 
 double game_get_game_time(Game* game) {
     return game->getGameTime();
-}
-
-// =============================================================================
-// Combat
-// =============================================================================
-
-void game_register_hit(Game* game, uint32_t attacker_id, uint32_t victim_id, float damage) {
-    game->registerHit(attacker_id, victim_id, damage);
 }
 
 } // extern "C"

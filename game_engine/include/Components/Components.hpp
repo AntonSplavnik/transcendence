@@ -16,19 +16,3 @@
 #include "Health.hpp"
 #include "CharacterController.hpp"
 #include "CombatController.hpp"
-
-namespace ArenaGame {
-namespace Components {
-
-// Component type enumeration (for runtime type checking if needed)
-enum class ComponentType {
-    Transform,
-    PhysicsBody,
-    Collider,
-    Health,
-    CharacterController,
-    CombatController
-};
-
-} // namespace Components
-} // namespace ArenaGame

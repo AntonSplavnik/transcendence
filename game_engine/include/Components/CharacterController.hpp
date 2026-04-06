@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
 
 namespace ArenaGame {
 namespace Components {
@@ -128,24 +129,26 @@ struct CharacterController {
     void enableRotation() { canRotate = true; }
 
     // Static factory methods
+    static CharacterController createFromPreset(const CharacterPreset& preset) {
+        CharacterController cc;
+        cc.movementSpeed = preset.movementSpeed;
+        return cc;
+    }
     static CharacterController createDefault() {
         return CharacterController();
     }
-
     static CharacterController createFast() {
         CharacterController controller;
         controller.movementSpeed = GameConfig::CHARACTER_MOVE_SPEED * 1.5f;
         controller.jumpVelocity = GameConfig::JUMP_VELOCITY * 1.2f;
         return controller;
     }
-
     static CharacterController createSlow() {
         CharacterController controller;
         controller.movementSpeed = GameConfig::CHARACTER_MOVE_SPEED * 0.7f;
         controller.jumpVelocity = GameConfig::JUMP_VELOCITY * 0.8f;
         return controller;
     }
-
     static CharacterController createAI() {
         CharacterController controller;
         controller.canJump = false;  // AI doesn't jump by default

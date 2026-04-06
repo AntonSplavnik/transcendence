@@ -1,7 +1,10 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include "../CharacterPreset.hpp"
+#include <entt/entt.hpp>
 #include <algorithm>
+#include <cstdio>
 
 namespace ArenaGame {
 namespace Components {
@@ -9,13 +12,20 @@ namespace Components {
 // =============================================================================
 // Health - Hit points and damage handling
 // =============================================================================
-// Pure data component - logic handled by CombatSystem
-// Represents an entity that can take damage and die
+// Pure data component - damage reduction applied in takeDamage().
 //
-// Usage:
-//   Health health(100.0f);
-//   health.takeDamage(25.0f);
-//   if (!health.isAlive()) { ... }
+// Damage formula (applied in order):
+//   1. raw       = baseDamage * stageMultiplier * damageMultiplier [± crit]
+//                  (calculated in CombatSystem::calculateCombatDamage)
+//   2. post-armor  = max(0, raw - armor)          flat reduction
+//   3. final       = post-armor * (1 - resistance) percentage reduction
+//
+// Example: raw=10, armor=2, resistance=0.1 (10%)
+//   post-armor = max(0, 10 - 2) = 8
+//   final      = 8 * 0.9        = 7.2
+//w
+// armor      — counters chip damage / weak attackers; ineffective vs big hits
+// resistance — scales proportionally; stays relevant regardless of damage source
 // =============================================================================
 
 struct Health {
@@ -30,8 +40,8 @@ struct Health {
     bool invulnerable;  // If true, takes no damage
     bool isDead;        // Cached death state
 
-    // Last damage info (for combat log, kill tracking, etc.)
-    PlayerID lastAttackerID;
+    // Last damage info (for kill feed / scoreboard — translate to PlayerID at snapshot time)
+    entt::entity lastAttacker;
     float lastDamageAmount;
     double lastDamageTime;
 
@@ -42,11 +52,10 @@ struct Health {
         , resistance(0.0f)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
-
     explicit Health(float maxHealth)
         : current(maxHealth)
         , maximum(maxHealth)
@@ -54,11 +63,10 @@ struct Health {
         , resistance(0.0f)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
-
     Health(float maxHealth, float armor, float resistance)
         : current(maxHealth)
         , maximum(maxHealth)
@@ -66,7 +74,7 @@ struct Health {
         , resistance(resistance)
         , invulnerable(false)
         , isDead(false)
-        , lastAttackerID(0)
+        , lastAttacker(entt::null)
         , lastDamageAmount(0.0f)
         , lastDamageTime(0.0)
     {}
@@ -80,6 +88,10 @@ struct Health {
         return current >= maximum;
     }
 
+    float getCurrentHelth() const {
+        return current;
+    }
+
     float getHealthPercent() const {
         return maximum > 0.0f ? (current / maximum) : 0.0f;
     }
@@ -89,7 +101,7 @@ struct Health {
     }
 
     // Health manipulation
-    void takeDamage(float rawDamage, PlayerID attackerID = 0) {
+    void takeDamage(float rawDamage, entt::entity attacker = entt::null) {
         if (invulnerable || isDead) {
             return;
         }
@@ -100,18 +112,22 @@ struct Health {
         // Apply resistance (percentage reduction)
         float finalDamage = damageAfterArmor * (1.0f - resistance);
 
+        fprintf(stderr, "[HEALTH] raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
+            rawDamage, armor, damageAfterArmor,
+            resistance * 100.0f, finalDamage,
+            current, std::max(0.0f, current - finalDamage));
+
         // Apply damage
         current -= finalDamage;
 
-        // Clamp to 0
         if (current <= 0.0f) {
             current = 0.0f;
             isDead = true;
         }
 
-        // Track last damage
+        // Track last damage (translate attacker entity → PlayerID at snapshot time)
         lastDamageAmount = finalDamage;
-        lastAttackerID = attackerID;
+        lastAttacker = attacker;
         // lastDamageTime should be set by CombatSystem with game time
     }
 
@@ -159,18 +175,23 @@ struct Health {
     }
 
     // Static factory methods
+    static Health createFromPreset(const CharacterPreset& preset) {
+        Health h;
+        h.maximum = preset.maxHealth;
+        h.current = h.maximum;
+        h.armor = preset.armor;
+        h.resistance = preset.resistance;
+        return h;
+    }
     static Health createCharacter() {
         return Health(GameConfig::CHARACTER_MAX_HEALTH, 0.0f, 0.0f);
     }
-
     static Health createTank() {
         return Health(150.0f, 10.0f, 0.2f);  // More HP, armor, and resistance
     }
-
     static Health createGlass() {
         return Health(50.0f, 0.0f, 0.0f);  // Low HP, no protection
     }
-
     static Health createBoss() {
         return Health(500.0f, 20.0f, 0.3f);  // High HP, armor, and resistance
     }

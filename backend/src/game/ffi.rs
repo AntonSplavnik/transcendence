@@ -45,8 +45,8 @@ extern "C" {
     fn game_remove_player(game: RawGameHandle, player_id: u32) -> bool;
     fn game_get_player_count(game: RawGameHandle) -> usize;
 
-    // Entity management
-    fn game_create_projectile(
+     // Entity management
+/*    fn game_create_projectile(
         game: RawGameHandle,
         entity_id: u32,
         pos_x: f32,
@@ -113,7 +113,7 @@ extern "C" {
         y: f32,
         z: f32,
     ) -> bool;
-
+ */
     // Input handling
     fn game_set_input(
         game: RawGameHandle,
@@ -137,8 +137,6 @@ extern "C" {
     fn game_get_frame_number(game: RawGameHandle) -> u64;
     fn game_get_game_time(game: RawGameHandle) -> f64;
 
-    // Combat
-    fn game_register_hit(game: RawGameHandle, attacker_id: u32, victim_id: u32, damage: f32);
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
@@ -232,7 +230,7 @@ impl GameHandle {
     pub fn get_player_count(&self) -> usize {
         unsafe { game_get_player_count(self.0) }
     }
-
+/*
     pub fn create_projectile(
         &mut self,
         entity_id: u32,
@@ -328,7 +326,7 @@ impl GameHandle {
     pub fn set_entity_velocity(&mut self, entity_id: u32, velocity: Vector3D) -> bool {
         unsafe { game_set_entity_velocity(self.0, entity_id, velocity.x, velocity.y, velocity.z) }
     }
-
+ */
     pub fn set_input(
         &mut self,
         player_id: u32,
@@ -390,10 +388,6 @@ impl GameHandle {
 
     pub fn get_game_time(&self) -> f64 {
         unsafe { game_get_game_time(self.0) }
-    }
-
-    pub fn register_hit(&mut self, attacker_id: u32, victim_id: u32, damage: f32) {
-        unsafe { game_register_hit(self.0, attacker_id, victim_id, damage) }
     }
 
     /// Minimum number of players required to start a game.

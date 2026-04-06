@@ -1,82 +1,128 @@
 #pragma once
 
 #include "System.hpp"
-#include "Components/PlayerInfo.hpp"
 #include "Components/Transform.hpp"
+#include <cstdio>
+#include "Components/PhysicsBody.hpp"
 #include "Components/Health.hpp"
 #include "Components/CombatController.hpp"
 #include "Components/CharacterController.hpp"
 #include "GameTypes.hpp"
+#include "Skills.hpp"
 #include <entt/entt.hpp>
 #include <queue>
+#include <variant>
+#include <cstdio>
+#include <cstdlib>
 
 namespace ArenaGame {
 
 // =============================================================================
-// CombatSystem - EnTT-based combat system
+// CombatSystem - Server-side ECS combat system
 // =============================================================================
-// Drop-in replacement for CombatSystem using EnTT views
-// - Uses view<Health, CombatController> for iteration
-// - Uses World for PlayerID → entity lookups
-// - Identical combat logic to CombatSystem.hpp
+// Attack chain + skills driven entirely from CharacterController input.
+// Damage is calculated server-side from CombatController preset data.
 //
-// Performance improvements:
-// - Packed storage for better cache locality
-// - Automatic filtering (view only returns entities with required components)
-// - No manual entity tracking
+// Update order per frame:
+//   1. updateCooldowns(dt)   — advance swing / chain / skill timers
+//   2. processInputAttacks() — read input, trigger attacks/skills, queue hits
+//   3. processDamage()       — apply queued hits to Health components
+//
+// Normal attack chain
+// ─────────────────────────────────────────────────────────────────────────────
+//   input.isAttacking && canPerformAttack()
+//     → startAttack()  (gates next input for stage.duration)
+//     → hitAllInRange(ctx, stage.range, stage.damageMultiplier)
+//     → advanceChain() (stage++ or wrap to 0 on last/no-window stage)
+//
+//   If player does not re-press within attackChain[prev].chainWindow,
+//   updateTimers() resets chainStage → 0.
+//
+// Skills
+// ─────────────────────────────────────────────────────────────────────────────
+//   input.isUsingAbility1/2 && canUseAbility1/2()
+//     → executeSkill(skill, ctx)  (dispatches over SkillVariant)
+//     → useAbility1/2()           (starts cooldown timer)
+// =============================================================================
+
+// Visitor helper for std::visit over SkillVariant
+template<typename... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+template<typename... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
+// Returns final damage: baseDamage × stageMultiplier × globalMultiplier ± crit.
+// stageMultiplier comes from AttackStage::damageMultiplier or SkillDefinition::dmgMultiplier.
+inline float calculateCombatDamage(const Components::CombatController& cc, float stageMultiplier) {
+    float dmg = cc.baseDamage * stageMultiplier * cc.damageMultiplier;
+    bool isCrit = (static_cast<float>(std::rand()) / RAND_MAX) < cc.criticalChance;
+    return isCrit ? dmg * cc.criticalMultiplier : dmg;
+}
+
+// =============================================================================
+// SkillContext - bundle passed to every skill / hit handler
+// =============================================================================
+// Carries all attacker state needed for skill execution and hit detection.
+// PhysicsBody is included for future dash-style skills.
+
+class CombatSystem;  // forward
+
+struct PendingHit {
+    entt::entity attacker;
+    entt::entity victim;
+    float        damage;
+};
+
+struct SkillContext {
+    entt::registry&                  registry;
+    entt::entity                     attackerEntity;
+    Components::Transform&           attackerTransform;
+    Components::PhysicsBody&         attackerPhysics;    // for dash / knockback skills
+    Components::CharacterController& characterCon;
+    Components::CombatController&    combatCon;
+    std::queue<PendingHit>&          pendingHits;        // output: damage to apply
+};
+
+// =============================================================================
+// CombatSystem
 // =============================================================================
 
 class CombatSystem : public System {
 public:
     CombatSystem() = default;
 
-    // System interface
     void update(float deltaTime) override;
     const char* getName() const override { return "CombatSystem"; }
 
-    // Combat actions
-    void registerHit(PlayerID attackerID, PlayerID victimID, float damage);
-    void requestAttack(PlayerID playerID);
-
-    // Combat configuration (same as CombatSystem)
     struct Config {
-        float meleeRange = 2.0f;        // Range for melee attacks
-        float meleeDamage = 10.0f;      // Base melee damage
-        float attackCooldown = 0.5f;    // Time between attacks
-        bool friendlyFire = false;      // Can players damage each other?
+        bool friendlyFire = false;
     };
 
     const Config& getConfig() const { return m_config; }
     void setConfig(const Config& config) { m_config = config; }
 
-    // Clear pending actions (for shutdown)
     void clear() {
         while (!m_pendingHits.empty()) m_pendingHits.pop();
-        while (!m_pendingAttacks.empty()) m_pendingAttacks.pop();
     }
 
 private:
     Config m_config;
-
-    // Pending hits to process
-    struct PendingHit {
-        PlayerID attackerID;
-        PlayerID victimID;
-        float damage;
-    };
     std::queue<PendingHit> m_pendingHits;
 
-    // Pending attacks to process
-    struct PendingAttack {
-        PlayerID playerID;
-    };
-    std::queue<PendingAttack> m_pendingAttacks;
-
-    // Helper methods
-    entt::entity findEntity(PlayerID playerID);
-    void processAttacks();
+    void processInputAttacks();
     void processDamage();
     void updateCooldowns(float deltaTime);
+
+    // Queue hits for all living, in-range targets (excludes attacker). Full 360°.
+    void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
+
+    // Queue hits for targets within a frontal arc. attackAngle is the half-angle in radians.
+    void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
+
+    // Dispatch skill execution via SkillVariant visitor.
+    void executeSkill(SkillDefinition& skill, SkillContext& ctx);
 };
 
 // =============================================================================
@@ -84,77 +130,124 @@ private:
 // =============================================================================
 
 inline void CombatSystem::update(float deltaTime) {
-    // Process all pending attacks
-    processAttacks();
-
-    // Process all pending damage
-    processDamage();
-
-    // Update cooldowns
     updateCooldowns(deltaTime);
+    processInputAttacks();
+    processDamage();
 }
 
-inline void CombatSystem::registerHit(PlayerID attackerID, PlayerID victimID, float damage) {
-    m_pendingHits.push({attackerID, victimID, damage});
-}
+inline void CombatSystem::processInputAttacks() {
+    using namespace Components;
 
-inline void CombatSystem::requestAttack(PlayerID playerID) {
-    m_pendingAttacks.push({playerID});
-}
+    auto view = m_registry->view<
+        CharacterController,
+        CombatController,
+        Health,
+        Transform,
+        PhysicsBody
+    >();
 
-inline entt::entity CombatSystem::findEntity(PlayerID playerID) {
-    if (!m_registry) {
-        return entt::null;
-    }
+    view.each([&](entt::entity entity,
+                  CharacterController& charcon,
+                  CombatController&    comcon,
+                  Health&              health,
+                  Transform&           trans,
+                  PhysicsBody&         physics) {
 
-    // Search through all entities with PlayerInfo component
-    auto view = m_registry->view<Components::PlayerInfo>();
-    for (auto entity : view) {
-        auto& playerInfo = view.get<Components::PlayerInfo>(entity);
-        if (playerInfo.playerID == playerID) {
-            return entity;
-        }
-    }
+        if (!health.isAlive()) return;
 
-    return entt::null;
-}
+        SkillContext ctx {
+            *m_registry, entity,
+            trans, physics, charcon, comcon, m_pendingHits
+        };
 
-inline void CombatSystem::processAttacks() {
-    while (!m_pendingAttacks.empty()) {
-        PendingAttack attack = m_pendingAttacks.front();
-        m_pendingAttacks.pop();
+        // ── Normal attack ─────────────────────────────────────────────────
+        if (charcon.input.isAttacking && comcon.canPerformAttack()) {
+            const AttackStage& stage = comcon.currentStage();
 
-        entt::entity attacker = findEntity(attack.playerID);
-        if (attacker == entt::null) {
-            continue;
-        }
+            fprintf(stderr, "[COMBAT] ATTACK  entity=%u  chain_stage=%d  range=%.1f  dmg_mul=%.2f  base_dmg=%.1f\n",
+                static_cast<unsigned>(entity), comcon.chainStage,
+                stage.range, stage.damageMultiplier, comcon.baseDamage);
 
-        // Check if entity has combat component and is alive
-        auto* combat = m_registry->try_get<Components::CombatController>(attacker);
-        auto* health = m_registry->try_get<Components::Health>(attacker);
+            comcon.startAttack();
+            comcon.hitPending = true;   // hit lands at swing end, not swing start
+            charcon.setState(CharacterState::Attacking);
 
-        if (!combat || (health && !health->isAlive())) {
-            continue;
-        }
-
-        // Try to initiate attack
-        if (combat->canPerformAttack()) {
-            combat->startAttack();
-
-            // Update character state if has controller
-            if (auto* controller = m_registry->try_get<Components::CharacterController>(attacker)) {
-                controller->setState(CharacterState::Attacking);
+            if (stage.movementMultiplier == 0.0f) {
+                charcon.canMove = false;
             }
-
-            // In a full implementation, you'd:
-            // 1. Check for targets in range
-            // 2. Apply damage to those targets
-            // 3. Trigger attack animations/effects
-
-            // For now, this is handled by registerHit() being called
-            // from the game logic when client confirms a hit
         }
-    }
+
+        // ── Ability 1 ─────────────────────────────────────────────────────
+        if (charcon.input.isUsingAbility1 && comcon.canUseAbility1()) {
+            fprintf(stderr, "[COMBAT] ABILITY1 entity=%u  cd=%.2f\n",
+                static_cast<unsigned>(entity), comcon.ability1.timer);
+            executeSkill(comcon.ability1, ctx);
+            comcon.useAbility1();
+            charcon.setState(CharacterState::Casting);
+        }
+
+        // ── Ability 2 ─────────────────────────────────────────────────────
+        if (charcon.input.isUsingAbility2 && comcon.canUseAbility2()) {
+            fprintf(stderr, "[COMBAT] ABILITY2 entity=%u  cd=%.2f\n",
+                static_cast<unsigned>(entity), comcon.ability2.timer);
+            executeSkill(comcon.ability2, ctx);
+            comcon.useAbility2();
+            charcon.setState(CharacterState::Casting);
+        }
+    });
+}
+
+inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier) {
+    auto targets = m_registry->view<Components::Transform, Components::Health>();
+
+    targets.each([&](entt::entity target,
+                     Components::Transform& targetTransform,
+                     Components::Health&    targetHealth) {
+        if (target == ctx.attackerEntity) return;
+        if (!targetHealth.isAlive()) return;
+
+        float dist = ctx.attackerTransform.position.distanceTo(targetTransform.position);
+        if (dist <= range) {
+            float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
+            fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
+                static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
+                dist, dmg);
+            ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
+        }
+    });
+}
+
+inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle) {
+    auto targets = m_registry->view<Components::Transform, Components::Health>();
+    Vector3D forward = ctx.attackerTransform.getForwardDirection();
+    float cosAngle = std::cos(attackAngle);
+
+    targets.each([&](entt::entity target,
+                     Components::Transform& targetTransform,
+                     Components::Health&    targetHealth) {
+        if (target == ctx.attackerEntity) return;
+        if (!targetHealth.isAlive()) return;
+
+        float dist = ctx.attackerTransform.position.distanceTo(targetTransform.position);
+        if (dist > range) return;
+
+        Vector3D toTarget = (targetTransform.position - ctx.attackerTransform.position).normalized();
+        if (forward.dot(toTarget) < cosAngle) return;
+
+        float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
+        fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
+            static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
+            dist, dmg);
+        ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
+    });
+}
+
+inline void CombatSystem::executeSkill(SkillDefinition& skill, SkillContext& ctx) {
+    std::visit(overloaded{
+        [&](MeleeAOE& s) {
+            hitAllInRange(ctx, s.range, s.dmgMultiplier);
+        }
+    }, skill.params);
 }
 
 inline void CombatSystem::processDamage() {
@@ -162,62 +255,78 @@ inline void CombatSystem::processDamage() {
         PendingHit hit = m_pendingHits.front();
         m_pendingHits.pop();
 
-        entt::entity victim = findEntity(hit.victimID);
-        if (victim == entt::null) {
-            continue;
-        }
+        auto* health = m_registry->try_get<Components::Health>(hit.victim);
+        if (!health || !health->isAlive()) continue;
 
-        // Get health component
-        auto* health = m_registry->try_get<Components::Health>(victim);
-        if (!health || !health->isAlive()) {
-            continue;
-        }
+        float hpBefore = health->current;
+        health->takeDamage(hit.damage, hit.attacker);
+        float hpAfter  = health->current;
 
-        // Check friendly fire
-        if (!m_config.friendlyFire && hit.attackerID == hit.victimID) {
-            continue;
-        }
+        fprintf(stderr, "[COMBAT] attacker=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f%s\n",
+            static_cast<unsigned>(hit.attacker),
+            static_cast<unsigned>(hit.victim),
+            hit.damage,
+            hpBefore - hpAfter,
+            hpBefore, hpAfter, health->maximum,
+            health->isAlive() ? "" : "  DEAD");
 
-        // Apply damage
-        health->takeDamage(hit.damage, hit.attackerID);
-
-        // Check if victim died
         if (!health->isAlive()) {
-            // Update character state if has controller
-            if (auto* controller = m_registry->try_get<Components::CharacterController>(victim)) {
+            if (auto* controller = m_registry->try_get<Components::CharacterController>(hit.victim)) {
                 controller->setState(CharacterState::Dead);
+                controller->canMove = false;
             }
-
-            // Could trigger death events, respawn logic, etc.
-            // For now, character is just marked as dead
         }
     }
 }
 
 inline void CombatSystem::updateCooldowns(float deltaTime) {
-    // Get all entities with combat controller
-    auto view = m_registry->view<Components::CombatController>();
+    using namespace Components;
 
-    for (auto entity : view) {
-        auto& combat = view.get<Components::CombatController>(entity);
+    auto view = m_registry->view<CombatController, CharacterController, Transform, PhysicsBody>();
 
-        // Update timers
+    view.each([&](entt::entity entity, CombatController& combat, CharacterController& controller,
+                  Transform& trans, PhysicsBody& physics) {
+        // Movement cancels the swing — mirrors client animation cancellation
+        if (combat.isAttacking && controller.hasMovementInput()) {
+            combat.isAttacking = false;
+            combat.swingTimer  = 0.0f;
+            combat.hitPending  = false;
+            controller.canMove = true;
+            controller.setState(CharacterState::Moving);
+            fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
+                static_cast<unsigned>(entity));
+            return;
+        }
+
+        const bool wasAttacking = combat.isAttacking;
         combat.updateTimers(deltaTime);
 
-        // Check if attack finished and update state
-        auto* controller = m_registry->try_get<Components::CharacterController>(entity);
-        if (controller && !combat.isAttacking) {
-            // Only reset state if player isn't still holding attack button
-            if (controller->state == CharacterState::Attacking && !controller->input.isAttacking) {
-                // Return to idle or moving based on input
-                if (controller->hasMovementInput()) {
-                    controller->setState(CharacterState::Moving);
-                } else {
-                    controller->setState(CharacterState::Idle);
+        // Swing just ended — restore movement and apply deferred hit
+        if (wasAttacking && !combat.isAttacking) {
+            controller.canMove = true;
+
+            if (combat.hitPending) {
+                auto* health = m_registry->try_get<Health>(entity);
+                if (health && health->isAlive()) {
+                    SkillContext ctx { *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
+                    const AttackStage& stage = combat.currentStage();
+                    hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
+                    combat.advanceChain();
+                    fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
                 }
+                combat.hitPending = false;
             }
         }
-    }
+
+        // Reset CharacterState when swing ends and player is not re-triggering
+        if (!combat.isAttacking && controller.state == CharacterState::Attacking) {
+            if (!controller.input.isAttacking) {
+                controller.setState(controller.hasMovementInput()
+                    ? CharacterState::Moving
+                    : CharacterState::Idle);
+            }
+        }
+    });
 }
 
 } // namespace ArenaGame

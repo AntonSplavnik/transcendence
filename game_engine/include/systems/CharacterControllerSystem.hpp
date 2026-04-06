@@ -50,13 +50,11 @@ inline void CharacterControllerSystem::earlyUpdate(float deltaTime) {
         Components::Transform
     >();
 
-    for (auto entity : view) {
-        auto& controller = view.get<Components::CharacterController>(entity);
-        auto& physics = view.get<Components::PhysicsBody>(entity);
-        auto& transform = view.get<Components::Transform>(entity);
-
+    view.each([&](Components::CharacterController& controller,
+        Components::PhysicsBody& physics,
+        Components::Transform& transform) {
         processCharacterMovement(controller, physics, transform, deltaTime);
-    }
+        });
 }
 
 inline void CharacterControllerSystem::processCharacterMovement(

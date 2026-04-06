@@ -11,8 +11,7 @@ namespace ArenaGame {
 // =============================================================================
 // SystemManager - Manages EnTT-based game systems
 // =============================================================================
-// Drop-in replacement for SystemManager that works with System instances
-// - Identical interface to SystemManager
+// SystemManager works with System instances
 // - Manages System lifecycle
 // - Handles multi-phase updates
 //
