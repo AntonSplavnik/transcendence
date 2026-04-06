@@ -1,9 +1,9 @@
 #pragma once
 
 #include "System.hpp"
-#include "Components/Transform.hpp"
-#include "Components/PhysicsBody.hpp"
-#include "Components/CharacterController.hpp"
+#include "components/Transform.hpp"
+#include "components/PhysicsBody.hpp"
+#include "components/CharacterController.hpp"
 #include "GameTypes.hpp"
 #include <entt/entt.hpp>
 

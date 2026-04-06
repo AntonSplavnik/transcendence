@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Events/InternalEvents.hpp"
+#include "events/InternalEvents.hpp"
 #include <vector>
 
 namespace ArenaGame {

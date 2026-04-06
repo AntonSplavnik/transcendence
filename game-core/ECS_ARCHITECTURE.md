@@ -17,7 +17,7 @@ ArenaGame (API)
 
 ## Components (Data Only)
 
-Located in `include/Components/`
+Located in `include/components/`
 
 | Component | Data |
 |-----------|------|
@@ -128,7 +128,7 @@ game.get_entity_health(id);
 include/
 ├── ArenaGame.hpp           # Main API
 ├── GameTypes.hpp           # Base types
-├── Components/             # All components
+├── components/             # All components
 │   ├── Transform.hpp
 │   ├── PhysicsBody.hpp
 │   ├── Collider.hpp
@@ -142,7 +142,7 @@ include/
 │   ├── PhysicsSystem.hpp
 │   ├── CollisionSystem.hpp
 │   └── CombatSystem.hpp
-└── Core/                   # ECS core
+└── core/                   # ECS core
     ├── Entity.hpp
     └── World.hpp
 ```
@@ -150,6 +150,7 @@ include/
 ## Quick Reference
 
 ### Create Entities
+
 ```cpp
 world.addPlayer(id, "Name", pos);           // Player
 world.createProjectile(id, pos, vel);       // Bullet
@@ -157,6 +158,7 @@ world.createWall(id, pos, size);            // Wall
 ```
 
 ### Access Components
+
 ```cpp
 Entity* e = world.getEntity(id);
 e->transform->position = Vector3D(x, y, z);
@@ -165,6 +167,7 @@ e->health->takeDamage(damage);
 ```
 
 ### Update Loop
+
 ```cpp
 game.update();  // Handles all 4 phases automatically
 ```

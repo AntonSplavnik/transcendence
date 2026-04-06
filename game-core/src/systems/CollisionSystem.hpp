@@ -1,10 +1,10 @@
 #pragma once
 
 #include "System.hpp"
-#include "Components/Transform.hpp"
-#include "Components/Collider.hpp"
-#include "Components/PhysicsBody.hpp"
-#include "Components/Health.hpp"
+#include "components/Transform.hpp"
+#include "components/Collider.hpp"
+#include "components/PhysicsBody.hpp"
+#include "components/Health.hpp"
 #include "GameTypes.hpp"
 #include <entt/entt.hpp>
 #include <algorithm>

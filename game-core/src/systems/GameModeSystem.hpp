@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Components/GameModeComponent.hpp"
-#include "Components/MatchStatsComponent.hpp"
-#include "Components/InternalEventsComponent.hpp"
-#include "Components/NetworkEventsComponent.hpp"
-#include "Events/InternalEvents.hpp"
-#include "Events/NetworkEvents.hpp"
+#include "components/GameModeComponent.hpp"
+#include "components/MatchStatsComponent.hpp"
+#include "components/InternalEventsComponent.hpp"
+#include "components/NetworkEventsComponent.hpp"
+#include "events/InternalEvents.hpp"
+#include "events/NetworkEvents.hpp"
 #include "System.hpp"
 #include "Helpers.hpp"
 #include "GameMode.hpp"

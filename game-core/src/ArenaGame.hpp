@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/World.hpp"
+#include "core/World.hpp"
 #include "GameTypes.hpp"
 #include "Presets.hpp"
 #include <vector>

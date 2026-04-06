@@ -1,13 +1,13 @@
 #pragma once
 
 #include "GameTypes.hpp"
-#include "Events/InternalEvents.hpp"
+#include "events/InternalEvents.hpp"
 #include "ISpawner.hpp"
-#include "Components/GameModeComponent.hpp"
-#include "Components/MatchStatsComponent.hpp"
-#include "Components/Tags.hpp"
-#include "Components/Health.hpp"
-#include "Components/PlayerInfo.hpp"
+#include "components/GameModeComponent.hpp"
+#include "components/MatchStatsComponent.hpp"
+#include "components/Tags.hpp"
+#include "components/Health.hpp"
+#include "components/PlayerInfo.hpp"
 #include <entt/entt.hpp>
 #include <memory>
 #include <unordered_map>

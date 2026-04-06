@@ -6,7 +6,7 @@
 // Include this file to get access to all component definitions
 //
 // Usage:
-//   #include "Components/Components.hpp"
+//   #include "components/Components.hpp"
 //   using namespace ArenaGame::Components;
 // =============================================================================
 
