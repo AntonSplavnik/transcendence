@@ -355,7 +355,7 @@ export default function LobbyPage() {
 
 			{/* ── Character selector ────────────────────────────────────────── */}
 			{isPlayer && !gameActive && (
-				<div className="flex-1 flex min-h-0" style={{ minHeight: '480px' }}>
+				<div className="flex" style={{ height: '480px' }}>
 					<CharacterSelector
 						value={selectedCharacter}
 						onChange={handleCharacterChange}

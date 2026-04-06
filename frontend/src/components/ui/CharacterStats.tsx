@@ -50,9 +50,9 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 						<span className="text-[10px] text-stone-500 uppercase tracking-widest">
 							{label}
 						</span>
-						<div className="mt-1 h-1.5 rounded-full bg-stone-800 border border-stone-700">
+						<div className="mt-1 h-[7px] rounded bg-stone-950 border border-stone-800">
 							<div
-								className={`h-full rounded-full bg-gradient-to-r ${barClass} transition-all duration-300`}
+								className={`h-full rounded bg-gradient-to-r ${barClass} transition-all duration-300`}
 								style={{ width: `${cfg.stats[key] * 10}%` }}
 							/>
 						</div>
