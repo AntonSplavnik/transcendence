@@ -199,7 +199,7 @@ export default function LobbyPage() {
 	const maskedCode = '•'.repeat(DISPLAY_LEN - SUFFIX_LEN) + lobbyId.slice(-SUFFIX_LEN);
 
 	return (
-		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ minHeight: '100vh', zoom: 1.12 }}>
+		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ height: 'calc(100vh / 1.12)', zoom: 1.12, overflow: 'hidden' }}>
 			{/* Back link */}
 			<div className="px-6 pt-4">
 				<Link
