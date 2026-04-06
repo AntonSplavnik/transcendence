@@ -2,7 +2,7 @@
 name = "transcendence-backend"
 version = "0.1.1"
 edition = "2021"
-rust-version = "1.94"
+rust-version = "1.92"
 readme = "./README.md"
 
 [dependencies]
@@ -141,9 +141,9 @@ cxx-build = "1.0"
 # ---------------------------------------------------------------------------
 [profile.release]
 opt-level = 3
-lto = "thin"         # cross-language LTO with Clang — inlines across Rust/C++ boundary
-codegen-units = 1    # single CGU; not implied by thin LTO, must be set explicitly
-strip = "symbols"    # smaller binary; requires Rust 1.77+
+lto = "thin"      # cross-language LTO with Clang — inlines across Rust/C++ boundary
+codegen-units = 1 # single CGU; not implied by thin LTO, must be set explicitly
+strip = "symbols" # smaller binary; requires Rust 1.77+
 
 [profile.dev.package.argon2]
 opt-level = 3
