@@ -15,7 +15,7 @@
 
 | Sound ID               | Description                          | Variations | Status |
 |-------------------------|--------------------------------------|------------|--------|
-| `knight_footstep`       | Heavy armored boot footsteps         | 4-5        | TODO   |
+| `knight_footstep`       | Heavy armored boot footsteps         | 1-3        | DONE   |
 | `knight_jump`           | Heavy jump impulse                   | 2-3        | TODO   |
 | `knight_land`           | Heavy landing impact                 | 2-3        | TODO   |
 | `knight_armor_foley`    | Plate armor clinking on movement     | 3-4        | TODO   |
@@ -25,7 +25,7 @@
 
 | Sound ID               | Description                          | Variations | Status |
 |-------------------------|--------------------------------------|------------|--------|
-| `rogue_footstep`        | Light sneaky leather footsteps       | 4-5        | TODO   |
+| `rogue_footstep`        | Light sneaky leather footsteps       | 1-3        | DONE   |
 | `rogue_jump`            | Light agile jump                     | 2-3        | TODO   |
 | `rogue_land`            | Soft silent landing                  | 2-3        | TODO   |
 | `rogue_leather_foley`   | Leather gear rustling on movement    | 3-4        | TODO   |
