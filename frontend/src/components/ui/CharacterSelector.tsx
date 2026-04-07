@@ -23,7 +23,7 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 				style={{
 					flex: '12 1 0%',
 					background: cfg
-						? `radial-gradient(ellipse at 50% 30%, ${cfg.previewBgColor}30 0%, ${cfg.previewBgColor}08 45%, #070b0a 70%)`
+						? `radial-gradient(ellipse at 50% 30%, ${cfg.previewBgColor}10 0%, ${cfg.previewBgColor}15 5%, #070b0a 80%)`
 						: '#070b0a',
 					transition: 'background 0.4s ease',
 				}}
@@ -44,12 +44,12 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 							<div
 								style={{
 									position: 'absolute',
-									bottom: '19%',
+									bottom: '24%',
 									left: '50%',
 									transform: 'translateX(-50%)',
 									width: '48%',
 									height: '16px',
-									background: `radial-gradient(ellipse, ${cfg.previewBgColor}cc 0%, transparent 70%)`,
+									background: `radial-gradient(ellipse, ${cfg.previewBgColor}cc 10%, transparent 70%)`,
 									filter: 'blur(10px)',
 									pointerEvents: 'none',
 								}}
