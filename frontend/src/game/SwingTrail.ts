@@ -1,4 +1,4 @@
-import { Color3, MeshBuilder, StandardMaterial, Vector3 } from '@babylonjs/core';
+import { Color3, MeshBuilder, StandardMaterial, Vector3, VertexBuffer } from '@babylonjs/core';
 import type { Mesh, Scene } from '@babylonjs/core';
 
 export interface SwingTrailConfig {
@@ -30,8 +30,8 @@ export class SwingTrail {
 
     this.material = new StandardMaterial('swingTrailMat', scene);
     this.material.backFaceCulling = false;
-    this.material.disableLighting = true;
-    this.material.emissiveColor = new Color3(1, 0, 0); // DEBUG: solid red
+    this.material.hasVertexAlpha = true;
+    this.material.specularColor = Color3.Black(); // no specular highlight on the ribbon
   }
 
   update(worldPos: Vector3 | null, swingProgress: number): void {
@@ -97,12 +97,34 @@ export class SwingTrail {
       path2.push(new Vector3(pos.x + dz * halfWidth, pos.y, pos.z - dx * halfWidth));
     }
 
-    // Recreate ribbon mesh (path count changes every frame due to rolling window)
+    // Recreate ribbon mesh (path count changes every frame due to rolling window).
+    // dispose(false, false) skips children and — critically — skips the shared material,
+    // so we don't destroy the material object we're about to reassign.
     this.ribbon?.dispose(false, false);
     this.ribbon = MeshBuilder.CreateRibbon('swingTrail', {
       pathArray: [path1, path2],
     }, this.scene) as Mesh;
+    this.ribbon.hasVertexAlpha = true;
     this.ribbon.material = this.material;
+
+    // Vertex color gradient: transparent tail → bright tip
+    // BabylonJS ribbon vertex layout: [path1[0..N-1], path2[0..N-1]]
+    const colors = new Float32Array(n * 2 * 4);
+    for (let i = 0; i < n; i++) {
+      const age = i / (n - 1);
+      const r = this.config.baseColor.r + (this.config.tipColor.r - this.config.baseColor.r) * age;
+      const g = this.config.baseColor.g + (this.config.tipColor.g - this.config.baseColor.g) * age;
+      const b = this.config.baseColor.b + (this.config.tipColor.b - this.config.baseColor.b) * age;
+      const a = age * 0.85;
+
+      // path1[i] → vertex i
+      colors[i * 4]     = r; colors[i * 4 + 1] = g;
+      colors[i * 4 + 2] = b; colors[i * 4 + 3] = a;
+      // path2[i] → vertex N+i
+      colors[(n + i) * 4]     = r; colors[(n + i) * 4 + 1] = g;
+      colors[(n + i) * 4 + 2] = b; colors[(n + i) * 4 + 3] = a;
+    }
+    this.ribbon.setVerticesData(VertexBuffer.ColorKind, colors);
     console.log('[Trail] ribbon verts=', this.ribbon.getTotalVertices(), 'n=', n);
   }
 

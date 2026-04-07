@@ -692,6 +692,16 @@ export default function SimpleGameClient({
 			camera.minZ = 0.1;
 			camera.maxZ = 500;
 
+			// Ambient fill light so vertex-color materials (trail ribbon) are visible.
+			// HemisphericLight is shadow-free and doesn't conflict with baked scene lighting.
+			const ambientLight = new BABYLON.HemisphericLight(
+				'ambientFill',
+				new BABYLON.Vector3(0, 1, 0),
+				scene,
+			);
+			ambientLight.intensity = 0.4;
+			ambientLight.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
 			scene.onReadyObservable.addOnce(() => {
 				console.log(
 					'[Scene] cameras:',
