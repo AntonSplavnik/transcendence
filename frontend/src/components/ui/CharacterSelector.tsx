@@ -57,7 +57,7 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 						</>
 					)}
 				</div>
-				<p className="shrink-0 py-2 text-center text-[10px] text-stone-700 tracking-wider select-none">
+				<p className="shrink-0 py-2 text-center text-xs text-stone-700 tracking-wider select-none">
 					↺ drag to rotate ↻
 				</p>
 			</div>

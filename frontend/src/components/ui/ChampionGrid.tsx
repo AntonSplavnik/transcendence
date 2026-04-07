@@ -22,7 +22,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 			className="flex flex-col gap-3 p-4 bg-stone-900 border-r border-stone-800 overflow-hidden"
 			style={{ flex: '8 1 0%' }}
 		>
-			<span className="text-[9px] text-stone-500 uppercase tracking-widest">Champions</span>
+			<span className="text-xs text-stone-500 uppercase tracking-widest">Champions</span>
 			<div className="grid grid-cols-3 gap-2 content-start">
 				{characters.map(([id, cfg]) => {
 					const selected = value === id;
@@ -44,7 +44,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 						>
 							<div className="absolute inset-0 bg-gradient-to-t from-stone-950 to-transparent opacity-60" />
 							<span
-								className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-bold tracking-wide ${
+								className={`absolute bottom-2 left-0 right-0 text-center text-[11px] font-bold tracking-wide ${
 									selected ? 'text-gold-400' : 'text-stone-400'
 								}`}
 							>
@@ -59,7 +59,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 						key={`locked-${i}`}
 						className="aspect-square rounded-lg border-2 border-dashed border-stone-700/50 relative flex items-center justify-center bg-stone-950/40"
 					>
-						<Lock className="w-5 h-5 text-stone-600" />
+						<Lock className="w-6 h-6 text-stone-600" />
 					</div>
 				))}
 			</div>

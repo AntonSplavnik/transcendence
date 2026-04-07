@@ -199,31 +199,28 @@ export default function LobbyPage() {
 	const maskedCode = '•'.repeat(DISPLAY_LEN - SUFFIX_LEN) + lobbyId.slice(-SUFFIX_LEN);
 
 	return (
+		<>
+		<Link
+			to="/home"
+			className="fixed top-3 left-3 z-50 inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-200 transition-colors"
+		>
+			<ChevronLeft className="w-4 h-4" aria-hidden="true" />
+			Home
+		</Link>
 		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ height: 'calc(100vh / 1.12)', zoom: 1.12, overflow: 'hidden' }}>
-			{/* Back link */}
-			<div className="px-6 pt-4">
-				<Link
-					to="/home"
-					className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-200 transition-colors"
-				>
-					<ChevronLeft className="w-4 h-4" aria-hidden="true" />
-					Back to home
-				</Link>
-			</div>
-
 			{/* ── Top bar ──────────────────────────────────────────────────── */}
-			<div className="flex items-center justify-between gap-6 px-6 py-3 bg-stone-900 border-b border-stone-800 mt-3 rounded-t-xl">
-				{/* Left: name + code */}
-				<div className="flex flex-col gap-1 min-w-0 shrink-0">
+			<div className="flex items-center justify-between gap-6 px-4 py-3 bg-stone-900 border-b border-stone-800 rounded-t-xl">
+				{/* Left: name + code (aligned with panel below) */}
+				<div className="flex flex-col gap-1.5 min-w-0 shrink-0">
 					<div className="flex items-center gap-2">
-						<h1 className="text-lg font-bold text-stone-50 truncate">{settings.name}</h1>
+						<h1 className="text-xl font-bold text-stone-50 truncate">{settings.name}</h1>
 						{canEditSettings && (
 							<button
 								onClick={() => setShowSettings((s) => !s)}
 								className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
 								aria-label={showSettings ? 'Cancel editing settings' : 'Edit lobby settings'}
 							>
-								<Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+								<Pencil className="w-4 h-4" aria-hidden="true" />
 							</button>
 						)}
 						{settings.public ? (
@@ -236,10 +233,7 @@ export default function LobbyPage() {
 						)}
 					</div>
 					<div className="flex items-center gap-1">
-						<span
-							className="font-mono text-xs text-stone-600 tracking-wider select-none"
-							aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}
-						>
+						<span className="font-mono text-sm text-stone-600 tracking-wider select-none" aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}>
 							{maskedCode}
 						</span>
 						<button
@@ -248,13 +242,13 @@ export default function LobbyPage() {
 							aria-label={codeCopied ? 'Lobby code copied' : 'Copy full lobby code'}
 						>
 							{codeCopied ? (
-								<Check className="w-3 h-3 text-success" aria-hidden="true" />
+								<Check className="w-3.5 h-3.5 text-success" aria-hidden="true" />
 							) : (
-								<Copy className="w-3 h-3" aria-hidden="true" />
+								<Copy className="w-3.5 h-3.5" aria-hidden="true" />
 							)}
 						</button>
 						{codeCopied && (
-							<span className="text-xs text-success" aria-live="polite">Copied!</span>
+							<span className="text-sm text-success" aria-live="polite">Copied!</span>
 						)}
 					</div>
 				</div>
@@ -290,7 +284,6 @@ export default function LobbyPage() {
 					{isPlayer && !gameActive && (
 						<Button
 							variant={myPlayer.ready ? 'secondary' : 'primary'}
-							size="sm"
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
 						>
@@ -299,10 +292,9 @@ export default function LobbyPage() {
 					)}
 					<Button
 						variant="danger"
-						size="sm"
 						onClick={() => void handleLeave()}
 						loading={isLeaving}
-						icon={<LogOut className="w-4 h-4" aria-hidden="true" />}
+						icon={<LogOut className="w-5 h-5" aria-hidden="true" />}
 					>
 						Leave
 					</Button>
@@ -322,8 +314,8 @@ export default function LobbyPage() {
 
 			{/* ── Game mode row ─────────────────────────────────────────────── */}
 			{!gameActive && (
-				<div className="flex items-center gap-3 px-6 py-2 bg-stone-950 border-b border-stone-800">
-					<span className="text-[9px] text-stone-500 uppercase tracking-widest shrink-0">
+				<div className="flex items-center gap-4 px-6 py-3 bg-stone-950 border-b border-stone-800">
+					<span className="text-xs text-stone-500 uppercase tracking-widest shrink-0">
 						Game Mode
 					</span>
 					<div className="flex gap-2 flex-wrap">
@@ -337,7 +329,7 @@ export default function LobbyPage() {
 									onClick={() => {
 										if (isHost) void updateSettings({ gamemode: mode.id });
 									}}
-									className={`px-3 py-1 rounded-md border text-xs font-medium transition-all duration-150 ${
+									className={`px-4 py-2 rounded-md border text-sm font-medium transition-all duration-150 ${
 										active
 											? 'border-gold-400 bg-gold-400/10 text-gold-400'
 											: isHost
@@ -355,7 +347,10 @@ export default function LobbyPage() {
 
 			{/* ── Character selector ────────────────────────────────────────── */}
 			{isPlayer && !gameActive && (
-				<div className="flex" style={{ height: '480px' }}>
+				<div className="mx-4 my-3 h-px bg-stone-800" />
+			)}
+			{isPlayer && !gameActive && (
+				<div className="flex min-h-0" style={{ maxHeight: '480px' }}>
 					<CharacterSelector
 						value={selectedCharacter}
 						onChange={handleCharacterChange}
@@ -363,5 +358,6 @@ export default function LobbyPage() {
 				</div>
 			)}
 		</main>
+		</>
 	);
 }

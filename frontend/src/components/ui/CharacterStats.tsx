@@ -33,10 +33,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 		>
 			{/* Name + class */}
 			<div>
-				<h2 className="text-2xl font-black text-gold-400 uppercase tracking-wide leading-tight">
+				<h2 className="text-3xl font-black text-gold-400 uppercase tracking-wide leading-tight">
 					{cfg.label}
 				</h2>
-				<p className="uppercase tracking-widest mt-1 text-stone-400" style={{ fontSize: '11px' }}>
+				<p className="uppercase tracking-widest mt-1 text-stone-400" style={{ fontSize: '13px' }}>
 					{cfg.characterClass}
 				</p>
 			</div>
@@ -47,12 +47,12 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 			<div className="flex flex-col" style={{ gap: '11px' }}>
 				{STAT_BARS.map(({ key, label, gradient }) => (
 					<div key={key}>
-						<div className="uppercase text-stone-500" style={{ fontSize: '10px', marginBottom: '4px' }}>
+						<div className="uppercase text-stone-500" style={{ fontSize: '12px', marginBottom: '5px' }}>
 							{label}
 						</div>
 						<div
 							className="border border-stone-800"
-							style={{ height: '9px', background: '#0e0e10', borderRadius: '3px' }}
+							style={{ height: '11px', background: '#0e0e10', borderRadius: '3px' }}
 						>
 							<div
 								style={{
@@ -72,12 +72,12 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Weapons */}
 			<div>
-				<div className="uppercase text-stone-500 block" style={{ fontSize: '9px', marginBottom: '5px', letterSpacing: '0.12em' }}>
+				<div className="uppercase text-stone-500 block" style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}>
 					Equipment
 				</div>
-				<div className="flex flex-col gap-1">
+				<div className="flex flex-col gap-1.5">
 					{cfg.weapons.map((w) => (
-						<span key={w} className="text-stone-300" style={{ fontSize: '12px' }}>
+						<span key={w} className="text-stone-300" style={{ fontSize: '14px' }}>
 							{w}
 						</span>
 					))}
@@ -86,10 +86,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Playstyle */}
 			<div>
-				<div className="uppercase text-stone-500 block" style={{ fontSize: '9px', marginBottom: '5px', letterSpacing: '0.12em' }}>
+				<div className="uppercase text-stone-500 block" style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}>
 					Playstyle
 				</div>
-				<p className="text-stone-400" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>{cfg.description}</p>
+				<p className="text-stone-400" style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}>{cfg.description}</p>
 			</div>
 		</div>
 	);
