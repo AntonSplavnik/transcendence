@@ -792,9 +792,6 @@ export default function SimpleGameClient({
 				input.movementDirection.z = dir[1];
 				input.isJumping = keysPressed.has(' ');
 				input.isSprinting = keysPressed.has('shift');
-
-				gameClient.updateLocalAnimation(input);
-				input.isAttacking = false; // clear one-shot trigger after processing
 			});
 
 			// Track last movement direction so character keeps facing that way when idle
@@ -843,6 +840,10 @@ export default function SimpleGameClient({
 					gameClient.processSnapshot(snap);
 					snapshotRef.current = null;
 				}
+
+				// Animation + audio after snapshot so position is up-to-date
+				gameClient.updateLocalAnimation(input);
+				input.isAttacking = false; // clear one-shot trigger after processing
 
 				// Send input at 60 Hz — matches the server's game-loop tick rate.
 				if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {

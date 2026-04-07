@@ -75,12 +75,17 @@ export class AudioEventSystem {
 
       if (fired) {
         if (trigger.delayMs) {
-          setTimeout(() => this.playSoundAt(trigger.soundId, position, trigger.volume, undefined, true), trigger.delayMs);
+          const sid = trigger.soundId;
+          const vol = trigger.volume;
+          setTimeout(() => this.playSoundAt(sid, position, vol, undefined, true), trigger.delayMs);
         } else {
           this.playSoundAt(trigger.soundId, position, trigger.volume, undefined, true);
         }
       }
-      this.prevInputState[trigger.field] = current;
+    }
+    // Update previous state after all triggers have been evaluated
+    for (const trigger of LOCAL_INPUT_TRIGGERS) {
+      this.prevInputState[trigger.field] = input[trigger.field] as boolean;
     }
 
     // Pipeline 1b: continuous triggers (e.g. footsteps while walking)

@@ -71,8 +71,8 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
   {
     id: 'knight_land',
-    variations: ['/sounds/sfx/mouvement/knight/knight_land_01.wav', '/sounds/sfx/mouvement/knight/knight_land_02.wav', '/sounds/sfx/mouvement/knight/knight_land_03.wav'],
-    volume: { min: 0.6, max: 1.0 },
+    variations: ['/sounds/sfx/mouvement/knight/knight_land_01.wav', '/sounds/sfx/mouvement/knight/knight_land_02.wav'],
+    volume: { min: 3.0, max: 3.3 },
     pitch: { min: 0.8, max: 0.95 },
     bus: 'sfx',
     spatial: true,
@@ -125,9 +125,9 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   },
   {
     id: 'rogue_land',
-    variations: ['/sounds/sfx/mouvement/rogue/rogue_land_01.wav', '/sounds/sfx/mouvement/rogue/rogue_land_02.wav', '/sounds/sfx/mouvement/rogue/rogue_land_03.wav'],
-    volume: { min: 0.3, max: 0.5 },
-    pitch: { min: 1.0, max: 1.15 },
+    variations: ['/sounds/sfx/mouvement/rogue/rogue_land_01.wav', '/sounds/sfx/mouvement/rogue/rogue_land_02.wav'],
+    volume: { min: 2.3, max: 2.5 },
+    pitch: { min: 1.2, max: 1.35 },
     bus: 'sfx',
     spatial: true,
     maxDistance: 30,

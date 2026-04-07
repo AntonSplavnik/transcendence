@@ -26,6 +26,7 @@ export interface LocalInputTrigger {
 
 export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
   { soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
+  { soundId: 'player_land', field: 'isJumping', edge: 'rising', delayMs: 550 },
   { soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
   // { soundId: 'player_dodge',        field: 'isDodging',   edge: 'rising' },
 ];
