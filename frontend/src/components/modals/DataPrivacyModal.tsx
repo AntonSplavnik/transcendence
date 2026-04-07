@@ -91,12 +91,11 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 	}, [deleteFlow.step]);
 
 	const validateCredentials = useCallback(
-		(
-			action: 'export' | 'delete',
-		): { password: string; mfaCode: string | undefined } | null => {
+		(action: 'export' | 'delete'): { password: string; mfaCode: string | undefined } | null => {
 			const passwordRef = action === 'export' ? exportPasswordRef : deletePasswordRef;
 			const mfaRef = action === 'export' ? exportMfaRef : deleteMfaRef;
-			const setPasswordError = action === 'export' ? setExportPasswordError : setDeletePasswordError;
+			const setPasswordError =
+				action === 'export' ? setExportPasswordError : setDeletePasswordError;
 			const setMfaError = action === 'export' ? setExportMfaError : setDeleteMfaError;
 
 			const password = passwordRef.current?.value ?? '';
@@ -137,14 +136,14 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 			if (!creds) return;
 
 			const setFlow = action === 'export' ? setExportFlow : setDeleteFlow;
-			setFlow(prev => ({ ...prev, step: 'initiating', error: null }));
+			setFlow((prev) => ({ ...prev, step: 'initiating', error: null }));
 
 			try {
 				const apiFn = action === 'export' ? exportMyData : deleteMyAccount;
 				const response = await apiFn(creds.password, creds.mfaCode);
 				const initResponse = response as GdprInitiateResponse;
 
-				setFlow(prev => ({
+				setFlow((prev) => ({
 					...prev,
 					token: initResponse.token,
 					emailConfirmationRequired: initResponse.email_confirmation_required,
@@ -154,7 +153,7 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 						: 'confirm_credentials',
 				}));
 			} catch (err) {
-				setFlow(prev => ({
+				setFlow((prev) => ({
 					...prev,
 					step: 'credentials',
 					error: getErrorMessage(err, `Failed to initiate ${action}`),
@@ -192,8 +191,8 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 			}
 
 			// Read token from current state to avoid stale closure
-			const token = await new Promise<string | null>(resolve => {
-				setFlow(prev => {
+			const token = await new Promise<string | null>((resolve) => {
+				setFlow((prev) => {
 					resolve(prev.token);
 					return { ...prev, step: 'executing', error: null };
 				});
@@ -207,15 +206,15 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 					const data = response as DataExport;
 					triggerDownload(data);
 					exportDataRef.current = data;
-					setExportFlow(prev => ({ ...prev, step: 'done' }));
+					setExportFlow((prev) => ({ ...prev, step: 'done' }));
 				} else {
-					setDeleteFlow(prev => ({ ...prev, step: 'done' }));
+					setDeleteFlow((prev) => ({ ...prev, step: 'done' }));
 					deleteTimerRef.current = setTimeout(() => clearAuth(), 2000);
 				}
 			} catch (err) {
 				const brief = getErrorBrief(err);
 				if (brief === 'EmailConfirmationPending') {
-					setFlow(prev => ({
+					setFlow((prev) => ({
 						...prev,
 						step: 'awaiting_email',
 						error: 'Please confirm via the email link before proceeding.',
@@ -229,7 +228,7 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 								: 'This request is invalid. Please start over.',
 					});
 				} else {
-					setFlow(prev => ({
+					setFlow((prev) => ({
 						...prev,
 						step: 'confirm_credentials',
 						error: getErrorMessage(err, `Failed to complete ${action}`),
@@ -245,15 +244,13 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 		triggerDownload(exportDataRef.current);
 	}, [triggerDownload]);
 
-	const renderCredentialInputs = (
-		action: 'export' | 'delete',
-		phase: 'initiate' | 'execute',
-	) => {
+	const renderCredentialInputs = (action: 'export' | 'delete', phase: 'initiate' | 'execute') => {
 		const passwordRef = action === 'export' ? exportPasswordRef : deletePasswordRef;
 		const mfaRef = action === 'export' ? exportMfaRef : deleteMfaRef;
 		const passwordError = action === 'export' ? exportPasswordError : deletePasswordError;
 		const mfaError = action === 'export' ? exportMfaError : deleteMfaError;
-		const setPasswordErr = action === 'export' ? setExportPasswordError : setDeletePasswordError;
+		const setPasswordErr =
+			action === 'export' ? setExportPasswordError : setDeletePasswordError;
 		const setMfaErr = action === 'export' ? setExportMfaError : setDeleteMfaError;
 		const flow = action === 'export' ? exportFlow : deleteFlow;
 		const isLoading = flow.step === 'initiating' || flow.step === 'executing';
@@ -271,7 +268,8 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 			<div className="space-y-3">
 				{phase === 'execute' && (
 					<p className="text-sm text-stone-300">
-						Re-enter your credentials to complete the {action === 'export' ? 'data export' : 'account deletion'}.
+						Re-enter your credentials to complete the{' '}
+						{action === 'export' ? 'data export' : 'account deletion'}.
 					</p>
 				)}
 
@@ -280,7 +278,7 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 						label={`Type your username "${user?.nickname}" to confirm`}
 						id={`${action}-nickname-confirm`}
 						value={deleteNickname}
-						onChange={e => {
+						onChange={(e) => {
 							setDeleteNickname(e.target.value);
 							setDeleteNicknameError('');
 						}}
@@ -320,9 +318,19 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 					<Button
 						onClick={handleSubmit}
 						loading={isLoading}
-						loadingText={phase === 'initiate' ? 'Verifying...' : action === 'export' ? 'Exporting...' : 'Deleting...'}
+						loadingText={
+							phase === 'initiate'
+								? 'Verifying...'
+								: action === 'export'
+									? 'Exporting...'
+									: 'Deleting...'
+						}
 						variant={action === 'delete' && phase === 'execute' ? 'danger' : 'primary'}
-						disabled={action === 'delete' && phase === 'execute' && deleteNickname !== user?.nickname}
+						disabled={
+							action === 'delete' &&
+							phase === 'execute' &&
+							deleteNickname !== user?.nickname
+						}
 						className="flex-1"
 					>
 						{phase === 'initiate'
@@ -357,11 +365,13 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 				<Alert variant="info">
 					<p className="font-semibold mb-1">Check your email</p>
 					<p className="text-xs opacity-90">
-						We sent a confirmation link to your email address. Click the link,
-						then return here and press Continue. The link expires in 30 minutes.
+						We sent a confirmation link to your email address. Click the link, then
+						return here and press Continue. The link expires in 30 minutes.
 					</p>
 				</Alert>
-				<Button onClick={() => setFlow(prev => ({ ...prev, step: 'confirm_credentials' }))}>
+				<Button
+					onClick={() => setFlow((prev) => ({ ...prev, step: 'confirm_credentials' }))}
+				>
 					I've Confirmed — Continue
 				</Button>
 			</div>
@@ -369,7 +379,12 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 	};
 
 	return (
-		<Modal onClose={onClose} title="Privacy & Data" icon={<ShieldCheck className="w-6 h-6" />} maxWidth="lg">
+		<Modal
+			onClose={onClose}
+			title="Privacy & Data"
+			icon={<ShieldCheck className="w-6 h-6" />}
+			maxWidth="lg"
+		>
 			<section aria-labelledby="export-heading">
 				<Card accent="info">
 					<div className="flex items-center gap-2 mb-3">
@@ -381,19 +396,22 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 					<p className="text-sm text-stone-300 mb-4">
 						Download a copy of all personal data we store about you (GDPR Article 20).
-						This includes your profile, sessions, friend requests, notifications, and avatars.
+						This includes your profile, sessions, friend requests, notifications, and
+						avatars.
 					</p>
 
 					<div aria-live="polite" aria-atomic="true" className="sr-only">
-						{exportFlow.step === 'awaiting_email' && 'Check your email for a confirmation link.'}
-						{exportFlow.step === 'done' && 'Data export complete. File has been downloaded.'}
+						{exportFlow.step === 'awaiting_email' &&
+							'Check your email for a confirmation link.'}
+						{exportFlow.step === 'done' &&
+							'Data export complete. File has been downloaded.'}
 					</div>
 
 					{exportFlow.error && (
 						<Alert
 							variant="error"
 							dismissable
-							onDismiss={() => setExportFlow(prev => ({ ...prev, error: null }))}
+							onDismiss={() => setExportFlow((prev) => ({ ...prev, error: null }))}
 							className="mb-3"
 						>
 							{exportFlow.error}
@@ -402,7 +420,9 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 					{exportFlow.step === 'idle' && (
 						<Button
-							onClick={() => setExportFlow(prev => ({ ...prev, step: 'credentials' }))}
+							onClick={() =>
+								setExportFlow((prev) => ({ ...prev, step: 'credentials' }))
+							}
 							icon={<Download className="w-4 h-4" />}
 						>
 							Export My Data
@@ -414,14 +434,13 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 					{exportFlow.step === 'awaiting_email' && renderAwaitingEmail('export')}
 
-					{(exportFlow.step === 'confirm_credentials' || exportFlow.step === 'executing') &&
+					{(exportFlow.step === 'confirm_credentials' ||
+						exportFlow.step === 'executing') &&
 						renderCredentialInputs('export', 'execute')}
 
 					{exportFlow.step === 'done' && (
 						<div className="space-y-3">
-							<Alert variant="success">
-								Your data export has been downloaded.
-							</Alert>
+							<Alert variant="success">Your data export has been downloaded.</Alert>
 							<Button
 								onClick={handleDownloadExport}
 								icon={<Download className="w-4 h-4" />}
@@ -449,22 +468,24 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 					<Alert variant="warning" className="mb-4">
 						<p className="font-semibold mb-1">This action is permanent</p>
 						<p className="text-xs opacity-90">
-							Your account will be anonymized and all personal data erased.
-							This includes your profile, sessions, avatars, friend requests,
-							and notifications. This cannot be undone.
+							Your account will be anonymized and all personal data erased. This
+							includes your profile, sessions, avatars, friend requests, and
+							notifications. This cannot be undone.
 						</p>
 					</Alert>
 
 					<div aria-live="assertive" aria-atomic="true" className="sr-only">
-						{deleteFlow.step === 'awaiting_email' && 'Check your email for a confirmation link.'}
-						{deleteFlow.step === 'done' && 'Your account has been deleted. Redirecting.'}
+						{deleteFlow.step === 'awaiting_email' &&
+							'Check your email for a confirmation link.'}
+						{deleteFlow.step === 'done' &&
+							'Your account has been deleted. Redirecting.'}
 					</div>
 
 					{deleteFlow.error && (
 						<Alert
 							variant="error"
 							dismissable
-							onDismiss={() => setDeleteFlow(prev => ({ ...prev, error: null }))}
+							onDismiss={() => setDeleteFlow((prev) => ({ ...prev, error: null }))}
 							className="mb-3"
 						>
 							{deleteFlow.error}
@@ -473,7 +494,9 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 					{deleteFlow.step === 'idle' && (
 						<Button
-							onClick={() => setDeleteFlow(prev => ({ ...prev, step: 'credentials' }))}
+							onClick={() =>
+								setDeleteFlow((prev) => ({ ...prev, step: 'credentials' }))
+							}
 							variant="danger"
 							icon={<Trash2 className="w-4 h-4" />}
 						>
@@ -486,14 +509,16 @@ export default function DataPrivacyModal({ onClose }: DataPrivacyModalProps) {
 
 					{deleteFlow.step === 'awaiting_email' && renderAwaitingEmail('delete')}
 
-					{(deleteFlow.step === 'confirm_credentials' || deleteFlow.step === 'executing') &&
+					{(deleteFlow.step === 'confirm_credentials' ||
+						deleteFlow.step === 'executing') &&
 						renderCredentialInputs('delete', 'execute')}
 
 					{deleteFlow.step === 'done' && (
 						<Alert variant="success">
 							<p className="font-semibold mb-1">Account deleted</p>
 							<p className="text-xs opacity-90">
-								Your account has been permanently deleted. You will be redirected shortly.
+								Your account has been permanently deleted. You will be redirected
+								shortly.
 							</p>
 						</Alert>
 					)}

@@ -158,6 +158,10 @@ export async function exportMyData(
 	token?: string,
 ): Promise<GdprInitiateResponse | DataExport> {
 	const params = token ? { token } : undefined;
-	const response = await apiClient.post('/user/export-my-data', { password, mfa_code }, { params });
+	const response = await apiClient.post(
+		'/user/export-my-data',
+		{ password, mfa_code },
+		{ params },
+	);
 	return response.data;
 }

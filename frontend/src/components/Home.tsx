@@ -336,9 +336,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 			{showCreateLobby && <CreateLobbyModal onClose={() => setShowCreateLobby(false)} />}
 			{showJoinByCode && <JoinByCodeModal onClose={() => setShowJoinByCode(false)} />}
 
-			{showDataPrivacy && (
-				<DataPrivacyModal onClose={() => setShowDataPrivacy(false)} />
-			)}
+			{showDataPrivacy && <DataPrivacyModal onClose={() => setShowDataPrivacy(false)} />}
 
 
 			{showReauthModal && (
