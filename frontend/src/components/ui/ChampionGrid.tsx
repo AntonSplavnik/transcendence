@@ -1,5 +1,8 @@
+import { Lock } from 'lucide-react';
 import { CHARACTER_CONFIGS } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
+
+const TOTAL_SLOTS = 6;
 
 export interface ChampionGridProps {
 	value: CharacterChoice | null;
@@ -11,6 +14,8 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 		CharacterChoice,
 		(typeof CHARACTER_CONFIGS)[CharacterChoice],
 	][];
+
+	const lockedCount = TOTAL_SLOTS - characters.length;
 
 	return (
 		<div
@@ -48,6 +53,15 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 						</button>
 					);
 				})}
+
+				{Array.from({ length: lockedCount }).map((_, i) => (
+					<div
+						key={`locked-${i}`}
+						className="aspect-square rounded-lg border-2 border-dashed border-stone-700/50 relative flex items-center justify-center bg-stone-950/40"
+					>
+						<Lock className="w-5 h-5 text-stone-600" />
+					</div>
+				))}
 			</div>
 		</div>
 	);
