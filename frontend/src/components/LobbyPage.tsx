@@ -209,7 +209,7 @@ export default function LobbyPage() {
 		</Link>
 		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ height: 'calc(100vh / 1.12)', zoom: 1.12, overflow: 'hidden' }}>
 			{/* ── Top bar ──────────────────────────────────────────────────── */}
-			<div className="flex items-center justify-between gap-6 px-4 py-3 bg-stone-900 border-b border-stone-800 rounded-t-xl">
+			<div className="flex items-center justify-between gap-6 px-4 py-3 bg-stone-900 border-b border-stone-800 rounded-t-2xl">
 				{/* Left: name + code (aligned with panel below) */}
 				<div className="flex flex-col gap-1.5 min-w-0 shrink-0">
 					<div className="flex items-center gap-2">
@@ -329,7 +329,7 @@ export default function LobbyPage() {
 									onClick={() => {
 										if (isHost) void updateSettings({ gamemode: mode.id });
 									}}
-									className={`px-4 py-2 rounded-md border text-sm font-medium transition-all duration-150 ${
+									className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-150 ${
 										active
 											? 'border-gold-400 bg-gold-400/10 text-gold-400'
 											: isHost

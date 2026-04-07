@@ -33,7 +33,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							aria-label={`Select ${cfg.label}`}
 							aria-pressed={selected}
 							onClick={() => onChange(id)}
-							className={`aspect-square rounded-lg border-2 relative overflow-hidden transition-all duration-200 cursor-pointer ${
+							className={`aspect-square rounded-2xl border-2 relative overflow-hidden transition-all duration-200 cursor-pointer ${
 								selected
 									? 'border-gold-400 shadow-[0_0_14px_2px_rgba(224,160,48,0.45)]'
 									: 'border-stone-700 opacity-60 hover:opacity-80 hover:border-stone-600'
@@ -57,7 +57,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 				{Array.from({ length: lockedCount }).map((_, i) => (
 					<div
 						key={`locked-${i}`}
-						className="aspect-square rounded-lg border-2 border-dashed border-stone-700/50 relative flex items-center justify-center bg-stone-950/40"
+						className="aspect-square rounded-2xl border-2 border-dashed border-stone-700/50 relative flex items-center justify-center bg-stone-950/40"
 					>
 						<Lock className="w-6 h-6 text-stone-600" />
 					</div>
