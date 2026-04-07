@@ -33,7 +33,8 @@ export class SwingTrail {
     this.material = new StandardMaterial('swingTrailMat', scene);
     this.material.backFaceCulling = false;
     this.material.hasVertexAlpha = true;
-    this.material.specularColor = Color3.Black(); // no specular highlight on the ribbon
+    this.material.disableLighting = true;
+    this.material.emissiveColor = new Color3(0.6, 0.6, 0.6); // vertex RGB × 0.4 = 40% brightness
   }
 
   update(worldPos: Vector3 | null, swingProgress: number): void {
