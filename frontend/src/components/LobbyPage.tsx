@@ -283,15 +283,16 @@ export default function LobbyPage() {
 				<div className="flex gap-2 shrink-0">
 					{isPlayer && !gameActive && (
 						<Button
-							variant={myPlayer.ready ? 'secondary' : 'primary'}
+							variant="secondary"
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
+							className={!myPlayer.ready ? '!bg-emerald-600 hover:!bg-emerald-500 !border-b-emerald-900 !text-white shadow-[0_0_12px_rgba(16,185,129,0.2)]' : ''}
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>
 					)}
 					<Button
-						variant="danger"
+						variant="ghost"
 						onClick={() => void handleLeave()}
 						loading={isLeaving}
 						icon={<LogOut className="w-5 h-5" aria-hidden="true" />}
