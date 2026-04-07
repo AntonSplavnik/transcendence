@@ -270,6 +270,7 @@ class GameClient {
 		this.localCharacter = new AnimatedCharacter(this.scene);
 		await loadCharacter(this.localCharacter, this.characterConfig);
 		this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
+		this.localCharacter.initTrail(this.characterConfig);
 
 		this.localCharacter.setPosition(this.position);
 		this.localCharacter.playAnimation(AnimationNames.spawn, false);
@@ -292,6 +293,12 @@ class GameClient {
 				if (this.localCharacter) {
 					this.localCharacter.setPosition(this.position);
 					this.localCharacter.setRotation(char.yaw);
+					if (char.swing_progress > 0)
+						console.log('[Trail] swing_progress=', char.swing_progress, 'trail=', this.localCharacter.trail);
+					this.localCharacter.trail?.update(
+						this.localCharacter.getWeaponWorldPos(),
+						char.swing_progress,
+					);
 				}
 
 				if (this.localHealthFill) {
@@ -352,6 +359,10 @@ class GameClient {
 					this.remoteJumpStates.set(char.player_id, newJumpState);
 					const remoteConfig = this.characterConfigMap.get(char.player_id);
 					if (remoteConfig) this.updateSnapshotFallbackAnimation(char.player_id, remoteChar, char, remoteConfig, newJumpState);
+					remoteChar.trail?.update(
+						remoteChar.getWeaponWorldPos(),
+						char.swing_progress,
+					);
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
@@ -400,6 +411,7 @@ class GameClient {
 				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 			this.characterConfigMap.set(playerID, config);
 			await loadCharacter(remoteChar, config);
+			remoteChar.initTrail(config);
 
 			if (playerID === this.localPlayerID) {
 				remoteChar.dispose();

@@ -22,6 +22,12 @@ export interface AnimationEntry {
 	speed?: number;  // playback speed multiplier (default 1.0)
 }
 
+export interface TrailColor {
+	base: [number, number, number]; // RGB 0–255, tail end (transparent)
+	tip: [number, number, number];  // RGB 0–255, weapon end (bright)
+	maxWidth: number;               // ribbon half-width in world units
+}
+
 export interface CharacterConfig {
 	label: string;
 	model: string;
@@ -34,6 +40,7 @@ export interface CharacterConfig {
 	runAnimation:     AnimationEntry;
 	attackAnimations: AnimationEntry[];  // [stage0, stage1, stage2, ...] — index = chain stage
 	skillAnimations:  AnimationEntry[];  // [skill1anim, skill2anim] — index = slot - 1
+	trailColor: TrailColor;
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
@@ -59,6 +66,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 			{ name: 'Melee_1H_Attack_Jump_Chop' },   // skill1
 			{ name: 'Melee_1H_Attack_Chop' },         // skill2 — placeholder
 		],
+		trailColor: { base: [79, 195, 247], tip: [255, 255, 255], maxWidth: 0.3 },
 	},
 	Rogue: {
 		label: 'Rogue',
@@ -75,5 +83,6 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		runAnimation:     { name: 'Running_B', speed: 1.2 },
 		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
 		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
+		trailColor: { base: [102, 187, 106], tip: [200, 255, 200], maxWidth: 0.3 },
 	},
 };

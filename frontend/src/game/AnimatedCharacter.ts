@@ -1,12 +1,14 @@
 import type { AbstractMesh, AnimationGroup, Scene, Observer } from '@babylonjs/core';
-import { SceneLoader, TransformNode, Vector3 } from '@babylonjs/core';
+import { Color3, SceneLoader, TransformNode, Vector3 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import type { CharacterConfig } from './characterConfigs';
+import { SwingTrail } from './SwingTrail';
 
 export class AnimatedCharacter {
 	public rootNode: TransformNode;
 	public meshes: AbstractMesh[] = [];
 	public animations: Map<string, AnimationGroup> = new Map();
+	public trail: SwingTrail | null = null;
 	public currentAnimation: AnimationGroup | null = null;
 	private currentAnimationName: string = '';
 	private scene: Scene;
@@ -14,6 +16,7 @@ export class AnimatedCharacter {
 	private skeleton: any = null;
 	private blendObserver: Observer<Scene> | null = null;
 	private fadingOutAnim: AnimationGroup | null = null;
+	private equipmentMeshes: AbstractMesh[] = [];
 
 	constructor(scene: Scene) {
 		this.scene = scene;
@@ -80,6 +83,7 @@ export class AnimatedCharacter {
 			if (rotation) mesh.rotation.copyFrom(rotation);
 			else mesh.rotation.set(0, 0, 0);
 			mesh.scaling.set(1, 1, 1);
+			this.equipmentMeshes.push(mesh);
 		});
 	}
 
@@ -164,6 +168,42 @@ export class AnimatedCharacter {
 		}
 	}
 
+	initTrail(config: CharacterConfig): void {
+		const { base, tip, maxWidth } = config.trailColor;
+		this.trail = new SwingTrail(this.scene, {
+			baseColor: new Color3(base[0] / 255, base[1] / 255, base[2] / 255),
+			tipColor:  new Color3(tip[0]  / 255, tip[1]  / 255, tip[2]  / 255),
+			maxWidth,
+		});
+		console.log('[Trail] initTrail OK, trail=', this.trail);
+	}
+
+	// Returns the world-space position of the right-hand weapon tip.
+	// Uses the weapon mesh bounding box to find the tip (farthest point from grip).
+	// Falls back to the handslot.r bone position if no equipment mesh is loaded yet.
+	getWeaponWorldPos(): Vector3 | null {
+		if (this.equipmentMeshes.length > 0) {
+			const mesh = this.equipmentMeshes[0];
+			const bb = mesh.getBoundingInfo().boundingBox;
+			const grip = mesh.getAbsolutePosition();
+			// The tip is whichever extreme of the AABB is farthest from the grip origin.
+			const toMax = bb.maximumWorld.subtract(grip).length();
+			const toMin = bb.minimumWorld.subtract(grip).length();
+			return (toMax >= toMin ? bb.maximumWorld : bb.minimumWorld).clone();
+		}
+		// Fallback: read grip position from handslot.r bone.
+		if (!this.skeleton) return null;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const bone = this.skeleton.bones.find((b: any) => b.name === 'handslot.r');
+		if (!bone) return null;
+		const node = bone.getTransformNode?.();
+		if (node) return node.getAbsolutePosition().clone();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const m = (bone as any).getAbsoluteTransform?.()?.m;
+		if (m) return new Vector3(m[12], m[13], m[14]);
+		return null;
+	}
+
 	setPosition(pos: Vector3): void {
 		this.rootNode.position.copyFrom(pos);
 	}
@@ -174,7 +214,9 @@ export class AnimatedCharacter {
 
 	dispose(): void {
 		this.cancelBlend();
+		this.trail?.dispose();
 		this.animations.forEach((anim) => anim.stop());
+		this.equipmentMeshes.forEach((mesh) => mesh.dispose());
 		this.meshes.forEach((mesh) => mesh.dispose());
 		this.rootNode.dispose();
 	}
