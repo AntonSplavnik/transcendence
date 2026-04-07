@@ -40,6 +40,43 @@ export class SwingTrail {
     this.material.hasVertexAlpha = true;
     this.material.disableLighting = true;
     this.material.emissiveColor = new Color3(0.6, 0.6, 0.6); // vertex RGB × 0.4 = 40% brightness
+
+    // Pre-warm the StandardMaterial shader so it is compiled before the first
+    // attack. BabylonJS (WebGL2 + WEBGL_parallel_shader_compile) compiles
+    // effects asynchronously, leaving newly-created meshes invisible for
+    // several frames while the GPU finishes. By rendering one dummy ribbon
+    // with the same vertex-buffer layout (position + ColorKind + hasVertexAlpha)
+    // the compilation starts immediately, and the cached effect is ready long
+    // before the player can trigger their first swing.
+    this.prewarmShader();
+  }
+
+  private prewarmShader(): void {
+    // Place the warmup ribbon at the world origin so it is inside the camera
+    // frustum. BabylonJS only calls isReadyForMesh() for frustum-visible meshes,
+    // so a ribbon outside the frustum (e.g. at y=-9999) never triggers compilation.
+    // All vertex alphas are 0 → fully transparent, not visible to the player.
+    const p = [new Vector3(0, 0, 0), new Vector3(0.0001, 0, 0)];
+    const warmup = MeshBuilder.CreateRibbon('_swingTrailWarm', {
+      pathArray: [p, p],
+    }, this.scene) as Mesh;
+    warmup.hasVertexAlpha = true;
+    warmup.material = this.material;
+    // Vertex colors (all zeros = alpha 0) must be present so the shader defines
+    // (VERTEXCOLOR / VERTEXALPHA) match those used by the real ribbon.
+    warmup.setVerticesData(VertexBuffer.ColorKind, new Float32Array(2 * 2 * 4));
+
+    // Keep the warmup alive for several frames so async compilation (via
+    // WEBGL_parallel_shader_compile in WebGL2) has time to finish before the
+    // first real ribbon appears. Character loading takes several seconds, so
+    // 10 frames is more than enough.
+    let framesLeft = 10;
+    const obs = this.scene.onAfterRenderObservable.add(() => {
+      if (--framesLeft <= 0) {
+        warmup.dispose(false, false);
+        this.scene.onAfterRenderObservable.remove(obs);
+      }
+    });
   }
 
   update(worldPos: Vector3 | null, swingProgress: number): void {
