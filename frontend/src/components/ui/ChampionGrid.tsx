@@ -1,8 +1,11 @@
 import { Lock } from 'lucide-react';
 import { CHARACTER_CONFIGS } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
+import ModelPreview from './ModelPreview';
 
 const TOTAL_SLOTS = 6;
+const GRID_CAM_POS: [number, number, number] = [0, 1.15, 1.6];
+const GRID_CAM_TARGET: [number, number, number] = [0, 1.05, 0];
 
 export interface ChampionGridProps {
 	value: CharacterChoice | null;
@@ -42,7 +45,16 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 								background: `linear-gradient(to bottom, ${cfg.previewBgColor}, #0e0e10)`,
 							}}
 						>
-							<div className="absolute inset-0 bg-gradient-to-t from-stone-950 to-transparent opacity-60" />
+							<ModelPreview
+								modelUrl={cfg.model}
+								characterConfig={cfg}
+								bgColor={cfg.previewBgColor}
+								rotationSpeed={0}
+								initialRotationY={0}
+								cameraPosition={GRID_CAM_POS}
+								cameraTarget={GRID_CAM_TARGET}
+							/>
+							<div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent" />
 							<span
 								className={`absolute bottom-2 left-0 right-0 text-center text-[11px] font-bold tracking-wide ${
 									selected ? 'text-gold-400' : 'text-stone-400'

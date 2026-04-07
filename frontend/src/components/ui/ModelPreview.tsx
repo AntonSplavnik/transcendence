@@ -32,6 +32,12 @@ export interface ModelPreviewProps {
 	 * Auto-rotation pauses while dragging and resumes 1.5s after the drag ends.
 	 */
 	draggable?: boolean;
+	/** Camera position [x, y, z]. Defaults to [0, 1.0, 3.5]. */
+	cameraPosition?: [number, number, number];
+	/** Camera look-at target [x, y, z]. Defaults to [0, 0.7, 0]. */
+	cameraTarget?: [number, number, number];
+	/** Initial Y rotation in radians applied to the model root. Defaults to 0. */
+	initialRotationY?: number;
 }
 
 function hexToColor4(hex: string): Color4 {
@@ -49,6 +55,9 @@ export default function ModelPreview({
 	rotationSpeed = 0.008,
 	draggable = false,
 	transparent = false,
+	cameraPosition = [0, 1.0, 3.5],
+	cameraTarget = [0, 0.7, 0],
+	initialRotationY = 0,
 }: ModelPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -61,8 +70,8 @@ export default function ModelPreview({
 
 		scene.clearColor = transparent ? new Color4(0, 0, 0, 0) : hexToColor4(bgColor);
 
-		const camera = new UniversalCamera('cam', new Vector3(0, 1.0, 3.5), scene);
-		camera.setTarget(new Vector3(0, 0.7, 0));
+		const camera = new UniversalCamera('cam', new Vector3(...cameraPosition), scene);
+		camera.setTarget(new Vector3(...cameraTarget));
 		camera.minZ = 0.1;
 
 		const light = new HemisphericLight('light', new Vector3(0.3, 1, 0.5), scene);
@@ -89,6 +98,7 @@ export default function ModelPreview({
 			char.rootNode.scaling.setAll(0);
 			loadCharacter(char, previewConfig).then(() => {
 				char.rootNode.scaling.setAll(0.6);
+				char.rootNode.rotation.y = initialRotationY;
 				char.playAnimation(characterConfig.idleAnimation, true);
 				rootNode = char.rootNode;
 			});
@@ -160,7 +170,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent]);
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent, cameraPosition, cameraTarget]);
 
 	return (
 		<canvas
