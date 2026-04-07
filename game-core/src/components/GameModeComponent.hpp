@@ -6,7 +6,7 @@
 namespace ArenaGame {
 namespace Components {
 	struct GameModeComponent {
-		GameModeType           modeType    = GameModeType::None;
+		GameModeType           modeType    = GameModeType::LastStanding;
 		MatchStatus            matchStatus = MatchStatus::WaitingToStart;
 	};
 } // namespace Components

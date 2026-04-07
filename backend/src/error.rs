@@ -144,7 +144,6 @@ impl Scribe for ApiError {
                     GameError::NotInLobby | GameError::NotAPlayer | GameError::LobbyMismatch => {
                         StatusError::bad_request().brief(code)
                     }
-                    GameError::InvalidGameMode => StatusError::bad_request().brief(code),
                 }
             }
         };

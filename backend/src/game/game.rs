@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::info;
 
-use super::ffi::{mode_type_name, GameHandle, GameModeType, NetworkEvent};
+use super::ffi::{GameHandle, GameMode, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
@@ -11,16 +11,14 @@ use super::messages::{GameClientMessage, GameServerMessage};
 /// Networking-agnostic; exposes on_connect / on_disconnect hooks.
 pub struct Game {
     handle: Mutex<GameHandle>,
-    mode_type: GameModeType,
+    mode: GameMode,
 }
 
 impl Game {
-    /// `mode_type` must come from `parse_game_mode` — callers are responsible
-    /// for validation before constructing a `Game`.
-    pub fn new(mode_type: GameModeType) -> Self {
+    pub fn new(mode: GameMode) -> Self {
         Self {
             handle: Mutex::new(GameHandle::new()),
-            mode_type,
+            mode,
         }
     }
 
@@ -35,10 +33,6 @@ impl Game {
 
     pub fn max_players(&self) -> u32 {
         self.handle.lock().max_players()
-    }
-
-    pub fn gamemode(&self) -> &'static str {
-        mode_type_name(self.mode_type)
     }
 
     /// Called when a player connects to the game.
@@ -95,8 +89,8 @@ impl Game {
     ) {
         const TICK_DURATION: Duration = Duration::from_micros(1_000_000 / 60); // ~60 Hz (16_667 µs)
 
-        info!("Game loop started (mode: {})", self.gamemode());
-        self.lock().start(self.mode_type);
+        info!("Game loop started (mode: {:?})", self.mode);
+        self.lock().start(self.mode);
 
         loop {
             let tick_start = Instant::now();

@@ -1,4 +1,4 @@
-// CXX bridge to C++ game engine
+// CXX bridge to C++ game
 // Replaces the old hand-written C FFI with type-safe CXX bindings.
 
 use salvo::oapi::ToSchema;
@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 #[cxx::bridge(namespace = "arena_game")]
 mod bridge {
-    #[repr(u8)]
     enum GameModeType {
         Deathmatch = 0,
         LastStanding = 1,
@@ -14,7 +13,6 @@ mod bridge {
         TeamDeathmatch = 3,
     }
 
-    #[repr(u8)]
     enum NetworkEventType {
         Death = 1,
         Damage = 2,
@@ -117,11 +115,28 @@ mod bridge {
 // access. The raw C++ object is never aliased across threads.
 unsafe impl Send for bridge::GameBridge {}
 
-pub use bridge::GameModeType;
-
 // =============================================================================
 // Rust types with serde support (for network serialization)
 // =============================================================================
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
+pub enum GameMode {
+    Deathmatch,
+    LastStanding,
+    WaveSurvival,
+    TeamDeathmatch,
+}
+
+impl From<GameMode> for bridge::GameModeType {
+    fn from(mode: GameMode) -> Self {
+        match mode {
+            GameMode::Deathmatch => Self::Deathmatch,
+            GameMode::LastStanding => Self::LastStanding,
+            GameMode::WaveSurvival => Self::WaveSurvival,
+            GameMode::TeamDeathmatch => Self::TeamDeathmatch,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub enum CharacterClass {
@@ -235,70 +250,46 @@ pub enum NetworkEvent {
 }
 
 // =============================================================================
-// Helper functions
-// =============================================================================
-
-pub fn parse_game_mode(name: &str) -> Option<GameModeType> {
-    match name.to_lowercase().as_str() {
-        "deathmatch" | "ffa" | "free_for_all" => Some(GameModeType::Deathmatch),
-        "last_standing" | "laststanding" => Some(GameModeType::LastStanding),
-        "wave_survival" | "wavesurvival" => Some(GameModeType::WaveSurvival),
-        "team_deathmatch" | "teamdeathmatch" | "tdm" => Some(GameModeType::TeamDeathmatch),
-        _ => None,
-    }
-}
-
-pub fn mode_type_name(mode: GameModeType) -> &'static str {
-    match mode {
-        GameModeType::Deathmatch => "Deathmatch",
-        GameModeType::LastStanding => "Last Standing",
-        GameModeType::WaveSurvival => "Wave Survival",
-        GameModeType::TeamDeathmatch => "Team Deathmatch",
-        _ => "Unknown",
-    }
-}
-
-// =============================================================================
 // GameHandle — safe wrapper around CXX UniquePtr<GameBridge>
 // =============================================================================
 
 pub struct GameHandle {
-    engine: cxx::UniquePtr<bridge::GameBridge>,
+    game: cxx::UniquePtr<bridge::GameBridge>,
 }
 
 impl GameHandle {
     pub(super) fn new() -> Self {
         Self {
-            engine: bridge::create_bridge(),
+            game: bridge::create_bridge(),
         }
     }
 
-    pub fn start(&mut self, mode: GameModeType) {
-        self.engine.pin_mut().start(mode);
+    pub fn start(&mut self, mode: GameMode) {
+        self.game.pin_mut().start(mode.into());
     }
 
     pub fn stop(&mut self) {
-        self.engine.pin_mut().stop();
+        self.game.pin_mut().stop();
     }
 
     pub fn update(&mut self) {
-        self.engine.pin_mut().update();
+        self.game.pin_mut().update();
     }
 
     pub fn is_running(&self) -> bool {
-        self.engine.is_running()
+        self.game.is_running()
     }
 
     pub fn get_player_count(&self) -> usize {
-        self.engine.get_player_count()
+        self.game.get_player_count()
     }
 
     pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
-        self.engine.pin_mut().add_player(player_id, name)
+        self.game.pin_mut().add_player(player_id, name)
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
-        self.engine.pin_mut().remove_player(player_id)
+        self.game.pin_mut().remove_player(player_id)
     }
 
     pub fn set_input(
@@ -331,35 +322,49 @@ impl GameHandle {
             dodging,
             sprinting,
         };
-        self.engine.pin_mut().set_player_input(player_id, &input);
+        self.game.pin_mut().set_player_input(player_id, &input);
     }
 
     pub fn get_snapshot(&self) -> GameStateSnapshot {
-        self.engine.get_snapshot().into()
+        self.game.get_snapshot().into()
     }
 
     pub fn drain_network_events(&mut self) -> Vec<NetworkEvent> {
-        let queue = self.engine.pin_mut().take_events();
+        let queue = self.game.pin_mut().take_events();
         (0..queue.len())
             .map(|i| match queue.kind_at(i) {
                 bridge::NetworkEventType::Death => {
                     let e = queue.get_death_at(i);
-                    NetworkEvent::Death { killer: e.killer, victim: e.victim }
+                    NetworkEvent::Death {
+                        killer: e.killer,
+                        victim: e.victim,
+                    }
                 }
                 bridge::NetworkEventType::Damage => {
                     let e = queue.get_damage_at(i);
-                    NetworkEvent::Damage { attacker: e.attacker, victim: e.victim, damage: e.damage }
+                    NetworkEvent::Damage {
+                        attacker: e.attacker,
+                        victim: e.victim,
+                        damage: e.damage,
+                    }
                 }
                 bridge::NetworkEventType::Spawn => {
                     let e = queue.get_spawn_at(i);
                     NetworkEvent::Spawn {
                         player_id: e.player_id,
-                        position: Vector3D { x: e.position.x, y: e.position.y, z: e.position.z },
+                        position: Vector3D {
+                            x: e.position.x,
+                            y: e.position.y,
+                            z: e.position.z,
+                        },
                     }
                 }
                 bridge::NetworkEventType::StateChange => {
                     let e = queue.get_state_change_at(i);
-                    NetworkEvent::StateChange { player_id: e.player_id, state: e.state }
+                    NetworkEvent::StateChange {
+                        player_id: e.player_id,
+                        state: e.state,
+                    }
                 }
                 bridge::NetworkEventType::MatchEnd => NetworkEvent::MatchEnd,
                 _ => unreachable!(),

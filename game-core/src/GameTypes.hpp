@@ -194,7 +194,6 @@ enum class CharacterState : uint8_t {
 // =============================================================================
 
 enum class GameModeType : uint8_t {
-	None           = 0xFF,
 	Deathmatch     = 0,
 	LastStanding   = 1,
 	WaveSurvival   = 2,

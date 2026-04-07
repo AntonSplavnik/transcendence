@@ -1,11 +1,23 @@
-import { Check, ChevronLeft, ChevronRight, Clock, Copy, Crown, LogOut, Pencil, Users, X } from 'lucide-react';
+import {
+	Check,
+	ChevronLeft,
+	ChevronRight,
+	Clock,
+	Copy,
+	Crown,
+	LogOut,
+	Pencil,
+	Users,
+	X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
+import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
-import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import type { GameMode } from '../stream/types';
 import type { CharacterChoice } from './ui';
 import { Badge, Button, Card, CharacterPicker, Input } from './ui';
 
@@ -19,7 +31,6 @@ interface SettingsFormProps {
 
 function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	const [name, setName] = useState(settings.name);
-	const [gamemode, _setGamemode] = useState(settings.gamemode ?? '');
 	// Settings only shown for private lobbies; user may promote to public (one-way).
 	const [makePublic, setMakePublic] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -28,8 +39,6 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 	const handleSave = async () => {
 		const patch: Partial<LobbySettings> = {};
 		if (name.trim() && name.trim() !== settings.name) patch.name = name.trim();
-		if (gamemode.trim() && gamemode.trim() !== settings.gamemode)
-			patch.gamemode = gamemode.trim();
 		if (makePublic) patch.public = true;
 
 		if (Object.keys(patch).length === 0) {
@@ -100,16 +109,16 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 // ─── Game Mode Picker ─────────────────────────────────────────────────────────
 
 const GAME_MODES = [
-	{ id: 'deathmatch', label: 'Deathmatch', description: 'Free for all — most kills wins' },
-	{ id: 'last_standing', label: 'Last Standing', description: 'Survive while others fall' },
-	{ id: 'wave_survival', label: 'Wave Survival', description: 'Hold out against enemy waves' },
-	{ id: 'team_deathmatch', label: 'Team Deathmatch', description: 'Coordinate and eliminate' },
+	{ id: 'Deathmatch', label: 'Deathmatch', description: 'Free for all — most kills wins' },
+	{ id: 'LastStanding', label: 'Last Standing', description: 'Survive while others fall' },
+	{ id: 'WaveSurvival', label: 'Wave Survival', description: 'Hold out against enemy waves' },
+	{ id: 'TeamDeathmatch', label: 'Team Deathmatch', description: 'Coordinate and eliminate' },
 ] as const;
 
 interface GameModePickerProps {
-	current: string | null;
+	current: GameMode | null;
 	canEdit: boolean;
-	onSelect: (modeId: string) => Promise<void>;
+	onSelect: (modeId: GameMode) => Promise<void>;
 }
 
 function GameModePicker({ current, canEdit, onSelect }: GameModePickerProps) {
@@ -119,9 +128,12 @@ function GameModePicker({ current, canEdit, onSelect }: GameModePickerProps) {
 
 	const navigate = (dir: 1 | -1) => {
 		if (isSaving) return;
-		const next = currentIndex < 0
-			? (dir === 1 ? 0 : GAME_MODES.length - 1)
-			: (currentIndex + dir + GAME_MODES.length) % GAME_MODES.length;
+		const next =
+			currentIndex < 0
+				? dir === 1
+					? 0
+					: GAME_MODES.length - 1
+				: (currentIndex + dir + GAME_MODES.length) % GAME_MODES.length;
 		setIsSaving(true);
 		void onSelect(GAME_MODES[next].id).finally(() => setIsSaving(false));
 	};

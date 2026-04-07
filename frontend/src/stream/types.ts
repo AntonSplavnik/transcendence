@@ -221,6 +221,16 @@ export type BidiHandlerFactory<TRecv = unknown, TSend = unknown> = (
 
 // ─── Lobby types ──────────────────────────────────────────────────────────────
 
+export type GameMode = 'Deathmatch' | 'LastStanding' | 'WaveSurvival' | 'TeamDeathmatch';
+
+export function formatGameMode(mode: GameMode | null): string {
+	if (mode === null) return 'Not selected';
+	if (mode === 'LastStanding') return 'Last Standing';
+	if (mode === 'WaveSurvival') return 'Wave Survival';
+	if (mode === 'TeamDeathmatch') return 'Team Deathmatch';
+	return 'Deathmatch';
+}
+
 /**
  * Lobby settings mirroring `backend/src/game/lobby.rs` `LobbySettings`.
  *
@@ -230,7 +240,7 @@ export type BidiHandlerFactory<TRecv = unknown, TSend = unknown> = (
 export interface LobbySettings {
 	name: string;
 	public: boolean;
-	gamemode: string | null;
+	gamemode: GameMode | null;
 }
 
 /**

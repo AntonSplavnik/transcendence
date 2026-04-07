@@ -12,7 +12,7 @@ use ulid::Ulid;
 
 use tracing::debug;
 
-use super::ffi::{CharacterClass, GameModeType};
+use super::ffi::{CharacterClass, GameMode};
 use super::game::Game;
 use super::lobby_messages::LobbyServerMessage;
 use super::messages::GameServerMessage;
@@ -28,7 +28,7 @@ const CLEANUP_DELAY: Duration = Duration::from_secs(30);
 pub struct LobbySettings {
     pub name: String,
     pub public: bool,
-    pub gamemode: Option<String>,
+    pub gamemode: Option<GameMode>,
 }
 
 /// Partial update for lobby settings. Only provided fields are changed.
@@ -36,7 +36,7 @@ pub struct LobbySettings {
 pub struct LobbySettingsPatch {
     pub name: Option<String>,
     pub public: Option<bool>,
-    pub gamemode: Option<String>,
+    pub gamemode: Option<GameMode>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,8 +88,6 @@ pub struct LobbyPlayerInfo {
 pub struct Lobby {
     pub id: Ulid,
     settings: LobbySettings,
-    /// Validated C++ GameModeType value — `None` until the host picks a mode.
-    mode_type: Option<GameModeType>,
     host_id: i32,
     players: IndexMap<i32, PlayerState, RandomState>,
     /// Spectators receive lobby-stream broadcasts (join/leave/countdown events)
@@ -108,12 +106,11 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings, mode_type: Option<GameModeType>) -> Self {
-        let game = mode_type.map(|mt| Arc::new(Game::new(mt)));
+    pub fn new(id: Ulid, host_id: i32, settings: LobbySettings) -> Self {
+        let game = settings.gamemode.map(|mode| Arc::new(Game::new(mode)));
         Self {
             id,
             settings,
-            mode_type,
             host_id,
             players: IndexMap::default(),
             spectators: IndexSet::default(),
@@ -323,8 +320,7 @@ impl Lobby {
     /// Name and visibility are locked once the lobby is public.
     /// Game mode can always be changed by the host (until the game starts).
     /// Returns `false` if trying to change locked fields on a public lobby.
-    /// `mode_type` must be pre-validated by the caller via `parse_game_mode`.
-    pub fn update_settings(&mut self, patch: LobbySettingsPatch, mode_type: Option<GameModeType>) -> bool {
+    pub fn update_settings(&mut self, patch: LobbySettingsPatch) -> bool {
         let changing_locked = patch.name.is_some() || patch.public.is_some();
         if self.settings.public && changing_locked {
             return false;
@@ -337,9 +333,7 @@ impl Lobby {
         }
         if let Some(gamemode) = patch.gamemode {
             self.settings.gamemode = Some(gamemode);
-            let mt = mode_type.expect("mode_type must be provided when gamemode changes");
-            self.mode_type = Some(mt);
-            self.game = Some(Arc::new(Game::new(mt)));
+            self.game = Some(Arc::new(Game::new(gamemode)));
         }
         self.lobby_streams
             .broadcast(&LobbyServerMessage::SettingsChanged(self.settings.clone()));
@@ -452,7 +446,7 @@ impl Lobby {
         self.game_active = false;
         self.countdown = CountdownState::Idle;
         // Fresh game handle so the next match starts with clean engine state.
-        self.game = self.mode_type.map(|mt| Arc::new(Game::new(mt)));
+        self.game = self.settings.gamemode.map(|mode| Arc::new(Game::new(mode)));
         // The old game_streams Arc refcount drops from 2 → 1 here.
         // The game thread holds the last reference via `gs`; when that
         // thread exits, refcount → 0 and StreamGroup::Drop cancels all tokens.

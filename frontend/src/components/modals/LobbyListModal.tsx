@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { LobbyInfo } from '../../api/lobby';
 import { listLobbies } from '../../api/lobby';
+import { formatGameMode } from '../../stream/types';
 import { Badge, Button, Modal } from '../ui';
 import LobbyInfoPreviewModal from './LobbyInfoPreviewModal';
 
@@ -121,7 +122,7 @@ export default function LobbyListModal({ onClose }: LobbyListModalProps) {
 										</div>
 									</div>
 									<p className="text-xs text-stone-500 mt-0.5">
-										{lobby.settings.gamemode}
+										{formatGameMode(lobby.settings.gamemode)}
 									</p>
 								</button>
 							</li>

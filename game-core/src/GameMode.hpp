@@ -216,7 +216,6 @@ inline std::unique_ptr<IGameMode> IGameMode::create(GameModeType type) {
 		case GameModeType::LastStanding:   return std::make_unique<LastStanding>();
 		case GameModeType::WaveSurvival:   return std::make_unique<WaveSurvival>();
 		case GameModeType::TeamDeathmatch: return std::make_unique<TeamDeathmatch>();
-		case GameModeType::None:           break;
 	}
 	return std::make_unique<Deathmatch>(); // fallback
 }
