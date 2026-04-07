@@ -293,8 +293,6 @@ class GameClient {
 				if (this.localCharacter) {
 					this.localCharacter.setPosition(this.position);
 					this.localCharacter.setRotation(char.yaw);
-					if (char.swing_progress > 0)
-						console.log('[Trail] swing_progress=', char.swing_progress, 'trail=', this.localCharacter.trail);
 					this.localCharacter.trail?.update(
 						this.localCharacter.getWeaponWorldPos(),
 						char.swing_progress,
@@ -552,13 +550,10 @@ class GameClient {
 		for (const event of events) {
 			switch (event.type) {
 				case 'Death':
-					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
 					break;
 				case 'Damage':
-					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
 					break;
 				case 'Spawn':
-					console.debug('[Game] Spawn: player=%d', event.player_id);
 					this.getChar(event.player_id)?.playAnimation(AnimationNames.spawn, false);
 					if (event.player_id === this.localPlayerID) {
 						this.localIsDead = false;
@@ -568,7 +563,6 @@ class GameClient {
 					}
 					break;
 				case 'StateChange':
-					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
 					break;
 				case 'AttackStarted': {
 					const config = this.characterConfigMap.get(event.player_id);
@@ -603,7 +597,6 @@ class GameClient {
 					break;
 				}
 				case 'MatchEnd':
-					console.debug('[Game] MatchEnd');
 					break;
 			}
 		}
@@ -703,10 +696,6 @@ export default function SimpleGameClient({
 			ambientLight.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
 			scene.onReadyObservable.addOnce(() => {
-				console.log(
-					'[Scene] cameras:',
-					scene.cameras.map((c) => `${c.name} (${c.getClassName()})`),
-				);
 				scene.activeCamera = camera;
 			});
 

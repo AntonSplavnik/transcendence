@@ -175,7 +175,6 @@ export class AnimatedCharacter {
 			tipColor:  new Color3(tip[0]  / 255, tip[1]  / 255, tip[2]  / 255),
 			maxWidth,
 		});
-		console.log('[Trail] initTrail OK, trail=', this.trail);
 	}
 
 	// Returns the world-space position of the right-hand weapon tip.

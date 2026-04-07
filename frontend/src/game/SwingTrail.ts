@@ -35,7 +35,6 @@ export class SwingTrail {
   }
 
   update(worldPos: Vector3 | null, swingProgress: number): void {
-    console.log('[Trail] update called: progress=', swingProgress, 'pos=', worldPos?.toString());
     const wasActive = this.lastProgress > 0;
     this.lastProgress = swingProgress;
 
@@ -47,10 +46,7 @@ export class SwingTrail {
       return;
     }
 
-    if (!worldPos) {
-      console.warn('[SwingTrail] no weapon position — trail skipped');
-      return;
-    }
+    if (!worldPos) return;
 
     this.history.push({ pos: worldPos, progress: swingProgress });
 
@@ -125,7 +121,6 @@ export class SwingTrail {
       colors[(n + i) * 4 + 2] = b; colors[(n + i) * 4 + 3] = a;
     }
     this.ribbon.setVerticesData(VertexBuffer.ColorKind, colors);
-    console.log('[Trail] ribbon verts=', this.ribbon.getTotalVertices(), 'n=', n);
   }
 
   dispose(): void {
