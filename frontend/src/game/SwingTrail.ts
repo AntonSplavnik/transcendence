@@ -25,6 +25,11 @@ export class SwingTrail {
   private ribbon: Mesh | null = null;
   private material: StandardMaterial;
   private lastProgress = 0;
+  // Guard against collecting trail points before the skeleton has been evaluated
+  // at least once in idle state. Without this, the first call after async character
+  // load may use stale bone transforms (previous render frame's idle pose) while
+  // the character is mid-attack, producing a glitchy trail segment from origin.
+  private seenIdle = false;
 
   constructor(scene: Scene, config: SwingTrailConfig) {
     this.scene = scene;
@@ -42,6 +47,7 @@ export class SwingTrail {
     this.lastProgress = swingProgress;
 
     if (swingProgress <= 0) {
+      this.seenIdle = true;
       if (wasActive) {
         this.history = [];
         if (this.ribbon) this.ribbon.isVisible = false;
@@ -49,7 +55,7 @@ export class SwingTrail {
       return;
     }
 
-    if (!worldPos) return;
+    if (!worldPos || !this.seenIdle) return;
 
     this.history.push({ pos: worldPos, progress: swingProgress });
 
