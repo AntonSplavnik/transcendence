@@ -3,7 +3,7 @@ import { render, screen, waitFor, userEvent } from '../../helpers/render';
 import DataPrivacyModal from '../../../src/components/modals/DataPrivacyModal';
 import { server } from '../../helpers/msw-handlers';
 import { http, HttpResponse } from 'msw';
-import { createMockUser, createMockAuthResponse } from '../../fixtures/users';
+import { createMockAuthResponse } from '../../fixtures/users';
 import { createMockApiError } from '../../fixtures/errors';
 import type { GdprInitiateResponse, DataExport } from '../../../src/api/types';
 
@@ -232,14 +232,12 @@ describe('DataPrivacyModal', () => {
 		it('successful execution shows download button', async () => {
 			const user = userEvent.setup();
 
-			let callCount = 0;
 			server.use(
 				http.post('/api/user/export-my-data', ({ request }) => {
 					const url = new URL(request.url);
 					if (url.searchParams.has('token')) {
 						return HttpResponse.json(mockDataExport);
 					}
-					callCount++;
 					return HttpResponse.json(mockInitiateResponse);
 				}),
 			);
@@ -350,14 +348,12 @@ describe('DataPrivacyModal', () => {
 		it('successful deletion calls clearAuth', async () => {
 			const user = userEvent.setup();
 
-			let callCount = 0;
 			server.use(
 				http.delete('/api/user/delete-my-account', ({ request }) => {
 					const url = new URL(request.url);
 					if (url.searchParams.has('token')) {
 						return new HttpResponse(null, { status: 204 });
 					}
-					callCount++;
 					return HttpResponse.json(mockInitiateResponse);
 				}),
 			);
@@ -424,7 +420,6 @@ describe('DataPrivacyModal', () => {
 		it('resets to idle on token expired', async () => {
 			const user = userEvent.setup();
 
-			let callCount = 0;
 			server.use(
 				http.post('/api/user/export-my-data', ({ request }) => {
 					const url = new URL(request.url);
@@ -434,7 +429,6 @@ describe('DataPrivacyModal', () => {
 							{ status: 410 },
 						);
 					}
-					callCount++;
 					return HttpResponse.json(mockInitiateResponse);
 				}),
 			);
