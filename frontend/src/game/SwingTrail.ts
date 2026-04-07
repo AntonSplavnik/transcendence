@@ -2,9 +2,11 @@ import { Color3, MeshBuilder, StandardMaterial, Vector3, VertexBuffer } from '@b
 import type { Mesh, Scene } from '@babylonjs/core';
 
 export interface SwingTrailConfig {
-  baseColor: Color3; // tail end — dim/transparent
-  tipColor: Color3;  // weapon end — bright
-  maxWidth: number;  // ribbon half-width at newest point (world units)
+  baseColor: Color3;   // tail end color (oldest point)
+  tipColor: Color3;    // weapon end color (newest point, most visible)
+  maxWidth: number;    // ribbon half-width at the weapon end (world units)
+  tailOpacity: number; // opacity at the tail end — see TrailColor.tailOpacity
+  tipOpacity: number;  // opacity at the weapon end — see TrailColor.tipOpacity
 }
 
 interface TrailPoint {
@@ -111,7 +113,7 @@ export class SwingTrail {
       const r = this.config.baseColor.r + (this.config.tipColor.r - this.config.baseColor.r) * age;
       const g = this.config.baseColor.g + (this.config.tipColor.g - this.config.baseColor.g) * age;
       const b = this.config.baseColor.b + (this.config.tipColor.b - this.config.baseColor.b) * age;
-      const a = age * 0.85;
+      const a = this.config.tailOpacity + (this.config.tipOpacity - this.config.tailOpacity) * age;
 
       // path1[i] → vertex i
       colors[i * 4]     = r; colors[i * 4 + 1] = g;

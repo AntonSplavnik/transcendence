@@ -692,7 +692,7 @@ export default function SimpleGameClient({
 				new BABYLON.Vector3(0, 1, 0),
 				scene,
 			);
-			ambientLight.intensity = 0.4;
+			ambientLight.intensity = 0.2;
 			ambientLight.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
 			scene.onReadyObservable.addOnce(() => {

@@ -169,11 +169,13 @@ export class AnimatedCharacter {
 	}
 
 	initTrail(config: CharacterConfig): void {
-		const { base, tip, maxWidth } = config.trailColor;
+		const { base, tip, maxWidth, tailOpacity, tipOpacity } = config.trailColor;
 		this.trail = new SwingTrail(this.scene, {
 			baseColor: new Color3(base[0] / 255, base[1] / 255, base[2] / 255),
 			tipColor:  new Color3(tip[0]  / 255, tip[1]  / 255, tip[2]  / 255),
 			maxWidth,
+			tailOpacity,
+			tipOpacity,
 		});
 	}
 
