@@ -507,7 +507,7 @@ class GameClient {
 interface Props {
 	/** Ref to the latest GameStateSnapshot. Read in the Babylon render loop — NOT React state. */
 	snapshotRef: RefObject<GameStateSnapshot | null>;
-	/** Ref mapping player_id → character_class string. Populated from PlayerJoined messages. */
+	/** Ref mapping player_id → character_class string. Populated from Spawn events. */
 	characterClassesRef: RefObject<Map<number, string>>;
 	/** Ref containing queued game events. Drained each frame by the Babylon render loop. */
 	eventsRef: RefObject<GameEvent[]>;

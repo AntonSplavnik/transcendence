@@ -1,9 +1,10 @@
 use parking_lot::{Mutex, MutexGuard};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::info;
 
-use super::ffi::{GameHandle, GameMode, NetworkEvent};
+use super::ffi::{CharacterClass, GameHandle, GameMode, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
@@ -12,6 +13,8 @@ use super::messages::{GameClientMessage, GameServerMessage};
 pub struct Game {
     handle: Mutex<GameHandle>,
     mode: GameMode,
+    /// Maps player_id → (name, character_class). Used to enrich Spawn events.
+    player_info: Mutex<HashMap<u32, (String, CharacterClass)>>,
 }
 
 impl Game {
@@ -19,6 +22,7 @@ impl Game {
         Self {
             handle: Mutex::new(GameHandle::new()),
             mode,
+            player_info: Mutex::new(HashMap::new()),
         }
     }
 
@@ -37,13 +41,17 @@ impl Game {
 
     /// Called when a player connects to the game.
     /// Game does not know about networking — this is just a hook for external code.
-    pub fn on_connect(&self, player_id: u32, name: &str) -> bool {
+    pub fn on_connect(&self, player_id: u32, name: &str, character_class: CharacterClass) -> bool {
+        self.player_info
+            .lock()
+            .insert(player_id, (name.to_string(), character_class));
         self.handle.lock().add_player(player_id, name)
     }
 
     /// Called when a player disconnects from the game.
     /// Game does not know about networking — this is just a hook for external code.
     pub fn on_disconnect(&self, player_id: u32) -> bool {
+        self.player_info.lock().remove(&player_id);
         self.handle.lock().remove_player(player_id)
     }
 
@@ -126,10 +134,19 @@ impl Game {
                     NetworkEvent::Spawn {
                         player_id,
                         position,
-                    } => GameServerMessage::Spawn {
-                        player_id,
-                        position,
-                    },
+                    } => {
+                        let info = self.player_info.lock();
+                        let (name, character_class) = info
+                            .get(&player_id)
+                            .cloned()
+                            .unwrap_or_else(|| (String::new(), CharacterClass::default()));
+                        GameServerMessage::Spawn {
+                            player_id,
+                            position,
+                            name,
+                            character_class,
+                        }
+                    }
                     NetworkEvent::StateChange { player_id, state } => {
                         GameServerMessage::StateChange { player_id, state }
                     }

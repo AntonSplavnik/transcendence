@@ -239,7 +239,6 @@ inline entt::entity World::createGameManager() {
 	m_registry.emplace<Components::InternalEventsComponent>(gameManager);
 	m_registry.emplace<Components::NetworkEventsComponent>(gameManager);
 
-
 	return gameManager;
 }
 

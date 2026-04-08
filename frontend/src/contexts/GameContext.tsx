@@ -108,7 +108,7 @@ export interface GameContextType {
 	snapshotRef: RefObject<GameStateSnapshot | null>;
 	/**
 	 * Ref mapping player_id → character_class string (e.g. "Knight", "Rogue").
-	 * Populated when `PlayerJoined` arrives; cleared when the game stream closes.
+	 * Populated when the first `Spawn` arrives for a player; cleared when the game stream closes.
 	 * Read by the Babylon render loop to pick the correct remote character model.
 	 */
 	characterClassesRef: RefObject<Map<number, string>>;
@@ -146,7 +146,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	// High-frequency snapshot — stored as a ref, NOT in React state.
 	const snapshotRef = useRef<GameStateSnapshot | null>(null);
 
-	// Character class map — keyed by player_id, populated from PlayerJoined messages.
+	// Character class map — keyed by player_id, populated from Spawn events.
 	const characterClassesRef = useRef<Map<number, string>>(new Map());
 
 	// Event queue — drained by the Babylon render loop each frame.
@@ -218,30 +218,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
 						snapshotRef.current = msg as unknown as GameStateSnapshot;
 						return;
 					}
-					if (msg.type === 'PlayerJoined') {
-						console.debug(
-							'[Game] PlayerJoined player_id=%d name=%s class=%s',
-							msg.player_id,
-							msg.name,
-							msg.character_class,
-						);
-						characterClassesRef.current.set(msg.player_id, msg.character_class);
-						dispatch({
-							type: 'PLAYER_JOINED',
-							player_id: msg.player_id,
-							name: msg.name,
-						});
-						return;
-					}
 					if (msg.type === 'PlayerLeft') {
 						console.debug('[Game] PlayerLeft player_id=%d', msg.player_id);
 						dispatch({ type: 'PLAYER_LEFT', player_id: msg.player_id });
 						return;
 					}
+					if (msg.type === 'Spawn') {
+						if (!characterClassesRef.current.has(msg.player_id)) {
+							console.debug(
+								'[Game] Spawn (initial) player_id=%d name=%s class=%s',
+								msg.player_id,
+								msg.name,
+								msg.character_class,
+							);
+							characterClassesRef.current.set(msg.player_id, msg.character_class);
+							dispatch({ type: 'PLAYER_JOINED', player_id: msg.player_id, name: msg.name });
+						}
+						eventsRef.current.push(msg);
+						return;
+					}
 					if (
 						msg.type === 'Death' ||
 						msg.type === 'Damage' ||
-						msg.type === 'Spawn' ||
 						msg.type === 'StateChange' ||
 						msg.type === 'MatchEnd'
 					) {

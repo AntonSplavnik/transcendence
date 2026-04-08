@@ -8,13 +8,6 @@ pub enum GameServerMessage {
     /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
 
-    /// Player successfully joined the game
-    PlayerJoined {
-        player_id: u32,
-        name: String,
-        character_class: CharacterClass,
-    },
-
     /// Another player left the game
     PlayerLeft { player_id: u32 },
 
@@ -28,8 +21,13 @@ pub enum GameServerMessage {
         damage: f32,
     },
 
-    /// A player spawned
-    Spawn { player_id: u32, position: Vector3D },
+    /// A player spawned or respawned
+    Spawn {
+        player_id: u32,
+        position: Vector3D,
+        name: String,
+        character_class: CharacterClass,
+    },
 
     /// A player's state changed
     StateChange { player_id: u32, state: u8 },
