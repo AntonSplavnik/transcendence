@@ -3,7 +3,27 @@ import { useLocation } from 'react-router-dom';
 import { useUIAudio } from './AudioProvider';
 
 /**
- * Plays the main theme + mountain ambient only on the landing page.
+ * Route → music/ambient policy.
+ * Pure data — adding a new route track means appending one entry. No new code.
+ *
+ * For each route the controller computes the desired music/ambient IDs and
+ * delegates to AudioProvider, which handles switching/no-op semantics.
+ */
+const DASHBOARD_ROUTES = new Set<string>(['/home', '/lobby', '/sessions']);
+
+function resolveMusic(pathname: string): string | null {
+  if (pathname === '/landing' || pathname === '/') return 'music_main_theme';
+  if (DASHBOARD_ROUTES.has(pathname)) return 'music_dashboard';
+  return null; // /auth, /game, /privacy, /terms → silence
+}
+
+function resolveAmbient(pathname: string): string | null {
+  if (pathname === '/landing' || pathname === '/') return 'amb_montagne';
+  return null;
+}
+
+/**
+ * Drives background music + ambient based on the current route.
  * Must be mounted inside <AudioProvider> and <HashRouter>.
  */
 export default function MusicController() {
@@ -11,17 +31,25 @@ export default function MusicController() {
   const audio = useUIAudio();
 
   useEffect(() => {
-    if (!audio.isReady) return;
-
-    const isLanding = pathname === '/landing' || pathname === '/';
-
-    if (isLanding) {
-      audio.playMusic('music_main_theme');
-      audio.playAmbient('amb_montagne');
-    } else {
-      audio.stopMusic();
-      audio.stopAmbient();
+    if (!audio.isReady) {
+      console.debug('[MusicController] audio not ready yet, pathname=%s', pathname);
+      return;
     }
+
+    const desiredMusic = resolveMusic(pathname);
+    const desiredAmbient = resolveAmbient(pathname);
+    console.debug(
+      '[MusicController] pathname=%s → music=%s ambient=%s',
+      pathname,
+      desiredMusic ?? '(none)',
+      desiredAmbient ?? '(none)',
+    );
+
+    if (desiredMusic) audio.playMusic(desiredMusic);
+    else audio.stopMusic();
+
+    if (desiredAmbient) audio.playAmbient(desiredAmbient);
+    else audio.stopAmbient();
   }, [pathname, audio.isReady]);
 
   return null;
