@@ -39,10 +39,11 @@ interface InputState {
 
 const CharacterState = {
 	Idle: 0,
-	Moving: 1,
-	Attacking: 2,
-	Stunned: 4,
-	Dead: 5,
+	Walking: 1,
+	Sprinting: 2,
+	Attacking: 3,
+	Stunned: 5,
+	Dead: 6,
 } as const;
 type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
@@ -401,9 +402,6 @@ class GameClient {
 		charData: CharacterSnapshot,
 	): void {
 		const isGrounded = charData.position.y <= 1.1;
-		const speed = Math.sqrt(
-			charData.velocity.x * charData.velocity.x + charData.velocity.z * charData.velocity.z,
-		);
 
 		const jumpState = tickJumpState(
 			character,
@@ -424,11 +422,11 @@ class GameClient {
 			case CharacterState.Dead:
 				character.playAnimation(AnimationNames.death, false);
 				break;
-			case CharacterState.Moving:
-				character.playAnimation(
-					speed > 10 ? AnimationNames.run : AnimationNames.walk,
-					true,
-				);
+			case CharacterState.Walking:
+				character.playAnimation(AnimationNames.walk, true);
+				break;
+			case CharacterState.Sprinting:
+				character.playAnimation(AnimationNames.run, true);
 				break;
 			case CharacterState.Idle:
 			default:

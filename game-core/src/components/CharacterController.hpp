@@ -109,7 +109,9 @@ struct CharacterController {
 
 	// State queries
 	bool isIdle() const { return state == CharacterState::Idle; }
-	bool isMoving() const { return state == CharacterState::Moving; }
+	bool isWalking() const { return state == CharacterState::Walking; }
+	bool isSprintingState() const { return state == CharacterState::Sprinting; }
+	bool isMoving() const { return isWalking() || isSprintingState(); }
 	bool isAttacking() const { return state == CharacterState::Attacking; }
 	bool isStunned() const { return state == CharacterState::Stunned; }
 	bool isDead() const { return state == CharacterState::Dead; }

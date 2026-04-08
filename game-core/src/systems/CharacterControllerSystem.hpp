@@ -90,7 +90,9 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		}
 
 		// Update state
-		controller.setState(CharacterState::Moving);
+		controller.setState(controller.input.isSprinting
+			? CharacterState::Sprinting
+			: CharacterState::Walking);
 	} else {
 		// No input - stop horizontal movement
 		if (physics.isGrounded) {

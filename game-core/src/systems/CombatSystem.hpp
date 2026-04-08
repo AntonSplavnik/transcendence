@@ -329,7 +329,9 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 			combat.swingTimer  = 0.0f;
 			combat.hitPending  = false;
 			controller.canMove = true;
-			controller.setState(CharacterState::Moving);
+			controller.setState(controller.input.isSprinting
+				? CharacterState::Sprinting
+				: CharacterState::Walking);
 			fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
 				static_cast<unsigned>(entity));
 			return;
@@ -359,7 +361,7 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 		if (!combat.isAttacking && controller.state == CharacterState::Attacking) {
 			if (!controller.input.isAttacking) {
 				controller.setState(controller.hasMovementInput()
-					? CharacterState::Moving
+					? (controller.input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
 					: CharacterState::Idle);
 			}
 		}
