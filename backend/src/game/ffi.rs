@@ -146,6 +146,24 @@ pub enum CharacterClass {
     Rogue,
 }
 
+impl CharacterClass {
+    pub fn as_str(&self) -> &str {
+        match self {
+            CharacterClass::Knight => "knight",
+            CharacterClass::Rogue => "rogue",
+        }
+    }
+}
+
+impl From<&str> for CharacterClass {
+    fn from(s: &str) -> Self {
+        match s {
+            "rogue" => CharacterClass::Rogue,
+            _ => CharacterClass::Knight,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct Vector3D {
     pub x: f32,

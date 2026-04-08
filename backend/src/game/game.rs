@@ -44,8 +44,8 @@ impl Game {
     pub fn on_connect(&self, player_id: u32, name: &str, character_class: CharacterClass) -> bool {
         self.player_info
             .lock()
-            .insert(player_id, (name.to_string(), character_class));
-        self.handle.lock().add_player(player_id, name)
+            .insert(player_id, (name.to_string(), character_class.clone()));
+        self.handle.lock().add_player(player_id, name, character_class.as_str())
     }
 
     /// Called when a player disconnects from the game.
@@ -134,17 +134,17 @@ impl Game {
                     NetworkEvent::Spawn {
                         player_id,
                         position,
+                        character_class,
                     } => {
-                        let info = self.player_info.lock();
-                        let (name, character_class) = info
+                        let name = self.player_info.lock()
                             .get(&player_id)
-                            .cloned()
-                            .unwrap_or_else(|| (String::new(), CharacterClass::default()));
+                            .map(|(n, _)| n.clone())
+                            .unwrap_or_default();
                         GameServerMessage::Spawn {
                             player_id,
                             position,
                             name,
-                            character_class,
+                            character_class: CharacterClass::from(character_class.as_str()),
                         }
                     }
                     NetworkEvent::StateChange { player_id, state } => {
