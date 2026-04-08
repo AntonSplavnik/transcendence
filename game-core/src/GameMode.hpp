@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 namespace ArenaGame {
 
@@ -216,8 +217,12 @@ inline std::unique_ptr<IGameMode> IGameMode::create(GameModeType type) {
 		case GameModeType::LastStanding:   return std::make_unique<LastStanding>();
 		case GameModeType::WaveSurvival:   return std::make_unique<WaveSurvival>();
 		case GameModeType::TeamDeathmatch: return std::make_unique<TeamDeathmatch>();
+		case GameModeType::None:
+			assert(false && "GameModeType::None passed to IGameMode::create — set a real mode first");
+			return nullptr;
 	}
-	return std::make_unique<Deathmatch>(); // fallback
+	assert(false && "Unhandled GameModeType in IGameMode::create");
+	return nullptr;
 }
 
 } // namespace ArenaGame

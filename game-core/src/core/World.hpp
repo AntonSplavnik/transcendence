@@ -262,7 +262,6 @@ inline void World::setGameMode(GameModeType mode) {
 		stats->playerStats.clear();
 
 	if(m_gameModeSystem) {
-		m_gameModeSystem->setMode(IGameMode::create(mode));
 		m_gameModeSystem->startMode();
 	}
 }

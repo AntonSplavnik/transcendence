@@ -194,6 +194,7 @@ enum class CharacterState : uint8_t {
 // =============================================================================
 
 enum class GameModeType : uint8_t {
+	None           = 0xFF, // unset sentinel — must be replaced before use
 	Deathmatch     = 0,
 	LastStanding   = 1,
 	WaveSurvival   = 2,
