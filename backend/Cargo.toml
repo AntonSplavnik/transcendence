@@ -69,8 +69,9 @@ blake3 = "1.8"
 diesel-autoincrement-new-struct = "0.1"
 # config library
 figment = { version = "0.10", features = ["env", "toml"] }
-jsonwebtoken = { version = "9", features = ["use_pem"] }
-# embed files into the compiled binary
+jsonwebtoken = { version = "10", features = [
+	"rust_crypto",
+] } # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
 salvo = { version = "0.89", features = [

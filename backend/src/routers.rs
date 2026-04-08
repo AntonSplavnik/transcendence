@@ -7,7 +7,7 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use crate::ON_SHUTDOWN;
 use crate::{
     email::Mailer, notifications::NotificationManager, prelude::*, stream::StreamManager,
-    tos::CurrentTosTimestamp,
+    tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -17,6 +17,9 @@ const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
 pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer) -> Router {
     let api_routes = Router::with_path("api")
+        .hoop(affix_state::inject(NickCache::new(
+            crate::utils::NICK_CACHE_TTI,
+        )))
         .hoop(crate::auth::device_id_inserter_hoop)
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
