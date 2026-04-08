@@ -165,7 +165,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
   {
     id: 'ui_click',
     variations: ['/sounds/ui/ui_click.mp3'],
-    volume: { min: 0.2, max: 0.4 },
+    volume: { min: 0.08, max: 0.08 },
     pitch: { min: 0.9, max: 1.1 },
     bus: 'sfx',
     spatial: false,

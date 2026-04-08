@@ -40,6 +40,37 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Global UI click sound — fires once per user click on any interactive element.
+  // Listener is attached on the document in capture phase so it still fires when
+  // a child handler calls stopPropagation().
+  useEffect(() => {
+    if (!isReady) return;
+    const handler = (e: MouseEvent) => {
+      if (e.button !== 0) return; // primary button / touch only
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const interactive = target.closest('button, a, [role="button"]');
+      if (!interactive) return;
+      if (interactive instanceof HTMLButtonElement && interactive.disabled) return;
+      if (interactive.getAttribute('aria-disabled') === 'true') return;
+
+      // Inline dispatch — refs are stable across renders, no closure staleness.
+      const engine = engineRef.current;
+      const bank = bankRef.current;
+      if (!engine?.isInitialized() || !bank) return;
+      const sound = bank.getRandomSound('ui_click');
+      if (!sound) return;
+      const def = bank.getDefinition('ui_click');
+      if (def) {
+        sound.volume = def.volume.min + Math.random() * (def.volume.max - def.volume.min);
+        sound.playbackRate = def.pitch.min + Math.random() * (def.pitch.max - def.pitch.min);
+      }
+      sound.play();
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [isReady]);
+
   const handle: AudioHandle = {
     isReady,
 
