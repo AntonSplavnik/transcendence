@@ -126,11 +126,11 @@ class GameClient {
 	private currentAnimState: string = 'idle';
 	private jumpState: JumpState = JumpState.GROUNDED;
 	private remoteJumpStates: Map<number, JumpState> = new Map();
+	private lastRemotePositions: Map<number, Vector3D> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
 	// Audio
 	private audioEngine: GameAudioEngine | null = null;
-	private soundBank: SoundBank | null = null;
 	private audioEventSystem: AudioEventSystem | null = null;
 	private ambientSound: import('@babylonjs/core/AudioV2').StaticSound | null = null;
 	// HUD
@@ -163,9 +163,7 @@ class GameClient {
 			await soundBank.loadAll(audioEngine);
 			audioEngine.attachListenerToCamera(this.camera);
 			this.audioEngine = audioEngine;
-			this.soundBank = soundBank;
 			const aes = new AudioEventSystem(audioEngine, soundBank);
-			aes.setLocalPlayerId(this.localPlayerID);
 			aes.setCharacterClass(this.characterConfig.label.toLowerCase());
 			this.audioEventSystem = aes;
 
@@ -192,7 +190,6 @@ class GameClient {
 		this.ambientSound = null;
 		this.audioEngine?.dispose();
 		this.audioEngine = null;
-		this.soundBank = null;
 		this.audioEventSystem = null;
 	}
 
@@ -372,6 +369,12 @@ class GameClient {
 				);
 				this.camera.setTarget(this.position);
 			} else {
+				// Track latest remote position for event-driven spatial audio
+				this.lastRemotePositions.set(char.player_id, {
+					x: char.position.x,
+					y: char.position.y,
+					z: char.position.z,
+				});
 				const remoteChar = this.characters.get(char.player_id);
 				if (!remoteChar && !this.loadingCharacters.has(char.player_id)) {
 					this.createRemoteCharacter(char.player_id, char);
@@ -405,6 +408,7 @@ class GameClient {
 			this.characters.delete(playerID);
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
+			this.lastRemotePositions.delete(playerID);
 			const bar = this.enemyBars.get(playerID);
 			if (bar) {
 				bar.bg.dispose();
@@ -538,6 +542,14 @@ class GameClient {
 
 	/** Process a batch of game events drained from the event queue. */
 	processEvents(events: GameEvent[]) {
+		// Single audio dispatch point — data-driven via GAME_EVENT_TRIGGERS.
+		// Adding a new event-triggered sound requires zero changes here.
+		this.audioEventSystem?.onGameEvents(events, {
+			localPlayerId: this.localPlayerID,
+			localPosition: { x: this.position.x, y: this.position.y, z: this.position.z },
+			remotePositions: this.lastRemotePositions,
+		});
+
 		for (const event of events) {
 			switch (event.type) {
 				case 'Death':
@@ -841,9 +853,8 @@ export default function SimpleGameClient({
 					snapshotRef.current = null;
 				}
 
-				// Animation + audio after snapshot so position is up-to-date
+				// Animation + audio after snapshot so position is up-to-date.
 				gameClient.updateLocalAnimation(input);
-				input.isAttacking = false; // clear one-shot trigger after processing
 
 				// Send input at 60 Hz — matches the server's game-loop tick rate.
 				if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
@@ -858,6 +869,7 @@ export default function SimpleGameClient({
 					input.isJumping,
 					input.isSprinting,
 				);
+				input.isAttacking = false;
 
 				scene.render();
 			});

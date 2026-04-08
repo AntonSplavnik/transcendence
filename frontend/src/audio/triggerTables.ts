@@ -1,6 +1,4 @@
-import type { CharacterSnapshot, AudioEvent } from '../game/types';
-import { AudioEventType } from '../game/types';
-import type { Vector3D } from '../game/types';
+import type { CharacterSnapshot, GameEvent, Vector3D } from '../game/types';
 
 // Single source of truth for InputState (AudioEventSystem imports from here)
 // SimpleGameClient.tsx keeps its own local copy for structural compatibility
@@ -92,24 +90,69 @@ export const REMOTE_SNAPSHOT_TRIGGERS: RemoteSnapshotTrigger[] = [
   // { soundId: 'player_hit_react', predicate: (prev, cur) => cur.health < prev.health },
 ];
 
-// ─── Pipeline 3: Server event triggers ───────────────────────────────────────
+// ─── Pipeline 3: Game event triggers ─────────────────────────────────────────
+//
+// Unified data-driven dispatcher for discrete gameplay events arriving from the
+// server (GameServerMessage → GameEvent: Damage, Death, Spawn, StateChange…).
+//
+// Adding a new sound for any gameplay event = 1 entry in GAME_EVENT_TRIGGERS.
+// No new methods, no new plumbing — the dispatcher in AudioEventSystem stays as-is.
 
-export interface ServerEventTrigger {
-  eventType: number;
-  soundId: string;
-  /** true = already played via Pipeline 1 for local player; skip to avoid double */
-  skipLocal?: boolean;
-  volumeMapper?: (event: AudioEvent) => number;
+/** Runtime context passed to every trigger, so callbacks can resolve positions. */
+export interface GameEventContext {
+  localPlayerId: number;
+  localPosition: Vector3D;
+  /** Last-known server positions for remote players (prev snapshot). */
+  remotePositions: ReadonlyMap<number, Vector3D>;
 }
 
-export const SERVER_EVENT_TRIGGERS: ServerEventTrigger[] = [
-  { eventType: AudioEventType.Jump, soundId: 'player_jump', skipLocal: true },
-  {
-    eventType: AudioEventType.Land,
-    soundId: 'player_land',
-    volumeMapper: (e) => Math.max(0.3, Math.min(1.0, Math.abs(e.param1) / 20.0)),
+/** Loose runtime shape stored in the table (narrowed via the `trigger()` helper). */
+export interface GameEventTrigger {
+  type: GameEvent['type'];
+  soundId: string;
+  /** Optional filter — e.g. only fire when local player is the attacker. */
+  predicate?: (event: GameEvent, ctx: GameEventContext) => boolean;
+  /** Return 3D position for spatial playback, or null to skip this event. */
+  position: (event: GameEvent, ctx: GameEventContext) => Vector3D | null;
+  volumeMapper?: (event: GameEvent) => number;
+}
+
+/**
+ * Type-safe authoring helper: narrows the event type inside each callback,
+ * so `e.attacker` / `e.victim` / etc. are known properties when authoring.
+ */
+function trigger<T extends GameEvent['type']>(
+  type: T,
+  cfg: {
+    soundId: string;
+    predicate?: (event: Extract<GameEvent, { type: T }>, ctx: GameEventContext) => boolean;
+    position: (event: Extract<GameEvent, { type: T }>, ctx: GameEventContext) => Vector3D | null;
+    volumeMapper?: (event: Extract<GameEvent, { type: T }>) => number;
   },
-  // { eventType: AudioEventType.Hit,   soundId: 'player_hit' },
-  // { eventType: AudioEventType.Death, soundId: 'player_death' },
-  // { eventType: AudioEventType.Dodge, soundId: 'player_dodge', skipLocal: true },
+): GameEventTrigger {
+  return {
+    type,
+    soundId: cfg.soundId,
+    predicate: cfg.predicate as GameEventTrigger['predicate'],
+    position: cfg.position as GameEventTrigger['position'],
+    volumeMapper: cfg.volumeMapper as GameEventTrigger['volumeMapper'],
+  };
+}
+
+export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
+  // Local player landed a hit → confirmation SFX at the victim's position.
+  trigger('Damage', {
+    soundId: 'player_hit',
+    predicate: (e, ctx) => e.attacker === ctx.localPlayerId,
+    position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
+  }),
+  // Examples for future sounds — uncomment & provide the SFX file + definition:
+  // trigger('Death', {
+  //   soundId: 'player_death',
+  //   position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
+  // }),
+  // trigger('Spawn', {
+  //   soundId: 'player_spawn',
+  //   position: (e) => e.position,
+  // }),
 ];

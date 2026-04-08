@@ -1,16 +1,16 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import type { GameAudioEngine } from './AudioEngine';
 import type { SoundBank } from './SoundBank';
-import type { AudioEvent, Vector3D, CharacterSnapshot } from '../game/types';
+import type { Vector3D, CharacterSnapshot, GameEvent } from '../game/types';
 import {
   LOCAL_INPUT_TRIGGERS,
   LOCAL_CONTINUOUS_TRIGGERS,
   REMOTE_SNAPSHOT_TRIGGERS,
-  SERVER_EVENT_TRIGGERS,
+  GAME_EVENT_TRIGGERS,
 } from './triggerTables';
-import type { InputState } from './triggerTables';
+import type { InputState, GameEventContext } from './triggerTables';
 
-export type { InputState };
+export type { InputState, GameEventContext };
 
 function randomRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -20,7 +20,6 @@ export class AudioEventSystem {
   private engine: GameAudioEngine;
   private soundBank: SoundBank;
   private lastPlayTimes = new Map<string, number>();
-  private localPlayerId: number | null = null;
   private characterClass: string | null = null;
   // Pipeline 1: edge-detection state — auto-initialised from LOCAL_INPUT_TRIGGERS
   private prevInputState: Record<string, boolean> = {};
@@ -35,10 +34,6 @@ export class AudioEventSystem {
     for (const trigger of LOCAL_INPUT_TRIGGERS) {
       this.prevInputState[trigger.field] = false;
     }
-  }
-
-  setLocalPlayerId(id: number): void {
-    this.localPlayerId = id;
   }
 
   setCharacterClass(cls: string): void {
@@ -122,17 +117,25 @@ export class AudioEventSystem {
     }
   }
 
-  /** Pipeline 3: server critical events */
-  onServerEvents(events: AudioEvent[]): void {
+  /**
+   * Pipeline 3: discrete gameplay events from the server (Damage, Death, Spawn…).
+   *
+   * Single dispatcher — each sound is one row in GAME_EVENT_TRIGGERS. Adding a
+   * new one never touches this method: declarative trigger table only.
+   */
+  onGameEvents(events: GameEvent[], ctx: GameEventContext): void {
     if (!this.engine.isInitialized()) return;
 
     for (const event of events) {
-      for (const trigger of SERVER_EVENT_TRIGGERS) {
-        if (event.event_type !== trigger.eventType) continue;
-        if (trigger.skipLocal && event.player_id === this.localPlayerId) continue;
+      for (const trigger of GAME_EVENT_TRIGGERS) {
+        if (event.type !== trigger.type) continue;
+        if (trigger.predicate && !trigger.predicate(event, ctx)) continue;
+
+        const position = trigger.position(event, ctx);
+        if (!position) continue;
 
         const volume = trigger.volumeMapper?.(event);
-        this.playSoundAt(trigger.soundId, event.position, volume);
+        this.playSoundAt(trigger.soundId, position, volume);
       }
     }
   }
