@@ -17,7 +17,7 @@
 |-------------------------|--------------------------------------|------------|--------|
 | `knight_footstep`       | Heavy armored boot footsteps         | 1-3        | DONE   |
 | `knight_jump`           | Heavy jump impulse                   | 2-3        | TODO   |
-| `knight_land`           | Heavy landing impact                 | 2-3        | TODO   |
+| `knight_land`           | Heavy landing impact                 | 1-2        | DONE   |
 | `knight_armor_foley`    | Plate armor clinking on movement     | 3-4        | TODO   |
 | `knight_dodge`          | Heavy dodge/roll swish               | 2-3        | LATER  |
 
@@ -27,7 +27,7 @@
 |-------------------------|--------------------------------------|------------|--------|
 | `rogue_footstep`        | Light sneaky leather footsteps       | 1-3        | DONE   |
 | `rogue_jump`            | Light agile jump                     | 2-3        | TODO   |
-| `rogue_land`            | Soft silent landing                  | 2-3        | TODO   |
+| `rogue_land`            | Soft silent landing                  | 1-2        | DONE   |
 | `rogue_leather_foley`   | Leather gear rustling on movement    | 3-4        | TODO   |
 | `rogue_dodge`           | Fast dash whoosh                     | 2-3        | LATER  |
 
