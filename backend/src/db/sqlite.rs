@@ -6,7 +6,7 @@ use parking_lot::{Condvar, Mutex};
 use tokio::sync::Mutex as AsyncMutex;
 use tracing::info;
 
-use super::{run_migrations, Database, DbConn, DbError};
+use super::{Database, DbConn, DbError, run_migrations};
 
 /// Default number of reader connections in the pool.
 #[allow(dead_code)]
@@ -14,7 +14,7 @@ const DEFAULT_READER_COUNT: usize = 4;
 
 // ── SqliteDatabase ─────────────────────────────────────────────────────────
 
-/// SQLite [`Database`] backend backed by a pool of reader connections and a
+/// `SQLite` [`Database`] backend backed by a pool of reader connections and a
 /// single serialised writer connection.
 ///
 /// Cloning is cheap (`Arc`).
@@ -24,7 +24,7 @@ pub struct SqliteDatabase {
 }
 
 struct SqliteInner {
-    /// Pool of reader connections – guarded by a parking_lot mutex + condvar
+    /// Pool of reader connections – guarded by a `parking_lot` mutex + condvar
     /// because access only happens inside `spawn_blocking`.
     readers: Mutex<Vec<DbConn>>,
     reader_available: Condvar,
@@ -36,11 +36,15 @@ struct SqliteInner {
 }
 
 impl SqliteDatabase {
-    /// Create a new SQLite database.
+    /// Create a new `SQLite` database.
     ///
     /// Opens `reader_count` reader connections and one dedicated writer
     /// connection.  All connections are configured with performance pragmas
     /// and pending diesel migrations are run on the writer.
+    ///
+    /// # Errors
+    /// Returns [`DbError::Connection`] if any connection cannot be established,
+    /// or [`DbError::Query`] if applying connection pragmas fails.
     pub fn new(database_url: &str, reader_count: usize) -> Result<Self, DbError> {
         // ── writer ─────────────────────────────────────────────────────
         let mut writer = SqliteConnection::establish(database_url).map_err(DbError::Connection)?;
@@ -72,11 +76,14 @@ impl SqliteDatabase {
 
 #[cfg(test)]
 impl SqliteDatabase {
-    /// Create an in-memory SQLite database for testing.
+    /// Create an in-memory `SQLite` database for testing.
     ///
     /// Uses a random URI filename with `mode=memory&cache=shared` so that
     /// the reader and writer connections see the same data while each test
     /// gets a fully isolated database.
+    ///
+    /// # Errors
+    /// Returns [`DbError`] if the in-memory database cannot be initialized (see [`Self::new`]).
     pub fn new_test() -> Result<Self, DbError> {
         let id: u64 = rand::random();
         let url = format!("file:test_{id}?mode=memory&cache=shared");
@@ -115,7 +122,7 @@ impl Database for SqliteDatabase {
 
         tokio::task::spawn_blocking(move || {
             let mut guard = guard;
-            f(&mut *guard)
+            f(&mut guard)
         })
         .await
         .map_err(DbError::from)
@@ -181,7 +188,7 @@ impl SqliteInner {
 
 // ── Connection configuration ───────────────────────────────────────────────
 
-/// Configure SQLite pragmas for optimal performance.
+/// Configure `SQLite` pragmas for optimal performance.
 ///
 /// Applied once per connection at creation time.
 pub(super) fn configure_connection(

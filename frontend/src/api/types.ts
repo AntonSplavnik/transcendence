@@ -8,6 +8,8 @@ export interface User {
 	totp_confirmed_at: string | null;
 	totp_enabled: boolean;
 	description: string;
+	tos_accepted_at: string | null;
+	email_confirmed_at: string | null;
 }
 
 export interface Session {
@@ -19,6 +21,10 @@ export interface Session {
 	login_expiry: string;
 	session_id: number;
 	user_id: number;
+}
+
+export interface TosInfo {
+	current_tos_timestamp: string;
 }
 
 // ==================== API RESPONSE TYPES ====================
@@ -56,6 +62,23 @@ export interface ChangePasswordPayload {
 	new_password: string;
 	mfa_code?: string;
 	keep_other_sessions_logged_in: boolean;
+}
+
+// ==================== FRIENDS ====================
+
+export interface PublicUser {
+	id: number;
+	nickname: string;
+	created_at: string;
+	online: boolean;
+}
+
+export interface FriendRequestResponse {
+	id: number;
+	sender: PublicUser;
+	receiver: PublicUser;
+	created_at: string;
+	updated_at: string;
 }
 
 // ==================== API ERROR TYPES ====================

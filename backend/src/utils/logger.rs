@@ -3,7 +3,7 @@ use std::time::Instant;
 use tracing::{Instrument, Level};
 
 use salvo::http::{Request, ResBody, Response, StatusCode};
-use salvo::{async_trait, Depot, FlowCtrl, Handler};
+use salvo::{Depot, FlowCtrl, Handler, async_trait};
 
 /// ----------
 /// Copied from salvo crate with minor modification to check for ctrl-flow deceased state
@@ -59,6 +59,6 @@ impl Handler for Logger {
             }
         }
         .instrument(span)
-        .await
+        .await;
     }
 }

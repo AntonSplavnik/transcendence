@@ -2,6 +2,10 @@
 	"name": "frontend",
 	"private": true,
 	"version": "0.0.0",
+	"engines": {
+		"node": "24.x",
+		"npm": "11.x"
+	},
 	"type": "module",
 	"scripts": {
 		"dev": "trap 'kill 0' INT; vite",

@@ -17,7 +17,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_autoincrement_new_struct::{apply, NewInsertable};
+use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 
@@ -45,19 +45,33 @@ pub struct User {
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub description: String,
+    pub tos_accepted_at: Option<DateTime<Utc>>,
+    pub email_confirmed_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub email_confirmation_token_hash: Option<Vec<u8>>,
+    #[serde(skip)]
+    pub email_confirmation_token_expires_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub email_confirmation_token_email: Option<String>,
 }
 
 impl NewUser {
     pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
-        NewUser {
+        let now = chrono::Utc::now();
+        Self {
             email,
             nickname,
             totp_enabled: false,
             totp_secret_enc: None,
             totp_confirmed_at: None,
             password_hash,
-            created_at: chrono::Utc::now(),
+            created_at: now,
             description: String::new(),
+            tos_accepted_at: Some(now),
+            email_confirmed_at: None,
+            email_confirmation_token_hash: None,
+            email_confirmation_token_expires_at: None,
+            email_confirmation_token_email: None,
         }
     }
 }
@@ -95,7 +109,7 @@ pub struct TwoFaRecoveryCode {
 
 impl NewTwoFaRecoveryCode {
     pub fn new(user_id: i32, code_hash: Vec<u8>) -> Self {
-        NewTwoFaRecoveryCode {
+        Self {
             user_id,
             code_hash,
             used_at: None,
@@ -124,9 +138,10 @@ impl Session {
             created_at: self.created_at,
             refreshed_at: now,
             last_used_at: now,
-            last_authenticated_at: match DO_REAUTH {
-                true => now,
-                false => self.last_authenticated_at,
+            last_authenticated_at: if DO_REAUTH {
+                now
+            } else {
+                self.last_authenticated_at
             },
         }
     }
@@ -191,6 +206,40 @@ impl AvatarSmall {
             user_id,
             data,
             updated_at: chrono::Utc::now(),
+        }
+    }
+}
+
+diesel_i32_enum! {
+    #[serde(rename_all = "lowercase")]
+    pub enum FriendRequestStatus {
+        Pending = 0,
+        Accepted = 1,
+    }
+}
+
+#[apply(NewInsertable!)]
+#[derive(Queryable, Selectable, AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::friend_requests)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct FriendRequest {
+    pub id: i32,
+    pub sender_id: i32,
+    pub receiver_id: i32,
+    pub status: FriendRequestStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl NewFriendRequest {
+    pub fn new(sender_id: i32, receiver_id: i32) -> Self {
+        let now = chrono::Utc::now();
+        Self {
+            sender_id,
+            receiver_id,
+            status: FriendRequestStatus::Pending,
+            created_at: now,
+            updated_at: now,
         }
     }
 }

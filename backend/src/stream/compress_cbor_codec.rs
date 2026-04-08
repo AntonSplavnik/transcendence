@@ -48,7 +48,7 @@
 use std::{io::Write, marker::PhantomData};
 
 use bytes::{Buf, BufMut, BytesMut};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::utils::adaptive_buffer::{AdaptiveBuffer, BufferParams};
@@ -168,7 +168,7 @@ impl<T: Serialize, BP: BufferParams> Encoder<T> for CompressedCborEncoder<T, BP>
         // Frame structure: [total_len: u32][flags: u8][payload: bytes]
         let total_len = 1 + payload.len(); // flags (1 byte) + payload
         dst.reserve(4 + total_len); // length prefix (4 bytes) + frame content
-        dst.put_u32(total_len as u32);
+        dst.put_u32(u32::try_from(total_len).expect("frame exceeds 4 GiB"));
         dst.put_u8(flags);
         dst.extend_from_slice(payload);
 
@@ -247,15 +247,12 @@ impl<T: DeserializeOwned, const MAX_DECODE_FRAME: usize> Decoder
         // Step 2: Validate frame size to prevent DoS attacks
         if total_len > MAX_DECODE_FRAME {
             return Err(anyhow::anyhow!(
-                "Frame size {} exceeds maximum allowed size {}",
-                total_len,
-                MAX_DECODE_FRAME
+                "Frame size {total_len} exceeds maximum allowed size {MAX_DECODE_FRAME}"
             ));
         }
         if total_len < 1 {
             return Err(anyhow::anyhow!(
-                "Invalid frame: total_len must be at least 1 (for flags byte), got {}",
-                total_len
+                "Invalid frame: total_len must be at least 1 (for flags byte), got {total_len}"
             ));
         }
 
@@ -289,8 +286,7 @@ impl<T: DeserializeOwned, const MAX_DECODE_FRAME: usize> Decoder
             }
             unknown => {
                 return Err(anyhow::anyhow!(
-                    "Unknown frame flags: {} (expected 0 or 1)",
-                    unknown
+                    "Unknown frame flags: {unknown} (expected 0 or 1)"
                 ));
             }
         };

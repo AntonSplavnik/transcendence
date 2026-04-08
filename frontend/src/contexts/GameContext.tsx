@@ -312,7 +312,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput }}>
+		<GameContext.Provider
+			value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput }}
+		>
 			{children}
 		</GameContext.Provider>
 	);

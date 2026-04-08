@@ -220,7 +220,7 @@ class GameClient {
 		};
 
 		this.cooldownBars = {
-			attack:   makeCdBar('attack',   '#e67e22'),
+			attack: makeCdBar('attack', '#e67e22'),
 			ability1: makeCdBar('ability1', '#3498db'),
 			ability2: makeCdBar('ability2', '#9b59b6'),
 		};
@@ -299,18 +299,19 @@ class GameClient {
 
 				// Update cooldown bars
 				if (this.cooldownBars) {
-					this.cooldownBars.attack.width =
-						`${(Math.max(0, Math.min(1, char.swing_progress)) * 100).toFixed(1)}%`;
+					this.cooldownBars.attack.width = `${(Math.max(0, Math.min(1, char.swing_progress)) * 100).toFixed(1)}%`;
 
-					const cd1 = char.ability1_cooldown > 0
-						? char.ability1_timer / char.ability1_cooldown : 0;
-					this.cooldownBars.ability1.width =
-						`${(Math.max(0, Math.min(1, cd1)) * 100).toFixed(1)}%`;
+					const cd1 =
+						char.ability1_cooldown > 0
+							? char.ability1_timer / char.ability1_cooldown
+							: 0;
+					this.cooldownBars.ability1.width = `${(Math.max(0, Math.min(1, cd1)) * 100).toFixed(1)}%`;
 
-					const cd2 = char.ability2_cooldown > 0
-						? char.ability2_timer / char.ability2_cooldown : 0;
-					this.cooldownBars.ability2.width =
-						`${(Math.max(0, Math.min(1, cd2)) * 100).toFixed(1)}%`;
+					const cd2 =
+						char.ability2_cooldown > 0
+							? char.ability2_timer / char.ability2_cooldown
+							: 0;
+					this.cooldownBars.ability2.width = `${(Math.max(0, Math.min(1, cd2)) * 100).toFixed(1)}%`;
 				}
 
 				// Update camera to follow player
@@ -482,7 +483,12 @@ class GameClient {
 					// TODO: play death animation on victim, show kill feed
 					break;
 				case 'Damage':
-					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
+					console.debug(
+						'[Game] Damage: %d → %d (%.1f)',
+						event.attacker,
+						event.victim,
+						event.damage,
+					);
 					// TODO: spawn floating damage number above victim
 					break;
 				case 'Spawn':
@@ -490,7 +496,11 @@ class GameClient {
 					// TODO: play spawn effect / reset character state
 					break;
 				case 'StateChange':
-					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
+					console.debug(
+						'[Game] StateChange: player=%d state=%d',
+						event.player_id,
+						event.state,
+					);
 					// TODO: trigger state-specific animation
 					break;
 				case 'MatchEnd':
@@ -603,7 +613,9 @@ export default function SimpleGameClient({
 					// Extend ground far beyond the playable area so the backdrop is never
 					// visible when a player approaches the terrain edge (±25 units).
 					const bgGround = BABYLON.MeshBuilder.CreateGround(
-						'bg-ground', { width: 1000, height: 1000 }, scene,
+						'bg-ground',
+						{ width: 1000, height: 1000 },
+						scene,
 					);
 					bgGround.position.y = -0.01;
 					const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
@@ -625,19 +637,22 @@ export default function SimpleGameClient({
 					wallMat.specularColor = BABYLON.Color3.Black();
 
 					const wallDefs = [
-						['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-						['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-						['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-						['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+						['wall-n', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, WALL_POS],
+						['wall-s', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, -WALL_POS],
+						['wall-e', WALL_T, WALL_H, WALL_SPAN, WALL_POS, WALL_H / 2, 0],
+						['wall-w', WALL_T, WALL_H, WALL_SPAN, -WALL_POS, WALL_H / 2, 0],
 					] as const;
 
 					for (const [name, w, h, d, x, y, z] of wallDefs) {
-						const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+						const wall = BABYLON.MeshBuilder.CreateBox(
+							name,
+							{ width: w, height: h, depth: d },
+							scene,
+						);
 						wall.position.set(x, y, z);
 						wall.material = wallMat;
 					}
-
-					},
+				},
 				undefined,
 				(_s, message, exception) => {
 					console.error('Failed to load Forest scene:', message, exception);
@@ -690,7 +705,10 @@ export default function SimpleGameClient({
 				if (kbInfo.type === 1) {
 					keysPressed.add(kbInfo.event.key.toLowerCase());
 					// Attack is a one-shot trigger (keydown only, ignore keyboard repeat)
-					if (kbInfo.event.key.toLowerCase() === 'e' && !(kbInfo.event as KeyboardEvent).repeat)
+					if (
+						kbInfo.event.key.toLowerCase() === 'e' &&
+						!(kbInfo.event as KeyboardEvent).repeat
+					)
 						input.isAttacking = true;
 				} else if (kbInfo.type === 2) {
 					keysPressed.delete(kbInfo.event.key.toLowerCase());

@@ -1,4 +1,13 @@
-import { ChevronDown, LogOut, Monitor, Pen, Shield, User as UserIcon, Users } from 'lucide-react';
+import {
+	ChevronDown,
+	LogOut,
+	Mail,
+	Monitor,
+	Pen,
+	Shield,
+	User as UserIcon,
+	Users,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -7,6 +16,7 @@ import { useLobby } from '../contexts/LobbyContext';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import EditUserModal from './modals/EditUserModal';
+import EmailConfirmationModal from './modals/EmailConfirmationModal';
 import JoinByCodeModal from './modals/JoinByCodeModal';
 import LobbyListModal from './modals/LobbyListModal';
 import ReauthModal from './modals/ReauthModal';
@@ -30,10 +40,11 @@ interface HomeProps {
 }
 
 export default function Home({ onLogout, onSessions }: HomeProps) {
-	const { user, session } = useAuth();
+	const { user, session, isEmailConfirmed } = useAuth();
 	const { lobbyState } = useLobby();
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
+	const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
 	const [showLobbyList, setShowLobbyList] = useState(false);
 	const [showCreateLobby, setShowCreateLobby] = useState(false);
@@ -134,6 +145,24 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 
 					<DropdownItem icon={<Monitor className="w-4 h-4" />} onClick={onSessions}>
 						Manage Sessions
+					</DropdownItem>
+
+					<DropdownItem
+						icon={<Mail className="w-4 h-4" />}
+						onClick={() => setShowEmailConfirmation(true)}
+						suffix={
+							isEmailConfirmed ? (
+								<Badge variant="success" size="sm">
+									Confirmed
+								</Badge>
+							) : (
+								<Badge variant="warning" size="sm">
+									Unconfirmed
+								</Badge>
+							)
+						}
+					>
+						Email Confirmation
 					</DropdownItem>
 
 					<DropdownSeparator />
@@ -265,6 +294,13 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					onClose={() => setShowEditProfile(false)}
 					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
 					onDescriptionChanged={(desc) => setDescription(desc)}
+				/>
+			)}
+
+			{showEmailConfirmation && (
+				<EmailConfirmationModal
+					user={user}
+					onClose={() => setShowEmailConfirmation(false)}
 				/>
 			)}
 

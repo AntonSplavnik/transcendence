@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { createMockAuthResponse, createMockSession, createMockUser } from '../fixtures/users';
 import { createMockApiError } from '../fixtures/errors';
-import type { AuthResponse, TwoFactorStartResponse, TwoFactorConfirmResponse } from '../../src/api/types';
+import type { AuthResponse, TosInfo, TwoFactorStartResponse, TwoFactorConfirmResponse } from '../../src/api/types';
 
 // Default mock responses
 const defaultUser = createMockUser();
@@ -58,6 +58,15 @@ export const handlers = [
 		}
 
 		return HttpResponse.json(defaultAuthResponse);
+	}),
+
+	// ToS endpoints
+	http.get('/api/tos', () => {
+		return HttpResponse.json({ current_tos_timestamp: '2025-01-01T00:00:00Z' } satisfies TosInfo);
+	}),
+
+	http.post('/api/auth/session-management/accept-tos', () => {
+		return HttpResponse.json(defaultSession);
 	}),
 
 	// User endpoints
@@ -125,6 +134,52 @@ export const handlers = [
 
 	http.post('/api/user/sessions', () => {
 		return HttpResponse.json([defaultSession]);
+	}),
+
+	// Friends endpoints
+	http.get('/api/friends', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.get('/api/friends/requests/incoming', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.get('/api/friends/requests/outgoing', () => {
+		return HttpResponse.json([]);
+	}),
+
+	http.post('/api/friends/request', async ({ request }) => {
+		const body = (await request.json()) as { nickname: string };
+		return HttpResponse.json({
+			id: 100,
+			sender: { id: 1, nickname: 'TestUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			receiver: { id: 2, nickname: body.nickname, created_at: '2024-01-01T00:00:00Z', online: false },
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		});
+	}),
+
+	http.post('/api/friends/accept/:id', () => {
+		return HttpResponse.json({
+			id: 1,
+			sender: { id: 2, nickname: 'FriendUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			receiver: { id: 1, nickname: 'TestUser', created_at: '2024-01-01T00:00:00Z', online: true },
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		});
+	}),
+
+	http.post('/api/friends/reject/:id', () => {
+		return new HttpResponse(null, { status: 204 });
+	}),
+
+	http.delete('/api/friends/request/:id', () => {
+		return new HttpResponse(null, { status: 204 });
+	}),
+
+	http.delete('/api/friends/remove/:id', () => {
+		return new HttpResponse(null, { status: 204 });
 	}),
 
 	// Users endpoints (public)

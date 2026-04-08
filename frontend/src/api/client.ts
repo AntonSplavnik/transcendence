@@ -1,11 +1,16 @@
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axios from 'axios';
 import { refreshJWT } from './auth';
-import { getErrorBrief, storeError } from './error';
+import { getErrorBrief, getErrorMessage, storeError } from './error';
 
 let authFailureCallback: (() => void) | null = null;
 export function setAuthFailureCallback(cb: (() => void) | null) {
 	authFailureCallback = cb;
+}
+
+let tosNotAcceptedCallback: (() => void) | null = null;
+export function setTosNotAcceptedCallback(cb: (() => void) | null) {
+	tosNotAcceptedCallback = cb;
 }
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
@@ -38,6 +43,21 @@ const onRejected = async (error: AxiosError): Promise<AxiosResponse> => {
 		console.error('Network error:', error);
 		storeError(error, 'network_error');
 		return Promise.reject(error);
+	}
+
+	// Replace Axios's generic "Request failed with status code XXX" with the backend brief
+	error.message = getErrorMessage(error);
+
+	// Handle 403 Forbidden — ToS not accepted.
+	// Notify AuthContext via callback so it can activate the ToS gate UI.
+	// This is the authoritative signal that the backend requires ToS
+	// acceptance — AuthContext uses it as a fallback when /api/tos fails.
+	if (error.response.status === 403) {
+		const brief = getErrorBrief(error);
+		if (brief === 'TosNotAccepted') {
+			tosNotAcceptedCallback?.();
+			return Promise.reject(error);
+		}
 	}
 
 	// Handle 401 Unauthorized errors
