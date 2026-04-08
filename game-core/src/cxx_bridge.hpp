@@ -47,7 +47,7 @@ struct GameBridge {
     size_t get_player_count() const;
 
     // Player management
-    bool add_player(uint32_t id, rust::Str name);
+    bool add_player(uint32_t id, rust::Str name, rust::Str character_class);
     bool remove_player(uint32_t id);
     void set_player_input(uint32_t id, const PlayerInput& input);
 

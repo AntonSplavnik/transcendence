@@ -73,6 +73,7 @@ mod bridge {
     struct SpawnEvent {
         player_id: u32,
         position: Vec3,
+        character_class: String,
     }
 
     struct StateChangeEvent {
@@ -92,7 +93,7 @@ mod bridge {
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
 
-        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str) -> bool;
+        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str, character_class: &str) -> bool;
         fn remove_player(self: Pin<&mut GameBridge>, id: u32) -> bool;
         fn set_player_input(self: Pin<&mut GameBridge>, id: u32, input: &PlayerInput);
 
@@ -241,6 +242,7 @@ pub enum NetworkEvent {
     Spawn {
         player_id: u32,
         position: Vector3D,
+        character_class: String,
     },
     StateChange {
         player_id: u32,
@@ -284,8 +286,8 @@ impl GameHandle {
         self.game.get_player_count()
     }
 
-    pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
-        self.game.pin_mut().add_player(player_id, name)
+    pub fn add_player(&mut self, player_id: u32, name: &str, character_class: &str) -> bool {
+        self.game.pin_mut().add_player(player_id, name, character_class)
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
@@ -357,6 +359,7 @@ impl GameHandle {
                             y: e.position.y,
                             z: e.position.z,
                         },
+                        character_class: e.character_class.to_string(),
                     }
                 }
                 bridge::NetworkEventType::StateChange => {

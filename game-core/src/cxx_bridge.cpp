@@ -70,8 +70,10 @@ size_t GameBridge::get_player_count() const {
 // Player management
 // =============================================================================
 
-bool GameBridge::add_player(uint32_t id, rust::Str name) {
-    return game.addPlayer(id, std::string(name.data(), name.size()));
+bool GameBridge::add_player(uint32_t id, rust::Str name, rust::Str character_class) {
+    return game.addPlayer(id,
+        std::string(name.data(), name.size()),
+        std::string(character_class.data(), character_class.size()));
 }
 
 bool GameBridge::remove_player(uint32_t id) {
@@ -165,7 +167,7 @@ DamageEvent EventQueue::get_damage_at(size_t idx) const {
 
 SpawnEvent EventQueue::get_spawn_at(size_t idx) const {
     const auto& ev = std::get<::ArenaGame::NetEvents::SpawnEvent>(events[idx]);
-    return SpawnEvent{ ev.playerID, to_vec3(ev.position) };
+    return SpawnEvent{ ev.playerID, to_vec3(ev.position), rust::String(ev.characterClass) };
 }
 
 StateChangeEvent EventQueue::get_state_change_at(size_t idx) const {

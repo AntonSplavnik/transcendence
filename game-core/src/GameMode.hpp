@@ -5,6 +5,7 @@
 #include "ISpawner.hpp"
 #include "components/GameModeComponent.hpp"
 #include "components/MatchStatsComponent.hpp"
+#include "components/PendingPlayersComponent.hpp"
 #include "components/Tags.hpp"
 #include "components/Health.hpp"
 #include "components/PlayerInfo.hpp"
@@ -14,8 +15,41 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 
 namespace ArenaGame {
+
+// =============================================================================
+// SpawnPositions - evenly-spaced circle spawn helper shared by all modes
+// =============================================================================
+
+struct SpawnPositions {
+	std::vector<Vector3D> positions;
+	size_t nextIndex = 0;
+
+	void initialize(int numPlayers) {
+		const float radius = GameConfig::ARENA_WIDTH * 0.35f;
+		const float angleStep = 2.0f * 3.14159265359f / static_cast<float>(numPlayers);
+		positions.clear();
+		positions.reserve(static_cast<size_t>(numPlayers));
+		for (int i = 0; i < numPlayers; ++i) {
+			float angle = static_cast<float>(i) * angleStep;
+			positions.push_back(Vector3D(
+				radius * std::cos(angle),
+				GameConfig::GROUND_Y,
+				radius * std::sin(angle)
+			));
+		}
+		nextIndex = 0;
+	}
+
+	Vector3D next() {
+		if (positions.empty()) return Vector3D(0.0f, GameConfig::GROUND_Y, 0.0f);
+		Vector3D pos = positions[nextIndex];
+		nextIndex = (nextIndex + 1) % positions.size();
+		return pos;
+	}
+};
 
 // =============================================================================
 // GameModeContext - bundle passed to every IGameMode call
@@ -65,6 +99,27 @@ public:
 
 class LastStanding : public IGameMode {
 public:
+
+	void onStart(GameModeContext& ctx,
+				 [[maybe_unused]] Components::GameModeComponent& gm,
+				 Components::MatchStatsComponent& stats) override {
+
+		entt::entity gameManager = entt::null;
+		for (auto e : ctx.registry.view<GameManagerTag>()) { gameManager = e; break; }
+		if (gameManager == entt::null) return;
+
+		auto* pp = ctx.registry.try_get<Components::PendingPlayersComponent>(gameManager);
+		if (!pp || pp->players.empty()) return;
+
+		m_spawns.initialize(static_cast<int>(pp->players.size()));
+
+		for (const auto& p : pp->players) {
+			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());
+			if (entity != entt::null)
+				stats.playerStats.try_emplace(entity);
+		}
+	}
+
 	void onDeath(const Events::DeathEvent& e,
 				 GameModeContext& ctx,
 				 [[maybe_unused]] Components::GameModeComponent& gm,
@@ -98,6 +153,7 @@ public:
 
 private:
 	bool m_over = false;
+	SpawnPositions m_spawns;
 };
 
 // =============================================================================
@@ -159,15 +215,11 @@ public:
 		}
 
 		// Respawn players whose timer expired
-		m_respawnQueue.erase(
-			std::remove_if(m_respawnQueue.begin(), m_respawnQueue.end(),
-				[&](const RespawnTimer& t) {
-					if (t.remaining > 0.0f) return false;
-					ctx.spawner.respawnPlayer(t.entity, Vector3D{0, 0, 0});
-					return true;
-				}),
-			m_respawnQueue.end()
-		);
+		std::erase_if(m_respawnQueue, [&](const RespawnTimer& t) {
+			if (t.remaining > 0.0f) return false;
+			ctx.spawner.respawnPlayer(t.entity, Vector3D{0, 0, 0});
+			return true;
+		});
 	}
 
 	bool isOver() const override { return m_over; }
@@ -224,5 +276,7 @@ inline std::unique_ptr<IGameMode> IGameMode::create(GameModeType type) {
 	assert(false && "Unhandled GameModeType in IGameMode::create");
 	return nullptr;
 }
+
+
 
 } // namespace ArenaGame

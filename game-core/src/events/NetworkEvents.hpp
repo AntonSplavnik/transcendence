@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GameTypes.hpp"
+#include <string>
 #include <variant>
 
 namespace ArenaGame {
@@ -20,6 +21,7 @@ struct DamageEvent {
 struct SpawnEvent {
 	PlayerID       playerID;
 	Vector3D       position;
+	std::string    characterClass;
 };
 
 struct StateChangeEvent {

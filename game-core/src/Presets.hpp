@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CharacterPreset.hpp"
+#include <string>
 
 namespace ArenaGame {
 namespace Presets {
