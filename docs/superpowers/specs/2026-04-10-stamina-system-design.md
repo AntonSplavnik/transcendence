@@ -230,7 +230,8 @@ when player wants to attack and comcon.canPerformAttack():
 
 **When swing completes (`handleSwingEnd`):**
 ```
-    cost = comcon.attackChain[completedStage].staminaCost
+    // Read cost BEFORE advanceChain(), since advanceChain() increments chainStage
+    cost = comcon.attackChain[comcon.chainStage].staminaCost
     stamina.consume(cost)
     // Then proceed with advanceChain(), hit resolution, etc. as normal
 ```
@@ -258,8 +259,10 @@ when player wants to use ability2 and comcon.canUseAbility2():
 ```
 
 **When cast completes (`tickSkillSlot`):**
+
+`tickSkillSlot` ticks every frame during the cast. Stamina is consumed only once, at the moment the cast timer expires (i.e. `castTimer <= 0`), not every frame:
 ```
-    // tickSkillSlot already knows which slot it's processing
+    // Inside tickSkillSlot, in the branch where castTimer just expired this frame:
     cost = skillDefinition.staminaCost   // ability1 or ability2 respectively
     stamina.consume(cost)
     // Then proceed with executeSkill(), cooldown start, etc. as normal
@@ -268,6 +271,33 @@ when player wants to use ability2 and comcon.canUseAbility2():
 #### Buffered Actions
 
 If a player buffers an attack or skill while already mid-action, the stamina check happens when the buffer is consumed (i.e. when the current action ends and the buffered action would start), **not** when the input is buffered. This prevents the edge case where stamina changes between buffering and execution.
+
+**Buffer consumption path:**
+```
+when current action ends and comcon.bufferedAction != None:
+    if bufferedAction == Attack:
+        cost = comcon.attackChain[comcon.chainStage].staminaCost
+        if !stamina.canAfford(cost):
+            comcon.bufferedAction = None   // discard — can no longer afford it
+            return
+        // Proceed with startAttack() as normal
+
+    if bufferedAction == Skill1:
+        cost = comcon.ability1.staminaCost
+        if !stamina.canAfford(cost):
+            comcon.bufferedAction = None
+            return
+        // Proceed with triggerSkill() for slot 1
+
+    if bufferedAction == Skill2:
+        cost = comcon.ability2.staminaCost
+        if !stamina.canAfford(cost):
+            comcon.bufferedAction = None
+            return
+        // Proceed with triggerSkill() for slot 2
+```
+
+If the player can no longer afford the buffered action when it would fire, the buffer is silently discarded. The buffer does not persist waiting for stamina — it is a one-shot that either fires or is dropped.
 
 ### CharacterControllerSystem Modifications
 
@@ -288,7 +318,9 @@ if input.isSprinting:
 
 Sprint is the only action with a **continuous** stamina cost (per-second). All other actions have discrete, one-time costs.
 
-Sprint uses `canAfford(frameCost)` for consistency with all other stamina checks (not a raw `current > 0` comparison). It also checks `isExhausted()` explicitly — this prevents a stutter loop where a player exits exhaustion with a tiny amount of stamina, sprints for one frame, drains to zero, re-enters exhaustion, waits 1.5s, and repeats. By blocking sprint during exhaustion, the player must wait for meaningful stamina to accumulate before sprinting again.
+Sprint uses `canAfford(frameCost)` as the **primary gate** — this is what actually prevents sprinting with insufficient stamina. The `isExhausted()` check is a **secondary guard** specifically for stutter-loop prevention: without it, a player could exit exhaustion with a tiny amount of stamina, sprint for one frame, drain to zero, re-enter exhaustion, wait 1.5s, and repeat. By blocking sprint during exhaustion, the player must wait for meaningful stamina to accumulate before sprinting again.
+
+**Frame ordering note:** `CharacterControllerSystem` runs in `earlyUpdate`. If an attack in `CombatSystem` (which runs later in `update`) drains stamina to zero, `exhausted` is not yet set (that happens in `StaminaSystem` during `lateUpdate`). On the next frame, sprint's `isExhausted()` would return false — but `canAfford(frameCost)` returns false (since `current == 0` and `frameCost > 0`), so sprint is still correctly blocked. The `canAfford` check is the operative guard; `isExhausted` provides the stutter-loop protection once the flag is set.
 
 Sprint is forcibly disabled when stamina is insufficient or exhausted. The player's input still says `isSprinting = true`, but the server overrides it. The client will see the speed change via the snapshot.
 
@@ -298,16 +330,16 @@ In `processCharacterMovement()`, when processing jump input:
 
 ```
 if input.isJumping and controller.canJump:
-    if !stamina.canAfford(jumpCost):
+    if !stamina.canAfford(stamina.jumpCost):
         // Reject jump — do nothing
     else:
-        stamina.consume(jumpCost)
+        stamina.consume(stamina.jumpCost)
         // Proceed with jump as normal
 ```
 
-Jump cost is consumed **immediately** (unlike attacks/skills which defer to completion). There is no "jump duration" — the player either jumps or doesn't.
+Jump cost is consumed **immediately** (unlike attacks/skills which defer to completion). There is no "jump duration" — the player either jumps or doesn't. `jumpCost` is read from the `Stamina` component (populated from `StaminaPreset.jumpCost` at spawn).
 
-`jumpCost` is read from `StaminaPreset.jumpCost`, stored on the entity at spawn time. This value comes from the character preset so different classes can have different jump costs.
+**Regen while airborne:** Jumping does not suppress stamina regen. The jump cost is a one-time deduction; once airborne, the player is not actively "consuming" stamina, so regen proceeds normally (subject to the other suppression checks). This is intentional — jumping is a discrete cost, not a continuous drain like sprinting.
 
 ---
 
@@ -315,10 +347,14 @@ Jump cost is consumed **immediately** (unlike attacks/skills which defer to comp
 
 ### Snapshot Changes
 
-Stamina data flows through four layers to reach the client. All four must be updated:
+Stamina data flows through five layers to reach the client. All five must be updated:
 
 **1. C++ `CharacterSnapshot` struct (`ArenaGame.hpp`):**
-Add `stamina` and `max_stamina` fields to the `CharacterSnapshot` struct definition (alongside existing `health` and `max_health`).
+Add fields to the `CharacterSnapshot` struct using C++ camelCase convention (matching existing `maxHealth`):
+```cpp
+float stamina;      // current stamina
+float maxStamina;   // maximum stamina pool
+```
 
 **2. C++ `ArenaGame::createSnapshot()` (`ArenaGame.hpp`):**
 The `createSnapshot()` method must include `Stamina` in the entity view template and populate the new snapshot fields from `stamina.current` and `stamina.maximum`.
