@@ -73,7 +73,7 @@ inline void CharacterControllerSystem::processCharacterMovement(
 
 	// Get movement input
 	Vector3D moveDir = controller.getMovementDirection();
-	float speed = controller.getEffectiveSpeed();
+	float speed = controller.getEffectiveSpeed() * controller.activeMovementMultiplier;
 
 	// Apply movement to horizontal velocity
 	if (controller.hasMovementInput()) {
@@ -115,11 +115,6 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		// Calculate yaw from look direction
 		float yaw = std::atan2(lookDir.x, lookDir.z);
 		transform.setRotation(0.0f, yaw, 0.0f);
-	}
-
-	// Handle attacking state
-	if (controller.input.isAttacking) {
-		controller.setState(CharacterState::Attacking);
 	}
 
 	// Handle stunned/dead states (set by combat system)
