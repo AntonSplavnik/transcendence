@@ -270,6 +270,7 @@ class GameClient {
 		this.localCharacter = new AnimatedCharacter(this.scene);
 		await loadCharacter(this.localCharacter, this.characterConfig);
 		this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
+		this.localCharacter.initTrail(this.characterConfig);
 
 		this.localCharacter.setPosition(this.position);
 		this.localCharacter.playAnimation(AnimationNames.spawn, false);
@@ -292,6 +293,10 @@ class GameClient {
 				if (this.localCharacter) {
 					this.localCharacter.setPosition(this.position);
 					this.localCharacter.setRotation(char.yaw);
+					this.localCharacter.trail?.update(
+						this.localCharacter.getWeaponWorldPos(),
+						char.swing_progress,
+					);
 				}
 
 				if (this.localHealthFill) {
@@ -352,6 +357,10 @@ class GameClient {
 					this.remoteJumpStates.set(char.player_id, newJumpState);
 					const remoteConfig = this.characterConfigMap.get(char.player_id);
 					if (remoteConfig) this.updateSnapshotFallbackAnimation(char.player_id, remoteChar, char, remoteConfig, newJumpState);
+					remoteChar.trail?.update(
+						remoteChar.getWeaponWorldPos(),
+						char.swing_progress,
+					);
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
@@ -400,6 +409,7 @@ class GameClient {
 				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 			this.characterConfigMap.set(playerID, config);
 			await loadCharacter(remoteChar, config);
+			remoteChar.initTrail(config);
 
 			if (playerID === this.localPlayerID) {
 				remoteChar.dispose();
@@ -540,13 +550,10 @@ class GameClient {
 		for (const event of events) {
 			switch (event.type) {
 				case 'Death':
-					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
 					break;
 				case 'Damage':
-					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
 					break;
 				case 'Spawn':
-					console.debug('[Game] Spawn: player=%d', event.player_id);
 					this.getChar(event.player_id)?.playAnimation(AnimationNames.spawn, false);
 					if (event.player_id === this.localPlayerID) {
 						this.localIsDead = false;
@@ -556,7 +563,6 @@ class GameClient {
 					}
 					break;
 				case 'StateChange':
-					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
 					break;
 				case 'AttackStarted': {
 					const config = this.characterConfigMap.get(event.player_id);
@@ -591,7 +597,6 @@ class GameClient {
 					break;
 				}
 				case 'MatchEnd':
-					console.debug('[Game] MatchEnd');
 					break;
 			}
 		}
@@ -680,11 +685,8 @@ export default function SimpleGameClient({
 			camera.minZ = 0.1;
 			camera.maxZ = 500;
 
+
 			scene.onReadyObservable.addOnce(() => {
-				console.log(
-					'[Scene] cameras:',
-					scene.cameras.map((c) => `${c.name} (${c.getClassName()})`),
-				);
 				scene.activeCamera = camera;
 			});
 
