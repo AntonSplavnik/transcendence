@@ -39,29 +39,20 @@ namespace Presets {
 			.criticalChance     = 0.15f,
 			.criticalMultiplier = 1.5f,
 			.attackChain = {
-				// Stage 0: overhead chop — slow, rooted, moderate hit
-				{ .damageMultiplier=0.9f,
-				.range=2.0f,
-				.duration=0.5f,
-				.movementMultiplier=0.0f,
-				.chainWindow=0.8f },
-				// Stage 1: shield bash — rooted, heavy hit, ends chain
-				{ .damageMultiplier=1.6f,
-				.range=1.8f,
-				.duration=0.6f,
-				.movementMultiplier=0.0f,
-				.chainWindow=0.0f },
+				// Stage 0 — diagonal slice: quick opener
+				{ .damageMultiplier=0.8f, .range=2.0f, .duration=0.45f,
+				  .movementMultiplier=0.0f, .chainWindow=0.6f },
+				// Stage 1 — horizontal slice: mid combo
+				{ .damageMultiplier=0.9f, .range=2.2f, .duration=0.50f,
+				  .movementMultiplier=0.0f, .chainWindow=0.5f },
+				// Stage 2 — stab: heavy finisher, chain resets (chainWindow=0)
+				{ .damageMultiplier=1.6f, .range=1.8f, .duration=0.60f,
+				  .movementMultiplier=0.0f, .chainWindow=0.0f },
 			},
-			.skill1 = { .params = MeleeAOE{
-				.range=2.0f,
-				.movementMultiplier=0.0f,
-				.dmgMultiplier=1.5f },
-				.cooldown=5.0f },
-			.skill2 = { .params = MeleeAOE{
-				.range=2.0f,
-				.movementMultiplier=0.7f,
-				.dmgMultiplier=1.5f },
-				.cooldown=10.0f },
+			.skill1 = { .params = MeleeAOE{ .range=2.5f, .movementMultiplier=0.0f, .dmgMultiplier=1.8f },
+			            .cooldown=5.0f, .castDuration=0.7f },
+			.skill2 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=0.7f, .dmgMultiplier=1.5f },
+			            .cooldown=10.0f, .castDuration=0.5f },
 		},
 	};
 /*
