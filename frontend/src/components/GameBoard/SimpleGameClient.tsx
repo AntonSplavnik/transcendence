@@ -437,7 +437,7 @@ class GameClient {
 				// Fallback for latecomers who missed the AttackStarted event.
 				// Always plays attackAnimations[0] — snapshot has no chain stage.
 				if (!char.currentAnimation?.isPlaying)
-					char.playAnimation(config.attackAnimations[0], false);
+					char.playAnimation(config.attackAnimations[0], true);
 				break;
 			case CharacterState.Casting:
 				// Fallback for latecomers who missed the SkillUsed event.
