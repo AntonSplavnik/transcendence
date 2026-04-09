@@ -79,9 +79,10 @@ struct CombatController {
 		return attackChain[static_cast<size_t>(chainStage)];
 	}
 
-	// Ready to accept an attack input — not mid-swing and attacks are enabled.
+	// Ready to accept an attack input — not mid-swing, not casting, and attacks are enabled.
 	bool canPerformAttack() const {
-		return canAttack && !isAttacking && !attackChain.empty();
+		return canAttack && !isAttacking && !attackChain.empty()
+			&& !ability1.isCasting() && !ability2.isCasting();
 	}
 
 	bool canUseAbility1() const { return canUseAbilities && ability1.canUse(); }
@@ -113,9 +114,6 @@ struct CombatController {
 		fprintf(stderr, "[CHAIN] advanceChain  %d -> %d  %s\n",
 			prevStage, chainStage, chainEnds ? "(chain reset)" : "(chain continues)");
 	}
-
-	void useAbility1() { ability1.trigger(); }
-	void useAbility2() { ability2.trigger(); }
 
 	void disableAttacks()   { canAttack = false; }
 	void enableAttacks()    { canAttack = true;  }

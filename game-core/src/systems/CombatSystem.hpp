@@ -50,8 +50,8 @@ namespace ArenaGame {
 // Skills
 // ─────────────────────────────────────────────────────────────────────────────
 //   input.isUsingAbility1/2 && canUseAbility1/2()
-//     → executeSkill(skill, ctx)  (dispatches over SkillVariant)
-//     → useAbility1/2()           (starts cooldown timer)
+//     → comcon.ability1/2.trigger()  (starts cooldown timer)
+//     → executeSkill(skill, ctx)     (dispatches over SkillVariant)
 // =============================================================================
 
 
@@ -417,6 +417,11 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 								controller.activeMovementMultiplier = 1.0f;
 						}
 					}, skill.params);
+
+					// Reset CharacterState when cast ends
+					controller.setState(controller.hasMovementInput()
+						? (controller.input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
+						: CharacterState::Idle);
 				}
 			}
 		};
