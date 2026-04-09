@@ -38,8 +38,8 @@ struct CombatController {
 
 	float baseDamage;                      // base; each AttackStage multiplies this
 	std::vector<AttackStage> attackChain;  // ordered attack sequence
-	SkillDefinition ability1;
-	SkillDefinition ability2;
+	SkillDefinition ability1;              // pure preset data
+	SkillDefinition ability2;              // pure preset data
 
 	// ── Damage modifiers ─────────────────────────────────────────────────────
 
@@ -62,6 +62,15 @@ struct CombatController {
 	bool  isAttacking = false; // true while swingTimer < currentStage().duration
 	bool  hitPending  = false; // hit queued at swing start, applied at swing end
 
+	// ── Skill runtime state (same pattern as attack chain) ───────────────
+
+	float skill1CooldownTimer = 0.0f;  // cooldown countdown (starts after cast ends)
+	float skill1CastTimer     = 0.0f;  // cast countdown — effect fires when this hits 0
+	bool  skill1HitPending    = false;  // effect deferred to cast end
+	float skill2CooldownTimer = 0.0f;
+	float skill2CastTimer     = 0.0f;
+	bool  skill2HitPending    = false;
+
 	// ── Capability flags ─────────────────────────────────────────────────────
 
 	bool canAttack       = true;
@@ -79,14 +88,21 @@ struct CombatController {
 		return attackChain[static_cast<size_t>(chainStage)];
 	}
 
+	bool isAbility1Casting() const { return skill1CastTimer > 0.0f; }
+	bool isAbility2Casting() const { return skill2CastTimer > 0.0f; }
+
 	// Ready to accept an attack input — not mid-swing, not casting, and attacks are enabled.
 	bool canPerformAttack() const {
 		return canAttack && !isAttacking && !attackChain.empty()
-			&& !ability1.isCasting() && !ability2.isCasting();
+			&& !isAbility1Casting() && !isAbility2Casting();
 	}
 
-	bool canUseAbility1() const { return canUseAbilities && ability1.canUse(); }
-	bool canUseAbility2() const { return canUseAbilities && ability2.canUse(); }
+	bool canUseAbility1() const {
+		return canUseAbilities && !isAttacking && skill1CooldownTimer <= 0.0f && !isAbility1Casting();
+	}
+	bool canUseAbility2() const {
+		return canUseAbilities && !isAttacking && skill2CooldownTimer <= 0.0f && !isAbility2Casting();
+	}
 
 	// ── State transitions (called by CombatSystem) ───────────────────────────
 
@@ -143,10 +159,10 @@ struct CombatController {
 		}
 
 		// Tick skill cooldowns
-		if (ability1.timer > 0.0f)
-			ability1.timer = std::max(0.0f, ability1.timer - deltaTime);
-		if (ability2.timer > 0.0f)
-			ability2.timer = std::max(0.0f, ability2.timer - deltaTime);
+		if (skill1CooldownTimer > 0.0f)
+			skill1CooldownTimer = std::max(0.0f, skill1CooldownTimer - deltaTime);
+		if (skill2CooldownTimer > 0.0f)
+			skill2CooldownTimer = std::max(0.0f, skill2CooldownTimer - deltaTime);
 	}
 
 	// ── Factory ──────────────────────────────────────────────────────────────

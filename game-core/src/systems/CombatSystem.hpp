@@ -50,8 +50,9 @@ namespace ArenaGame {
 // Skills
 // ─────────────────────────────────────────────────────────────────────────────
 //   input.isUsingAbility1/2 && canUseAbility1/2()
-//     → comcon.ability1/2.trigger()  (starts cooldown timer)
-//     → executeSkill(skill, ctx)     (dispatches over SkillVariant)
+//     → set skillN CastTimer/HitPending on CombatController
+//     → tickSkillSlot() fires deferred hit when castTimer reaches zero
+//     → executeSkill(def, ctx)  (dispatches over SkillVariant)
 // =============================================================================
 
 
@@ -112,24 +113,51 @@ public:
 private:
 	Config m_config;
 	std::queue<PendingHit> m_pendingHits;
+	float m_deltaTime = 0.0f;  // cached for sub-phase methods
 
+	// ── Top-level phases (called from update) ────────────────────────────
 	void processInputAttacks();
 	void processDamage();
 	void updateCooldowns(float deltaTime);
 
+	// ── updateCooldowns sub-phases (per entity) ──────────────────────────
+	bool tryCancelSwingByMovement(entt::entity entity,
+	                              Components::CombatController& combat,
+	                              Components::CharacterController& controller);
+	void handleSwingEnd(entt::entity entity,
+	                    Components::CombatController& combat,
+	                    Components::CharacterController& controller,
+	                    Components::Health& health, Components::Transform& trans,
+	                    Components::PhysicsBody& physics);
+	void tickSkillSlot(float& castTimer, bool& hitPending, float& cooldownTimer,
+	                   const SkillDefinition& def, entt::entity entity,
+	                   Components::CombatController& combat,
+	                   Components::CharacterController& controller,
+	                   Components::Health& health, Components::Transform& trans,
+	                   Components::PhysicsBody& physics);
+
+	// ── processInputAttacks helpers ──────────────────────────────────────
+	void triggerSkill(Components::CombatController& comcon,
+	                  Components::CharacterController& charcon,
+	                  const SkillDefinition& def,
+	                  float& castTimer, bool& hitPending,
+	                  Components::NetworkEventsComponent* ne,
+	                  entt::entity entity, uint8_t slot);
+
+	// ── Hit detection ────────────────────────────────────────────────────
+	void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
+	void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
+	void executeSkill(const SkillDefinition& skill, SkillContext& ctx);
+
+	// ── Utilities ────────────────────────────────────────────────────────
 	PlayerID getPlayerID(entt::entity entity) const {
 		auto* info = m_registry->try_get<Components::PlayerInfo>(entity);
 		return info ? info->playerID : 0;
 	}
 
-	// Queue hits for all living, in-range targets (excludes attacker). Full 360°.
-	void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
-
-	// Queue hits for targets within a frontal arc. attackAngle is the half-angle in radians.
-	void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
-
-	// Dispatch skill execution via SkillVariant visitor.
-	void executeSkill(SkillDefinition& skill, SkillContext& ctx);
+	// Apply/remove movement lock from a skill's params.
+	static void applySkillMovementLock(Components::CharacterController& c, const SkillVariant& params);
+	static void removeSkillMovementLock(Components::CharacterController& c, const SkillVariant& params);
 };
 
 // =============================================================================
@@ -142,18 +170,54 @@ inline void CombatSystem::update(float deltaTime) {
 	processDamage();
 }
 
+// ── Movement lock helpers ────────────────────────────────────────────────────
+
+inline void CombatSystem::applySkillMovementLock(
+		Components::CharacterController& c, const SkillVariant& params) {
+	std::visit(overloaded{
+		[&](const MeleeAOE& s) {
+			if (s.movementMultiplier == 0.0f)
+				c.canMove = false;
+			else if (s.movementMultiplier < 1.0f)
+				c.activeMovementMultiplier = s.movementMultiplier;
+		}
+	}, params);
+}
+
+inline void CombatSystem::removeSkillMovementLock(
+		Components::CharacterController& c, const SkillVariant& params) {
+	std::visit(overloaded{
+		[&](const MeleeAOE& s) {
+			if (s.movementMultiplier == 0.0f)
+				c.canMove = true;
+			else if (s.movementMultiplier > 0.0f && s.movementMultiplier < 1.0f)
+				c.activeMovementMultiplier = 1.0f;
+		}
+	}, params);
+}
+
+// ── Input processing ─────────────────────────────────────────────────────────
+
+inline void CombatSystem::triggerSkill(
+		Components::CombatController& comcon,
+		Components::CharacterController& charcon,
+		const SkillDefinition& def,
+		float& castTimer, bool& hitPending,
+		Components::NetworkEventsComponent* ne,
+		entt::entity entity, uint8_t slot) {
+	castTimer  = def.castDuration;
+	hitPending = true;
+	charcon.setState(CharacterState::Casting);
+	applySkillMovementLock(charcon, def.params);
+	if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), slot });
+}
+
 inline void CombatSystem::processInputAttacks() {
 	using namespace Components;
 
-	auto* ne = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
+	auto* ne = m_registry->try_get<NetworkEventsComponent>(m_gameManager);
 
-	auto view = m_registry->view<
-		CharacterController,
-		CombatController,
-		Health,
-		Transform,
-		PhysicsBody
-	>();
+	auto view = m_registry->view<CharacterController, CombatController, Health, Transform, PhysicsBody>();
 
 	view.each([&](entt::entity entity,
 				  CharacterController& charcon,
@@ -164,16 +228,15 @@ inline void CombatSystem::processInputAttacks() {
 
 		if (!health.isAlive()) return;
 
-		// Buffer any input that arrives while the character is committed to an action.
-		// Last input wins — Skill2 > Skill1 > Attack due to assignment order.
-		if (comcon.isAttacking || comcon.ability1.isCasting() || comcon.ability2.isCasting()) {
+		// Buffer input while committed to an action. Last input wins (Skill2 > Skill1 > Attack).
+		if (comcon.isAttacking || comcon.isAbility1Casting() || comcon.isAbility2Casting()) {
 			if (charcon.input.isAttacking)      comcon.bufferedAction = CombatController::BufferedAction::Attack;
 			if (charcon.input.isUsingAbility1)  comcon.bufferedAction = CombatController::BufferedAction::Skill1;
 			if (charcon.input.isUsingAbility2)  comcon.bufferedAction = CombatController::BufferedAction::Skill2;
 			return;
 		}
 
-		// Normal path — consume buffered action or live input.
+		// Consume buffered action or live input.
 		CombatController::BufferedAction toFire = comcon.bufferedAction;
 		comcon.bufferedAction = CombatController::BufferedAction::None;
 
@@ -184,33 +247,15 @@ inline void CombatSystem::processInputAttacks() {
 		// Priority: Skill2 > Skill1 > Attack
 		if (wantsSkill2 && comcon.canUseAbility2()) {
 			fprintf(stderr, "[COMBAT] ABILITY2 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), static_cast<double>(comcon.ability2.timer));
-			comcon.ability2.trigger();
-			charcon.setState(CharacterState::Casting);
-			std::visit(overloaded{
-				[&](const MeleeAOE& s) {
-					if (s.movementMultiplier == 0.0f)
-						charcon.canMove = false;
-					else if (s.movementMultiplier < 1.0f)
-						charcon.activeMovementMultiplier = s.movementMultiplier;
-				}
-			}, comcon.ability2.params);
-			if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), 2u });
+				static_cast<unsigned>(entity), static_cast<double>(comcon.skill2CooldownTimer));
+			triggerSkill(comcon, charcon, comcon.ability2,
+			             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
 
 		} else if (wantsSkill1 && comcon.canUseAbility1()) {
 			fprintf(stderr, "[COMBAT] ABILITY1 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), static_cast<double>(comcon.ability1.timer));
-			comcon.ability1.trigger();
-			charcon.setState(CharacterState::Casting);
-			std::visit(overloaded{
-				[&](const MeleeAOE& s) {
-					if (s.movementMultiplier == 0.0f)
-						charcon.canMove = false;
-					else if (s.movementMultiplier < 1.0f)
-						charcon.activeMovementMultiplier = s.movementMultiplier;
-				}
-			}, comcon.ability1.params);
-			if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), 1u });
+				static_cast<unsigned>(entity), static_cast<double>(comcon.skill1CooldownTimer));
+			triggerSkill(comcon, charcon, comcon.ability1,
+			             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
 
 		} else if (wantsAttack && comcon.canPerformAttack()) {
 			const AttackStage& stage = comcon.currentStage();
@@ -219,7 +264,7 @@ inline void CombatSystem::processInputAttacks() {
 				static_cast<double>(stage.range), static_cast<double>(stage.damageMultiplier),
 				static_cast<double>(comcon.baseDamage));
 
-			uint8_t stageNum = static_cast<uint8_t>(comcon.chainStage);  // read BEFORE startAttack
+			uint8_t stageNum = static_cast<uint8_t>(comcon.chainStage);
 			comcon.startAttack();
 			comcon.hitPending = true;
 			charcon.setState(CharacterState::Attacking);
@@ -229,6 +274,8 @@ inline void CombatSystem::processInputAttacks() {
 		}
 	});
 }
+
+// ── Hit detection ────────────────────────────────────────────────────────────
 
 inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier) {
 	auto targets = m_registry->view<Components::Transform, Components::Health>();
@@ -240,13 +287,13 @@ inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dm
 		if (!targetHealth.isAlive()) return;
 
 		float dist = ctx.attackerTransform.position.distanceTo(targetTransform.position);
-		if (dist <= range) {
-			float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
-			fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
-				static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
-				static_cast<double>(dist), static_cast<double>(dmg));
-			ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
-		}
+		if (dist > range) return;
+
+		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
+		fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
+			static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
+			static_cast<double>(dist), static_cast<double>(dmg));
+		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
 	});
 }
 
@@ -275,11 +322,13 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 	});
 }
 
-inline void CombatSystem::executeSkill(SkillDefinition& skill, SkillContext& ctx) {
+inline void CombatSystem::executeSkill(const SkillDefinition& skill, SkillContext& ctx) {
 	std::visit(overloaded {
-		[&](MeleeAOE& s) { hitAllInRange(ctx, s.range, s.dmgMultiplier); }
+		[&](const MeleeAOE& s) { hitAllInRange(ctx, s.range, s.dmgMultiplier); }
 	}, skill.params);
 }
+
+// ── Damage application ───────────────────────────────────────────────────────
 
 inline void CombatSystem::processDamage() {
 	auto* gmc   = m_registry->try_get<Components::GameModeComponent>(m_gameManager);
@@ -337,90 +386,105 @@ inline void CombatSystem::processDamage() {
 	}
 }
 
+// ── Timer updates (per-entity sub-phases) ────────────────────────────────────
+
+inline bool CombatSystem::tryCancelSwingByMovement(
+		entt::entity entity,
+		Components::CombatController& combat,
+		Components::CharacterController& controller) {
+	if (!combat.isAttacking || !controller.hasMovementInput()) return false;
+
+	combat.isAttacking = false;
+	combat.swingTimer  = 0.0f;
+	combat.hitPending  = false;
+	if (!controller.isDead()) {
+		controller.canMove = true;
+		controller.restoreMovementState();
+	}
+	fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
+		static_cast<unsigned>(entity));
+	return true;
+}
+
+inline void CombatSystem::handleSwingEnd(
+		entt::entity entity,
+		Components::CombatController& combat,
+		Components::CharacterController& controller,
+		Components::Health& health,
+		Components::Transform& trans,
+		Components::PhysicsBody& physics) {
+	if (!controller.isDead()) controller.canMove = true;
+
+	if (combat.hitPending) {
+		if (health.isAlive()) {
+			SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
+			const AttackStage& stage = combat.currentStage();
+			hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
+			combat.advanceChain();
+			fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
+		}
+		combat.hitPending = false;
+	}
+
+	// Reset CharacterState unless player is re-triggering attack
+	if (controller.state == CharacterState::Attacking && !controller.isDead()
+			&& !controller.input.isAttacking) {
+		controller.restoreMovementState();
+	}
+}
+
+inline void CombatSystem::tickSkillSlot(
+		float& castTimer, bool& hitPending, float& cooldownTimer,
+		const SkillDefinition& def, entt::entity entity,
+		Components::CombatController& combat,
+		Components::CharacterController& controller,
+		Components::Health& health,
+		Components::Transform& trans,
+		Components::PhysicsBody& physics) {
+	if (castTimer <= 0.0f) return;
+
+	castTimer -= m_deltaTime;
+	if (castTimer > 0.0f) return;
+
+	// Cast just finished
+	castTimer     = 0.0f;
+	cooldownTimer = def.cooldown;
+
+	if (hitPending) {
+		if (health.isAlive()) {
+			SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
+			executeSkill(def, ctx);
+		}
+		hitPending = false;
+	}
+
+	if (!controller.isDead()) {
+		removeSkillMovementLock(controller, def.params);
+		controller.restoreMovementState();
+	}
+}
+
 inline void CombatSystem::updateCooldowns(float deltaTime) {
 	using namespace Components;
 
+	m_deltaTime = deltaTime;
 	auto view = m_registry->view<CombatController, CharacterController, Health, Transform, PhysicsBody>();
 
 	view.each([&](entt::entity entity, CombatController& combat, CharacterController& controller,
 				  Health& health, Transform& trans, PhysicsBody& physics) {
-		// Movement cancels the swing — mirrors client animation cancellation
-		if (combat.isAttacking && controller.hasMovementInput()) {
-			combat.isAttacking = false;
-			combat.swingTimer  = 0.0f;
-			combat.hitPending  = false;
-			if (!controller.isDead()) controller.canMove = true;
-			if (!controller.isDead()) {
-				controller.setState(controller.input.isSprinting
-					? CharacterState::Sprinting
-					: CharacterState::Walking);
-			}
-			fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
-				static_cast<unsigned>(entity));
-			return;
-		}
+
+		if (tryCancelSwingByMovement(entity, combat, controller)) return;
 
 		const bool wasAttacking = combat.isAttacking;
 		combat.updateTimers(deltaTime);
 
-		// Swing just ended — restore movement and apply deferred hit
-		if (wasAttacking && !combat.isAttacking) {
-			if (!controller.isDead()) controller.canMove = true;
+		if (wasAttacking && !combat.isAttacking)
+			handleSwingEnd(entity, combat, controller, health, trans, physics);
 
-			if (combat.hitPending) {
-				if (health.isAlive()) {
-					SkillContext ctx { *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
-					const AttackStage& stage = combat.currentStage();
-					hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
-					combat.advanceChain();
-					fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
-				}
-				combat.hitPending = false;
-			}
-		}
-
-		// Reset CharacterState when swing ends and player is not re-triggering
-		if (!combat.isAttacking && controller.state == CharacterState::Attacking && !controller.isDead()) {
-			if (!controller.input.isAttacking) {
-				controller.setState(controller.hasMovementInput()
-					? (controller.input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
-					: CharacterState::Idle);
-			}
-		}
-
-		// Tick skill cast timers — deferred hit fires when castTimer reaches zero
-		auto tickSkill = [&](SkillDefinition& skill, uint8_t /*slot*/) {
-			if (!skill.isCasting()) return;
-			skill.castTimer -= deltaTime;
-			if (skill.castTimer <= 0.0f) {
-				skill.endCast();
-				if (skill.hitPending) {
-					if (health.isAlive()) {
-						SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
-						executeSkill(skill, ctx);
-					}
-					skill.hitPending = false;
-				}
-				// Restore movement locked by this skill (only if alive — death path owns its own reset)
-				if (!controller.isDead()) {
-					std::visit(overloaded{
-						[&](const MeleeAOE& s) {
-							if (s.movementMultiplier == 0.0f)
-								controller.canMove = true;
-							else if (s.movementMultiplier > 0.0f && s.movementMultiplier < 1.0f)
-								controller.activeMovementMultiplier = 1.0f;
-						}
-					}, skill.params);
-
-					// Reset CharacterState when cast ends
-					controller.setState(controller.hasMovementInput()
-						? (controller.input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
-						: CharacterState::Idle);
-				}
-			}
-		};
-		tickSkill(combat.ability1, 1);
-		tickSkill(combat.ability2, 2);
+		tickSkillSlot(combat.skill1CastTimer, combat.skill1HitPending, combat.skill1CooldownTimer,
+		              combat.ability1, entity, combat, controller, health, trans, physics);
+		tickSkillSlot(combat.skill2CastTimer, combat.skill2HitPending, combat.skill2CooldownTimer,
+		              combat.ability2, entity, combat, controller, health, trans, physics);
 	});
 }
 

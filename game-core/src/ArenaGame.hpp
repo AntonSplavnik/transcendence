@@ -224,9 +224,9 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 		charSnapshot.maxHealth = health.maximum;
 
 		// Cooldown data from CombatController
-		charSnapshot.ability1Timer    = combat.ability1.timer;
+		charSnapshot.ability1Timer    = combat.skill1CooldownTimer;
 		charSnapshot.ability1Cooldown = combat.ability1.cooldown;
-		charSnapshot.ability2Timer    = combat.ability2.timer;
+		charSnapshot.ability2Timer    = combat.skill2CooldownTimer;
 		charSnapshot.ability2Cooldown = combat.ability2.cooldown;
 		charSnapshot.swingProgress    = (combat.isAttacking && !combat.attackChain.empty())
 			? combat.swingTimer / combat.currentStage().duration

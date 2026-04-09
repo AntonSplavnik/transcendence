@@ -1,7 +1,6 @@
 #pragma once
 
 #include <variant>
-#include <cassert>
 
 namespace ArenaGame {
 
@@ -13,32 +12,12 @@ namespace ArenaGame {
 
 	using SkillVariant = std::variant<MeleeAOE>;
 
+	// Pure preset data — no mutable fields, no methods.
+	// All runtime state (timers, hitPending) lives on CombatController.
 	struct SkillDefinition {
 		SkillVariant params;
-		float cooldown     = 0.0f;
+		float cooldown     = 0.0f;  // cooldown duration after cast ends
 		float castDuration = 0.0f;  // how long player is locked into this skill
-		float timer        = 0.0f;  // cooldown countdown (starts after cast ends)
-		float castTimer    = 0.0f;  // cast countdown — effect fires when this hits 0
-		bool  hitPending   = false; // effect deferred to cast end
-
-		bool isCasting() const { return castTimer > 0.0f; }
-		bool canUse()    const { return timer <= 0.0f && !isCasting(); }
-
-		// Starts the cast. The cooldown timer does NOT start until endCast() is called.
-		// Total lockout = castDuration + cooldown. Precondition: castDuration > 0.
-		// Skills with instant effects must not use this path.
-		void trigger() {
-			assert(castDuration > 0.0f && "SkillDefinition: castDuration must be > 0");
-			castTimer  = castDuration;
-			hitPending = true;
-		}
-
-		// Called by CombatSystem when castTimer reaches zero, before applying the hit.
-		// Does NOT clear hitPending — CombatSystem clears it after applying the effect.
-		void endCast() {
-			timer     = cooldown;
-			castTimer = 0.0f;
-		}
 	};
 
 	struct AttackStage {

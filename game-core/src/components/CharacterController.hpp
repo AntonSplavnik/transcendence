@@ -122,6 +122,13 @@ struct CharacterController {
 		state = newState;
 	}
 
+	// Pick Idle/Walking/Sprinting based on current input. Used after swing/cast ends.
+	void restoreMovementState() {
+		setState(hasMovementInput()
+			? (input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
+			: CharacterState::Idle);
+	}
+
 	// Enable/disable capabilities
 	void disableMovement() { canMove = false; }
 	void enableMovement() { canMove = true; }
