@@ -32,6 +32,12 @@ pub enum GameServerMessage {
     /// A player's state changed
     StateChange { player_id: u32, state: u8 },
 
+    /// A player started an attack swing
+    AttackStarted { player_id: u32, chain_stage: u8 },
+
+    /// A player activated a skill
+    SkillUsed { player_id: u32, skill_slot: u8 },
+
     /// The match has ended
     MatchEnd,
 

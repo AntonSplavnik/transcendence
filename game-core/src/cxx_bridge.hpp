@@ -18,6 +18,8 @@ struct DeathEvent;
 struct DamageEvent;
 struct SpawnEvent;
 struct StateChangeEvent;
+struct AttackStartedEvent;
+struct SkillUsedEvent;
 enum class GameModeType : uint8_t;
 enum class NetworkEventType : uint8_t;
 
@@ -31,7 +33,9 @@ struct EventQueue {
     DeathEvent       get_death_at(size_t idx) const;
     DamageEvent      get_damage_at(size_t idx) const;
     SpawnEvent       get_spawn_at(size_t idx) const;
-    StateChangeEvent get_state_change_at(size_t idx) const;
+    StateChangeEvent   get_state_change_at(size_t idx) const;
+    AttackStartedEvent get_attack_started_at(size_t idx) const;
+    SkillUsedEvent     get_skill_used_at(size_t idx) const;
 };
 
 /// Thin wrapper around ArenaGame that adapts the C++ API to CXX shared types.

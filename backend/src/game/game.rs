@@ -150,6 +150,12 @@ impl Game {
                     NetworkEvent::StateChange { player_id, state } => {
                         GameServerMessage::StateChange { player_id, state }
                     }
+                    NetworkEvent::AttackStarted { player_id, chain_stage } => {
+                        GameServerMessage::AttackStarted { player_id, chain_stage }
+                    }
+                    NetworkEvent::SkillUsed { player_id, skill_slot } => {
+                        GameServerMessage::SkillUsed { player_id, skill_slot }
+                    }
                     NetworkEvent::MatchEnd => GameServerMessage::MatchEnd,
                 });
                 broadcast(msg);

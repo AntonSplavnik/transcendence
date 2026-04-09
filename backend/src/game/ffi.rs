@@ -19,6 +19,8 @@ mod bridge {
         Spawn = 3,
         StateChange = 4,
         MatchEnd = 5,
+        AttackStarted = 6,
+        SkillUsed = 7,
     }
 
     struct Vec3 {
@@ -81,6 +83,16 @@ mod bridge {
         state: u8,
     }
 
+    struct AttackStartedEvent {
+        player_id: u32,
+        chain_stage: u8,
+    }
+
+    struct SkillUsedEvent {
+        player_id: u32,
+        skill_slot: u8,
+    }
+
     unsafe extern "C++" {
         include!("cxx_bridge.hpp");
 
@@ -107,6 +119,8 @@ mod bridge {
         fn get_damage_at(self: &EventQueue, idx: usize) -> DamageEvent;
         fn get_spawn_at(self: &EventQueue, idx: usize) -> SpawnEvent;
         fn get_state_change_at(self: &EventQueue, idx: usize) -> StateChangeEvent;
+        fn get_attack_started_at(self: &EventQueue, idx: usize) -> AttackStartedEvent;
+        fn get_skill_used_at(self: &EventQueue, idx: usize) -> SkillUsedEvent;
 
         fn take_events(self: Pin<&mut GameBridge>) -> UniquePtr<EventQueue>;
     }
@@ -267,6 +281,14 @@ pub enum NetworkEvent {
         state: u8,
     },
     MatchEnd,
+    AttackStarted {
+        player_id: u32,
+        chain_stage: u8,
+    },
+    SkillUsed {
+        player_id: u32,
+        skill_slot: u8,
+    },
 }
 
 // =============================================================================
@@ -388,6 +410,14 @@ impl GameHandle {
                     }
                 }
                 bridge::NetworkEventType::MatchEnd => NetworkEvent::MatchEnd,
+                bridge::NetworkEventType::AttackStarted => {
+                    let e = queue.get_attack_started_at(i);
+                    NetworkEvent::AttackStarted { player_id: e.player_id, chain_stage: e.chain_stage }
+                }
+                bridge::NetworkEventType::SkillUsed => {
+                    let e = queue.get_skill_used_at(i);
+                    NetworkEvent::SkillUsed { player_id: e.player_id, skill_slot: e.skill_slot }
+                }
                 _ => unreachable!(),
             })
             .collect()

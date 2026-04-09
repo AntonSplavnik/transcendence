@@ -147,6 +147,10 @@ NetworkEventType EventQueue::kind_at(size_t idx) const {
             return NetworkEventType::Spawn;
         else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::StateChangeEvent>)
             return NetworkEventType::StateChange;
+        else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::AttackStartedEvent>)
+            return NetworkEventType::AttackStarted;
+        else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::SkillUsedEvent>)
+            return NetworkEventType::SkillUsed;
         else {
             static_assert(std::is_same_v<T, ::ArenaGame::NetEvents::MatchEndEvent>,
                 "Unhandled NetworkEvent variant in kind_at");
@@ -173,6 +177,16 @@ SpawnEvent EventQueue::get_spawn_at(size_t idx) const {
 StateChangeEvent EventQueue::get_state_change_at(size_t idx) const {
     const auto& ev = std::get<::ArenaGame::NetEvents::StateChangeEvent>(events[idx]);
     return StateChangeEvent{ ev.playerID, static_cast<uint8_t>(ev.state) };
+}
+
+AttackStartedEvent EventQueue::get_attack_started_at(size_t idx) const {
+    const auto& ev = std::get<::ArenaGame::NetEvents::AttackStartedEvent>(events[idx]);
+    return AttackStartedEvent{ ev.playerID, ev.chainStage };
+}
+
+SkillUsedEvent EventQueue::get_skill_used_at(size_t idx) const {
+    const auto& ev = std::get<::ArenaGame::NetEvents::SkillUsedEvent>(events[idx]);
+    return SkillUsedEvent{ ev.playerID, ev.skillSlot };
 }
 
 } // namespace arena_game
