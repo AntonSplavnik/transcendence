@@ -12,12 +12,12 @@ namespace ArenaGame {
 
 	using SkillVariant = std::variant<MeleeAOE>;
 
+	// Pure preset data — no mutable fields, no methods.
+	// All runtime state (timers, hitPending) lives on CombatController.
 	struct SkillDefinition {
 		SkillVariant params;
-		float cooldown;
-		float timer = 0.0f;
-		bool canUse() const { return timer <= 0.0f; }
-		void trigger()      { timer = cooldown; }
+		float cooldown     = 0.0f;  // cooldown duration after cast ends
+		float castDuration = 0.0f;  // how long player is locked into this skill
 	};
 
 	struct AttackStage {

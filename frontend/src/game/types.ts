@@ -33,19 +33,20 @@ export interface GameStateSnapshot {
 // Using discriminated union with 'type' field (matches Rust #[serde(tag = "type")])
 export type GameServerMessage =
 	| ({ type: 'Snapshot' } & GameStateSnapshot)
-	| { type: 'PlayerJoined'; player_id: number; name: string; character_class: string }
 	| { type: 'PlayerLeft'; player_id: number }
 	| { type: 'Death'; killer: number; victim: number }
 	| { type: 'Damage'; attacker: number; victim: number; damage: number }
-	| { type: 'Spawn'; player_id: number; position: Vector3D }
+	| { type: 'Spawn'; player_id: number; position: Vector3D; name: string; character_class: string }
 	| { type: 'StateChange'; player_id: number; state: number }
+	| { type: 'AttackStarted'; player_id: number; chain_stage: number }
+	| { type: 'SkillUsed'; player_id: number; skill_slot: number }
 	| { type: 'MatchEnd' }
 	| { type: 'Error'; message: string };
 
 /** Subset of GameServerMessage that represents in-game events (not snapshots or meta). */
 export type GameEvent = Extract<
 	GameServerMessage,
-	{ type: 'Death' | 'Damage' | 'Spawn' | 'StateChange' | 'MatchEnd' }
+	{ type: 'Death' | 'Damage' | 'Spawn' | 'StateChange' | 'AttackStarted' | 'SkillUsed' | 'MatchEnd' }
 >;
 
 export type GameClientMessage =

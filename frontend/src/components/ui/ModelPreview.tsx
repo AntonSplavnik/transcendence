@@ -102,7 +102,7 @@ export default function ModelPreview({
 			loadCharacter(char, previewConfig).then(() => {
 				char.rootNode.scaling.setAll(0.6);
 				char.rootNode.rotation.y = initialRotationY;
-				char.playAnimation(characterConfig.idleAnimation, true);
+				char.playAnimation(characterConfig.idleAnimation.name, true, characterConfig.idleAnimation.speed ?? 1.0);
 				rootNode = char.rootNode;
 			});
 		} else {

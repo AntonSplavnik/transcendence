@@ -70,8 +70,10 @@ size_t GameBridge::get_player_count() const {
 // Player management
 // =============================================================================
 
-bool GameBridge::add_player(uint32_t id, rust::Str name) {
-    return game.addPlayer(id, std::string(name.data(), name.size()));
+bool GameBridge::add_player(uint32_t id, rust::Str name, rust::Str character_class) {
+    return game.addPlayer(id,
+        std::string(name.data(), name.size()),
+        std::string(character_class.data(), character_class.size()));
 }
 
 bool GameBridge::remove_player(uint32_t id) {
@@ -145,6 +147,10 @@ NetworkEventType EventQueue::kind_at(size_t idx) const {
             return NetworkEventType::Spawn;
         else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::StateChangeEvent>)
             return NetworkEventType::StateChange;
+        else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::AttackStartedEvent>)
+            return NetworkEventType::AttackStarted;
+        else if constexpr (std::is_same_v<T, ::ArenaGame::NetEvents::SkillUsedEvent>)
+            return NetworkEventType::SkillUsed;
         else {
             static_assert(std::is_same_v<T, ::ArenaGame::NetEvents::MatchEndEvent>,
                 "Unhandled NetworkEvent variant in kind_at");
@@ -165,12 +171,22 @@ DamageEvent EventQueue::get_damage_at(size_t idx) const {
 
 SpawnEvent EventQueue::get_spawn_at(size_t idx) const {
     const auto& ev = std::get<::ArenaGame::NetEvents::SpawnEvent>(events[idx]);
-    return SpawnEvent{ ev.playerID, to_vec3(ev.position) };
+    return SpawnEvent{ ev.playerID, to_vec3(ev.position), rust::String(ev.characterClass) };
 }
 
 StateChangeEvent EventQueue::get_state_change_at(size_t idx) const {
     const auto& ev = std::get<::ArenaGame::NetEvents::StateChangeEvent>(events[idx]);
     return StateChangeEvent{ ev.playerID, static_cast<uint8_t>(ev.state) };
+}
+
+AttackStartedEvent EventQueue::get_attack_started_at(size_t idx) const {
+    const auto& ev = std::get<::ArenaGame::NetEvents::AttackStartedEvent>(events[idx]);
+    return AttackStartedEvent{ ev.playerID, ev.chainStage };
+}
+
+SkillUsedEvent EventQueue::get_skill_used_at(size_t idx) const {
+    const auto& ev = std::get<::ArenaGame::NetEvents::SkillUsedEvent>(events[idx]);
+    return SkillUsedEvent{ ev.playerID, ev.skillSlot };
 }
 
 } // namespace arena_game

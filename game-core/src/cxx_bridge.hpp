@@ -18,6 +18,8 @@ struct DeathEvent;
 struct DamageEvent;
 struct SpawnEvent;
 struct StateChangeEvent;
+struct AttackStartedEvent;
+struct SkillUsedEvent;
 enum class GameModeType : uint8_t;
 enum class NetworkEventType : uint8_t;
 
@@ -31,7 +33,9 @@ struct EventQueue {
     DeathEvent       get_death_at(size_t idx) const;
     DamageEvent      get_damage_at(size_t idx) const;
     SpawnEvent       get_spawn_at(size_t idx) const;
-    StateChangeEvent get_state_change_at(size_t idx) const;
+    StateChangeEvent   get_state_change_at(size_t idx) const;
+    AttackStartedEvent get_attack_started_at(size_t idx) const;
+    SkillUsedEvent     get_skill_used_at(size_t idx) const;
 };
 
 /// Thin wrapper around ArenaGame that adapts the C++ API to CXX shared types.
@@ -47,7 +51,7 @@ struct GameBridge {
     size_t get_player_count() const;
 
     // Player management
-    bool add_player(uint32_t id, rust::Str name);
+    bool add_player(uint32_t id, rust::Str name, rust::Str character_class);
     bool remove_player(uint32_t id);
     void set_player_input(uint32_t id, const PlayerInput& input);
 

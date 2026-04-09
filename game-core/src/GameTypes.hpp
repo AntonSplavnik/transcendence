@@ -182,11 +182,12 @@ struct InputState {
 
 enum class CharacterState : uint8_t {
 	Idle = 0,
-	Moving = 1,
-	Attacking = 2,
-	Casting = 3,
-	Stunned = 4,
-	Dead = 5
+	Walking = 1,
+	Sprinting = 2,
+	Attacking = 3,
+	Casting = 4,
+	Stunned = 5,
+	Dead = 6
 };
 
 // =============================================================================
