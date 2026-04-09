@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
+import { formatGameMode } from '../stream/types';
 
 /**
  * Compact lobby status indicator — shown when the user is in a lobby but not
@@ -98,7 +99,7 @@ export default function LobbyOverlay() {
 							{statusText}
 						</p>
 						<p className="text-[10px] text-stone-500 mt-1 leading-tight">
-							{settings.gamemode}
+							{formatGameMode(settings.gamemode)}
 						</p>
 					</div>
 				</div>

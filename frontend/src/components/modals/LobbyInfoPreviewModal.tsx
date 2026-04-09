@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import type { LobbyInfo } from '../../api/lobby';
 import { joinLobby, spectateLobby } from '../../api/lobby';
+import { formatGameMode } from '../../stream/types';
 import { Badge, Button, Modal } from '../ui';
 
 interface LobbyInfoPreviewModalProps {
@@ -111,7 +112,10 @@ export default function LobbyInfoPreviewModal({
 				{/* Meta row */}
 				<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
 					<span className="text-stone-400">
-						Gamemode: <span className="text-stone-200">{lobby.settings.gamemode}</span>
+						Gamemode:{' '}
+						<span className="text-stone-200">
+							{formatGameMode(lobby.settings.gamemode)}
+						</span>
 					</span>
 					<span className="text-stone-400">
 						<Badge variant={lobby.settings.public ? 'info' : 'neutral'} size="sm">
