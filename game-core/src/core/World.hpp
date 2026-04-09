@@ -424,9 +424,15 @@ inline void World::respawnPlayer(entt::entity player, const Vector3D& pos) {
 	auto* physicsBody = m_registry.try_get<Components::PhysicsBody>(player);
 	auto* transform   = m_registry.try_get<Components::Transform>(player);
 
+	auto* controller = m_registry.try_get<Components::CharacterController>(player);
+
 	if (transform)   transform->setPosition(pos.x, pos.y, pos.z);
 	if (physicsBody) physicsBody->setVelocity(0, 0, 0);
 	if (health)      health->revive();
+	if (controller) {
+		controller->setState(CharacterState::Idle);
+		controller->canMove = true;
+	}
 
 	auto* ne   = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
 	auto* info = m_registry.try_get<Components::PlayerInfo>(player);
