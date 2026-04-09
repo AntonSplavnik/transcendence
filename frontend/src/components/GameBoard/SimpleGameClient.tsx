@@ -63,6 +63,7 @@ const AnimationNames = {
 	attack: 'Melee_1H_Attack_Slice_Horizontal',
 	hit: 'Hit_A',
 	death: 'Death_A',
+	deathPose: 'Death_pose_A',
 	spawn: 'Spawn_Air',
 };
 
@@ -130,6 +131,7 @@ class GameClient {
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
 	private cooldownBars: { attack: any; ability1: any; ability2: any } | null = null;
+	private localIsDead: boolean = false;
 
 	constructor(
 		scene: Scene,
@@ -298,6 +300,18 @@ class GameClient {
 					this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
 				}
 
+				if (char.state === CharacterState.Dead && !this.localIsDead && this.localCharacter) {
+					this.localIsDead = true;
+					const deathAnim = this.localCharacter.animations.get(AnimationNames.death);
+					this.localCharacter.playAnimation(AnimationNames.death, false);
+					if (deathAnim) {
+						deathAnim.onAnimationGroupEndObservable.addOnce(() => {
+							this.localCharacter?.playAnimation(AnimationNames.deathPose, false);
+						});
+					}
+					this.currentAnimState = 'death';
+				}
+
 				// Update cooldown bars
 				if (this.cooldownBars) {
 					this.cooldownBars.attack.width =
@@ -337,8 +351,12 @@ class GameClient {
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
-						const pct = char.max_health > 0 ? char.health / char.max_health : 0;
-						bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+						const isDead = char.state === CharacterState.Dead;
+						bar.bg.isVisible = !isDead;
+						if (!isDead) {
+							const pct = char.max_health > 0 ? char.health / char.max_health : 0;
+							bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+						}
 					}
 				}
 			}
@@ -420,7 +438,16 @@ class GameClient {
 				character.playAnimation(AnimationNames.hit, false);
 				break;
 			case CharacterState.Dead:
-				character.playAnimation(AnimationNames.death, false);
+				if (character.animationName !== AnimationNames.death &&
+					character.animationName !== AnimationNames.deathPose) {
+					const deathAnim = character.animations.get(AnimationNames.death);
+					character.playAnimation(AnimationNames.death, false);
+					if (deathAnim) {
+						deathAnim.onAnimationGroupEndObservable.addOnce(() => {
+							character.playAnimation(AnimationNames.deathPose, false);
+						});
+					}
+				}
 				break;
 			case CharacterState.Walking:
 				character.playAnimation(AnimationNames.walk, true);
@@ -436,7 +463,7 @@ class GameClient {
 	}
 
 	updateLocalAnimation(input: InputState): void {
-		if (!this.localCharacter) return;
+		if (!this.localCharacter || this.localIsDead) return;
 
 		const isGrounded = this.position.y <= 1.1;
 		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
@@ -477,7 +504,7 @@ class GameClient {
 			switch (event.type) {
 				case 'Death':
 					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
-					// TODO: play death animation on victim, show kill feed
+					// TODO: show kill feed, play death sound
 					break;
 				case 'Damage':
 					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
@@ -485,6 +512,10 @@ class GameClient {
 					break;
 				case 'Spawn':
 					console.debug('[Game] Spawn: player=%d', event.player_id);
+					if (event.player_id === this.localPlayerID) {
+						this.localIsDead = false;
+						this.currentAnimState = '';
+					}
 					// TODO: play spawn effect / reset character state
 					break;
 				case 'StateChange':

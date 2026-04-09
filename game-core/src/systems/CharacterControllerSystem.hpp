@@ -63,8 +63,8 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	Components::Transform& transform,
 	float deltaTime
 ) {
-	// Skip if movement is disabled
-	if (!controller.canMove) {
+	// Skip if movement is disabled or dead
+	if (!controller.canMove || controller.isDead()) {
 		return;
 	}
 

@@ -214,15 +214,6 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 				  Components::CharacterController& controller,
 				  Components::CombatController& combat) {
 
-		// Skip dead entities
-		/**
-		 * Inside a lambda, continue doesn't exist — return is used instead,
-		 * which exits thecurrent lambda call and each() moves on to the next entity.
-		 */
-		if (!health.isAlive()) {
-			return;  // continue in lambda
-		}
-
 		CharacterSnapshot charSnapshot;
 		charSnapshot.playerID = playerInfo.playerID;
 		charSnapshot.position = transform.position;

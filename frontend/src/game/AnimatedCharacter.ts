@@ -69,6 +69,7 @@ export class AnimatedCharacter {
 		if (!bone) return;
 		const parentMesh = this.meshes.find((m) => m.skeleton === this.skeleton) || this.meshes[0];
 		result.meshes.forEach((mesh) => {
+			this.meshes.push(mesh);
 			if (mesh.name === '__root__') return;
 			mesh.attachToBone(bone, parentMesh);
 			mesh.rotationQuaternion = null; // glTF sets quaternion which overrides .rotation
@@ -79,6 +80,8 @@ export class AnimatedCharacter {
 			mesh.scaling.set(1, 1, 1);
 		});
 	}
+
+	get animationName(): string { return this.currentAnimationName; }
 
 	playAnimation(name: string, loop: boolean = true): void {
 		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;

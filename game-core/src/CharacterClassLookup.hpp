@@ -2,13 +2,19 @@
 
 #include "CharacterPreset.hpp"
 #include "Presets.hpp"
+#include <cassert>
 #include <string>
+#include <unordered_map>
 
 namespace ArenaGame {
 
 inline const CharacterPreset& presetFromClass(const std::string& characterClass) {
-	if (characterClass == "knight") return Presets::KNIGHT;
-	return Presets::KNIGHT; // fallback — extend when more presets are added
+	static const std::unordered_map<std::string, const CharacterPreset*> table = {
+		{"knight", &Presets::KNIGHT},
+	};
+	auto it = table.find(characterClass);
+	assert(it != table.end() && "Unknown character class received from Rust");
+	return *it->second;
 }
 
 } // namespace ArenaGame

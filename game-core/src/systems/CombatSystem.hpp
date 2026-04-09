@@ -328,10 +328,12 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 			combat.isAttacking = false;
 			combat.swingTimer  = 0.0f;
 			combat.hitPending  = false;
-			controller.canMove = true;
-			controller.setState(controller.input.isSprinting
-				? CharacterState::Sprinting
-				: CharacterState::Walking);
+			if (!controller.isDead()) controller.canMove = true;
+			if (!controller.isDead()) {
+				controller.setState(controller.input.isSprinting
+					? CharacterState::Sprinting
+					: CharacterState::Walking);
+			}
 			fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
 				static_cast<unsigned>(entity));
 			return;
@@ -342,7 +344,7 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 
 		// Swing just ended — restore movement and apply deferred hit
 		if (wasAttacking && !combat.isAttacking) {
-			controller.canMove = true;
+			if (!controller.isDead()) controller.canMove = true;
 
 			if (combat.hitPending) {
 				auto* health = m_registry->try_get<Health>(entity);
@@ -358,7 +360,7 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 		}
 
 		// Reset CharacterState when swing ends and player is not re-triggering
-		if (!combat.isAttacking && controller.state == CharacterState::Attacking) {
+		if (!combat.isAttacking && controller.state == CharacterState::Attacking && !controller.isDead()) {
 			if (!controller.input.isAttacking) {
 				controller.setState(controller.hasMovementInput()
 					? (controller.input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
