@@ -105,6 +105,8 @@ struct SkillDefinition {
 
 Default of `0.0f` ensures backward compatibility — any attack or skill without an explicit cost is free.
 
+**Zero-cost actions during exhaustion:** A `staminaCost` of `0.0f` means `canAfford(0)` returns `true` even when stamina is zero or the player is exhausted. This is intentional — zero-cost actions are explicitly free and usable at all times. All Knight attacks and skills have non-zero costs, so this only affects future content where a designer deliberately sets cost to zero (e.g. a passive ability or a basic action that shouldn't be gated). If a future design requires exhaustion to block all actions regardless of cost, add an `isExhausted()` check to the gating logic — but that is not part of this spec.
+
 ---
 
 ## StaminaSystem (new ECS system)
@@ -120,9 +122,24 @@ Sole owner of stamina regeneration logic. Does **not** consume stamina — that 
 3. Clearing exhaustion when the delay expires.
 4. Applying scaled regen when the player is not consuming stamina.
 
+### Required Component Access
+
+`StaminaSystem` requires read access to the following components on each entity:
+- `CharacterController` — reads `isSprinting` to suppress regen during sprint.
+- `CombatController` — reads `isAttacking`, `isAbility1Casting()`, `isAbility2Casting()` to suppress regen during combat actions.
+- `Health` — reads `isAlive()` to skip dead players.
+
 ### Update Phase
 
-Runs in `FixedUpdate`, **after** `CombatSystem` and `CharacterControllerSystem`. This ordering ensures that stamina consumption for the current tick is already applied before regen ticks, preventing regen from "undoing" a spend in the same frame.
+Runs in `lateUpdate()`. The existing system execution order is:
+
+```
+earlyUpdate  →  fixedUpdate  →  update     →  lateUpdate
+     ↑                             ↑              ↑
+CharControllerSystem          CombatSystem    StaminaSystem
+```
+
+`CharacterControllerSystem` runs in `earlyUpdate` (consumes sprint stamina), `CombatSystem` runs in `update` (consumes attack/skill stamina). By placing `StaminaSystem` in `lateUpdate`, it runs **after both**, ensuring all stamina consumption for the current tick is applied before regen ticks. This prevents regen from "undoing" a spend in the same frame.
 
 ### Per-Entity Logic (every tick)
 
@@ -147,9 +164,10 @@ for each entity with (Stamina, CharacterController, CombatController, Health):
             continue   // no regen during drain delay
 
     // 4. No regen while actively spending stamina
-    if controller.isSprinting:  continue
-    if combat.isAttacking:      continue
-    if combat.isCasting():      continue
+    if controller.isSprinting:          continue
+    if combat.isAttacking:              continue
+    if combat.isAbility1Casting():      continue
+    if combat.isAbility2Casting():      continue
 
     // 5. Scaled regen with 10% minimum floor
     effectiveRate = stamina.baseRegenRate * (stamina.current / stamina.maximum)
@@ -172,6 +190,22 @@ This creates a smooth curve where regen is proportional to how full the bar is:
 **Minimum floor: 10% of baseRegenRate.** Without this floor, recovering from near-zero would be agonizingly slow (1% stamina = 1% regen rate). The 10% floor ensures recovery from low stamina is sluggish but not frustrating. Players still feel the penalty of draining low, but aren't stuck doing nothing.
 
 **Full depletion penalty:** When stamina hits exactly zero, the `exhausted` flag is set and `drainDelayTimer` starts counting down from `drainDelay`. During this window, **no regen occurs at all** — the player is locked out. Once the timer expires, `exhausted` clears and normal scaled regen begins (starting at the 10% floor since current is near zero).
+
+### Recovery Math
+
+The regen formula creates a piecewise ODE due to the 10% floor:
+
+- **Phase 1 (s < 10% of max):** Constant rate at `baseRegenRate * 0.10` (the floor).
+  - Duration: `(max * 0.10) / (baseRegenRate * 0.10)` = `max / baseRegenRate` seconds.
+- **Phase 2 (s >= 10% of max):** Exponential growth: `ds/dt = baseRegenRate * s / max`.
+  - Solution: `s(t) = s0 * e^(baseRegenRate * t / max)`.
+  - Time from 10% to X%: `(max / baseRegenRate) * ln(X / 10)`.
+
+With Knight values (`max = 100`, `baseRegenRate = 40.0`):
+- Phase 1 (0 → 10): `100 / 40 = 2.5s` at constant 4.0/s
+- Phase 2 (10 → 50): `2.5 * ln(5) ≈ 4.0s`
+- Phase 2 (10 → 100): `2.5 * ln(10) ≈ 5.8s`
+- **Total from empty: 1.5s delay + 2.5s + 5.8s ≈ 9.8s** (meets ~10s target)
 
 ---
 
@@ -205,21 +239,28 @@ when player wants to attack and comcon.canPerformAttack():
 
 #### Skill Gating (`triggerSkill`)
 
-Same pattern as attacks:
+Same check-before-consume-after pattern as attacks. Each skill slot is handled separately since the codebase has distinct `canUseAbility1()` / `canUseAbility2()` methods and separate timer fields per slot.
 
-**Before starting a skill:**
+**Before starting a skill (both slots follow this pattern):**
 ```
-when player wants to use ability and comcon.canUseAbility():
-    cost = skillDefinition.staminaCost
+when player wants to use ability1 and comcon.canUseAbility1():
+    cost = comcon.ability1.staminaCost
     if !stamina.canAfford(cost):
         // Silently reject — player cannot use this skill
         return
-    // Proceed with triggerSkill() as normal
+    // Proceed with triggerSkill() for slot 1 as normal
+
+when player wants to use ability2 and comcon.canUseAbility2():
+    cost = comcon.ability2.staminaCost
+    if !stamina.canAfford(cost):
+        return
+    // Proceed with triggerSkill() for slot 2 as normal
 ```
 
 **When cast completes (`tickSkillSlot`):**
 ```
-    cost = skillDefinition.staminaCost
+    // tickSkillSlot already knows which slot it's processing
+    cost = skillDefinition.staminaCost   // ability1 or ability2 respectively
     stamina.consume(cost)
     // Then proceed with executeSkill(), cooldown start, etc. as normal
 ```
@@ -236,8 +277,9 @@ In `processCharacterMovement()`, after determining the player wants to sprint:
 
 ```
 if input.isSprinting:
-    if stamina.current > 0:
-        stamina.consume(sprintCostPerSec * deltaTime)
+    frameCost = stamina.sprintCostPerSec * deltaTime
+    if !stamina.isExhausted() and stamina.canAfford(frameCost):
+        stamina.consume(frameCost)
         // Sprint proceeds normally — apply sprintMultiplier to speed
     else:
         controller.isSprinting = false
@@ -246,7 +288,9 @@ if input.isSprinting:
 
 Sprint is the only action with a **continuous** stamina cost (per-second). All other actions have discrete, one-time costs.
 
-Sprint is forcibly disabled when stamina reaches zero. The player's input still says `isSprinting = true`, but the server overrides it. The client will see the speed change via the snapshot.
+Sprint uses `canAfford(frameCost)` for consistency with all other stamina checks (not a raw `current > 0` comparison). It also checks `isExhausted()` explicitly — this prevents a stutter loop where a player exits exhaustion with a tiny amount of stamina, sprints for one frame, drains to zero, re-enters exhaustion, waits 1.5s, and repeats. By blocking sprint during exhaustion, the player must wait for meaningful stamina to accumulate before sprinting again.
+
+Sprint is forcibly disabled when stamina is insufficient or exhausted. The player's input still says `isSprinting = true`, but the server overrides it. The client will see the speed change via the snapshot.
 
 #### Jump Cost
 
@@ -271,11 +315,19 @@ Jump cost is consumed **immediately** (unlike attacks/skills which defer to comp
 
 ### Snapshot Changes
 
-**C++ side:** The snapshot generation code adds two floats to the per-player data passed through the CXX bridge:
-- `stamina` — current stamina value (`stamina.current`)
-- `max_stamina` — maximum stamina value (`stamina.maximum`)
+Stamina data flows through four layers to reach the client. All four must be updated:
 
-**Rust FFI (`ffi.rs`):** Add fields to `CharacterSnapshot`:
+**1. C++ `CharacterSnapshot` struct (`ArenaGame.hpp`):**
+Add `stamina` and `max_stamina` fields to the `CharacterSnapshot` struct definition (alongside existing `health` and `max_health`).
+
+**2. C++ `ArenaGame::createSnapshot()` (`ArenaGame.hpp`):**
+The `createSnapshot()` method must include `Stamina` in the entity view template and populate the new snapshot fields from `stamina.current` and `stamina.maximum`.
+
+**3. C++ CXX bridge mapping (`cxx_bridge.cpp`):**
+The bridge code that pushes `CharacterSnapshot` fields to the Rust side must include the two new fields in the `push_back` call.
+
+**4. Rust FFI bridge (`ffi.rs`):**
+Add fields to both the CXX bridge struct and the Rust wrapper struct, plus the `From` impl that maps between them:
 ```rust
 pub struct CharacterSnapshot {
     // ... existing fields ...
@@ -284,9 +336,8 @@ pub struct CharacterSnapshot {
 }
 ```
 
-**Rust messages (`messages.rs`):** No new message type. Stamina state rides the existing `Snapshot(GameStateSnapshot)` message sent every tick at 60 Hz. Two extra floats per player is negligible bandwidth overhead (~8 bytes per player per tick).
-
-**Frontend types (`types.ts`):** Add matching fields to `CharacterSnapshot`:
+**5. Frontend types (`types.ts`):**
+Add matching fields to the TypeScript `CharacterSnapshot` interface:
 ```typescript
 export interface CharacterSnapshot {
     // ... existing fields ...
@@ -294,6 +345,8 @@ export interface CharacterSnapshot {
     max_stamina: number;
 }
 ```
+
+**No new message type needed.** Stamina state rides the existing `Snapshot(GameStateSnapshot)` message sent every tick at 60 Hz. Two extra floats per player is negligible bandwidth overhead (~8 bytes per player per tick). `messages.rs` requires no changes — it already references `GameStateSnapshot` which contains `CharacterSnapshot` from `ffi.rs`.
 
 ### No Discrete Stamina Events
 
@@ -327,7 +380,7 @@ When a player dies:
 
 When a player revives:
 - Call `stamina.restore()` — sets `current = maximum`, clears `exhausted` and `drainDelayTimer`.
-- This is added alongside the existing `Health::revive()` call in the respawn logic.
+- This is added alongside the existing `Health::revive()` call in `World::respawnPlayer()` (`game-core/src/core/World.hpp`).
 - Player starts the new life with full stamina, clean state.
 
 ### Game Mode Reset (e.g. round restart)
@@ -344,7 +397,7 @@ Starting tuning values for the Knight class. These are balance numbers intended 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
 | `maxStamina` | `100.0` | Round number, easy to reason about costs as percentages |
-| `baseRegenRate` | `20.0/s` | At full stamina: 5s from empty to full. Effective range: 2.0/s (10% floor) to 20.0/s (100%) |
+| `baseRegenRate` | `40.0/s` | Max regen at 100% stamina. Effective range: 4.0/s (10% floor) to 40.0/s. See Recovery Math section for derivation |
 | `drainDelaySeconds` | `1.5s` | Punishing but not rage-inducing. Long enough to feel the mistake of full drain |
 | `sprintCostPerSec` | `15.0/s` | ~6.6 seconds of continuous sprint from full. Enough to cross the arena but not endlessly kite |
 | `jumpCost` | `8.0` | ~12 jumps from full. Bunny-hopping burns resources fast |
@@ -365,14 +418,20 @@ Full 3-hit combo = **50 stamina** (half the pool). Two full combos back-to-back 
 | Ability 2 | `30.0` | Heavy commitment, limits follow-up options |
 
 ### Recovery Scenarios
+
+Derived from the piecewise ODE (see Recovery Math section). With `baseRegenRate = 40.0`, `max = 100`:
+- Phase 1 (0 → 10): constant floor rate of 4.0/s → 2.5s
+- Phase 2 (10 → X): exponential `s(t) = 10 * e^(0.4t)`, time = `2.5 * ln(X/10)`
+
 | Scenario | Timeline |
 |----------|----------|
-| Full drain (0%) | 1.5s delay → starts at 10% floor (2.0/s) → ~50% in ~6s → ~100% in ~10s total |
-| Drain to 50% (no depletion) | Immediate regen at 10.0/s → back to full in ~3s |
-| Drain to 25% | Immediate regen at 5.0/s → back to full in ~5s |
-| One combo (50% remaining) | Immediate regen at 10.0/s → full in ~3s |
+| Full drain (0%) | 1.5s delay + 2.5s (floor phase) + 5.8s (exponential phase) ≈ **~10s total** |
+| Full drain → 50% | 1.5s delay + 2.5s + 2.5*ln(5) ≈ **~8s** |
+| Drain to 50% (no depletion) | Immediate exponential regen → 2.5*ln(2) ≈ **~1.7s** |
+| Drain to 25% | Immediate → 2.5*ln(4) ≈ **~3.5s** |
+| One combo (50% remaining) | Same as drain to 50% → **~1.7s** |
 
-The takeaway: **conservative play recovers in seconds, reckless play costs 10+ seconds**. This is the core incentive loop.
+The takeaway: **conservative play (stay above 50%) recovers in under 2 seconds. Full drain costs ~10 seconds.** This is the core incentive loop — the punishment is heavily weighted toward reckless depletion.
 
 ### Future Classes (not yet in codebase)
 
@@ -396,12 +455,13 @@ These are hypothetical examples — actual values would be tuned when the classe
 | File | Change |
 |------|--------|
 | `game-core/src/CharacterPreset.hpp` | Add `StaminaPreset` struct, add `stamina` field to `CharacterPreset` |
-| `game-core/src/Presets.hpp` | Populate `StaminaPreset` values for Knight |
+| `game-core/src/Presets.hpp` | Populate `StaminaPreset` values for Knight, add `staminaCost` to attack stages and skill definitions |
 | `game-core/src/Skills.hpp` | Add `staminaCost` field to `AttackStage` and `SkillDefinition` |
-| `game-core/src/systems/CombatSystem.hpp` | Stamina checks before attacks/skills, consume on completion |
-| `game-core/src/systems/CharacterControllerSystem.hpp` | Sprint drain per frame, jump cost, sprint disable on empty |
-| `game-core/src/systems/SystemManager.hpp` | Register `StaminaSystem` in update loop |
-| `game-core/src/ArenaGame.hpp` | Attach `Stamina` component on entity creation, `restore()` on respawn |
-| `backend/src/game/ffi.rs` | Add `stamina`, `max_stamina` to `CharacterSnapshot` |
-| `backend/src/game/messages.rs` | Add `stamina`, `max_stamina` to snapshot serialization (if separate from ffi) |
+| `game-core/src/systems/CombatSystem.hpp` | Stamina checks before attacks/skills (per slot), consume on completion |
+| `game-core/src/systems/CharacterControllerSystem.hpp` | Sprint drain per frame, jump cost, sprint disable on empty/exhausted |
+| `game-core/src/systems/SystemManager.hpp` | Register `StaminaSystem` in `lateUpdate` phase |
+| `game-core/src/ArenaGame.hpp` | Attach `Stamina` component on entity creation; add `stamina`/`max_stamina` to C++ `CharacterSnapshot` struct; populate fields in `createSnapshot()` (include `Stamina` in entity view) |
+| `game-core/src/cxx_bridge.cpp` | Add `stamina`, `max_stamina` to the CXX bridge `push_back` mapping |
+| `game-core/src/core/World.hpp` | Add `stamina.restore()` alongside `Health::revive()` in `respawnPlayer()` |
+| `backend/src/game/ffi.rs` | Add `stamina`, `max_stamina` to CXX bridge struct, Rust wrapper struct, and `From` impl |
 | `frontend/src/game/types.ts` | Add `stamina`, `max_stamina` to `CharacterSnapshot` interface |
