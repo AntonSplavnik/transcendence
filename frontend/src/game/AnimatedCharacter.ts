@@ -7,7 +7,7 @@ export class AnimatedCharacter {
 	public rootNode: TransformNode;
 	public meshes: AbstractMesh[] = [];
 	public animations: Map<string, AnimationGroup> = new Map();
-	private currentAnimation: AnimationGroup | null = null;
+	public currentAnimation: AnimationGroup | null = null;
 	private currentAnimationName: string = '';
 	private scene: Scene;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
