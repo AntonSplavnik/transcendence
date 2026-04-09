@@ -128,6 +128,8 @@ export interface GameContextType {
 		attacking: boolean,
 		jumping: boolean,
 		sprinting: boolean,
+		ability1: boolean,
+		ability2: boolean,
 	): void;
 }
 
@@ -241,6 +243,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 						msg.type === 'Death' ||
 						msg.type === 'Damage' ||
 						msg.type === 'StateChange' ||
+						msg.type === 'AttackStarted' ||
+						msg.type === 'SkillUsed' ||
 						msg.type === 'MatchEnd'
 					) {
 						eventsRef.current.push(msg);
@@ -290,6 +294,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 			attacking: boolean,
 			jumping: boolean,
 			sprinting: boolean,
+			ability1: boolean,
+			ability2: boolean,
 		) => {
 			if (
 				gameStateRef.current.status !== 'active' ||
@@ -304,6 +310,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 				attacking,
 				jumping,
 				sprinting,
+				ability1,
+				ability2,
 			});
 		},
 		[], // stable — all state accessed via refs

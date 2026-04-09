@@ -35,6 +35,8 @@ interface InputState {
 	isAttacking: boolean;
 	isJumping: boolean;
 	isSprinting: boolean;
+	isUsingAbility1: boolean;
+	isUsingAbility2: boolean;
 }
 
 const CharacterState = {
@@ -42,6 +44,7 @@ const CharacterState = {
 	Walking: 1,
 	Sprinting: 2,
 	Attacking: 3,
+	Casting: 4,
 	Stunned: 5,
 	Dead: 6,
 } as const;
@@ -114,6 +117,8 @@ function tickJumpState(
 	return state;
 }
 
+type LocalAnimState = '' | 'attack' | 'skill';
+
 class GameClient {
 	private scene: Scene;
 	private localPlayerID: number;
@@ -122,8 +127,9 @@ class GameClient {
 	private localCharacter: AnimatedCharacter | null = null;
 	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	private camera: UniversalCamera;
-	private currentAnimState: string = 'idle';
+	private currentAnimState: LocalAnimState = '';
 	private jumpState: JumpState = JumpState.GROUNDED;
+	private characterConfigMap: Map<number, CharacterConfig> = new Map();
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
@@ -146,6 +152,11 @@ class GameClient {
 		this.characterConfig = characterConfig;
 		this.characterClassesRef = characterClassesRef;
 		this.setupHUD();
+	}
+
+	private getChar(playerID: number): AnimatedCharacter | null {
+		if (playerID === this.localPlayerID) return this.localCharacter;
+		return this.characters.get(playerID) ?? null;
 	}
 
 	private setupHUD(): void {
@@ -259,22 +270,14 @@ class GameClient {
 	async initLocalPlayer(): Promise<void> {
 		this.localCharacter = new AnimatedCharacter(this.scene);
 		await loadCharacter(this.localCharacter, this.characterConfig);
+		this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
 
 		this.localCharacter.setPosition(this.position);
 		this.localCharacter.playAnimation('Spawn_Air', false);
 		setTimeout(() => {
 			this.currentAnimState = '';
-			this.playAnimation('idle');
+			this.localCharacter?.playAnimation(AnimationNames.idle, true);
 		}, 1500);
-	}
-
-	private playAnimation(state: string, loop: boolean = true): void {
-		if (this.currentAnimState === state) return;
-		const animName = AnimationNames[state as keyof typeof AnimationNames];
-		if (animName && this.localCharacter) {
-			this.localCharacter.playAnimation(animName, loop);
-			this.currentAnimState = state;
-		}
 	}
 
 	processSnapshot(snapshot: GameStateSnapshot) {
@@ -309,7 +312,7 @@ class GameClient {
 							this.localCharacter?.playAnimation(AnimationNames.deathPose, false);
 						});
 					}
-					this.currentAnimState = 'death';
+					this.currentAnimState = '';
 				}
 
 				// Update cooldown bars
@@ -347,7 +350,12 @@ class GameClient {
 					);
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
-					this.updateRemoteAnimation(char.player_id, remoteChar, char);
+					const remoteJumpState = this.remoteJumpStates.get(char.player_id) ?? JumpState.GROUNDED;
+					const isGrounded = char.position.y <= 1.1;
+					const newJumpState = tickJumpState(remoteChar, remoteJumpState, isGrounded, false);
+					this.remoteJumpStates.set(char.player_id, newJumpState);
+					const remoteConfig = this.characterConfigMap.get(char.player_id);
+					if (remoteConfig) this.updateSnapshotFallbackAnimation(remoteChar, char, remoteConfig, newJumpState);
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
@@ -373,6 +381,7 @@ class GameClient {
 			this.characters.delete(playerID);
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
+			this.characterConfigMap.delete(playerID);
 			const bar = this.enemyBars.get(playerID);
 			if (bar) {
 				bar.bg.dispose();
@@ -392,6 +401,7 @@ class GameClient {
 			const config =
 				(cls ? CHARACTER_CONFIGS[cls as keyof typeof CHARACTER_CONFIGS] : undefined) ??
 				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
+			this.characterConfigMap.set(playerID, config);
 			await loadCharacter(remoteChar, config);
 
 			if (playerID === this.localPlayerID) {
@@ -414,50 +424,50 @@ class GameClient {
 		}
 	}
 
-	private updateRemoteAnimation(
-		playerID: number,
-		character: AnimatedCharacter,
+	private updateSnapshotFallbackAnimation(
+		char: AnimatedCharacter,
 		charData: CharacterSnapshot,
+		config: CharacterConfig,
+		jumpState: JumpState,
 	): void {
-		const isGrounded = charData.position.y <= 1.1;
-
-		const jumpState = tickJumpState(
-			character,
-			this.remoteJumpStates.get(playerID) ?? JumpState.GROUNDED,
-			isGrounded,
-			false,
-		);
-		this.remoteJumpStates.set(playerID, jumpState);
 		if (jumpState !== JumpState.GROUNDED) return;
 
 		switch (charData.state) {
 			case CharacterState.Attacking:
-				character.playAnimation(AnimationNames.attack, true);
+				// Fallback for latecomers who missed the AttackStarted event.
+				// Always plays attackAnimations[0] — snapshot has no chain stage.
+				if (!char.currentAnimation?.isPlaying)
+					char.playAnimation(config.attackAnimations[0], false);
 				break;
-			case CharacterState.Stunned:
-				character.playAnimation(AnimationNames.hit, false);
+			case CharacterState.Casting:
+				// Fallback for latecomers who missed the SkillUsed event.
+				// Always plays skillAnimations[0] — snapshot has no skill slot.
+				if (!char.currentAnimation?.isPlaying)
+					char.playAnimation(config.skillAnimations[0], true);
 				break;
 			case CharacterState.Dead:
-				if (character.animationName !== AnimationNames.death &&
-					character.animationName !== AnimationNames.deathPose) {
-					const deathAnim = character.animations.get(AnimationNames.death);
-					character.playAnimation(AnimationNames.death, false);
+				if (char.animationName !== AnimationNames.death &&
+					char.animationName !== AnimationNames.deathPose) {
+					const deathAnim = char.animations.get(AnimationNames.death);
+					char.playAnimation(AnimationNames.death, false);
 					if (deathAnim) {
 						deathAnim.onAnimationGroupEndObservable.addOnce(() => {
-							character.playAnimation(AnimationNames.deathPose, false);
+							char.playAnimation(AnimationNames.deathPose, false);
 						});
 					}
 				}
 				break;
+			case CharacterState.Stunned:
+				char.playAnimation(AnimationNames.hit, false);
+				break;
 			case CharacterState.Walking:
-				character.playAnimation(AnimationNames.walk, true);
+				char.playAnimation(AnimationNames.walk, true);
 				break;
 			case CharacterState.Sprinting:
-				character.playAnimation(AnimationNames.run, true);
+				char.playAnimation(AnimationNames.run, true);
 				break;
-			case CharacterState.Idle:
 			default:
-				character.playAnimation(AnimationNames.idle, true);
+				char.playAnimation(AnimationNames.idle, true);
 				break;
 		}
 	}
@@ -466,35 +476,39 @@ class GameClient {
 		if (!this.localCharacter || this.localIsDead) return;
 
 		const isGrounded = this.position.y <= 1.1;
-		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
-
-		this.jumpState = tickJumpState(
-			this.localCharacter,
-			this.jumpState,
-			isGrounded,
-			input.isJumping,
-		);
+		this.jumpState = tickJumpState(this.localCharacter, this.jumpState, isGrounded, input.isJumping);
 		if (this.jumpState !== JumpState.GROUNDED) return;
 
-		const attackAnim = this.localCharacter.animations.get(AnimationNames.attack);
-		const isAttackPlaying = attackAnim?.isPlaying ?? false;
+		const isPlaying = this.localCharacter.currentAnimation?.isPlaying ?? false;
+		const isMoving  = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
-		// Reset state tracker when attack animation finishes naturally so it can replay
-		if (this.currentAnimState === 'attack' && !isAttackPlaying) {
-			this.currentAnimState = '';
+		if (this.currentAnimState === 'attack') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // animation finished — fall through to movement
+			} else if (isMoving) {
+				this.currentAnimState = '';           // movement cancels attack animation
+				this.localCharacter.playAnimation(
+					input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+				return;
+			} else {
+				return;                               // attack still playing, no movement — wait
+			}
 		}
 
-		if (isAttackPlaying && isMoving) {
-			// Movement cancels the attack animation
-			this.playAnimation(input.isSprinting ? 'run' : 'walk');
-		} else if (isAttackPlaying) {
-			// Attack animation is playing — let it finish, pressing attack again keeps it going
-		} else if (input.isAttacking) {
-			this.playAnimation('attack', false); // non-looped: play once to completion
-		} else if (isMoving) {
-			this.playAnimation(input.isSprinting ? 'run' : 'walk');
+		if (this.currentAnimState === 'skill') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // cast finished — fall through to movement
+			} else {
+				return;                               // skill plays to completion; movement does not cancel
+			}
+		}
+
+		// currentAnimState === '' — normal movement/idle
+		if (isMoving) {
+			this.localCharacter.playAnimation(
+				input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
 		} else {
-			this.playAnimation('idle');
+			this.localCharacter.playAnimation(AnimationNames.idle, true);
 		}
 	}
 
@@ -504,11 +518,9 @@ class GameClient {
 			switch (event.type) {
 				case 'Death':
 					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
-					// TODO: show kill feed, play death sound
 					break;
 				case 'Damage':
 					console.debug('[Game] Damage: %d → %d (%.1f)', event.attacker, event.victim, event.damage);
-					// TODO: spawn floating damage number above victim
 					break;
 				case 'Spawn':
 					console.debug('[Game] Spawn: player=%d', event.player_id);
@@ -516,15 +528,26 @@ class GameClient {
 						this.localIsDead = false;
 						this.currentAnimState = '';
 					}
-					// TODO: play spawn effect / reset character state
 					break;
 				case 'StateChange':
 					console.debug('[Game] StateChange: player=%d state=%d', event.player_id, event.state);
-					// TODO: trigger state-specific animation
 					break;
+				case 'AttackStarted': {
+					const config = this.characterConfigMap.get(event.player_id);
+					const anim = config?.attackAnimations[event.chain_stage];
+					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					if (event.player_id === this.localPlayerID) this.currentAnimState = 'attack';
+					break;
+				}
+				case 'SkillUsed': {
+					const config = this.characterConfigMap.get(event.player_id);
+					const anim = config?.skillAnimations[event.skill_slot - 1];
+					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					if (event.player_id === this.localPlayerID) this.currentAnimState = 'skill';
+					break;
+				}
 				case 'MatchEnd':
 					console.debug('[Game] MatchEnd');
-					// TODO: show match-end screen
 					break;
 			}
 		}
@@ -546,6 +569,8 @@ interface Props {
 		attacking: boolean,
 		jumping: boolean,
 		sprinting: boolean,
+		ability1: boolean,
+		ability2: boolean,
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
@@ -712,6 +737,8 @@ export default function SimpleGameClient({
 				isAttacking: false,
 				isJumping: false,
 				isSprinting: false,
+				isUsingAbility1: false,
+				isUsingAbility2: false,
 			};
 			const keysPressed = new Set<string>();
 
@@ -721,6 +748,10 @@ export default function SimpleGameClient({
 					// Attack is a one-shot trigger (keydown only, ignore keyboard repeat)
 					if (kbInfo.event.key.toLowerCase() === 'e' && !(kbInfo.event as KeyboardEvent).repeat)
 						input.isAttacking = true;
+					if (kbInfo.event.key.toLowerCase() === 'q' && !(kbInfo.event as KeyboardEvent).repeat)
+						input.isUsingAbility1 = true;
+					if (kbInfo.event.key.toLowerCase() === 'f' && !(kbInfo.event as KeyboardEvent).repeat)
+						input.isUsingAbility2 = true;
 				} else if (kbInfo.type === 2) {
 					keysPressed.delete(kbInfo.event.key.toLowerCase());
 				}
@@ -761,6 +792,8 @@ export default function SimpleGameClient({
 
 				gameClient.updateLocalAnimation(input);
 				input.isAttacking = false; // clear one-shot trigger after processing
+				input.isUsingAbility1 = false;
+				input.isUsingAbility2 = false;
 			});
 
 			// Track last movement direction so character keeps facing that way when idle
@@ -822,6 +855,8 @@ export default function SimpleGameClient({
 					input.isAttacking,
 					input.isJumping,
 					input.isSprinting,
+					input.isUsingAbility1,
+					input.isUsingAbility2,
 				);
 
 				scene.render();
