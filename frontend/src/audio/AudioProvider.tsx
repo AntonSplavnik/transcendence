@@ -1,10 +1,47 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { Node } from '@babylonjs/core/node';
 import { GameAudioEngine } from './AudioEngine';
 import { SoundBank } from './SoundBank';
 import { loadAudioSettings } from './audioSettings';
-import type { AudioHandle } from './useAudio';
 
-const AudioCtx = createContext<AudioHandle | null>(null);
+export type BusName = 'sfx' | 'music' | 'ambient' | 'ui';
+
+/** UI-facing audio API: menu music, UI clicks, notifications, settings modal. */
+export interface AudioHandle {
+	isReady: boolean;
+	playSound(soundId: string): void;
+	playMusic(soundId: string): void;
+	stopMusic(): void;
+	playAmbient(soundId: string): void;
+	stopAmbient(): void;
+	setBusVolume(bus: BusName, volume: number): void;
+	setMuted(muted: boolean): void;
+}
+
+/**
+ * Game-facing audio API: exposes the shared engine + sound bank so gameplay
+ * code can play SFX via AudioEventSystem, and provides scene-scoped
+ * music/ambient helpers with the same lifecycle semantics as the UI side.
+ *
+ * Listener detachment is intentionally not part of the API: Babylon's listener
+ * is a singleton on the engine, and the next game mount simply re-attaches it
+ * to the new camera. Between games the listener harmlessly references the
+ * previous camera node until it is overwritten.
+ */
+export interface GameAudioHandle {
+	isReady: boolean;
+	engine: GameAudioEngine | null;
+	soundBank: SoundBank | null;
+	attachListener(camera: Node): void;
+	playSceneAmbient(soundId: string): void;
+	stopSceneAmbient(): void;
+	playSceneMusic(soundId: string): void;
+	stopSceneMusic(): void;
+}
+
+interface AudioContextValue extends AudioHandle, GameAudioHandle {}
+
+const AudioCtx = createContext<AudioContextValue | null>(null);
 
 /**
  * Singleton audio provider for UI/menu sounds.
@@ -18,6 +55,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 	const currentAmbientRef = useRef<import('@babylonjs/core/AudioV2').StaticSound | null>(null);
 	const currentAmbientIdRef = useRef<string | null>(null);
 	const [isReady, setIsReady] = useState(false);
+	// Mirror of the refs as reactive state — consumers like `useGameAudio` need
+	// the actual engine/bank instances, and reading refs during render is unsafe.
+	const [engine, setEngine] = useState<GameAudioEngine | null>(null);
+	const [bank, setBank] = useState<SoundBank | null>(null);
 
 	useEffect(() => {
 		const engine = new GameAudioEngine();
@@ -41,6 +82,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 				if (ambientBus) ambientBus.volume = settings.inGameVolume;
 				engine.setMasterVolume(settings.muted ? 0 : 1);
 				console.debug('[AudioProvider] engine + sound bank initialised');
+				setEngine(engine);
+				setBank(bank);
 				setIsReady(true);
 			})
 			.catch((err) => console.warn('[AudioProvider] init failed', err));
@@ -49,6 +92,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			engine.dispose();
 			engineRef.current = null;
 			bankRef.current = null;
+			setEngine(null);
+			setBank(null);
+			setIsReady(false);
 		};
 	}, []);
 
@@ -84,8 +130,82 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		return () => document.removeEventListener('click', handler, true);
 	}, [isReady]);
 
-	const handle: AudioHandle = {
+	const playAmbientImpl = (soundId: string): void => {
+		const engine = engineRef.current;
+		const bank = bankRef.current;
+		if (!engine?.isInitialized() || !bank) return;
+		if (currentAmbientIdRef.current === soundId) return;
+		if (currentAmbientRef.current) {
+			currentAmbientRef.current.stop();
+			currentAmbientRef.current = null;
+			currentAmbientIdRef.current = null;
+		}
+		const sound = bank.getRandomSound(soundId);
+		if (!sound) return;
+		const def = bank.getDefinition(soundId);
+		if (def) sound.volume = def.volume.min;
+		sound.loop = true;
+		sound.play();
+		currentAmbientRef.current = sound;
+		currentAmbientIdRef.current = soundId;
+	};
+
+	const stopAmbientImpl = (): void => {
+		if (!currentAmbientRef.current) return;
+		currentAmbientRef.current.stop();
+		currentAmbientRef.current = null;
+		currentAmbientIdRef.current = null;
+	};
+
+	const playMusicImpl = (soundId: string): void => {
+		const engine = engineRef.current;
+		const bank = bankRef.current;
+		if (!engine?.isInitialized() || !bank) return;
+		if (currentMusicIdRef.current === soundId) return;
+		if (currentMusicRef.current) {
+			console.debug(
+				'[AudioProvider] switching music: %s → %s',
+				currentMusicIdRef.current,
+				soundId,
+			);
+			currentMusicRef.current.stop();
+			currentMusicRef.current = null;
+			currentMusicIdRef.current = null;
+		}
+		const sound = bank.getRandomSound(soundId);
+		if (!sound) {
+			console.warn('[AudioProvider] playMusic: sound not loaded: %s', soundId);
+			return;
+		}
+		const def = bank.getDefinition(soundId);
+		if (def) sound.volume = def.volume.min;
+		sound.loop = true;
+		sound.play();
+		currentMusicRef.current = sound;
+		currentMusicIdRef.current = soundId;
+		console.debug('[AudioProvider] playing music: %s', soundId);
+	};
+
+	const stopMusicImpl = (): void => {
+		if (!currentMusicRef.current) return;
+		currentMusicRef.current.stop();
+		currentMusicRef.current = null;
+		currentMusicIdRef.current = null;
+	};
+
+	const handle: AudioContextValue = {
 		isReady,
+		engine,
+		soundBank: bank,
+
+		attachListener(camera: Node): void {
+			engineRef.current?.attachListenerToCamera(camera);
+		},
+
+		playSceneAmbient: playAmbientImpl,
+		stopSceneAmbient: stopAmbientImpl,
+		playSceneMusic: playMusicImpl,
+		stopSceneMusic: stopMusicImpl,
 
 		playSound(soundId: string): void {
 			const engine = engineRef.current;
@@ -102,74 +222,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			sound.play();
 		},
 
-		playMusic(soundId: string): void {
-			const engine = engineRef.current;
-			const bank = bankRef.current;
-			if (!engine?.isInitialized() || !bank) return;
-			// Same track already playing → no-op (avoids restart on rerender).
-			if (currentMusicIdRef.current === soundId) return;
-			// Different track playing → stop it before starting the new one.
-			if (currentMusicRef.current) {
-				console.debug(
-					'[AudioProvider] switching music: %s → %s',
-					currentMusicIdRef.current,
-					soundId,
-				);
-				currentMusicRef.current.stop();
-				currentMusicRef.current = null;
-				currentMusicIdRef.current = null;
-			}
-			const sound = bank.getRandomSound(soundId);
-			if (!sound) {
-				console.warn('[AudioProvider] playMusic: sound not loaded: %s', soundId);
-				return;
-			}
-			const def = bank.getDefinition(soundId);
-			if (def) {
-				sound.volume = def.volume.min;
-			}
-			sound.loop = true;
-			sound.play();
-			currentMusicRef.current = sound;
-			currentMusicIdRef.current = soundId;
-			console.debug('[AudioProvider] playing music: %s', soundId);
-		},
-
-		stopMusic(): void {
-			if (!currentMusicRef.current) return;
-			currentMusicRef.current.stop();
-			currentMusicRef.current = null;
-			currentMusicIdRef.current = null;
-		},
-
-		playAmbient(soundId: string): void {
-			const engine = engineRef.current;
-			const bank = bankRef.current;
-			if (!engine?.isInitialized() || !bank) return;
-			if (currentAmbientIdRef.current === soundId) return;
-			if (currentAmbientRef.current) {
-				currentAmbientRef.current.stop();
-				currentAmbientRef.current = null;
-				currentAmbientIdRef.current = null;
-			}
-			const sound = bank.getRandomSound(soundId);
-			if (!sound) return;
-			const def = bank.getDefinition(soundId);
-			if (def) {
-				sound.volume = def.volume.min;
-			}
-			sound.loop = true;
-			sound.play();
-			currentAmbientRef.current = sound;
-			currentAmbientIdRef.current = soundId;
-		},
-
-		stopAmbient(): void {
-			if (!currentAmbientRef.current) return;
-			currentAmbientRef.current.stop();
-			currentAmbientRef.current = null;
-			currentAmbientIdRef.current = null;
-		},
+		playMusic: playMusicImpl,
+		stopMusic: stopMusicImpl,
+		playAmbient: playAmbientImpl,
+		stopAmbient: stopAmbientImpl,
 
 		setBusVolume(bus, volume): void {
 			const engine = engineRef.current;
@@ -192,5 +248,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 export function useUIAudio(): AudioHandle {
 	const ctx = useContext(AudioCtx);
 	if (!ctx) throw new Error('useUIAudio must be used inside <AudioProvider>');
+	return ctx;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useGameAudio(): GameAudioHandle {
+	const ctx = useContext(AudioCtx);
+	if (!ctx) throw new Error('useGameAudio must be used inside <AudioProvider>');
 	return ctx;
 }

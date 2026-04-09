@@ -8,9 +8,10 @@ import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
-import { GameAudioEngine } from '@/audio/AudioEngine';
-import { SoundBank } from '@/audio/SoundBank';
+import type { GameAudioEngine } from '@/audio/AudioEngine';
+import type { SoundBank } from '@/audio/SoundBank';
 import { AudioEventSystem } from '@/audio/AudioEventSystem';
+import { useGameAudio } from '@/audio/AudioProvider';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -129,10 +130,9 @@ class GameClient {
 	private lastRemotePositions: Map<number, Vector3D> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
-	// Audio
-	private audioEngine: GameAudioEngine | null = null;
+	// Audio — engine + sound bank are owned by AudioProvider and injected via
+	// the constructor; we only keep the event system (scoped to this game).
 	private audioEventSystem: AudioEventSystem | null = null;
-	private ambientSound: import('@babylonjs/core/AudioV2').StaticSound | null = null;
 	// HUD
 	private gui: any = null;
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
@@ -143,6 +143,8 @@ class GameClient {
 		scene: Scene,
 		localPlayerID: number,
 		camera: UniversalCamera,
+		audioEngine: GameAudioEngine,
+		soundBank: SoundBank,
 		characterConfig: CharacterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
 		characterClassesRef: RefObject<Map<number, string>> = { current: new Map() },
 	) {
@@ -151,46 +153,22 @@ class GameClient {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
 		this.characterClassesRef = characterClassesRef;
-		this.initAudio();
+
+		// The engine + sound bank are shared singletons owned by AudioProvider;
+		// we only need to point the 3D listener at our camera and wire the event
+		// system to the same engine/bank.
+		audioEngine.attachListenerToCamera(camera);
+		const aes = new AudioEventSystem(audioEngine, soundBank);
+		aes.setCharacterClass(characterConfig.label.toLowerCase());
+		this.audioEventSystem = aes;
+
 		this.setupHUD();
 	}
 
-	private async initAudio(): Promise<void> {
-		try {
-			const audioEngine = new GameAudioEngine();
-			const soundBank = new SoundBank();
-			await audioEngine.initialize();
-			await soundBank.loadAll(audioEngine);
-			audioEngine.attachListenerToCamera(this.camera);
-			this.audioEngine = audioEngine;
-			const aes = new AudioEventSystem(audioEngine, soundBank);
-			aes.setCharacterClass(this.characterConfig.label.toLowerCase());
-			this.audioEventSystem = aes;
-
-			// Start ambient loop
-			const ambientSound = soundBank.getRandomSound('amb_forest');
-			if (ambientSound) {
-				const ambDef = soundBank.getDefinition('amb_forest');
-				if (ambDef) {
-					ambientSound.volume =
-						ambDef.volume.min + Math.random() * (ambDef.volume.max - ambDef.volume.min);
-				}
-				(ambientSound as any).loop = true;
-				ambientSound.play();
-				this.ambientSound = ambientSound;
-			}
-
-			console.log('[Audio] Game audio initialized');
-		} catch (err) {
-			console.warn('[Audio] Failed to initialize game audio:', err);
-		}
-	}
-
 	disposeAudio(): void {
-		(this.ambientSound as any)?.stop?.();
-		this.ambientSound = null;
-		this.audioEngine?.dispose();
-		this.audioEngine = null;
+		// Engine + sound bank are owned by AudioProvider — we only clear our
+		// local references. Scene ambient/music is stopped by SimpleGameClient
+		// via useGameAudio() in its cleanup.
 		this.audioEventSystem = null;
 	}
 
@@ -619,9 +597,15 @@ export default function SimpleGameClient({
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const gameClientRef = useRef<GameClient | null>(null);
 	const engineRef = useRef<Engine | null>(null);
+	const gameAudio = useGameAudio();
 
 	useEffect(() => {
 		if (!canvasRef.current || !localPlayerId) return;
+		// Wait for the shared audio engine to be ready — the GameClient
+		// requires an initialised GameAudioEngine + SoundBank from the provider.
+		if (!gameAudio.isReady || !gameAudio.engine || !gameAudio.soundBank) return;
+		const audioEngine = gameAudio.engine;
+		const soundBank = gameAudio.soundBank;
 
 		const canvas = canvasRef.current;
 		let disposed = false;
@@ -761,6 +745,8 @@ export default function SimpleGameClient({
 				scene,
 				localPlayerId,
 				camera,
+				audioEngine,
+				soundBank,
 				characterConfig,
 				characterClassesRef,
 			);
@@ -768,6 +754,10 @@ export default function SimpleGameClient({
 			gameClient
 				.initLocalPlayer()
 				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
+
+			// Scene ambient starts once the client is wired. A future map/state
+			// trigger would call gameAudio.playSceneMusic(...) here too.
+			gameAudio.playSceneAmbient('amb_forest');
 
 			const input: InputState = {
 				movementDirection: { x: 0, y: 0, z: 0 },
@@ -909,6 +899,8 @@ export default function SimpleGameClient({
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
+			gameAudio.stopSceneAmbient();
+			gameAudio.stopSceneMusic();
 			gameClientRef.current?.disposeAudio();
 			gameClientRef.current = null;
 			engineRef.current?.stopRenderLoop();
@@ -916,7 +908,7 @@ export default function SimpleGameClient({
 			engineRef.current?.dispose();
 			engineRef.current = null;
 		};
-	}, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [localPlayerId, gameAudio.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
 }
