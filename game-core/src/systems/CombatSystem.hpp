@@ -164,12 +164,6 @@ inline void CombatSystem::processInputAttacks() {
 
 		if (!health.isAlive()) return;
 
-		SkillContext ctx {
-			*m_registry, entity,
-			trans, physics, charcon, comcon, m_pendingHits
-		};
-		(void)ctx;  // ctx used below only in skill execution paths
-
 		// Buffer any input that arrives while the character is committed to an action.
 		// Last input wins — Skill2 > Skill1 > Attack due to assignment order.
 		if (comcon.isAttacking || comcon.ability1.isCasting() || comcon.ability2.isCasting()) {
