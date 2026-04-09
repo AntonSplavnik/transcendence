@@ -44,7 +44,7 @@
 
 | Sound ID                    | Description                          | Variations | Status |
 |-----------------------------|--------------------------------------|------------|--------|
-| `knight_attack_swing`       | Heavy sword whoosh                   | 3-4        | TODO   |
+| `knight_attack_swing`       | Heavy sword whoosh                   | 1-4        | DONE   |
 | `knight_attack_hit`         | Sword impact on target               | 3-4        | TODO   |
 | `knight_attack_grunt`       | Effort grunt on swing                | 3-4        | TODO   |
 | `knight_hit_react`          | Pain grunt on damage taken           | 3-4        | TODO   |
@@ -57,7 +57,7 @@
 
 | Sound ID                    | Description                          | Variations | Status |
 |-----------------------------|--------------------------------------|------------|--------|
-| `rogue_attack_swing`        | Quick dagger swoosh                  | 3-4        | TODO   |
+| `rogue_attack_swing`        | Quick dagger swoosh                  | 1-4        | DONE   |
 | `rogue_attack_hit`          | Dagger stab/slice impact             | 3-4        | TODO   |
 | `rogue_attack_grunt`        | Fast effort grunt on combo           | 3-4        | TODO   |
 | `rogue_hit_react`           | Pain grunt on damage taken           | 3-4        | TODO   |
