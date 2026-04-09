@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import { useUIAudio } from '@/audio/AudioProvider';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
@@ -196,10 +197,12 @@ function GameModePicker({ current, canEdit, onSelect }: GameModePickerProps) {
 export default function LobbyPage() {
 	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
+	const audio = useUIAudio();
 
 	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const codeCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const tickingFiredRef = useRef(false);
 	const [isLeaving, setIsLeaving] = useState(false);
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
@@ -232,6 +235,7 @@ export default function LobbyPage() {
 		}
 		if (countdownMs === null) {
 			setSecondsLeft(null);
+			tickingFiredRef.current = false;
 			return;
 		}
 		const tick = () =>
@@ -242,6 +246,13 @@ export default function LobbyPage() {
 			if (intervalRef.current !== null) clearInterval(intervalRef.current);
 		};
 	}, [countdownMs]);
+	useEffect(() => {
+		if (secondsLeft === null || tickingFiredRef.current) return;
+		if (secondsLeft > 0 && secondsLeft <= 3) {
+			audio.playSound('ui_ticking');
+			tickingFiredRef.current = true;
+		}
+	}, [secondsLeft, audio]);
 
 	if (lobbyState.status === 'idle') {
 		return <Navigate to="/home" replace />;
