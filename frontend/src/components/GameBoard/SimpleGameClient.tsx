@@ -117,7 +117,7 @@ function tickJumpState(
 	return state;
 }
 
-type LocalAnimState = '' | 'attack' | 'skill';
+type AnimState = '' | 'attack' | 'skill' | 'spawn';
 
 class GameClient {
 	private scene: Scene;
@@ -127,10 +127,11 @@ class GameClient {
 	private localCharacter: AnimatedCharacter | null = null;
 	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	private camera: UniversalCamera;
-	private currentAnimState: LocalAnimState = '';
+	private currentAnimState: AnimState = '';
 	private jumpState: JumpState = JumpState.GROUNDED;
 	private characterConfigMap: Map<number, CharacterConfig> = new Map();
 	private remoteJumpStates: Map<number, JumpState> = new Map();
+	private remoteAnimStates: Map<number, AnimState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
 	private gui: any = null;
@@ -273,11 +274,8 @@ class GameClient {
 		this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
 
 		this.localCharacter.setPosition(this.position);
-		this.localCharacter.playAnimation('Spawn_Air', false);
-		setTimeout(() => {
-			this.currentAnimState = '';
-			this.localCharacter?.playAnimation(AnimationNames.idle, true);
-		}, 1500);
+		this.localCharacter.playAnimation(AnimationNames.spawn, false);
+		this.currentAnimState = 'spawn';
 	}
 
 	processSnapshot(snapshot: GameStateSnapshot) {
@@ -355,7 +353,7 @@ class GameClient {
 					const newJumpState = tickJumpState(remoteChar, remoteJumpState, isGrounded, false);
 					this.remoteJumpStates.set(char.player_id, newJumpState);
 					const remoteConfig = this.characterConfigMap.get(char.player_id);
-					if (remoteConfig) this.updateSnapshotFallbackAnimation(remoteChar, char, remoteConfig, newJumpState);
+					if (remoteConfig) this.updateSnapshotFallbackAnimation(char.player_id, remoteChar, char, remoteConfig, newJumpState);
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
@@ -381,6 +379,7 @@ class GameClient {
 			this.characters.delete(playerID);
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
+			this.remoteAnimStates.delete(playerID);
 			this.characterConfigMap.delete(playerID);
 			const bar = this.enemyBars.get(playerID);
 			if (bar) {
@@ -415,7 +414,8 @@ class GameClient {
 			remoteChar.setRotation(charData.yaw);
 			this.characters.set(playerID, remoteChar);
 			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
-			remoteChar.playAnimation(AnimationNames.idle, true);
+			this.remoteAnimStates.set(playerID, 'spawn');
+			remoteChar.playAnimation(AnimationNames.spawn, false);
 			this.createEnemyBar(playerID);
 		} catch (error) {
 			console.error(`Failed to load remote character ${playerID}:`, error);
@@ -425,12 +425,24 @@ class GameClient {
 	}
 
 	private updateSnapshotFallbackAnimation(
+		playerID: number,
 		char: AnimatedCharacter,
 		charData: CharacterSnapshot,
 		config: CharacterConfig,
 		jumpState: JumpState,
 	): void {
 		if (jumpState !== JumpState.GROUNDED) return;
+
+		// Guard: event-driven animation still playing — don't override with snapshot state.
+		// Same pattern as currentAnimState for local player.
+		const remoteState = this.remoteAnimStates.get(playerID) ?? '';
+		if (remoteState !== '') {
+			if (!(char.currentAnimation?.isPlaying)) {
+				this.remoteAnimStates.set(playerID, '');
+			} else {
+				return;
+			}
+		}
 
 		switch (charData.state) {
 			case CharacterState.Attacking:
@@ -482,6 +494,14 @@ class GameClient {
 		const isPlaying = this.localCharacter.currentAnimation?.isPlaying ?? false;
 		const isMoving  = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
+		if (this.currentAnimState === 'spawn') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // spawn finished — fall through to movement
+			} else {
+				return;                               // spawn plays to completion
+			}
+		}
+
 		if (this.currentAnimState === 'attack') {
 			if (!isPlaying) {
 				this.currentAnimState = '';           // animation finished — fall through to movement
@@ -524,9 +544,12 @@ class GameClient {
 					break;
 				case 'Spawn':
 					console.debug('[Game] Spawn: player=%d', event.player_id);
+					this.getChar(event.player_id)?.playAnimation(AnimationNames.spawn, false);
 					if (event.player_id === this.localPlayerID) {
 						this.localIsDead = false;
-						this.currentAnimState = '';
+						this.currentAnimState = 'spawn';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'spawn');
 					}
 					break;
 				case 'StateChange':
@@ -536,14 +559,22 @@ class GameClient {
 					const config = this.characterConfigMap.get(event.player_id);
 					const anim = config?.attackAnimations[event.chain_stage];
 					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
-					if (event.player_id === this.localPlayerID) this.currentAnimState = 'attack';
+					if (event.player_id === this.localPlayerID) {
+						this.currentAnimState = 'attack';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'attack');
+					}
 					break;
 				}
 				case 'SkillUsed': {
 					const config = this.characterConfigMap.get(event.player_id);
 					const anim = config?.skillAnimations[event.skill_slot - 1];
 					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
-					if (event.player_id === this.localPlayerID) this.currentAnimState = 'skill';
+					if (event.player_id === this.localPlayerID) {
+						this.currentAnimState = 'skill';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'skill');
+					}
 					break;
 				}
 				case 'MatchEnd':
