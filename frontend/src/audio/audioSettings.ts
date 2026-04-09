@@ -8,12 +8,15 @@
 export interface AudioSettings {
 	musicVolume: number;
 	uiVolume: number;
+	/** Combined slider driving both the `sfx` and `ambient` buses. */
+	inGameVolume: number;
 	muted: boolean;
 }
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
 	musicVolume: 0.5,
 	uiVolume: 0.7,
+	inGameVolume: 1.0,
 	muted: false,
 };
 
@@ -40,6 +43,10 @@ export function loadAudioSettings(): AudioSettings {
 				typeof parsed.uiVolume === 'number'
 					? clamp01(parsed.uiVolume)
 					: DEFAULT_AUDIO_SETTINGS.uiVolume,
+			inGameVolume:
+				typeof parsed.inGameVolume === 'number'
+					? clamp01(parsed.inGameVolume)
+					: DEFAULT_AUDIO_SETTINGS.inGameVolume,
 			muted: typeof parsed.muted === 'boolean' ? parsed.muted : DEFAULT_AUDIO_SETTINGS.muted,
 		};
 	} catch {

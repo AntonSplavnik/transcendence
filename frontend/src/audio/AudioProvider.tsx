@@ -33,8 +33,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 				const settings = loadAudioSettings();
 				const musicBus = engine.getBus('music');
 				const uiBus = engine.getBus('ui');
+				const sfxBus = engine.getBus('sfx');
+				const ambientBus = engine.getBus('ambient');
 				if (musicBus) musicBus.volume = settings.musicVolume;
 				if (uiBus) uiBus.volume = settings.uiVolume;
+				if (sfxBus) sfxBus.volume = settings.inGameVolume;
+				if (ambientBus) ambientBus.volume = settings.inGameVolume;
 				engine.setMasterVolume(settings.muted ? 0 : 1);
 				console.debug('[AudioProvider] engine + sound bank initialised');
 				setIsReady(true);

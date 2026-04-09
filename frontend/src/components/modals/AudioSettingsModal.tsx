@@ -11,10 +11,12 @@ interface AudioSettingsModalProps {
 }
 
 /**
- * Audio preferences modal — music & UI volumes plus a global mute.
+ * Audio preferences modal — menu (music + UI) and in-game (SFX + ambient)
+ * volume sections, plus a global mute.
  *
  * Live preview: every slider change applies immediately via the AudioProvider
- * and is persisted to localStorage so the setting survives reloads.
+ * and is persisted to localStorage so the setting survives reloads. The
+ * in-game slider drives the `sfx` and `ambient` buses together.
  */
 export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps) {
 	const audio = useUIAudio();
@@ -31,6 +33,10 @@ export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps)
 		if (patch.uiVolume !== undefined) {
 			audio.setBusVolume('ui', patch.uiVolume);
 		}
+		if (patch.inGameVolume !== undefined) {
+			audio.setBusVolume('sfx', patch.inGameVolume);
+			audio.setBusVolume('ambient', patch.inGameVolume);
+		}
 		if (patch.muted !== undefined) {
 			audio.setMuted(patch.muted);
 		}
@@ -40,26 +46,55 @@ export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps)
 
 	return (
 		<Modal onClose={onClose} title="Audio Settings" icon={<Volume2 className="w-6 h-6" />}>
-			<div className="space-y-5">
-				{/* Music slider */}
-				<VolumeSlider
-					id="music-volume"
-					label="Music Volume"
-					value={settings.musicVolume}
-					disabled={disabled}
-					onChange={(v) => update({ musicVolume: v })}
-				/>
+			<div className="space-y-4">
+				{/* ── Menu section ──────────────────────────────────────────── */}
+				<section
+					aria-labelledby="audio-section-menu"
+					className="space-y-4 rounded-lg border border-stone-700/50 bg-stone-900 p-4"
+				>
+					<h3
+						id="audio-section-menu"
+						className="text-xs font-semibold uppercase tracking-wider text-gold-400"
+					>
+						Menu
+					</h3>
+					<VolumeSlider
+						id="music-volume"
+						label="Music Volume"
+						value={settings.musicVolume}
+						disabled={disabled}
+						onChange={(v) => update({ musicVolume: v })}
+					/>
+					<VolumeSlider
+						id="ui-volume"
+						label="UI Volume"
+						value={settings.uiVolume}
+						disabled={disabled}
+						onChange={(v) => update({ uiVolume: v })}
+					/>
+				</section>
 
-				{/* UI sounds slider */}
-				<VolumeSlider
-					id="ui-volume"
-					label="UI Volume"
-					value={settings.uiVolume}
-					disabled={disabled}
-					onChange={(v) => update({ uiVolume: v })}
-				/>
+				{/* ── In-game section ───────────────────────────────────────── */}
+				<section
+					aria-labelledby="audio-section-ingame"
+					className="space-y-4 rounded-lg border border-stone-700/50 bg-stone-900 p-4"
+				>
+					<h3
+						id="audio-section-ingame"
+						className="text-xs font-semibold uppercase tracking-wider text-gold-400"
+					>
+						In-Game
+					</h3>
+					<VolumeSlider
+						id="ingame-volume"
+						label="Game Volume"
+						value={settings.inGameVolume}
+						disabled={disabled}
+						onChange={(v) => update({ inGameVolume: v })}
+					/>
+				</section>
 
-				{/* Mute toggle */}
+				{/* ── Mute toggle ───────────────────────────────────────────── */}
 				<label className="flex items-center justify-between gap-3 rounded-lg bg-stone-800/60 border border-stone-700 px-4 py-3 cursor-pointer hover:border-stone-500 transition-colors">
 					<span className="flex items-center gap-2 text-sm text-stone-200">
 						{settings.muted ? (

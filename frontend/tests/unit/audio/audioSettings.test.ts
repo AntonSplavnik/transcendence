@@ -27,11 +27,17 @@ describe('audioSettings', () => {
 		it('loads previously saved settings', () => {
 			localStorage.setItem(
 				STORAGE_KEY,
-				JSON.stringify({ musicVolume: 0.25, uiVolume: 0.9, muted: true }),
+				JSON.stringify({
+					musicVolume: 0.25,
+					uiVolume: 0.9,
+					inGameVolume: 0.4,
+					muted: true,
+				}),
 			);
 			expect(loadAudioSettings()).toEqual({
 				musicVolume: 0.25,
 				uiVolume: 0.9,
+				inGameVolume: 0.4,
 				muted: true,
 			});
 		});
@@ -54,6 +60,22 @@ describe('audioSettings', () => {
 			expect(loadAudioSettings().uiVolume).toBe(0);
 		});
 
+		it('clamps inGameVolume to [0, 1]', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: 3 }));
+			expect(loadAudioSettings().inGameVolume).toBe(1);
+
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: -1 }));
+			expect(loadAudioSettings().inGameVolume).toBe(0);
+		});
+
+		it('falls back to default inGameVolume when missing or invalid', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
+			expect(loadAudioSettings().inGameVolume).toBe(DEFAULT_AUDIO_SETTINGS.inGameVolume);
+
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: 'loud' }));
+			expect(loadAudioSettings().inGameVolume).toBe(DEFAULT_AUDIO_SETTINGS.inGameVolume);
+		});
+
 		it('falls back to default for non-number volume fields', () => {
 			localStorage.setItem(
 				STORAGE_KEY,
@@ -74,6 +96,7 @@ describe('audioSettings', () => {
 			expect(loadAudioSettings()).toEqual({
 				musicVolume: DEFAULT_AUDIO_SETTINGS.musicVolume,
 				uiVolume: DEFAULT_AUDIO_SETTINGS.uiVolume,
+				inGameVolume: DEFAULT_AUDIO_SETTINGS.inGameVolume,
 				muted: true,
 			});
 		});
@@ -98,18 +121,29 @@ describe('audioSettings', () => {
 
 	describe('saveAudioSettings', () => {
 		it('persists settings as JSON under the expected key', () => {
-			saveAudioSettings({ musicVolume: 0.1, uiVolume: 0.2, muted: false });
+			saveAudioSettings({
+				musicVolume: 0.1,
+				uiVolume: 0.2,
+				inGameVolume: 0.3,
+				muted: false,
+			});
 			const raw = localStorage.getItem(STORAGE_KEY);
 			expect(raw).not.toBeNull();
 			expect(JSON.parse(raw!)).toEqual({
 				musicVolume: 0.1,
 				uiVolume: 0.2,
+				inGameVolume: 0.3,
 				muted: false,
 			});
 		});
 
 		it('is readable back by loadAudioSettings (round-trip)', () => {
-			const input = { musicVolume: 0.42, uiVolume: 0.77, muted: true };
+			const input = {
+				musicVolume: 0.42,
+				uiVolume: 0.77,
+				inGameVolume: 0.55,
+				muted: true,
+			};
 			saveAudioSettings(input);
 			expect(loadAudioSettings()).toEqual(input);
 		});
@@ -121,7 +155,12 @@ describe('audioSettings', () => {
 			};
 			try {
 				expect(() =>
-					saveAudioSettings({ musicVolume: 0.5, uiVolume: 0.5, muted: false }),
+					saveAudioSettings({
+						musicVolume: 0.5,
+						uiVolume: 0.5,
+						inGameVolume: 0.5,
+						muted: false,
+					}),
 				).not.toThrow();
 			} finally {
 				Storage.prototype.setItem = original;

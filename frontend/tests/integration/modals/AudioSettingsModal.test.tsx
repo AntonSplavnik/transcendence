@@ -39,12 +39,21 @@ describe('AudioSettingsModal', () => {
 		expect(screen.getByRole('heading', { name: /audio settings/i })).toBeInTheDocument();
 	});
 
-	it('renders Music Volume and UI Volume sliders with associated labels', () => {
+	it('renders Music, UI and Game Volume sliders with associated labels', () => {
 		renderModal();
 		const music = screen.getByLabelText('Music Volume');
 		const ui = screen.getByLabelText('UI Volume');
+		const game = screen.getByLabelText('Game Volume');
 		expect(music).toHaveAttribute('type', 'range');
 		expect(ui).toHaveAttribute('type', 'range');
+		expect(game).toHaveAttribute('type', 'range');
+	});
+
+	it('groups sliders into Menu and In-Game sections', () => {
+		renderModal();
+		// Region grouping via aria-labelledby
+		expect(screen.getByRole('heading', { name: /^menu$/i })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { name: /^in-game$/i })).toBeInTheDocument();
 	});
 
 	it('renders the mute checkbox', () => {
@@ -56,20 +65,27 @@ describe('AudioSettingsModal', () => {
 
 	it('shows default values when nothing is stored', () => {
 		renderModal();
-		// Defaults: music 0.5 → 50%, ui 0.7 → 70%
+		// Defaults: music 0.5 → 50%, ui 0.7 → 70%, inGame 1.0 → 100%
 		expect(screen.getByLabelText('Music Volume')).toHaveValue('50');
 		expect(screen.getByLabelText('UI Volume')).toHaveValue('70');
+		expect(screen.getByLabelText('Game Volume')).toHaveValue('100');
 		expect(screen.getByRole('checkbox', { name: /mute all sounds/i })).not.toBeChecked();
 	});
 
 	it('loads persisted settings on mount', () => {
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ musicVolume: 0.1, uiVolume: 0.9, muted: true }),
+			JSON.stringify({
+				musicVolume: 0.1,
+				uiVolume: 0.9,
+				inGameVolume: 0.35,
+				muted: true,
+			}),
 		);
 		renderModal();
 		expect(screen.getByLabelText('Music Volume')).toHaveValue('10');
 		expect(screen.getByLabelText('UI Volume')).toHaveValue('90');
+		expect(screen.getByLabelText('Game Volume')).toHaveValue('35');
 		expect(screen.getByRole('checkbox', { name: /mute all sounds/i })).toBeChecked();
 	});
 
@@ -93,6 +109,16 @@ describe('AudioSettingsModal', () => {
 		expect(stored.uiVolume).toBe(0.8);
 	});
 
+	it('dispatches in-game volume to BOTH sfx and ambient buses and persists', () => {
+		renderModal();
+		fireEvent.change(screen.getByLabelText('Game Volume'), { target: { value: '40' } });
+
+		expect(setBusVolume).toHaveBeenCalledWith('sfx', 0.4);
+		expect(setBusVolume).toHaveBeenCalledWith('ambient', 0.4);
+		const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+		expect(stored.inGameVolume).toBe(0.4);
+	});
+
 	it('dispatches and persists mute toggle', async () => {
 		const user = userEvent.setup();
 		renderModal();
@@ -109,13 +135,14 @@ describe('AudioSettingsModal', () => {
 
 	// ─── Disabled state while muted ────────────────────────────────────────────
 
-	it('disables sliders while muted', async () => {
+	it('disables all sliders while muted', async () => {
 		const user = userEvent.setup();
 		renderModal();
 		await user.click(screen.getByRole('checkbox', { name: /mute all sounds/i }));
 
 		expect(screen.getByLabelText('Music Volume')).toBeDisabled();
 		expect(screen.getByLabelText('UI Volume')).toBeDisabled();
+		expect(screen.getByLabelText('Game Volume')).toBeDisabled();
 	});
 
 	// ─── Close behaviour ───────────────────────────────────────────────────────
