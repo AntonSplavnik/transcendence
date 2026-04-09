@@ -52,30 +52,32 @@ export class SwingTrail {
   }
 
   private prewarmShader(): void {
-    // Place the warmup ribbon at the world origin so it is inside the camera
-    // frustum. BabylonJS only calls isReadyForMesh() for frustum-visible meshes,
-    // so a ribbon outside the frustum (e.g. at y=-9999) never triggers compilation.
-    // All vertex alphas are 0 → fully transparent, not visible to the player.
+    // Create a tiny invisible ribbon to force BabylonJS to compile the
+    // StandardMaterial shader (position + ColorKind + hasVertexAlpha) ahead of
+    // the first real swing. Without this, WEBGL_parallel_shader_compile makes
+    // newly-created ribbons invisible for several frames while the GPU compiles.
+    //
+    // alwaysSelectAsActiveMesh bypasses frustum culling so the shader compiles
+    // regardless of where the camera is — spawn positions may be far from origin.
     const p = [new Vector3(0, 0, 0), new Vector3(0.0001, 0, 0)];
     const warmup = MeshBuilder.CreateRibbon('_swingTrailWarm', {
       pathArray: [p, p],
     }, this.scene) as Mesh;
     warmup.hasVertexAlpha = true;
     warmup.material = this.material;
+    warmup.alwaysSelectAsActiveMesh = true;
     // Vertex colors (all zeros = alpha 0) must be present so the shader defines
     // (VERTEXCOLOR / VERTEXALPHA) match those used by the real ribbon.
     warmup.setVerticesData(VertexBuffer.ColorKind, new Float32Array(2 * 2 * 4));
 
-    // Keep the warmup alive for several frames so async compilation (via
-    // WEBGL_parallel_shader_compile in WebGL2) has time to finish before the
-    // first real ribbon appears. Character loading takes several seconds, so
-    // 10 frames is more than enough.
-    let framesLeft = 10;
-    const obs = this.scene.onAfterRenderObservable.add(() => {
-      if (--framesLeft <= 0) {
-        warmup.dispose(false, false);
-        this.scene.onAfterRenderObservable.remove(obs);
-      }
+    // Wait until the shader is actually compiled before disposing the warmup
+    // mesh. forceCompilationAsync resolves once the GPU has finished compiling
+    // the effect for this mesh's vertex layout, so we don't rely on guessing
+    // a frame count.
+    this.material.forceCompilationAsync(warmup).then(() => {
+      warmup.dispose(false, false);
+    }).catch(() => {
+      warmup.dispose(false, false);
     });
   }
 
