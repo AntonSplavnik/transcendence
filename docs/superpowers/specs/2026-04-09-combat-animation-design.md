@@ -38,6 +38,8 @@ Button press (client)
     Server CombatSystem
     ├── canPerformAttack? → startAttack(), emit AttackStarted { chain_stage }
     └── isAttacking?      → bufferedAction = Attack (or Skill1/Skill2)
+        (Skills follow the same Input → CombatSystem → event path; omitted for brevity.
+         Full buffer condition: isAttacking || ability1.isCasting() || ability2.isCasting())
 
     AttackStarted / SkillUsed events
             │
@@ -88,14 +90,18 @@ using NetworkEvent = std::variant<
 
 ### Rust (`backend/src/game/messages.rs`)
 
-Both `GameServerMessage` (the wire type serialized over the WebSocket) and `GameEvent` (the client-side processed subset) are updated. `GameServerMessage` carries all messages the server can send. `GameEvent` is the TypeScript union of event types that the frontend dispatches — it excludes `Snapshot`.
+`GameServerMessage` is the wire enum serialized over the WebSocket to the client. Both new variants are added here:
 
 ```rust
 AttackStarted { player_id: u32, chain_stage: u8 },
 SkillUsed     { player_id: u32, skill_slot: u8  },
 ```
 
+`NetworkEvent` in `backend/src/game/ffi.rs` is the internal Rust enum that the bridge layer produces from C++ events. It also gets both new variants (see File Change Summary for the full bridge chain).
+
 ### TypeScript (`frontend/src/game/types.ts`)
+
+`GameServerMessage` is the wire type (mirrors `messages.rs`). `GameEvent` is the `Extract<GameServerMessage, ...>` union the frontend dispatches — it excludes `Snapshot`. Both receive the new variants:
 
 ```typescript
 // Added to GameServerMessage:
@@ -103,7 +109,7 @@ SkillUsed     { player_id: u32, skill_slot: u8  },
 | { type: 'SkillUsed';     player_id: number; skill_slot: number  }
 ```
 
-`GameEvent` union (the `Extract<GameServerMessage, ...>` type) updated to include both.
+`GameEvent`'s extract filter updated to include `'AttackStarted' | 'SkillUsed'`.
 
 ---
 
@@ -125,7 +131,9 @@ struct SkillDefinition {
     bool isCasting() const { return castTimer > 0.0f; }
     bool canUse()    const { return timer <= 0.0f && !isCasting(); }
 
-    // Starts the cast. Sets hitPending = true; system clears it after applying the hit.
+    // Starts the cast. The cooldown timer does NOT start until endCast() is called.
+    // Total lockout time = castDuration + cooldown — the skill cannot be re-queued during its
+    // own cast. Sets hitPending = true; system clears it after applying the hit.
     // Precondition: castDuration > 0.0f. If castDuration is zero, castTimer starts at zero,
     // isCasting() is immediately false, and hitPending is never cleared — the effect never fires.
     // Skills with instant effects should not use this path. Assert in debug builds.
@@ -201,6 +209,10 @@ const bool wantsSkill2 = charcon.input.isUsingAbility2 || toFire == BufferedActi
 
 // When multiple wants* are true simultaneously (e.g. a buffered attack fires in the same frame
 // as a live skill press), resolve with explicit priority: Skill2 > Skill1 > Attack.
+// Skills take priority because they are high-investment actions (cooldowns, committed inputs);
+// a simultaneous attack press is assumed to be incidental. Skill2 > Skill1 by symmetry with
+// the buffer assignment order above.
+// canUseAbility1() and canUseAbility2() are existing methods on CombatController (unchanged).
 // Use if/else-if to ensure only one action fires per frame:
 if      (wantsSkill2 && comcon.canUseAbility2()) { /* fire skill2 */ }
 else if (wantsSkill1 && comcon.canUseAbility1()) { /* fire skill1 */ }
@@ -221,7 +233,7 @@ else if (wantsAttack && comcon.canPerformAttack()) { /* fire attack */ }
 // Emit before startAttack():
 uint8_t stage = static_cast<uint8_t>(comcon.chainStage);
 comcon.startAttack();
-// ...
+// getPlayerID() is an existing private helper on CombatSystem — no change needed.
 if (ne) ne->events.push_back(NetEvents::AttackStartedEvent{ getPlayerID(entity), stage });
 ```
 
@@ -247,6 +259,8 @@ When `castTimer > 0`, decrement it. When it reaches zero:
 Dead-during-cast guard: if a character dies mid-cast, `hitPending` is still true when `castTimer` hits zero. Apply a `health.isAlive()` check before firing the deferred effect — a corpse should not deal damage.
 
 ```cpp
+// slot is passed for symmetry and future use (e.g., emitting a CastEnded event);
+// it is unused in this iteration.
 auto tickSkill = [&](SkillDefinition& skill, uint8_t /*slot*/) {
     if (!skill.isCasting()) return;
     skill.castTimer -= deltaTime;
@@ -260,6 +274,9 @@ auto tickSkill = [&](SkillDefinition& skill, uint8_t /*slot*/) {
             skill.hitPending = false;
         }
         // restore movement locked by this skill
+        // Note: if the character is dead, canMove stays false (death path owns that reset).
+        // The respawn path is responsible for resetting canMove = true and
+        // activeMovementMultiplier = 1.0f before re-entering play.
         std::visit(overloaded{
             [&](const MeleeAOE& s) {
                 if (s.movementMultiplier == 0.0f && !controller.isDead())
@@ -299,8 +316,16 @@ Skill2 has `movementMultiplier = 0.7f` — the character moves but at 70% speed 
 float activeMovementMultiplier = 1.0f;  // applied by CharacterControllerSystem; reset to 1.0f when no cast
 ```
 
-**In `CharacterControllerSystem::processCharacterMovement`**, multiply the effective speed:
+**In `CharacterControllerSystem::processCharacterMovement`**, multiply the effective speed. The existing `canMove` early-return guard sits before the speed computation, so the two mechanisms do not conflict — `activeMovementMultiplier` only applies when movement is already permitted:
+
 ```cpp
+// Existing guard — skill1 (movementMultiplier=0) sets canMove=false, exits here.
+if (!controller.canMove || controller.isDead()) { return; }
+
+// ... movement input check ...
+
+// skill2 (movementMultiplier=0.7f) reaches here with canMove=true.
+// activeMovementMultiplier is 1.0f normally; set to 0.7f while skill2 cast is active.
 float speed = controller.getEffectiveSpeed() * controller.activeMovementMultiplier;
 ```
 
@@ -325,6 +350,8 @@ std::visit(overloaded{
 ## Section 6 — Server: Knight Preset (`game-core/src/Presets.hpp`)
 
 3-stage chain replaces the existing 2-stage chain.
+
+**Naming note:** `AttackStage` uses `.damageMultiplier`; `MeleeAOE` uses `.dmgMultiplier`. These are different structs with different field names for the same concept — no change needed to either, just be aware when reading the code side-by-side.
 
 **Note on `chainWindow`:** The window is measured from swing **end**, not swing start. `chainTimer` resets to zero in `advanceChain()` (called when a swing ends), so a `chainWindow` of `0.5f` gives a full 0.5s grace period after the swing ends. The coincidence of stage 1's `duration = chainWindow = 0.5f` is intentional — it creates tighter timing for the finisher without being zero grace.
 
@@ -369,8 +396,11 @@ attackAnimations: [
 ],
 skillAnimations: [
     'Melee_1H_Attack_Jump_Chop',  // skill1
-    'Melee_1H_Attack_Chop',       // skill2 — placeholder, replace when a better animation is chosen
+    'Melee_1H_Attack_Chop',       // skill2 — placeholder
 ],
+// Follow-up: choose a dedicated skill2 animation from Rig_Medium_CombatMelee.glb.
+// Candidates: Melee_1H_Attack_Stab (already used for chain stage 2),
+// Melee_1H_Attack_Slice_Diagonal, or a 2H animation if it fits the kit visually.
 ```
 
 Rogue will get its own arrays when implemented (`Melee_Dualwield_*`).
@@ -381,10 +411,19 @@ Rogue will get its own arrays when implemented (`Melee_Dualwield_*`).
 
 ### Config lookup in `processEvents`
 
-`GameClient` maintains a `characterConfigMap: Map<number, CharacterConfig>` alongside `characters`. When a character is created (`createRemoteCharacter` for remotes, `initLocalPlayer` for local), its resolved config is stored in this map keyed by `player_id`. `processEvents` looks up the config by `event.player_id`. The local player's config is stored under `localPlayerID` at init time.
+`GameClient` maintains a `characterConfigMap: Map<number, CharacterConfig>` alongside `characters`. It is populated at character creation time:
 
 ```typescript
-// In processEvents:
+// In initLocalPlayer:
+this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
+
+// In createRemoteCharacter (after config is resolved):
+this.characterConfigMap.set(playerID, config);
+```
+
+`processEvents` looks up the config by `event.player_id`:
+
+```typescript
 case 'AttackStarted': {
     const config = this.characterConfigMap.get(event.player_id);
     const anim = config?.attackAnimations[event.chain_stage];
@@ -441,25 +480,60 @@ function updateSnapshotFallbackAnimation(
 
 ### `updateLocalAnimation` — movement, jump, and attack handoff
 
+`currentAnimState` tracks whether a combat animation is in progress. Type it as a union to make the states explicit:
+
+```typescript
+type LocalAnimState = '' | 'attack' | 'skill';
+private currentAnimState: LocalAnimState = '';
+```
+
 `updateLocalAnimation` handles movement and jump only. Attack/skill animation is initiated by `processEvents`. The handoff is governed by `currentAnimState`:
 
-**State machine:**
+```typescript
+updateLocalAnimation(input: InputState): void {
+    if (!this.localCharacter || this.localIsDead) return;
 
-1. `processEvents` fires `AttackStarted` → plays the animation (`loop=false`), sets `currentAnimState = 'attack'`.
-2. Every frame, `updateLocalAnimation` runs:
-   - If `currentAnimState === 'attack'`:
-     - Check `char.currentAnimation?.isPlaying`
-     - **Still playing + movement input** → cancel: switch to walk/run, reset `currentAnimState = ''`
-     - **Still playing, no movement** → do nothing (let it finish)
-     - **Finished** (`!isPlaying`) → reset `currentAnimState = ''` → movement/idle resumes next frame
-   - If `currentAnimState === 'skill'`:
-     - Movement input does **not** cancel — server enforces `canMove = false` for skill1 and speed reduction for skill2
-     - **Still playing** → do nothing
-     - **Finished** → reset `currentAnimState = ''`
-   - If `currentAnimState === ''`:
-     - Normal movement/idle logic runs
+    // Jump state machine takes precedence over all combat states
+    this.jumpState = tickJumpState(this.localCharacter, this.jumpState, isGrounded, input.isJumping);
+    if (this.jumpState !== JumpState.GROUNDED) return;
 
-**Skill2 visual note:** Skill2 allows 70% movement speed (`movementMultiplier = 0.7f`). The server permits physical movement during the cast, but the client plays the skill animation uninterrupted and does not switch to walk/run. The character visually slides while swinging. This is a known limitation for partial-movement skills and is acceptable for the current stage.
+    const isPlaying = this.localCharacter.currentAnimation?.isPlaying ?? false;
+    const isMoving  = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+
+    if (this.currentAnimState === 'attack') {
+        if (!isPlaying) {
+            this.currentAnimState = '';          // animation finished — fall through to movement
+        } else if (isMoving) {
+            this.currentAnimState = '';          // movement cancels attack animation
+            this.localCharacter.playAnimation(
+                input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+            return;
+        } else {
+            return;                              // attack still playing, no movement — wait
+        }
+    }
+
+    if (this.currentAnimState === 'skill') {
+        if (!isPlaying) {
+            this.currentAnimState = '';          // cast finished — fall through to movement
+        } else {
+            return;                              // skill plays to completion; movement does not cancel
+        }
+    }
+
+    // currentAnimState === '' — normal movement/idle
+    if (isMoving) {
+        this.localCharacter.playAnimation(
+            input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+    } else {
+        this.localCharacter.playAnimation(AnimationNames.idle, true);
+    }
+}
+```
+
+**Attack-cancel visual desync (known limitation):** When movement cancels an attack animation on the client (`currentAnimState = 'attack'` + movement input), the client switches to walk/run immediately. However, the server's swing is still running — `hitPending` will still apply damage at swing end. The character visually walks while server-side damage fires invisibly. This is a client/server visual mismatch, not a correctness bug. It is consistent with the existing movement-cancel-attack design (the server already handles this in `updateCooldowns`). Same pattern as Skill2: accepted limitation at this stage.
+
+**Skill2 visual note:** Skill2 allows 70% movement speed. The server permits physical movement during the cast, but the client plays the skill animation uninterrupted and does not switch to walk/run. The character visually slides while swinging. Accepted limitation.
 
 ---
 
@@ -478,16 +552,22 @@ function updateSnapshotFallbackAnimation(
 
 Note: this project uses header-only C++ — all implementation lives in `.hpp` files via `inline`. There are no `.cpp` files for these systems.
 
+The C++ → Rust event bridge is a 5-layer chain. Adding each new event type requires changes in all five layers.
+
 | File | Change |
 |------|--------|
-| `game-core/src/events/NetworkEvents.hpp` | Add `AttackStartedEvent`, `SkillUsedEvent` to variant; narrow `StateChangeEvent` comment to Stunned-only |
+| `game-core/src/events/NetworkEvents.hpp` | Add `AttackStartedEvent`, `SkillUsedEvent` structs + to variant; narrow comment to Stunned-only for `StateChangeEvent` |
+| `game-core/src/cxx_bridge.hpp` | Add `AttackStarted = 6`, `SkillUsed = 7` to `NetworkEventType` enum; add `AttackStartedEvent`, `SkillUsedEvent` forward-declared structs; add `get_attack_started_at()`, `get_skill_used_at()` to `EventQueue` |
+| `game-core/src/cxx_bridge.cpp` | Implement `get_attack_started_at()` and `get_skill_used_at()` accessors; handle new enum values in `kind_at()` |
 | `game-core/src/Skills.hpp` | Add `castDuration`, `castTimer`, `hitPending`, `isCasting()`, `endCast()`, updated `trigger()` with assert to `SkillDefinition` |
 | `game-core/src/components/CombatController.hpp` | Add `BufferedAction` enum + `bufferedAction` field |
 | `game-core/src/components/CharacterController.hpp` | Add `activeMovementMultiplier` field (default `1.0f`) |
 | `game-core/src/systems/CombatSystem.hpp` | Buffer logic, skill cast tick with dead-during-cast guard, new event emission, remove StateChange for attack/cast, set/restore `activeMovementMultiplier` |
-| `game-core/src/systems/CharacterControllerSystem.hpp` | Remove lines 121–123 (redundant Attacking state set from input); multiply speed by `activeMovementMultiplier` |
+| `game-core/src/systems/CharacterControllerSystem.hpp` | Remove lines 121–123; multiply speed by `activeMovementMultiplier` |
 | `game-core/src/Presets.hpp` | 3-stage Knight chain, skill cast durations |
+| `backend/src/game/ffi.rs` | Add `AttackStarted = 6`, `SkillUsed = 7` to `bridge::NetworkEventType`; add `bridge::AttackStartedEvent`, `bridge::SkillUsedEvent` structs; add `get_attack_started_at`, `get_skill_used_at` to `EventQueue` extern; add `AttackStarted`, `SkillUsed` variants to `NetworkEvent`; add match arms in `drain_network_events()` |
+| `backend/src/game/game.rs` | Add match arms for `NetworkEvent::AttackStarted` and `NetworkEvent::SkillUsed` → `GameServerMessage` |
 | `backend/src/game/messages.rs` | Add `AttackStarted`, `SkillUsed` to `GameServerMessage` |
 | `frontend/src/game/types.ts` | Add both to `GameServerMessage` and `GameEvent` unions |
-| `frontend/src/game/characterConfigs.ts` | Add `attackAnimations`, `skillAnimations` to `CharacterConfig` interface and Knight/Rogue configs |
-| `frontend/src/components/GameBoard/SimpleGameClient.tsx` | Add `characterConfigMap`; `processEvents` handles new events with per-player config lookup; `updateRemoteAnimation` renamed to `updateSnapshotFallbackAnimation`, receives `jumpState` parameter, unified for all players; `updateLocalAnimation` reduced to movement + jump + attack handoff state machine |
+| `frontend/src/game/characterConfigs.ts` | Add `attackAnimations`, `skillAnimations` to `CharacterConfig` interface; populate for Knight (and Rogue when available) |
+| `frontend/src/components/GameBoard/SimpleGameClient.tsx` | Add `characterConfigMap`; `processEvents` handles new events; `updateRemoteAnimation` renamed to `updateSnapshotFallbackAnimation` with `jumpState` parameter; `updateLocalAnimation` refactored to typed state machine |
