@@ -68,7 +68,7 @@ export default function ModelPreview({
 			loadCharacter(char, previewConfig).then(() => {
 				// Scale the root down for preview — in-game config.scale (3) is too large
 				char.rootNode.scaling.setAll(0.6);
-				char.playAnimation(characterConfig.idleAnimation, true);
+				char.playAnimation(characterConfig.idleAnimation.name, true, characterConfig.idleAnimation.speed ?? 1.0);
 
 				if (rotationSpeed !== 0) {
 					scene.onBeforeRenderObservable.add(() => {

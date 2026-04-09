@@ -1,4 +1,4 @@
-import type { AbstractMesh, AnimationGroup, Scene } from '@babylonjs/core';
+import type { AbstractMesh, AnimationGroup, Scene, Observer } from '@babylonjs/core';
 import { SceneLoader, TransformNode, Vector3 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import type { CharacterConfig } from './characterConfigs';
@@ -12,6 +12,8 @@ export class AnimatedCharacter {
 	private scene: Scene;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private skeleton: any = null;
+	private blendObserver: Observer<Scene> | null = null;
+	private fadingOutAnim: AnimationGroup | null = null;
 
 	constructor(scene: Scene) {
 		this.scene = scene;
@@ -83,7 +85,7 @@ export class AnimatedCharacter {
 
 	get animationName(): string { return this.currentAnimationName; }
 
-	playAnimation(name: string, loop: boolean = true): void {
+	playAnimation(name: string, loop: boolean = true, speedRatio: number = 1.0): void {
 		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;
 		const anim = this.animations.get(name);
 		if (!anim) {
@@ -92,10 +94,74 @@ export class AnimatedCharacter {
 			]);
 			return;
 		}
+		this.cancelBlend();
 		if (this.currentAnimation) this.currentAnimation.stop();
-		anim.start(loop);
+		anim.start(loop, speedRatio);
+		anim.setWeightForAllAnimatables(1.0);
 		this.currentAnimation = anim;
 		this.currentAnimationName = name;
+	}
+
+	/**
+	 * Crossfade from the current animation into a new one.
+	 * Both animations play simultaneously while weights interpolate
+	 * over `blendDuration` seconds.
+	 */
+	crossFadeTo(name: string, loop: boolean, speedRatio: number = 1.0, blendDuration: number = 0.12): void {
+		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;
+		const anim = this.animations.get(name);
+		if (!anim) {
+			console.warn(`[crossFadeTo] "${name}" not found. Available:`, [
+				...this.animations.keys(),
+			]);
+			return;
+		}
+
+		// Clean up any in-progress blend
+		this.cancelBlend();
+
+		const outgoing = this.currentAnimation;
+
+		// Start incoming at weight 0
+		anim.start(loop, speedRatio);
+		anim.setWeightForAllAnimatables(0.0);
+		this.currentAnimation = anim;
+		this.currentAnimationName = name;
+
+		if (!outgoing || blendDuration <= 0) {
+			// No previous animation or instant switch
+			if (outgoing) outgoing.stop();
+			anim.setWeightForAllAnimatables(1.0);
+			return;
+		}
+
+		this.fadingOutAnim = outgoing;
+		let elapsed = 0;
+
+		this.blendObserver = this.scene.onBeforeRenderObservable.add(() => {
+			const dt = this.scene.getEngine().getDeltaTime() / 1000;
+			elapsed += dt;
+			const t = Math.min(elapsed / blendDuration, 1.0);
+
+			anim.setWeightForAllAnimatables(t);
+			outgoing.setWeightForAllAnimatables(1.0 - t);
+
+			if (t >= 1.0) {
+				outgoing.stop();
+				this.cancelBlend();
+			}
+		});
+	}
+
+	private cancelBlend(): void {
+		if (this.blendObserver) {
+			this.scene.onBeforeRenderObservable.remove(this.blendObserver);
+			this.blendObserver = null;
+		}
+		if (this.fadingOutAnim) {
+			this.fadingOutAnim.stop();
+			this.fadingOutAnim = null;
+		}
 	}
 
 	setPosition(pos: Vector3): void {
@@ -107,6 +173,7 @@ export class AnimatedCharacter {
 	}
 
 	dispose(): void {
+		this.cancelBlend();
 		this.animations.forEach((anim) => anim.stop());
 		this.meshes.forEach((mesh) => mesh.dispose());
 		this.rootNode.dispose();

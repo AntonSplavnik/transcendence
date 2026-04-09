@@ -56,14 +56,12 @@ const ISO_CAM_HEIGHT = ISO_CAM_DIST * 0.7071; // tan(35.264°) ≈ 0.7071
 const ISO_CAM_OFFSET = { x: ISO_CAM_DIST, y: ISO_CAM_HEIGHT, z: -ISO_CAM_DIST };
 const ISO_ORTHO_SIZE = 10; //  controls zoom level (80 would be full world in view)
 
+const COMBAT_BLEND_DURATION = 0.1; // crossfade seconds between chain attacks
+
 const AnimationNames = {
-	idle: 'Idle_A',
-	walk: 'Walking_B',
-	run: 'Running_B',
 	jumpStart: 'Jump_Start',
 	jumpIdle: 'Jump_Idle',
 	jumpLand: 'Jump_Land',
-	attack: 'Melee_1H_Attack_Slice_Horizontal',
 	hit: 'Hit_A',
 	death: 'Death_A',
 	deathPose: 'Death_pose_A',
@@ -445,18 +443,22 @@ class GameClient {
 		}
 
 		switch (charData.state) {
-			case CharacterState.Attacking:
+			case CharacterState.Attacking: {
 				// Fallback for latecomers who missed the AttackStarted event.
 				// Always plays attackAnimations[0] — snapshot has no chain stage.
-				if (!char.currentAnimation?.isPlaying)
-					char.playAnimation(config.attackAnimations[0], true);
+				const a = config.attackAnimations[0];
+				if (a && !char.currentAnimation?.isPlaying)
+					char.playAnimation(a.name, true, a.speed ?? 1.0);
 				break;
-			case CharacterState.Casting:
+			}
+			case CharacterState.Casting: {
 				// Fallback for latecomers who missed the SkillUsed event.
 				// Always plays skillAnimations[0] — snapshot has no skill slot.
-				if (!char.currentAnimation?.isPlaying)
-					char.playAnimation(config.skillAnimations[0], true);
+				const s = config.skillAnimations[0];
+				if (s && !char.currentAnimation?.isPlaying)
+					char.playAnimation(s.name, true, s.speed ?? 1.0);
 				break;
+			}
 			case CharacterState.Dead:
 				if (char.animationName !== AnimationNames.death &&
 					char.animationName !== AnimationNames.deathPose) {
@@ -473,13 +475,13 @@ class GameClient {
 				char.playAnimation(AnimationNames.hit, false);
 				break;
 			case CharacterState.Walking:
-				char.playAnimation(AnimationNames.walk, true);
+				char.playAnimation(config.walkAnimation.name, true, config.walkAnimation.speed ?? 1.0);
 				break;
 			case CharacterState.Sprinting:
-				char.playAnimation(AnimationNames.run, true);
+				char.playAnimation(config.runAnimation.name, true, config.runAnimation.speed ?? 1.0);
 				break;
 			default:
-				char.playAnimation(AnimationNames.idle, true);
+				char.playAnimation(config.idleAnimation.name, true, config.idleAnimation.speed ?? 1.0);
 				break;
 		}
 	}
@@ -507,8 +509,8 @@ class GameClient {
 				this.currentAnimState = '';           // animation finished — fall through to movement
 			} else if (isMoving) {
 				this.currentAnimState = '';           // movement cancels attack animation
-				this.localCharacter.playAnimation(
-					input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+				const m = input.isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+				this.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 				return;
 			} else {
 				return;                               // attack still playing, no movement — wait
@@ -525,10 +527,11 @@ class GameClient {
 
 		// currentAnimState === '' — normal movement/idle
 		if (isMoving) {
-			this.localCharacter.playAnimation(
-				input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+			const m = input.isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+			this.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 		} else {
-			this.localCharacter.playAnimation(AnimationNames.idle, true);
+			const idle = this.characterConfig.idleAnimation;
+			this.localCharacter.playAnimation(idle.name, true, idle.speed ?? 1.0);
 		}
 	}
 
@@ -557,8 +560,16 @@ class GameClient {
 					break;
 				case 'AttackStarted': {
 					const config = this.characterConfigMap.get(event.player_id);
-					const anim = config?.attackAnimations[event.chain_stage];
-					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					const entry = config?.attackAnimations[event.chain_stage];
+					if (entry) {
+						const char = this.getChar(event.player_id);
+						const speed = entry.speed ?? 1.0;
+						if (event.chain_stage > 0) {
+							char?.crossFadeTo(entry.name, false, speed, COMBAT_BLEND_DURATION);
+						} else {
+							char?.playAnimation(entry.name, false, speed);
+						}
+					}
 					if (event.player_id === this.localPlayerID) {
 						this.currentAnimState = 'attack';
 					} else {
@@ -568,8 +579,10 @@ class GameClient {
 				}
 				case 'SkillUsed': {
 					const config = this.characterConfigMap.get(event.player_id);
-					const anim = config?.skillAnimations[event.skill_slot - 1];
-					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					const entry = config?.skillAnimations[event.skill_slot - 1];
+					if (entry) {
+						this.getChar(event.player_id)?.playAnimation(entry.name, false, entry.speed ?? 1.0);
+					}
 					if (event.player_id === this.localPlayerID) {
 						this.currentAnimState = 'skill';
 					} else {
