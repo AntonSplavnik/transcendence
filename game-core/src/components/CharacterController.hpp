@@ -34,6 +34,7 @@ struct CharacterController {
 	bool canJump;
 	bool canMove;
 	bool canRotate;
+	float activeMovementMultiplier = 1.0f;  // applied by CharacterControllerSystem; reset to 1.0f when no cast
 
 	// Air control
 	float airControlFactor;     // How much control player has while airborne (0.0-1.0)
@@ -57,6 +58,7 @@ struct CharacterController {
 		, canJump(true)
 		, canMove(true)
 		, canRotate(true)
+		, activeMovementMultiplier(1.0f)
 		, airControlFactor(0.3f)
 		, acceleration(100.0f)
 		, deceleration(100.0f)

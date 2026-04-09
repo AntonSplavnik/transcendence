@@ -67,6 +67,11 @@ struct CombatController {
 	bool canAttack       = true;
 	bool canUseAbilities = true;
 
+	// ── Input buffer ─────────────────────────────────────────────────────────
+
+	enum class BufferedAction : uint8_t { None, Attack, Skill1, Skill2 };
+	BufferedAction bufferedAction = BufferedAction::None;
+
 	// ── Queries ──────────────────────────────────────────────────────────────
 
 	// Returns the stage that fires on the next attack input.
