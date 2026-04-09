@@ -41,6 +41,9 @@ frontend/dist/index.html: $(FRONTEND_SRC)
 dev: setup create-db
 	@echo "🛠️ Starting development environment..."
 	@$(MAKE) chrome-dev CHROME_URL=http://localhost:5173 &
+	@echo "⏳ Compiling backend..."
+	@cd backend && cargo build
+	@echo "✅ Backend compiled, starting services..."
 	@cd frontend && npm install && VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev & \
 		cd backend && cargo run
 

@@ -63,8 +63,8 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	Components::Transform& transform,
 	float deltaTime
 ) {
-	// Skip if movement is disabled
-	if (!controller.canMove) {
+	// Skip if movement is disabled or dead
+	if (!controller.canMove || controller.isDead()) {
 		return;
 	}
 
@@ -73,7 +73,7 @@ inline void CharacterControllerSystem::processCharacterMovement(
 
 	// Get movement input
 	Vector3D moveDir = controller.getMovementDirection();
-	float speed = controller.getEffectiveSpeed();
+	float speed = controller.getEffectiveSpeed() * controller.activeMovementMultiplier;
 
 	// Apply movement to horizontal velocity
 	if (controller.hasMovementInput()) {
@@ -90,7 +90,9 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		}
 
 		// Update state
-		controller.setState(CharacterState::Moving);
+		controller.setState(controller.input.isSprinting
+			? CharacterState::Sprinting
+			: CharacterState::Walking);
 	} else {
 		// No input - stop horizontal movement
 		if (physics.isGrounded) {
@@ -113,11 +115,6 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		// Calculate yaw from look direction
 		float yaw = std::atan2(lookDir.x, lookDir.z);
 		transform.setRotation(0.0f, yaw, 0.0f);
-	}
-
-	// Handle attacking state
-	if (controller.input.isAttacking) {
-		controller.setState(CharacterState::Attacking);
 	}
 
 	// Handle stunned/dead states (set by combat system)

@@ -19,6 +19,8 @@ mod bridge {
         Spawn = 3,
         StateChange = 4,
         MatchEnd = 5,
+        AttackStarted = 6,
+        SkillUsed = 7,
     }
 
     struct Vec3 {
@@ -73,11 +75,22 @@ mod bridge {
     struct SpawnEvent {
         player_id: u32,
         position: Vec3,
+        character_class: String,
     }
 
     struct StateChangeEvent {
         player_id: u32,
         state: u8,
+    }
+
+    struct AttackStartedEvent {
+        player_id: u32,
+        chain_stage: u8,
+    }
+
+    struct SkillUsedEvent {
+        player_id: u32,
+        skill_slot: u8,
     }
 
     unsafe extern "C++" {
@@ -92,7 +105,7 @@ mod bridge {
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
 
-        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str) -> bool;
+        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str, character_class: &str) -> bool;
         fn remove_player(self: Pin<&mut GameBridge>, id: u32) -> bool;
         fn set_player_input(self: Pin<&mut GameBridge>, id: u32, input: &PlayerInput);
 
@@ -106,6 +119,8 @@ mod bridge {
         fn get_damage_at(self: &EventQueue, idx: usize) -> DamageEvent;
         fn get_spawn_at(self: &EventQueue, idx: usize) -> SpawnEvent;
         fn get_state_change_at(self: &EventQueue, idx: usize) -> StateChangeEvent;
+        fn get_attack_started_at(self: &EventQueue, idx: usize) -> AttackStartedEvent;
+        fn get_skill_used_at(self: &EventQueue, idx: usize) -> SkillUsedEvent;
 
         fn take_events(self: Pin<&mut GameBridge>) -> UniquePtr<EventQueue>;
     }
@@ -143,6 +158,24 @@ pub enum CharacterClass {
     #[default]
     Knight,
     Rogue,
+}
+
+impl CharacterClass {
+    pub fn as_str(&self) -> &str {
+        match self {
+            CharacterClass::Knight => "knight",
+            CharacterClass::Rogue => "rogue",
+        }
+    }
+}
+
+impl From<&str> for CharacterClass {
+    fn from(s: &str) -> Self {
+        match s {
+            "rogue" => CharacterClass::Rogue,
+            _ => CharacterClass::Knight,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
@@ -241,12 +274,21 @@ pub enum NetworkEvent {
     Spawn {
         player_id: u32,
         position: Vector3D,
+        character_class: String,
     },
     StateChange {
         player_id: u32,
         state: u8,
     },
     MatchEnd,
+    AttackStarted {
+        player_id: u32,
+        chain_stage: u8,
+    },
+    SkillUsed {
+        player_id: u32,
+        skill_slot: u8,
+    },
 }
 
 // =============================================================================
@@ -284,8 +326,8 @@ impl GameHandle {
         self.game.get_player_count()
     }
 
-    pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
-        self.game.pin_mut().add_player(player_id, name)
+    pub fn add_player(&mut self, player_id: u32, name: &str, character_class: &str) -> bool {
+        self.game.pin_mut().add_player(player_id, name, character_class)
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
@@ -357,6 +399,7 @@ impl GameHandle {
                             y: e.position.y,
                             z: e.position.z,
                         },
+                        character_class: e.character_class.to_string(),
                     }
                 }
                 bridge::NetworkEventType::StateChange => {
@@ -367,6 +410,14 @@ impl GameHandle {
                     }
                 }
                 bridge::NetworkEventType::MatchEnd => NetworkEvent::MatchEnd,
+                bridge::NetworkEventType::AttackStarted => {
+                    let e = queue.get_attack_started_at(i);
+                    NetworkEvent::AttackStarted { player_id: e.player_id, chain_stage: e.chain_stage }
+                }
+                bridge::NetworkEventType::SkillUsed => {
+                    let e = queue.get_skill_used_at(i);
+                    NetworkEvent::SkillUsed { player_id: e.player_id, skill_slot: e.skill_slot }
+                }
                 _ => unreachable!(),
             })
             .collect()

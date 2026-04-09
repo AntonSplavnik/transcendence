@@ -19,12 +19,14 @@ export interface EquipmentSlot {
 
 export interface CharacterConfig {
 	label: string;
-	model: string; // character skin GLB (Vite URL)
-	animationSets: string[]; // animation GLBs loaded in order
+	model: string;
+	animationSets: string[];
 	equipment: EquipmentSlot[];
-	scale: number; // rootNode.scaling.setAll(scale) in-game
+	scale: number;
 	previewBgColor: string;
-	idleAnimation: string; // animation name to play in preview
+	idleAnimation: string;
+	attackAnimations: string[];  // [stage0, stage1, stage2, ...] — index = chain stage
+	skillAnimations:  string[];  // [skill1anim, skill2anim] — index = slot - 1
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
@@ -39,6 +41,15 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		scale: 1,
 		previewBgColor: '#18a880',
 		idleAnimation: 'Idle_A',
+		attackAnimations: [
+			'Melee_1H_Attack_Slice_Diagonal',    // stage 0
+			'Melee_1H_Attack_Slice_Horizontal',  // stage 1
+			'Melee_1H_Attack_Stab',              // stage 2
+		],
+		skillAnimations: [
+			'Melee_1H_Attack_Jump_Chop',  // skill1
+			'Melee_1H_Attack_Chop',       // skill2 — placeholder; replace with a distinct anim later
+		],
 	},
 	Rogue: {
 		label: 'Rogue',
@@ -51,5 +62,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		scale: 1,
 		previewBgColor: '#582880',
 		idleAnimation: 'Idle_A',
+		attackAnimations: ['Melee_Dualwield_Attack_Chop'],  // placeholder until Rogue chain is designed
+		skillAnimations:  ['Melee_Dualwield_Attack_Chop'],  // placeholder
 	},
 };

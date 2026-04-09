@@ -527,15 +527,11 @@ impl GameManager {
             }
         }
 
-        // Phase 4: sync — connect players to the C++ engine and broadcast PlayerJoined.
+        // Phase 4: sync — connect players to the C++ engine.
         // Done after stream setup so the engine and streams are ready together.
+        // The C++ engine signals player spawns via SpawnEvent, which carries name + character_class.
         for (uid, nick, character_class) in &players {
-            game.on_connect(*uid as u32, nick.as_ref());
-            game_streams.broadcast(&GameServerMessage::PlayerJoined {
-                player_id: *uid as u32,
-                name: nick.to_string(),
-                character_class: character_class.clone(),
-            });
+            game.on_connect(*uid as u32, nick.as_ref(), character_class.clone());
         }
 
         let lobby_weak = Arc::downgrade(&lobby_arc);

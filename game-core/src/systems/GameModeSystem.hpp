@@ -24,8 +24,7 @@ namespace ArenaGame {
 		bool needsLateUpdate() const override { return true; }
 		bool needsUpdate()     const override { return false; }
 
-		void setMode(std::unique_ptr<IGameMode> mode) { m_mode = std::move(mode); }
-		void setSpawner(ISpawner* spawner)             { m_spawner = spawner; }
+		void setSpawner(ISpawner* spawner) { m_spawner = spawner; }
 
 	private:
 		std::unique_ptr<IGameMode> m_mode;
@@ -33,10 +32,11 @@ namespace ArenaGame {
 	};
 
 	inline void GameModeSystem::startMode() {
-		if (!m_mode) return;
 		auto* gm    = m_registry->try_get<Components::GameModeComponent>(m_gameManager);
 		auto* stats = m_registry->try_get<Components::MatchStatsComponent>(m_gameManager);
 		if (!gm || !stats) return;
+		assert(gm->modeType != GameModeType::None && "GameMode was never set before startMode()");
+		m_mode = IGameMode::create(gm->modeType);
 		GameModeContext ctx { *m_registry, *m_spawner };
 		m_mode->onStart(ctx, *gm, *stats);
 	}

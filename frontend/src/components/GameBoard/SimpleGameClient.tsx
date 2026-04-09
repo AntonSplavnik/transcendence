@@ -39,14 +39,18 @@ interface InputState {
 	isAttacking: boolean;
 	isJumping: boolean;
 	isSprinting: boolean;
+	isUsingAbility1: boolean;
+	isUsingAbility2: boolean;
 }
 
 const CharacterState = {
 	Idle: 0,
-	Moving: 1,
-	Attacking: 2,
-	Stunned: 4,
-	Dead: 5,
+	Walking: 1,
+	Sprinting: 2,
+	Attacking: 3,
+	Casting: 4,
+	Stunned: 5,
+	Dead: 6,
 } as const;
 type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
@@ -66,6 +70,7 @@ const AnimationNames = {
 	attack: 'Melee_1H_Attack_Slice_Horizontal',
 	hit: 'Hit_A',
 	death: 'Death_A',
+	deathPose: 'Death_pose_A',
 	spawn: 'Spawn_Air',
 };
 
@@ -116,6 +121,8 @@ function tickJumpState(
 	return state;
 }
 
+type AnimState = '' | 'attack' | 'skill' | 'spawn';
+
 class GameClient {
 	private scene: Scene;
 	private localPlayerID: number;
@@ -124,10 +131,12 @@ class GameClient {
 	private localCharacter: AnimatedCharacter | null = null;
 	private position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	private camera: UniversalCamera;
-	private currentAnimState: string = 'idle';
+	private currentAnimState: AnimState = '';
 	private jumpState: JumpState = JumpState.GROUNDED;
+	private characterConfigMap: Map<number, CharacterConfig> = new Map();
 	private remoteJumpStates: Map<number, JumpState> = new Map();
 	private lastRemotePositions: Map<number, Vector3D> = new Map();
+	private remoteAnimStates: Map<number, AnimState> = new Map();
 	private characterConfig: CharacterConfig;
 	private characterClassesRef: RefObject<Map<number, string>>;
 	// Audio — engine + sound bank are owned by AudioProvider and injected via
@@ -138,6 +147,7 @@ class GameClient {
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
 	private cooldownBars: { attack: any; ability1: any; ability2: any } | null = null;
+	private localIsDead: boolean = false;
 
 	constructor(
 		scene: Scene,
@@ -170,6 +180,11 @@ class GameClient {
 		// local references. Scene ambient/music is stopped by SimpleGameClient
 		// via useGameAudio() in its cleanup.
 		this.audioEventSystem = null;
+	}
+
+	private getChar(playerID: number): AnimatedCharacter | null {
+		if (playerID === this.localPlayerID) return this.localCharacter;
+		return this.characters.get(playerID) ?? null;
 	}
 
 	private setupHUD(): void {
@@ -283,22 +298,11 @@ class GameClient {
 	async initLocalPlayer(): Promise<void> {
 		this.localCharacter = new AnimatedCharacter(this.scene);
 		await loadCharacter(this.localCharacter, this.characterConfig);
+		this.characterConfigMap.set(this.localPlayerID, this.characterConfig);
 
 		this.localCharacter.setPosition(this.position);
-		this.localCharacter.playAnimation('Spawn_Air', false);
-		setTimeout(() => {
-			this.currentAnimState = '';
-			this.playAnimation('idle');
-		}, 1500);
-	}
-
-	private playAnimation(state: string, loop: boolean = true): void {
-		if (this.currentAnimState === state) return;
-		const animName = AnimationNames[state as keyof typeof AnimationNames];
-		if (animName && this.localCharacter) {
-			this.localCharacter.playAnimation(animName, loop);
-			this.currentAnimState = state;
-		}
+		this.localCharacter.playAnimation(AnimationNames.spawn, false);
+		this.currentAnimState = 'spawn';
 	}
 
 	processSnapshot(snapshot: GameStateSnapshot) {
@@ -322,6 +326,18 @@ class GameClient {
 				if (this.localHealthFill) {
 					const pct = char.max_health > 0 ? char.health / char.max_health : 0;
 					this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+				}
+
+				if (char.state === CharacterState.Dead && !this.localIsDead && this.localCharacter) {
+					this.localIsDead = true;
+					const deathAnim = this.localCharacter.animations.get(AnimationNames.death);
+					this.localCharacter.playAnimation(AnimationNames.death, false);
+					if (deathAnim) {
+						deathAnim.onAnimationGroupEndObservable.addOnce(() => {
+							this.localCharacter?.playAnimation(AnimationNames.deathPose, false);
+						});
+					}
+					this.currentAnimState = '';
 				}
 
 				// Update cooldown bars
@@ -366,12 +382,21 @@ class GameClient {
 					);
 					remoteChar.setPosition(pos);
 					remoteChar.setRotation(char.yaw);
-					this.updateRemoteAnimation(char.player_id, remoteChar, char);
+					const remoteJumpState = this.remoteJumpStates.get(char.player_id) ?? JumpState.GROUNDED;
+					const isGrounded = char.position.y <= 1.1;
+					const newJumpState = tickJumpState(remoteChar, remoteJumpState, isGrounded, false);
+					this.remoteJumpStates.set(char.player_id, newJumpState);
+					const remoteConfig = this.characterConfigMap.get(char.player_id);
+					if (remoteConfig) this.updateSnapshotFallbackAnimation(char.player_id, remoteChar, char, remoteConfig, newJumpState);
 
 					const bar = this.enemyBars.get(char.player_id);
 					if (bar) {
-						const pct = char.max_health > 0 ? char.health / char.max_health : 0;
-						bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+						const isDead = char.state === CharacterState.Dead;
+						bar.bg.isVisible = !isDead;
+						if (!isDead) {
+							const pct = char.max_health > 0 ? char.health / char.max_health : 0;
+							bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+						}
 					}
 				}
 			}
@@ -389,6 +414,8 @@ class GameClient {
 			this.loadingCharacters.delete(playerID);
 			this.remoteJumpStates.delete(playerID);
 			this.lastRemotePositions.delete(playerID);
+			this.remoteAnimStates.delete(playerID);
+			this.characterConfigMap.delete(playerID);
 			const bar = this.enemyBars.get(playerID);
 			if (bar) {
 				bar.bg.dispose();
@@ -408,6 +435,7 @@ class GameClient {
 			const config =
 				(cls ? CHARACTER_CONFIGS[cls as keyof typeof CHARACTER_CONFIGS] : undefined) ??
 				CHARACTER_CONFIGS[DEFAULT_CHARACTER];
+			this.characterConfigMap.set(playerID, config);
 			await loadCharacter(remoteChar, config);
 
 			if (playerID === this.localPlayerID) {
@@ -421,7 +449,8 @@ class GameClient {
 			remoteChar.setRotation(charData.yaw);
 			this.characters.set(playerID, remoteChar);
 			this.remoteJumpStates.set(playerID, JumpState.GROUNDED);
-			remoteChar.playAnimation(AnimationNames.idle, true);
+			this.remoteAnimStates.set(playerID, 'spawn');
+			remoteChar.playAnimation(AnimationNames.spawn, false);
 			this.createEnemyBar(playerID);
 		} catch (error) {
 			console.error(`Failed to load remote character ${playerID}:`, error);
@@ -430,53 +459,70 @@ class GameClient {
 		}
 	}
 
-	private updateRemoteAnimation(
+	private updateSnapshotFallbackAnimation(
 		playerID: number,
-		character: AnimatedCharacter,
+		char: AnimatedCharacter,
 		charData: CharacterSnapshot,
+		config: CharacterConfig,
+		jumpState: JumpState,
 	): void {
-		const isGrounded = charData.position.y <= 1.1;
-		const speed = Math.sqrt(
-			charData.velocity.x * charData.velocity.x + charData.velocity.z * charData.velocity.z,
-		);
-
-		const jumpState = tickJumpState(
-			character,
-			this.remoteJumpStates.get(playerID) ?? JumpState.GROUNDED,
-			isGrounded,
-			false,
-		);
-		this.remoteJumpStates.set(playerID, jumpState);
 		if (jumpState !== JumpState.GROUNDED) return;
+
+		// Guard: event-driven animation still playing — don't override with snapshot state.
+		// Same pattern as currentAnimState for local player.
+		const remoteState = this.remoteAnimStates.get(playerID) ?? '';
+		if (remoteState !== '') {
+			if (!(char.currentAnimation?.isPlaying)) {
+				this.remoteAnimStates.set(playerID, '');
+			} else {
+				return;
+			}
+		}
 
 		switch (charData.state) {
 			case CharacterState.Attacking:
-				character.playAnimation(AnimationNames.attack, true);
+				// Fallback for latecomers who missed the AttackStarted event.
+				// Always plays attackAnimations[0] — snapshot has no chain stage.
+				if (!char.currentAnimation?.isPlaying)
+					char.playAnimation(config.attackAnimations[0], true);
 				break;
-			case CharacterState.Stunned:
-				character.playAnimation(AnimationNames.hit, false);
+			case CharacterState.Casting:
+				// Fallback for latecomers who missed the SkillUsed event.
+				// Always plays skillAnimations[0] — snapshot has no skill slot.
+				if (!char.currentAnimation?.isPlaying)
+					char.playAnimation(config.skillAnimations[0], true);
 				break;
 			case CharacterState.Dead:
-				character.playAnimation(AnimationNames.death, false);
+				if (char.animationName !== AnimationNames.death &&
+					char.animationName !== AnimationNames.deathPose) {
+					const deathAnim = char.animations.get(AnimationNames.death);
+					char.playAnimation(AnimationNames.death, false);
+					if (deathAnim) {
+						deathAnim.onAnimationGroupEndObservable.addOnce(() => {
+							char.playAnimation(AnimationNames.deathPose, false);
+						});
+					}
+				}
 				break;
-			case CharacterState.Moving:
-				character.playAnimation(
-					speed > 10 ? AnimationNames.run : AnimationNames.walk,
-					true,
-				);
+			case CharacterState.Stunned:
+				char.playAnimation(AnimationNames.hit, false);
 				break;
-			case CharacterState.Idle:
+			case CharacterState.Walking:
+				char.playAnimation(AnimationNames.walk, true);
+				break;
+			case CharacterState.Sprinting:
+				char.playAnimation(AnimationNames.run, true);
+				break;
 			default:
-				character.playAnimation(AnimationNames.idle, true);
+				char.playAnimation(AnimationNames.idle, true);
 				break;
 		}
 	}
 
 	updateLocalAnimation(input: InputState): void {
-		if (!this.localCharacter) return;
+		if (!this.localCharacter || this.localIsDead) return;
 
 		const isGrounded = this.position.y <= 1.1;
-		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
 		// Trigger audio for local player input
 		this.audioEventSystem?.onLocalInput(
@@ -498,25 +544,44 @@ class GameClient {
 		);
 		if (this.jumpState !== JumpState.GROUNDED) return;
 
-		const attackAnim = this.localCharacter.animations.get(AnimationNames.attack);
-		const isAttackPlaying = attackAnim?.isPlaying ?? false;
+		const isPlaying = this.localCharacter.currentAnimation?.isPlaying ?? false;
+		const isMoving  = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
 
-		// Reset state tracker when attack animation finishes naturally so it can replay
-		if (this.currentAnimState === 'attack' && !isAttackPlaying) {
-			this.currentAnimState = '';
+		if (this.currentAnimState === 'spawn') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // spawn finished — fall through to movement
+			} else {
+				return;                               // spawn plays to completion
+			}
 		}
 
-		if (isAttackPlaying && isMoving) {
-			// Movement cancels the attack animation
-			this.playAnimation(input.isSprinting ? 'run' : 'walk');
-		} else if (isAttackPlaying) {
-			// Attack animation is playing — let it finish, pressing attack again keeps it going
-		} else if (input.isAttacking) {
-			this.playAnimation('attack', false); // non-looped: play once to completion
-		} else if (isMoving) {
-			this.playAnimation(input.isSprinting ? 'run' : 'walk');
+		if (this.currentAnimState === 'attack') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // animation finished — fall through to movement
+			} else if (isMoving) {
+				this.currentAnimState = '';           // movement cancels attack animation
+				this.localCharacter.playAnimation(
+					input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
+				return;
+			} else {
+				return;                               // attack still playing, no movement — wait
+			}
+		}
+
+		if (this.currentAnimState === 'skill') {
+			if (!isPlaying) {
+				this.currentAnimState = '';           // cast finished — fall through to movement
+			} else {
+				return;                               // skill plays to completion; movement does not cancel
+			}
+		}
+
+		// currentAnimState === '' — normal movement/idle
+		if (isMoving) {
+			this.localCharacter.playAnimation(
+				input.isSprinting ? AnimationNames.run : AnimationNames.walk, true);
 		} else {
-			this.playAnimation('idle');
+			this.localCharacter.playAnimation(AnimationNames.idle, true);
 		}
 	}
 
@@ -534,7 +599,6 @@ class GameClient {
 			switch (event.type) {
 				case 'Death':
 					console.debug('[Game] Death: killer=%d victim=%d', event.killer, event.victim);
-					// TODO: play death animation on victim, show kill feed
 					break;
 				case 'Damage':
 					console.debug(
@@ -547,7 +611,13 @@ class GameClient {
 					break;
 				case 'Spawn':
 					console.debug('[Game] Spawn: player=%d', event.player_id);
-					// TODO: play spawn effect / reset character state
+					this.getChar(event.player_id)?.playAnimation(AnimationNames.spawn, false);
+					if (event.player_id === this.localPlayerID) {
+						this.localIsDead = false;
+						this.currentAnimState = 'spawn';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'spawn');
+					}
 					break;
 				case 'StateChange':
 					console.debug(
@@ -557,9 +627,30 @@ class GameClient {
 					);
 					// TODO: trigger state-specific animation
 					break;
+				case 'AttackStarted': {
+					const config = this.characterConfigMap.get(event.player_id);
+					const anim = config?.attackAnimations[event.chain_stage];
+					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					if (event.player_id === this.localPlayerID) {
+						this.currentAnimState = 'attack';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'attack');
+					}
+					break;
+				}
+				case 'SkillUsed': {
+					const config = this.characterConfigMap.get(event.player_id);
+					const anim = config?.skillAnimations[event.skill_slot - 1];
+					if (anim) this.getChar(event.player_id)?.playAnimation(anim, false);
+					if (event.player_id === this.localPlayerID) {
+						this.currentAnimState = 'skill';
+					} else {
+						this.remoteAnimStates.set(event.player_id, 'skill');
+					}
+					break;
+				}
 				case 'MatchEnd':
 					console.debug('[Game] MatchEnd');
-					// TODO: show match-end screen
 					break;
 			}
 		}
@@ -571,7 +662,7 @@ class GameClient {
 interface Props {
 	/** Ref to the latest GameStateSnapshot. Read in the Babylon render loop — NOT React state. */
 	snapshotRef: RefObject<GameStateSnapshot | null>;
-	/** Ref mapping player_id → character_class string. Populated from PlayerJoined messages. */
+	/** Ref mapping player_id → character_class string. Populated from Spawn events. */
 	characterClassesRef: RefObject<Map<number, string>>;
 	/** Ref containing queued game events. Drained each frame by the Babylon render loop. */
 	eventsRef: RefObject<GameEvent[]>;
@@ -581,6 +672,8 @@ interface Props {
 		attacking: boolean,
 		jumping: boolean,
 		sprinting: boolean,
+		ability1: boolean,
+		ability2: boolean,
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
@@ -764,6 +857,8 @@ export default function SimpleGameClient({
 				isAttacking: false,
 				isJumping: false,
 				isSprinting: false,
+				isUsingAbility1: false,
+				isUsingAbility2: false,
 			};
 			const keysPressed = new Set<string>();
 
@@ -776,6 +871,10 @@ export default function SimpleGameClient({
 						!(kbInfo.event as KeyboardEvent).repeat
 					)
 						input.isAttacking = true;
+					if (kbInfo.event.key.toLowerCase() === 'q' && !(kbInfo.event as KeyboardEvent).repeat)
+						input.isUsingAbility1 = true;
+					if (kbInfo.event.key.toLowerCase() === 'f' && !(kbInfo.event as KeyboardEvent).repeat)
+						input.isUsingAbility2 = true;
 				} else if (kbInfo.type === 2) {
 					keysPressed.delete(kbInfo.event.key.toLowerCase());
 				}
@@ -877,8 +976,12 @@ export default function SimpleGameClient({
 					input.isAttacking,
 					input.isJumping,
 					input.isSprinting,
+					input.isUsingAbility1,
+					input.isUsingAbility2,
 				);
 				input.isAttacking = false;
+				input.isUsingAbility1 = false;
+				input.isUsingAbility2 = false;
 
 				scene.render();
 			});
