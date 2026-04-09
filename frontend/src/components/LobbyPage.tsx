@@ -18,10 +18,10 @@ import {
 // ─── Game modes ───────────────────────────────────────────────────────────────
 
 const GAME_MODES = [
-	{ id: 'deathmatch', label: 'Deathmatch' },
-	{ id: 'last_standing', label: 'Last Standing' },
-	{ id: 'wave_survival', label: 'Wave Survival' },
-	{ id: 'team_deathmatch', label: 'Team Deathmatch' },
+	{ id: 'Deathmatch', label: 'Deathmatch' },
+	{ id: 'LastStanding', label: 'Last Standing' },
+	{ id: 'WaveSurvival', label: 'Wave Survival' },
+	{ id: 'TeamDeathmatch', label: 'Team Deathmatch' },
 ] as const;
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
@@ -207,9 +207,9 @@ export default function LobbyPage() {
 			<ChevronLeft className="w-4 h-4" aria-hidden="true" />
 			Home
 		</Link>
-		<main className="max-w-screen-xl mx-auto w-full flex flex-col" style={{ height: 'calc(100vh / 1.12)', zoom: 1.12, overflow: 'hidden' }}>
+		<main className="max-w-screen-xl mx-auto w-full flex flex-col gap-4 pt-4 px-4" style={{ height: 'calc(100vh / 1.12)', zoom: 1.12, overflow: 'hidden' }}>
 			{/* ── Top bar ──────────────────────────────────────────────────── */}
-			<div className="flex items-center justify-between gap-6 px-4 py-3 bg-stone-900 border-b border-stone-800 rounded-t-2xl">
+			<div className="flex items-center justify-between gap-6 px-4 py-3 bg-stone-900 rounded-2xl">
 				{/* Left: name + code (aligned with panel below) */}
 				<div className="flex flex-col gap-1.5 min-w-0 shrink-0">
 					<div className="flex items-center gap-2">
@@ -314,7 +314,7 @@ export default function LobbyPage() {
 
 			{/* ── Game mode row ─────────────────────────────────────────────── */}
 			{!gameActive && (
-				<div className="flex items-center gap-4 px-6 py-3 bg-stone-950 border-b border-stone-800">
+				<div className="flex items-center gap-4 px-4 py-3 bg-stone-950 rounded-2xl border border-stone-800">
 					<span className="text-xs text-stone-500 uppercase tracking-widest shrink-0">
 						Game Mode
 					</span>
@@ -347,10 +347,7 @@ export default function LobbyPage() {
 
 			{/* ── Character selector ────────────────────────────────────────── */}
 			{isPlayer && !gameActive && (
-				<div className="mx-4 my-3 h-px bg-stone-800" />
-			)}
-			{isPlayer && !gameActive && (
-				<div className="flex min-h-0" style={{ maxHeight: '480px' }}>
+				<div className="flex min-h-0 rounded-2xl overflow-hidden mt-3" style={{ maxHeight: '480px' }}>
 					<CharacterSelector
 						value={selectedCharacter}
 						onChange={handleCharacterChange}

@@ -40,6 +40,9 @@ export interface ModelPreviewProps {
 	initialRotationY?: number;
 }
 
+const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 1.0, 3.5];
+const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 0.7, 0];
+
 function hexToColor4(hex: string): Color4 {
 	const h = hex.replace('#', '');
 	const r = parseInt(h.slice(0, 2), 16) / 255;
@@ -55,8 +58,8 @@ export default function ModelPreview({
 	rotationSpeed = 0.008,
 	draggable = false,
 	transparent = false,
-	cameraPosition = [0, 1.0, 3.5],
-	cameraTarget = [0, 0.7, 0],
+	cameraPosition = DEFAULT_CAMERA_POSITION,
+	cameraTarget = DEFAULT_CAMERA_TARGET,
 	initialRotationY = 0,
 }: ModelPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);

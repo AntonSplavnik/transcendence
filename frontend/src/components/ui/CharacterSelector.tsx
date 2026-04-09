@@ -13,7 +13,7 @@ export default function CharacterSelector({ value, onChange }: CharacterSelector
 	const cfg = value ? CHARACTER_CONFIGS[value] : null;
 
 	return (
-		<div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl">
+		<div className="flex min-h-0 flex-1 overflow-hidden">
 			{/* Left: portrait grid */}
 			<ChampionGrid value={value} onChange={onChange} />
 

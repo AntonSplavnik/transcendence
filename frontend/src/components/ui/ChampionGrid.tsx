@@ -4,7 +4,7 @@ import type { CharacterChoice } from '@/game/characterConfigs';
 import ModelPreview from './ModelPreview';
 
 const TOTAL_SLOTS = 6;
-const GRID_CAM_POS: [number, number, number] = [0, 1, 1.5];
+const GRID_CAM_POS: [number, number, number] = [0, 1, 1.3];
 const GRID_CAM_TARGET: [number, number, number] = [0, 1, 0];
 
 export interface ChampionGridProps {
