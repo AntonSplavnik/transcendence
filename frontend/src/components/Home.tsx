@@ -1,10 +1,20 @@
-import { ChevronDown, LogOut, Monitor, Pen, Shield, User as UserIcon, Users } from 'lucide-react';
+import {
+	ChevronDown,
+	LogOut,
+	Monitor,
+	Pen,
+	Shield,
+	User as UserIcon,
+	Users,
+	Volume2,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
+import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import EditUserModal from './modals/EditUserModal';
 import JoinByCodeModal from './modals/JoinByCodeModal';
@@ -34,6 +44,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 	const { lobbyState } = useLobby();
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
+	const [showAudioSettings, setShowAudioSettings] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
 	const [showLobbyList, setShowLobbyList] = useState(false);
 	const [showCreateLobby, setShowCreateLobby] = useState(false);
@@ -116,6 +127,13 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 						onClick={() => setShowEditProfile(true)}
 					>
 						Edit Profile
+					</DropdownItem>
+
+					<DropdownItem
+						icon={<Volume2 className="w-4 h-4" />}
+						onClick={() => setShowAudioSettings(true)}
+					>
+						Audio Settings
 					</DropdownItem>
 
 					<DropdownItem
@@ -266,6 +284,11 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
+			)}
+
+			{/* Audio settings Modal */}
+			{showAudioSettings && (
+				<AudioSettingsModal onClose={() => setShowAudioSettings(false)} />
 			)}
 
 			{/* Lobby modals */}

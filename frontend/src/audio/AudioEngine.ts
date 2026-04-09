@@ -3,61 +3,78 @@ import type { AudioEngineV2, AudioBus, MainAudioBus } from '@babylonjs/core/Audi
 import type { Node } from '@babylonjs/core/node';
 
 export class GameAudioEngine {
-  private engine: AudioEngineV2 | null = null;
-  private masterBus: MainAudioBus | null = null;
-  private buses = new Map<string, AudioBus>();
-  private initialized = false;
+	private engine: AudioEngineV2 | null = null;
+	private masterBus: MainAudioBus | null = null;
+	private buses = new Map<string, AudioBus>();
+	private initialized = false;
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
+	async initialize(): Promise<void> {
+		if (this.initialized) return;
 
-    this.engine = await CreateAudioEngineAsync({
-      listenerEnabled: true,
-    });
+		this.engine = await CreateAudioEngineAsync({
+			listenerEnabled: true,
+		});
 
-    this.masterBus = await this.engine.createMainBusAsync('master');
+		this.masterBus = await this.engine.createMainBusAsync('master');
 
-    const sfxBus = await this.engine.createBusAsync('sfx', { outBus: this.masterBus, volume: 1.2 });
-    const musicBus = await this.engine.createBusAsync('music', { outBus: this.masterBus, volume: 0.5 });
-    const ambientBus = await this.engine.createBusAsync('ambient', { outBus: this.masterBus, volume: 1.0 });
-    const uiBus = await this.engine.createBusAsync('ui', { outBus: this.masterBus, volume: 0.7 });
+		const sfxBus = await this.engine.createBusAsync('sfx', {
+			outBus: this.masterBus,
+			volume: 1.2,
+		});
+		const musicBus = await this.engine.createBusAsync('music', {
+			outBus: this.masterBus,
+			volume: 0.5,
+		});
+		const ambientBus = await this.engine.createBusAsync('ambient', {
+			outBus: this.masterBus,
+			volume: 1.0,
+		});
+		const uiBus = await this.engine.createBusAsync('ui', {
+			outBus: this.masterBus,
+			volume: 0.7,
+		});
 
-    this.buses.set('sfx', sfxBus);
-    this.buses.set('music', musicBus);
-    this.buses.set('ambient', ambientBus);
-    this.buses.set('ui', uiBus);
+		this.buses.set('sfx', sfxBus);
+		this.buses.set('music', musicBus);
+		this.buses.set('ambient', ambientBus);
+		this.buses.set('ui', uiBus);
 
-    this.initialized = true;
-  }
+		this.initialized = true;
+	}
 
-  getEngine(): AudioEngineV2 {
-    if (!this.engine) throw new Error('GameAudioEngine not initialized');
-    return this.engine;
-  }
+	getEngine(): AudioEngineV2 {
+		if (!this.engine) throw new Error('GameAudioEngine not initialized');
+		return this.engine;
+	}
 
-  getBus(name: string): AudioBus {
-    const bus = this.buses.get(name);
-    if (!bus) return this.buses.get('sfx')!;
-    return bus;
-  }
+	getBus(name: string): AudioBus {
+		const bus = this.buses.get(name);
+		if (!bus) return this.buses.get('sfx')!;
+		return bus;
+	}
 
-  attachListenerToCamera(camera: Node): void {
-    if (this.engine) {
-      this.engine.listener.attach(camera);
-    }
-  }
+	attachListenerToCamera(camera: Node): void {
+		if (this.engine) {
+			this.engine.listener.attach(camera);
+		}
+	}
 
-  isInitialized(): boolean {
-    return this.initialized;
-  }
+	/** Set the master bus volume (0 silences everything downstream). */
+	setMasterVolume(volume: number): void {
+		if (this.masterBus) this.masterBus.volume = volume;
+	}
 
-  dispose(): void {
-    if (this.engine) {
-      this.engine.dispose();
-      this.engine = null;
-      this.masterBus = null;
-      this.buses.clear();
-      this.initialized = false;
-    }
-  }
+	isInitialized(): boolean {
+		return this.initialized;
+	}
+
+	dispose(): void {
+		if (this.engine) {
+			this.engine.dispose();
+			this.engine = null;
+			this.masterBus = null;
+			this.buses.clear();
+			this.initialized = false;
+		}
+	}
 }
