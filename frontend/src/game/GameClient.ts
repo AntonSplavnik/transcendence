@@ -23,6 +23,7 @@ export class GameClient {
 	private camera: UniversalCamera;
 	private characterConfig: CharacterConfig;
 	private audioEventSystem: AudioEventSystem | null = null;
+	private audioEngine: GameAudioEngine | null = null;
 	private localAbility1Timer: number = 0;
 	private localAbility2Timer: number = 0;
 
@@ -50,7 +51,7 @@ export class GameClient {
 		);
 
 		if (audioEngine && soundBank) {
-			audioEngine.attachListenerToCamera(camera);
+			this.audioEngine = audioEngine;
 			const aes = new AudioEventSystem(audioEngine, soundBank);
 			aes.setCharacterClass(characterConfig.label.toLowerCase());
 			this.audioEventSystem = aes;
@@ -59,6 +60,11 @@ export class GameClient {
 
 	async initLocalPlayer(): Promise<void> {
 		await this.mgr.initLocalPlayer(this.characterConfig);
+		// Attach audio listener to the player (not the camera) so spatial
+		// sounds are relative to the player's position -- standard for isometric games.
+		if (this.audioEngine && this.mgr.localCharacter) {
+			this.audioEngine.attachListener(this.mgr.localCharacter.rootNode);
+		}
 	}
 
 	playSpawnAnimation(): void {

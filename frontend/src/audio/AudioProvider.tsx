@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Node } from '@babylonjs/core/node';
 import { GameAudioEngine } from './AudioEngine';
+import type { BusName } from './AudioEngine';
 import { SoundBank } from './SoundBank';
 import { loadAudioSettings } from './audioSettings';
 
-export type BusName = 'sfx' | 'music' | 'ambient' | 'ui';
+export type { BusName };
 
 /** UI-facing audio API: menu music, UI clicks, notifications, settings modal. */
 export interface AudioHandle {
@@ -81,7 +82,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 				if (sfxBus) sfxBus.volume = settings.inGameVolume;
 				if (ambientBus) ambientBus.volume = settings.inGameVolume;
 				engine.setMasterVolume(settings.muted ? 0 : 1);
-				console.debug('[AudioProvider] engine + sound bank initialised');
 				setEngine(engine);
 				setBank(bank);
 				setIsReady(true);
@@ -89,6 +89,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			.catch((err) => console.warn('[AudioProvider] init failed', err));
 
 		return () => {
+			bank.dispose();
 			engine.dispose();
 			engineRef.current = null;
 			bankRef.current = null;
@@ -112,19 +113,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			if (interactive instanceof HTMLButtonElement && interactive.disabled) return;
 			if (interactive.getAttribute('aria-disabled') === 'true') return;
 
-			// Inline dispatch — refs are stable across renders, no closure staleness.
 			const engine = engineRef.current;
 			const bank = bankRef.current;
 			if (!engine?.isInitialized() || !bank) return;
-			const sound = bank.getRandomSound('ui_click');
-			if (!sound) return;
-			const def = bank.getDefinition('ui_click');
-			if (def) {
-				sound.volume = def.volume.min + Math.random() * (def.volume.max - def.volume.min);
-				sound.playbackRate =
-					def.pitch.min + Math.random() * (def.pitch.max - def.pitch.min);
-			}
-			sound.play();
+			bank.playRandomised('ui_click');
 		};
 		document.addEventListener('click', handler, true);
 		return () => document.removeEventListener('click', handler, true);
@@ -163,11 +155,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		if (!engine?.isInitialized() || !bank) return;
 		if (currentMusicIdRef.current === soundId) return;
 		if (currentMusicRef.current) {
-			console.debug(
-				'[AudioProvider] switching music: %s → %s',
-				currentMusicIdRef.current,
-				soundId,
-			);
 			currentMusicRef.current.stop();
 			currentMusicRef.current = null;
 			currentMusicIdRef.current = null;
@@ -183,7 +170,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		sound.play();
 		currentMusicRef.current = sound;
 		currentMusicIdRef.current = soundId;
-		console.debug('[AudioProvider] playing music: %s', soundId);
 	};
 
 	const stopMusicImpl = (): void => {
@@ -193,13 +179,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		currentMusicIdRef.current = null;
 	};
 
-	const handle: AudioContextValue = {
+	const handle: AudioContextValue = useMemo(() => ({
 		isReady,
 		engine,
 		soundBank: bank,
 
-		attachListener(camera: Node): void {
-			engineRef.current?.attachListenerToCamera(camera);
+		attachListener(node: Node): void {
+			engineRef.current?.attachListener(node);
 		},
 
 		playSceneAmbient: playAmbientImpl,
@@ -211,15 +197,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			const engine = engineRef.current;
 			const bank = bankRef.current;
 			if (!engine?.isInitialized() || !bank) return;
-			const sound = bank.getRandomSound(soundId);
-			if (!sound) return;
-			const def = bank.getDefinition(soundId);
-			if (def) {
-				sound.volume = def.volume.min + Math.random() * (def.volume.max - def.volume.min);
-				sound.playbackRate =
-					def.pitch.min + Math.random() * (def.pitch.max - def.pitch.min);
-			}
-			sound.play();
+			bank.playRandomised(soundId);
 		},
 
 		playMusic: playMusicImpl,
@@ -239,7 +217,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			if (!engine?.isInitialized()) return;
 			engine.setMasterVolume(muted ? 0 : 1);
 		},
-	};
+	}), [isReady, engine, bank]);
 
 	return <AudioCtx.Provider value={handle}>{children}</AudioCtx.Provider>;
 }

@@ -1,4 +1,3 @@
-import type { Vector3D } from './types';
 
 // ── Character state enum (mirrors backend) ──────────────────────────
 
@@ -46,14 +45,8 @@ export const AnimationNames = {
 
 // ── Input ───────────────────────────────────────────────────────────
 
-export interface InputState {
-	movementDirection: Vector3D;
-	isAttacking: boolean;
-	isJumping: boolean;
-	isSprinting: boolean;
-	isUsingAbility1: boolean;
-	isUsingAbility2: boolean;
-}
+// InputState is defined in game/types.ts (single source of truth)
+export type { InputState } from './types';
 
 /**
  * Precomputed isometric directions (camera rotated 45deg around Y).

@@ -77,11 +77,11 @@ export class AudioEventSystem {
 					const vol = trigger.volume;
 					const timer = setTimeout(() => {
 						this.pendingTimers.delete(timer);
-						if (!this.disposed) this.playSoundAt(sid, position, vol, undefined, true);
+						if (!this.disposed) this.playSoundAt(sid, position, vol);
 					}, trigger.delayMs);
 					this.pendingTimers.add(timer);
 				} else {
-					this.playSoundAt(trigger.soundId, position, trigger.volume, undefined, true);
+					this.playSoundAt(trigger.soundId, position, trigger.volume);
 				}
 			}
 		}
@@ -99,7 +99,7 @@ export class AudioEventSystem {
 			if (now - last < trigger.intervalMs) continue;
 
 			this.continuousTimers.set(trigger.soundId, now);
-			this.playSoundAt(trigger.soundId, position, trigger.volume, undefined, true);
+			this.playSoundAt(trigger.soundId, position, trigger.volume);
 		}
 	}
 
@@ -158,7 +158,6 @@ export class AudioEventSystem {
 		position: Vector3D,
 		overrideVolume?: number,
 		overridePitch?: number,
-		disableSpatial?: boolean,
 	): void {
 		const resolved = this.resolveSoundId(soundId);
 		const def = this.soundBank.getDefinition(resolved);
@@ -169,16 +168,13 @@ export class AudioEventSystem {
 		if (now - lastPlay < def.cooldown) return;
 		this.lastPlayTimes.set(resolved, now);
 
-		// Use the non-spatial local copy for local player sounds
-		const lookupId = disableSpatial ? `${resolved}:local` : resolved;
-		const sound = this.soundBank.getRandomSound(lookupId)
-			?? this.soundBank.getRandomSound(resolved);
+		const sound = this.soundBank.getRandomSound(resolved);
 		if (!sound) return;
 
 		sound.volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);
 		sound.playbackRate = overridePitch ?? randomRange(def.pitch.min, def.pitch.max);
 
-		if (def.spatial && !disableSpatial) {
+		if (def.spatial) {
 			sound.spatial.position = new Vector3(position.x, position.y, position.z);
 		}
 

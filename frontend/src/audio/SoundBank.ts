@@ -9,8 +9,10 @@ export interface SoundDefinition {
 	pitch: { min: number; max: number };
 	bus: 'sfx' | 'music' | 'ambient' | 'ui';
 	spatial: boolean;
-	maxDistance: number;
-	minDistance: number;
+	/** Only used when spatial is true. */
+	maxDistance?: number;
+	/** Only used when spatial is true. */
+	minDistance?: number;
 	cooldown: number;
 	priority: number;
 	maxInstances: number;
@@ -47,31 +49,21 @@ export class SoundBank {
 		const bus = engine.getBus(def.bus);
 		const variations: StaticSound[] = [];
 
-		const localVariations: StaticSound[] = [];
-
 		for (const url of def.variations) {
 			try {
 				const sound = await audioEngine.createSoundAsync(def.id, url, {
 					outBus: bus,
 					maxInstances: def.maxInstances,
 					spatialEnabled: def.spatial,
-					spatialMinDistance: def.minDistance,
-					spatialMaxDistance: def.maxDistance,
-					spatialDistanceModel: 'inverse',
-					spatialPanningModel: 'HRTF',
+					...(def.spatial && {
+						spatialMinDistance: def.minDistance ?? 2,
+						spatialMaxDistance: def.maxDistance ?? 50,
+						spatialDistanceModel: 'inverse' as const,
+						spatialPanningModel: 'equalpower' as const,
+					}),
 				});
 				variations.push(sound);
 				this.loadedFromFile.add(def.id);
-
-				// For spatial sounds, also create a non-spatial copy for local playback
-				if (def.spatial) {
-					const localSound = await audioEngine.createSoundAsync(def.id, url, {
-						outBus: bus,
-						maxInstances: def.maxInstances,
-						spatialEnabled: false,
-					});
-					localVariations.push(localSound);
-				}
 			} catch {
 				console.warn(
 					`Failed to load sound "${def.id}" from ${url}, using procedural fallback`,
@@ -82,9 +74,6 @@ export class SoundBank {
 		}
 
 		this.sounds.set(def.id, variations);
-		if (localVariations.length > 0) {
-			this.sounds.set(`${def.id}:local`, localVariations);
-		}
 	}
 
 	private async createProceduralFallback(
@@ -134,10 +123,12 @@ export class SoundBank {
 				outBus: bus,
 				maxInstances: def.maxInstances,
 				spatialEnabled: def.spatial,
-				spatialMinDistance: def.minDistance,
-				spatialMaxDistance: def.maxDistance,
-				spatialDistanceModel: 'inverse',
-				spatialPanningModel: 'HRTF',
+				...(def.spatial && {
+					spatialMinDistance: def.minDistance ?? 2,
+					spatialMaxDistance: def.maxDistance ?? 50,
+					spatialDistanceModel: 'inverse' as const,
+					spatialPanningModel: 'equalpower' as const,
+				}),
 			});
 		} catch (err) {
 			console.warn(`Failed to create procedural fallback for "${id}":`, err);
@@ -158,5 +149,28 @@ export class SoundBank {
 		const variations = this.sounds.get(id);
 		if (!variations || variations.length === 0) return undefined;
 		return variations[Math.floor(Math.random() * variations.length)];
+	}
+
+	/** Pick a random variation, apply randomised volume/pitch from the definition, and play. */
+	playRandomised(id: string): void {
+		const sound = this.getRandomSound(id);
+		if (!sound) return;
+		const def = this.definitions.get(id);
+		if (def) {
+			sound.volume = def.volume.min + Math.random() * (def.volume.max - def.volume.min);
+			sound.playbackRate = def.pitch.min + Math.random() * (def.pitch.max - def.pitch.min);
+		}
+		sound.play();
+	}
+
+	dispose(): void {
+		for (const variations of this.sounds.values()) {
+			for (const sound of variations) {
+				sound.dispose();
+			}
+		}
+		this.sounds.clear();
+		this.definitions.clear();
+		this.loadedFromFile.clear();
 	}
 }

@@ -2,10 +2,12 @@ import { CreateAudioEngineAsync } from '@babylonjs/core/AudioV2/webAudio/webAudi
 import type { AudioEngineV2, AudioBus, MainAudioBus } from '@babylonjs/core/AudioV2';
 import type { Node } from '@babylonjs/core/node';
 
+export type BusName = 'sfx' | 'music' | 'ambient' | 'ui';
+
 export class GameAudioEngine {
 	private engine: AudioEngineV2 | null = null;
 	private masterBus: MainAudioBus | null = null;
-	private buses = new Map<string, AudioBus>();
+	private buses = new Map<BusName, AudioBus>();
 	private initialized = false;
 
 	async initialize(): Promise<void> {
@@ -47,13 +49,16 @@ export class GameAudioEngine {
 		return this.engine;
 	}
 
-	getBus(name: string): AudioBus {
+	getBus(name: BusName): AudioBus {
 		const bus = this.buses.get(name);
-		if (!bus) return this.buses.get('sfx')!;
+		if (!bus) {
+			console.warn(`[GameAudioEngine] Unknown bus "${name}", falling back to "sfx"`);
+			return this.buses.get('sfx')!;
+		}
 		return bus;
 	}
 
-	attachListenerToCamera(camera: Node): void {
+	attachListener(camera: Node): void {
 		if (this.engine) {
 			this.engine.listener.attach(camera);
 		}

@@ -31,19 +31,10 @@ export default function MusicController() {
 	const audio = useUIAudio();
 
 	useEffect(() => {
-		if (!audio.isReady) {
-			console.debug('[MusicController] audio not ready yet, pathname=%s', pathname);
-			return;
-		}
+		if (!audio.isReady) return;
 
 		const desiredMusic = resolveMusic(pathname);
 		const desiredAmbient = resolveAmbient(pathname);
-		console.debug(
-			'[MusicController] pathname=%s → music=%s ambient=%s',
-			pathname,
-			desiredMusic ?? '(none)',
-			desiredAmbient ?? '(none)',
-		);
 
 		if (desiredMusic) audio.playMusic(desiredMusic);
 		else audio.stopMusic();

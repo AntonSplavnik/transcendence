@@ -1,16 +1,6 @@
-import type { CharacterSnapshot, GameEvent, Vector3D } from '../game/types';
+import type { CharacterSnapshot, GameEvent, InputState, Vector3D } from '../game/types';
 
-// Single source of truth for InputState (AudioEventSystem imports from here)
-// SimpleGameClient.tsx keeps its own local copy for structural compatibility
-export interface InputState {
-	movementDirection: Vector3D;
-	isAttacking: boolean;
-	isJumping: boolean;
-	isSprinting: boolean;
-	isGrounded: boolean;
-	isUsingAbility1: boolean;
-	isUsingAbility2: boolean;
-}
+export type { InputState };
 
 // ─── Pipeline 1: Local input triggers ────────────────────────────────────────
 

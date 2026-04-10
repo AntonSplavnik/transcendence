@@ -66,6 +66,16 @@ export type GameEvent = Extract<
 	{ type: 'Death' | 'Damage' | 'Spawn' | 'StateChange' | 'AttackStarted' | 'SkillUsed' | 'MatchEnd' }
 >;
 
+export interface InputState {
+	movementDirection: Vector3D;
+	isAttacking: boolean;
+	isJumping: boolean;
+	isSprinting: boolean;
+	isGrounded: boolean;
+	isUsingAbility1: boolean;
+	isUsingAbility2: boolean;
+}
+
 export type GameClientMessage =
 	| {
 			type: 'Input';
