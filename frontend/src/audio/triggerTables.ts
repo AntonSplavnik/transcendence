@@ -8,14 +8,15 @@ export interface InputState {
 	isJumping: boolean;
 	isSprinting: boolean;
 	isGrounded: boolean;
-	// Extend here: isDodging, isBlocking, isAbility1…
+	isUsingAbility1: boolean;
+	// Extend here: isDodging, isBlocking, isAbility2…
 }
 
 // ─── Pipeline 1: Local input triggers ────────────────────────────────────────
 
 export interface LocalInputTrigger {
 	soundId: string;
-	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting'>;
+	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1'>;
 	edge: 'rising' | 'falling';
 	volume?: number;
 	/** Optional delay in ms before the sound plays — use to sync with animation */
@@ -26,6 +27,7 @@ export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
 	{ soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
 	{ soundId: 'player_land', field: 'isJumping', edge: 'rising', delayMs: 550 },
 	{ soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
+	{ soundId: 'player_ability1', field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
 	// { soundId: 'player_dodge',        field: 'isDodging',   edge: 'rising' },
 ];
 
@@ -51,14 +53,10 @@ const isRunning = (input: InputState) =>
 	input.isSprinting &&
 	(input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
 
-const isMoving = (input: InputState) =>
-	input.isGrounded && (input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
 
 export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
 	{ soundId: 'player_footstep', predicate: isWalking, intervalMs: 550 },
 	{ soundId: 'player_footstep', predicate: isRunning, intervalMs: 320, volume: 0.4 },
-	// Foley layer: armor clink (knight) or leather rustle (rogue) — resolved per class
-	{ soundId: 'player_foley', predicate: isMoving, intervalMs: 400 },
 ];
 
 // ─── Pipeline 2: Remote snapshot triggers ────────────────────────────────────

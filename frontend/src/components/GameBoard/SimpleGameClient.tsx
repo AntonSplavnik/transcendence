@@ -544,6 +544,7 @@ class GameClient {
 				isJumping: input.isJumping,
 				isSprinting: input.isSprinting,
 				isGrounded,
+				isUsingAbility1: input.isUsingAbility1,
 			},
 			{ x: this.position.x, y: this.position.y, z: this.position.z },
 		);
