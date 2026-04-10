@@ -207,9 +207,6 @@ export class SnapshotProcessor {
 		);
 	}
 
-	// TODO(design): Remote attack animations pass isMoving=false to animSM.tick()
-	// because we can't know remote input. This may cause minor visual desync where
-	// remote characters appear to finish attack animations even after movement cancel.
 	private updateSnapshotFallbackAnimation(
 		playerID: number,
 		char: AnimatedCharacter,
@@ -223,7 +220,18 @@ export class SnapshotProcessor {
 		// Guard: event-driven animation still playing
 		const animSM = mgr.getRemoteAnimSM(playerID);
 		const isPlaying = char.currentAnimation?.isPlaying ?? false;
-		const transitioned = animSM.tick(isPlaying, false);
+		const isMoving = charData.state === CharacterState.Walking
+			|| charData.state === CharacterState.Sprinting;
+		const transitioned = animSM.tick(isPlaying, isMoving);
+
+		// If attack/skill was cancelled by movement, immediately start move animation
+		if (transitioned && animSM.phase === AnimPhase.Idle && isMoving) {
+			const m = charData.state === CharacterState.Sprinting
+				? config.runAnimation : config.walkAnimation;
+			char.playAnimation(m.name, true, m.speed ?? 1.0);
+			return;
+		}
+
 		if (!transitioned && animSM.phase !== 'idle') return;
 
 		switch (charData.state) {
