@@ -146,6 +146,8 @@ class GameClient {
 	private localHealthFill: any = null;
 	private cooldownBars: { attack: any; ability1: any; ability2: any } | null = null;
 	private localIsDead: boolean = false;
+	private localAbility1Timer: number = 0;
+	private localAbility2Timer: number = 0;
 
 	constructor(
 		scene: Scene,
@@ -343,6 +345,9 @@ class GameClient {
 					this.currentAnimState = '';
 				}
 
+				this.localAbility1Timer = char.ability1_timer;
+				this.localAbility2Timer = char.ability2_timer;
+
 				// Update cooldown bars
 				if (this.cooldownBars) {
 					this.cooldownBars.attack.width = `${(Math.max(0, Math.min(1, char.swing_progress)) * 100).toFixed(1)}%`;
@@ -536,7 +541,9 @@ class GameClient {
 
 		const isGrounded = this.position.y <= 1.1;
 
-		// Trigger audio for local player input
+		// Trigger audio for local player input.
+		// Abilities on cooldown are masked so no sound plays, but the raw input
+		// is still sent to the server (server is authoritative on cooldowns).
 		this.audioEventSystem?.onLocalInput(
 			{
 				movementDirection: input.movementDirection,
@@ -544,7 +551,8 @@ class GameClient {
 				isJumping: input.isJumping,
 				isSprinting: input.isSprinting,
 				isGrounded,
-				isUsingAbility1: input.isUsingAbility1,
+				isUsingAbility1: input.isUsingAbility1 && this.localAbility1Timer <= 0,
+				isUsingAbility2: input.isUsingAbility2 && this.localAbility2Timer <= 0,
 			},
 			{ x: this.position.x, y: this.position.y, z: this.position.z },
 		);

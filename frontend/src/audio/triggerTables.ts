@@ -9,14 +9,14 @@ export interface InputState {
 	isSprinting: boolean;
 	isGrounded: boolean;
 	isUsingAbility1: boolean;
-	// Extend here: isDodging, isBlocking, isAbility2…
+	isUsingAbility2: boolean;
 }
 
 // ─── Pipeline 1: Local input triggers ────────────────────────────────────────
 
 export interface LocalInputTrigger {
 	soundId: string;
-	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1'>;
+	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1' | 'isUsingAbility2'>;
 	edge: 'rising' | 'falling';
 	volume?: number;
 	/** Optional delay in ms before the sound plays — use to sync with animation */
@@ -28,7 +28,7 @@ export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
 	{ soundId: 'player_land', field: 'isJumping', edge: 'rising', delayMs: 550 },
 	{ soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
 	{ soundId: 'player_ability1', field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
-	// { soundId: 'player_dodge',        field: 'isDodging',   edge: 'rising' },
+	{ soundId: 'player_ability2', field: 'isUsingAbility2', edge: 'rising', delayMs: 250 },
 ];
 
 // ─── Pipeline 1b: Local continuous triggers ──────────────────────────────────
