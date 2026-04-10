@@ -69,6 +69,10 @@ export class CharacterManager {
 		this.characterConfigMap.set(this.localPlayerID, config);
 		this.localCharacter.initTrail(config);
 		this.localCharacter.setPosition(this.position);
+	}
+
+	playLocalSpawn(): void {
+		if (!this.localCharacter) return;
 		this.localCharacter.playAnimation(AnimationNames.spawn, false);
 		this.localAnimSM.enter(AnimPhase.Spawn);
 	}

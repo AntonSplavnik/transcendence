@@ -304,7 +304,22 @@ export default function GameCanvas({
 			// Wait for map, character, and all textures before revealing the scene
 			await Promise.all([sceneLoaded.catch(() => {}), playerReady]);
 			await scene.whenReadyAsync();
-			if (!disposed) engine.hideLoadingUI();
+
+			// Render a few warm-up frames behind the loading screen to compile shaders
+			await new Promise<void>((resolve) => {
+				let frames = 0;
+				const obs = scene.onAfterRenderObservable.add(() => {
+					if (++frames >= 3) {
+						scene.onAfterRenderObservable.remove(obs);
+						resolve();
+					}
+				});
+			});
+
+			if (!disposed) {
+				engine.hideLoadingUI();
+				gameClient.playSpawnAnimation();
+			}
 
 			// Resize handler
 			onResize = () => {

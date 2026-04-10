@@ -46,6 +46,10 @@ export class GameClient {
 		await this.mgr.initLocalPlayer(this.characterConfig);
 	}
 
+	playSpawnAnimation(): void {
+		this.mgr.playLocalSpawn();
+	}
+
 	processSnapshot(snapshot: GameStateSnapshot): void {
 		this.snapshotProcessor.processSnapshot(snapshot, this.mgr, this.hud, this.camera);
 	}
