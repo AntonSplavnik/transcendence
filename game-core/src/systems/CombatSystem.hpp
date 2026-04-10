@@ -5,6 +5,7 @@
 #include <cstdio>
 #include "../components/PhysicsBody.hpp"
 #include "../components/Health.hpp"
+#include "../components/Stamina.hpp"
 #include "../components/CombatController.hpp"
 #include "../components/CharacterController.hpp"
 #include "../components/GameModeComponent.hpp"
@@ -217,14 +218,15 @@ inline void CombatSystem::processInputAttacks() {
 
 	auto* ne = m_registry->try_get<NetworkEventsComponent>(m_gameManager);
 
-	auto view = m_registry->view<CharacterController, CombatController, Health, Transform, PhysicsBody>();
+	auto view = m_registry->view<CharacterController, CombatController, Health, Transform, PhysicsBody, Stamina>();
 
 	view.each([&](entt::entity entity,
 				  CharacterController& charcon,
 				  CombatController&    comcon,
 				  Health&              health,
 				  Transform&           trans,
-				  PhysicsBody&         physics) {
+				  PhysicsBody&         physics,
+				  Stamina&             stamina) {
 
 		if (!health.isAlive()) return;
 
@@ -240,24 +242,35 @@ inline void CombatSystem::processInputAttacks() {
 		CombatController::BufferedAction toFire = comcon.bufferedAction;
 		comcon.bufferedAction = CombatController::BufferedAction::None;
 
+		// Discard buffered action if stamina is insufficient
+		if (toFire == CombatController::BufferedAction::Attack
+				&& !stamina.canAfford(comcon.currentStage().staminaCost))
+			toFire = CombatController::BufferedAction::None;
+		if (toFire == CombatController::BufferedAction::Skill1
+				&& !stamina.canAfford(comcon.ability1.staminaCost))
+			toFire = CombatController::BufferedAction::None;
+		if (toFire == CombatController::BufferedAction::Skill2
+				&& !stamina.canAfford(comcon.ability2.staminaCost))
+			toFire = CombatController::BufferedAction::None;
+
 		const bool wantsAttack = charcon.input.isAttacking     || toFire == CombatController::BufferedAction::Attack;
 		const bool wantsSkill1 = charcon.input.isUsingAbility1 || toFire == CombatController::BufferedAction::Skill1;
 		const bool wantsSkill2 = charcon.input.isUsingAbility2 || toFire == CombatController::BufferedAction::Skill2;
 
 		// Priority: Skill2 > Skill1 > Attack
-		if (wantsSkill2 && comcon.canUseAbility2()) {
+		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(comcon.ability2.staminaCost)) {
 			fprintf(stderr, "[COMBAT] ABILITY2 entity=%u  cd=%.2f\n",
 				static_cast<unsigned>(entity), static_cast<double>(comcon.skill2CooldownTimer));
 			triggerSkill(comcon, charcon, comcon.ability2,
 			             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
 
-		} else if (wantsSkill1 && comcon.canUseAbility1()) {
+		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(comcon.ability1.staminaCost)) {
 			fprintf(stderr, "[COMBAT] ABILITY1 entity=%u  cd=%.2f\n",
 				static_cast<unsigned>(entity), static_cast<double>(comcon.skill1CooldownTimer));
 			triggerSkill(comcon, charcon, comcon.ability1,
 			             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
 
-		} else if (wantsAttack && comcon.canPerformAttack()) {
+		} else if (wantsAttack && comcon.canPerformAttack() && stamina.canAfford(comcon.currentStage().staminaCost)) {
 			const AttackStage& stage = comcon.currentStage();
 			fprintf(stderr, "[COMBAT] ATTACK  entity=%u  chain_stage=%d  range=%.1f  dmg_mul=%.2f  base_dmg=%.1f\n",
 				static_cast<unsigned>(entity), comcon.chainStage,
@@ -419,6 +432,9 @@ inline void CombatSystem::handleSwingEnd(
 		if (health.isAlive()) {
 			SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
 			const AttackStage& stage = combat.currentStage();
+			// Consume stamina for this swing stage (read BEFORE advanceChain)
+			if (auto* stamina = m_registry->try_get<Components::Stamina>(entity))
+				stamina->consume(stage.staminaCost);
 			hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
 			combat.advanceChain();
 			fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
@@ -451,6 +467,9 @@ inline void CombatSystem::tickSkillSlot(
 	cooldownTimer = def.cooldown;
 
 	if (hitPending) {
+		// Consume stamina when cast completes
+		if (auto* stamina = m_registry->try_get<Components::Stamina>(entity))
+			stamina->consume(def.staminaCost);
 		if (health.isAlive()) {
 			SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
 			executeSkill(def, ctx);
