@@ -9,6 +9,7 @@ export class GameHUD {
 	private scene: Scene;
 	private enemyBars: Map<number, { bg: any; fill: any }> = new Map();
 	private localHealthFill: any = null;
+	private localStaminaFill: any = null;
 	private cooldownBars: { attack: any; ability1: any; ability2: any };
 	private getCharPosition: (id: number) => Vector3 | null;
 	private enemyBarObserver: Observer<Scene> | null = null;
@@ -46,7 +47,7 @@ export class GameHUD {
 		localBg.background = '#1a1a1a';
 		localBg.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
 		localBg.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-		localBg.top = '-28px';
+		localBg.top = '-40px';
 		this.gui.addControl(localBg);
 
 		const localFill = new GUI.Rectangle('local-hp-fill');
@@ -60,6 +61,31 @@ export class GameHUD {
 		localBg.addControl(localFill);
 
 		this.localHealthFill = localFill;
+
+		// Local player stamina bar — below health bar
+		const staminaBg = new GUI.Rectangle('local-stamina-bg');
+		staminaBg.width = '160px';
+		staminaBg.height = '9px';
+		staminaBg.cornerRadius = 3;
+		staminaBg.color = '#00000099';
+		staminaBg.thickness = 1;
+		staminaBg.background = '#1a1a1a';
+		staminaBg.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+		staminaBg.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+		staminaBg.top = '-24px';
+		this.gui.addControl(staminaBg);
+
+		const staminaFill = new GUI.Rectangle('local-stamina-fill');
+		staminaFill.width = '100%';
+		staminaFill.height = '100%';
+		staminaFill.cornerRadius = 0;
+		staminaFill.color = 'transparent';
+		staminaFill.thickness = 0;
+		staminaFill.background = '#e0a030';
+		staminaFill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+		staminaBg.addControl(staminaFill);
+
+		this.localStaminaFill = staminaFill;
 
 		// Cooldown bars — row below health bar
 		const cdContainer = new GUI.StackPanel('cd-container');
@@ -105,6 +131,12 @@ export class GameHUD {
 	updateLocalHealth(pct: number): void {
 		if (this.localHealthFill) {
 			this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
+		}
+	}
+
+	updateLocalStamina(pct: number): void {
+		if (this.localStaminaFill) {
+			this.localStaminaFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
 		}
 	}
 
