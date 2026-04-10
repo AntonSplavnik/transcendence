@@ -36,6 +36,18 @@ export type { ModelPreviewProps } from './ModelPreview';
 export { default as CharacterPicker } from './CharacterPicker';
 export type { CharacterChoice, CharacterPickerProps } from './CharacterPicker';
 
+export { default as PlayerAvatarRow } from './PlayerAvatarRow';
+export type { PlayerAvatarRowProps } from './PlayerAvatarRow';
+
+export { default as ChampionGrid } from './ChampionGrid';
+export type { ChampionGridProps } from './ChampionGrid';
+
+export { default as CharacterStats } from './CharacterStats';
+export type { CharacterStatsProps } from './CharacterStats';
+
+export { default as CharacterSelector } from './CharacterSelector';
+export type { CharacterSelectorProps } from './CharacterSelector';
+
 // Overlay
 export { default as Modal } from './Modal';
 export type { ModalProps } from './Modal';

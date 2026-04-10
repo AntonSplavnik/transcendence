@@ -9,7 +9,7 @@ export default defineConfig({
 		pure: ['console.log', 'console.debug'],
 	},
 	optimizeDeps: {
-		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm'],
+		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm', '@babylonjs/core'],
 	},
 	worker: {
 		format: 'es'
