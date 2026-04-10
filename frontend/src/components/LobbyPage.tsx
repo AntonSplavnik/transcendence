@@ -117,6 +117,8 @@ export default function LobbyPage() {
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
+	const [modePulse, setModePulse] = useState(false);
+	const modePulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice>(
 		() => (localStorage.getItem('selectedCharacter') as CharacterChoice) ?? DEFAULT_CHARACTER,
 	);
@@ -155,6 +157,13 @@ export default function LobbyPage() {
 		};
 	}, [countdownMs]);
 
+	// Cleanup modePulse timer on unmount.
+	useEffect(() => {
+		return () => {
+			if (modePulseTimerRef.current) clearTimeout(modePulseTimerRef.current);
+		};
+	}, []);
+
 	if (lobbyState.status === 'idle') {
 		return <Navigate to="/home" replace />;
 	}
@@ -167,6 +176,12 @@ export default function LobbyPage() {
 
 	const handleToggleReady = async () => {
 		if (!myPlayer) return;
+		if (!settings.gamemode && !myPlayer.ready) {
+			setModePulse(true);
+			if (modePulseTimerRef.current) clearTimeout(modePulseTimerRef.current);
+			modePulseTimerRef.current = setTimeout(() => setModePulse(false), 2000);
+			return;
+		}
 		setIsTogglingReady(true);
 		try {
 			await setReady(!myPlayer.ready);
@@ -315,7 +330,9 @@ export default function LobbyPage() {
 
 			{/* ── Game mode row ─────────────────────────────────────────────── */}
 			{!gameActive && (
-				<div className="flex items-center gap-4 px-4 py-3 bg-stone-950 rounded-2xl border border-stone-800">
+				<div className={`flex items-center gap-4 px-4 py-3 bg-stone-950 rounded-2xl border transition-colors duration-300 ${
+					modePulse ? 'border-warning animate-pulse' : 'border-stone-800'
+				}`}>
 					<span className="text-xs text-stone-500 uppercase tracking-widest shrink-0">
 						Game Mode
 					</span>
