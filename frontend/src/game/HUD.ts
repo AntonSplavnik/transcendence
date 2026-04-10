@@ -23,12 +23,16 @@ export class GameHUD {
 		const GUI = (BABYLON as any).GUI;
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
-		// Update enemy bar positions every frame by projecting world-space position
+		// Update enemy bar positions every frame by projecting world-space position.
+		// Bars start hidden (isVisible = false) and are revealed on the first
+		// successful positioning to avoid flashing at the screen centre while
+		// the remote character model is still loading.
 		this.enemyBarObserver = this.scene.onBeforeRenderObservable.add(() => {
 			for (const [playerID, bar] of this.enemyBars.entries()) {
 				const pos = this.getCharPosition(playerID);
 				if (!pos) continue;
 				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z), this.scene);
+				if (!bar.bg.isVisible) bar.bg.isVisible = true;
 			}
 		});
 
@@ -127,6 +131,7 @@ export class GameHUD {
 		bg.thickness = 0;
 		bg.background = '#1a1a1a';
 		bg.isPointerBlocker = false;
+		bg.isVisible = false;
 		this.gui.addControl(bg);
 
 		const fill = new GUI.Rectangle(`enemy-hp-fill-${playerId}`);
