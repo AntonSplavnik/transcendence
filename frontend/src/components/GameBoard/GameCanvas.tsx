@@ -8,8 +8,7 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { ISO_CAM_OFFSET, ISO_ORTHO_SIZE, ISO_DIRECTIONS } from '@/game/constants';
 import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
-import type { GameAudioEngine } from '@/audio/AudioEngine';
-import type { SoundBank } from '@/audio/SoundBank';
+import type { GameAudioHandle } from '@/audio/AudioProvider';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -194,8 +193,7 @@ interface Props {
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
-	audioEngine?: GameAudioEngine | null;
-	soundBank?: SoundBank | null;
+	gameAudio?: GameAudioHandle;
 }
 
 export default function GameCanvas({
@@ -205,8 +203,7 @@ export default function GameCanvas({
 	onSendInput,
 	localPlayerId,
 	characterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
-	audioEngine,
-	soundBank,
+	gameAudio,
 }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -245,7 +242,7 @@ export default function GameCanvas({
 			// Game client
 			const gameClient = new GameClient(
 				scene, localPlayerId, camera, characterConfig, characterClassesRef,
-				audioEngine, soundBank,
+				gameAudio?.engine, gameAudio?.soundBank,
 			);
 			gameClientInstance = gameClient;
 
@@ -326,6 +323,7 @@ export default function GameCanvas({
 			if (!disposed) {
 				engine.hideLoadingUI();
 				gameClient.playSpawnAnimation();
+				gameAudio?.playSceneAmbient('amb_forest');
 			}
 
 			// Resize handler
@@ -342,6 +340,8 @@ export default function GameCanvas({
 
 		return () => {
 			disposed = true;
+			gameAudio?.stopSceneAmbient();
+			gameAudio?.stopSceneMusic();
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);

@@ -50,8 +50,7 @@ export default function GameBoard() {
 			onSendInput={sendInput}
 			localPlayerId={user.id}
 			characterConfig={characterConfig}
-			audioEngine={gameAudio.engine}
-			soundBank={gameAudio.soundBank}
+			gameAudio={gameAudio}
 		/>
 	);
 }

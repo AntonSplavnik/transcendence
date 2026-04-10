@@ -1,6 +1,6 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core';
 import type { RefObject } from 'react';
-import type { GameEvent, GameStateSnapshot } from './types';
+import type { GameEvent, GameStateSnapshot, Vector3D } from './types';
 import type { CharacterConfig } from './characterConfigs';
 import { CharacterManager } from './CharacterManager';
 import { GameHUD } from './HUD';
@@ -78,6 +78,19 @@ export class GameClient {
 	}
 
 	processEvents(events: GameEvent[]): void {
+		// Audio dispatch for game events (damage hit, death, etc.)
+		if (this.audioEventSystem && events.length > 0) {
+			const remotePositions = new Map<number, Vector3D>();
+			for (const [id, char] of this.mgr.characters) {
+				const p = char.rootNode.getAbsolutePosition();
+				remotePositions.set(id, { x: p.x, y: p.y, z: p.z });
+			}
+			this.audioEventSystem.onGameEvents(events, {
+				localPlayerId: this.mgr.localPlayerID,
+				localPosition: { x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
+				remotePositions,
+			});
+		}
 		processEvents(events, this.mgr);
 	}
 
