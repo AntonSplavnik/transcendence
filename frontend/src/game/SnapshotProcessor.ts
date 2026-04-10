@@ -59,6 +59,8 @@ export class DirectPositionStrategy implements PositionStrategy {
 export class SnapshotProcessor {
 	private positionStrategy: PositionStrategy;
 	private characterClassesRef: RefObject<Map<number, string>>;
+	/** Last server-authoritative positions for all remote players — updated each snapshot. */
+	readonly remotePositions: ReadonlyMap<number, Vector3D> = new Map();
 
 	constructor(
 		positionStrategy: PositionStrategy,
@@ -75,6 +77,7 @@ export class SnapshotProcessor {
 		camera: UniversalCamera,
 	): void {
 		const activePlayerIDs = new Set<number>();
+		const positions = this.remotePositions as Map<number, Vector3D>;
 
 		for (const charData of snapshot.characters) {
 			activePlayerIDs.add(charData.player_id);
@@ -91,6 +94,7 @@ export class SnapshotProcessor {
 			if (charData.player_id === mgr.localPlayerID) {
 				this.processLocalPlayer(charData, snapshot.timestamp, mgr, hud, camera);
 			} else {
+				positions.set(charData.player_id, charData.position);
 				this.processRemotePlayer(charData, snapshot.timestamp, mgr, hud);
 			}
 		}
@@ -106,6 +110,7 @@ export class SnapshotProcessor {
 			mgr.removeRemote(playerID);
 			hud.removeEnemyBar(playerID);
 			this.positionStrategy.remove(playerID);
+			positions.delete(playerID);
 		}
 	}
 
