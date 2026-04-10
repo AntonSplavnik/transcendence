@@ -4,69 +4,23 @@ import type { Engine, Scene, UniversalCamera, Vector3 } from '@babylonjs/core';
 import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
-import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
+import type { CharacterSnapshot, GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import { AnimatedCharacter, loadCharacter } from '@/game/AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterConfig } from '@/game/characterConfigs';
+import {
+	AnimationNames,
+	CharacterState,
+	COMBAT_BLEND_DURATION,
+	ISO_CAM_OFFSET,
+	ISO_ORTHO_SIZE,
+	ISO_DIRECTIONS,
+} from '@/game/constants';
+import type { InputState } from '@/game/constants';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
-// ============ COPIED FROM simple_client.ts ============
-
-interface CharacterSnapshot {
-	player_id: number;
-	position: Vector3D;
-	velocity: Vector3D;
-	yaw: number;
-	state: number;
-	health: number;
-	max_health: number;
-	// Cooldown data
-	ability1_timer: number;
-	ability1_cooldown: number;
-	ability2_timer: number;
-	ability2_cooldown: number;
-	swing_progress: number;
-}
-
-interface InputState {
-	movementDirection: Vector3D;
-	isAttacking: boolean;
-	isJumping: boolean;
-	isSprinting: boolean;
-	isUsingAbility1: boolean;
-	isUsingAbility2: boolean;
-}
-
-const CharacterState = {
-	Idle: 0,
-	Walking: 1,
-	Sprinting: 2,
-	Attacking: 3,
-	Casting: 4,
-	Stunned: 5,
-	Dead: 6,
-} as const;
-type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
-
-// Isometric camera: 35.264° elevation, 45° rotation, orthographic
-const ISO_CAM_DIST = 80; // distance from target (doesn't affect size in ortho, just clipping)
-const ISO_CAM_HEIGHT = ISO_CAM_DIST * 0.7071; // tan(35.264°) ≈ 0.7071
-const ISO_CAM_OFFSET = { x: ISO_CAM_DIST, y: ISO_CAM_HEIGHT, z: -ISO_CAM_DIST };
-const ISO_ORTHO_SIZE = 10; //  controls zoom level (80 would be full world in view)
-
-const COMBAT_BLEND_DURATION = 0.1; // crossfade seconds between chain attacks
-
-const AnimationNames = {
-	jumpStart: 'Jump_Start',
-	jumpIdle: 'Jump_Idle',
-	jumpLand: 'Jump_Land',
-	hit: 'Hit_A',
-	death: 'Death_A',
-	deathPose: 'Death_pose_A',
-	spawn: 'Spawn_Air',
-};
 
 const JumpState = {
 	GROUNDED: 'grounded',
@@ -803,34 +757,13 @@ export default function SimpleGameClient({
 				}
 			});
 
-			// Precomputed isometric directions (camera rotated 45° around Y)
-			// Key: bitmask WASD (W=8, A=4, S=2, D=1), Value: [worldX, worldZ] normalized
-			const S = 0.7071;
-			const isoDir: Record<number, [number, number]> = {
-				0: [0, 0], // no input
-				8: [-S, S], // W
-				2: [S, -S], // S
-				4: [-S, -S], // A
-				1: [S, S], // D
-				9: [0, 1], // W+D
-				12: [-1, 0], // W+A
-				3: [1, 0], // S+D
-				6: [0, -1], // S+A
-				10: [0, 0], // W+S (cancel)
-				5: [0, 0], // A+D (cancel)
-				15: [0, 0], // all (cancel)
-				14: [-S, -S], // W+A+S
-				13: [-S, S], // W+A+D
-				11: [S, S], // W+S+D
-				7: [S, -S], // A+S+D
-			};
 			scene.onBeforeRenderObservable.add(() => {
 				const bits =
 					(keysPressed.has('w') ? 8 : 0) |
 					(keysPressed.has('a') ? 4 : 0) |
 					(keysPressed.has('s') ? 2 : 0) |
 					(keysPressed.has('d') ? 1 : 0);
-				const dir = isoDir[bits] || [0, 0];
+				const dir = ISO_DIRECTIONS[bits] || [0, 0];
 				input.movementDirection.x = dir[0];
 				input.movementDirection.z = dir[1];
 				input.isJumping = keysPressed.has(' ');
