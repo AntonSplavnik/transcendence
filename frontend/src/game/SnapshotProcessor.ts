@@ -1,15 +1,12 @@
-import type { UniversalCamera, Vector3 } from '@babylonjs/core';
-import type * as BabylonType from '@babylonjs/core';
+import type { UniversalCamera } from '@babylonjs/core';
 import type { RefObject } from 'react';
 import type { CharacterSnapshot, GameStateSnapshot, Vector3D } from './types';
 import type { CharacterConfig } from './characterConfigs';
 import type { AnimatedCharacter } from './AnimatedCharacter';
 import type { CharacterManager } from './CharacterManager';
 import type { GameHUD } from './HUD';
-import { AnimationStateMachine, JumpState, tickJumpState } from './AnimationStateMachine';
-import { AnimationNames, CharacterState, ISO_CAM_OFFSET } from './constants';
-
-declare const BABYLON: typeof BabylonType;
+import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
+import { AnimationNames, CharacterState, GROUND_Y_THRESHOLD, ISO_CAM_OFFSET } from './constants';
 
 // ── Position strategy (interpolation injection point) ───────────────
 
@@ -120,8 +117,7 @@ export class SnapshotProcessor {
 		camera: UniversalCamera,
 	): void {
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
-		const serverPos = new BABYLON.Vector3(visual.position.x, visual.position.y, visual.position.z);
-		mgr.position.copyFrom(serverPos);
+		mgr.position.copyFromFloats(visual.position.x, visual.position.y, visual.position.z);
 
 		if (mgr.localCharacter) {
 			mgr.localCharacter.setPosition(mgr.position);
@@ -146,7 +142,7 @@ export class SnapshotProcessor {
 					mgr.localCharacter?.playAnimation(AnimationNames.deathPose, false);
 				});
 			}
-			mgr.localAnimSM.reset();
+			mgr.localAnimSM.enter(AnimPhase.Death);
 		}
 
 		// Cooldowns
@@ -157,7 +153,7 @@ export class SnapshotProcessor {
 		hud.updateCooldowns(charData.swing_progress, cd1, cd2);
 
 		// Camera follow
-		camera.position = new BABYLON.Vector3(
+		camera.position.copyFromFloats(
 			mgr.position.x + ISO_CAM_OFFSET.x,
 			mgr.position.y + ISO_CAM_OFFSET.y,
 			mgr.position.z + ISO_CAM_OFFSET.z,
@@ -175,6 +171,7 @@ export class SnapshotProcessor {
 
 		if (!remoteChar && !mgr.isLoading(charData.player_id)) {
 			mgr.createRemoteCharacter(charData.player_id, charData, this.characterClassesRef);
+			hud.createEnemyBar(charData.player_id);
 			return;
 		}
 
@@ -182,14 +179,12 @@ export class SnapshotProcessor {
 
 		// Position via strategy
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
-		remoteChar.setPosition(
-			new BABYLON.Vector3(visual.position.x, visual.position.y, visual.position.z),
-		);
+		remoteChar.setPositionFromFloats(visual.position.x, visual.position.y, visual.position.z);
 		remoteChar.setRotation(visual.yaw);
 
 		// Jump state
 		const jumpState = mgr.getRemoteJumpState(charData.player_id);
-		const isGrounded = charData.position.y <= 1.1;
+		const isGrounded = charData.position.y <= GROUND_Y_THRESHOLD;
 		const newJumpState = tickJumpState(remoteChar, jumpState, isGrounded, false);
 		mgr.setRemoteJumpState(charData.player_id, newJumpState);
 
@@ -212,6 +207,9 @@ export class SnapshotProcessor {
 		);
 	}
 
+	// TODO(design): Remote attack animations pass isMoving=false to animSM.tick()
+	// because we can't know remote input. This may cause minor visual desync where
+	// remote characters appear to finish attack animations even after movement cancel.
 	private updateSnapshotFallbackAnimation(
 		playerID: number,
 		char: AnimatedCharacter,
@@ -242,6 +240,7 @@ export class SnapshotProcessor {
 				break;
 			}
 			case CharacterState.Dead:
+				mgr.getRemoteAnimSM(playerID).enter(AnimPhase.Death);
 				if (char.animationName !== AnimationNames.death &&
 					char.animationName !== AnimationNames.deathPose) {
 					const deathAnim = char.animations.get(AnimationNames.death);

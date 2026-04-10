@@ -8,6 +8,7 @@ export const AnimPhase = {
 	Spawn: 'spawn',
 	Attack: 'attack',
 	Skill: 'skill',
+	Death: 'death',
 } as const;
 export type AnimPhase = (typeof AnimPhase)[keyof typeof AnimPhase];
 
@@ -51,6 +52,9 @@ export class AnimationStateMachine {
 					this._phase = AnimPhase.Idle;
 					return true;
 				}
+				return false;
+
+			case AnimPhase.Death:
 				return false;
 
 			default:
@@ -98,7 +102,6 @@ export function tickJumpState(
 		return JumpState.JUMP_START;
 	}
 	if (state === JumpState.AIRBORNE && !isGrounded) {
-		character.playAnimation(AnimationNames.jumpIdle, true);
 		return JumpState.AIRBORNE;
 	}
 	if (state === JumpState.AIRBORNE && isGrounded) {

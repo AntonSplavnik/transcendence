@@ -202,6 +202,7 @@ export default function GameCanvas({
 		let disposed = false;
 		let sceneInstance: Scene | null = null;
 		let engineInstance: Engine | null = null;
+		let gameClientInstance: GameClient | null = null;
 
 		canvas.focus();
 		canvas.tabIndex = 1;
@@ -227,6 +228,7 @@ export default function GameCanvas({
 			const gameClient = new GameClient(
 				scene, localPlayerId, camera, characterConfig, characterClassesRef,
 			);
+			gameClientInstance = gameClient;
 			gameClient
 				.initLocalPlayer()
 				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
@@ -302,6 +304,7 @@ export default function GameCanvas({
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
+			gameClientInstance?.dispose();
 			engineInstance?.stopRenderLoop();
 			sceneInstance?.dispose();
 			engineInstance?.dispose();

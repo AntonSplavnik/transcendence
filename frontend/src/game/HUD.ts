@@ -1,7 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const BABYLON: any;
 
-import type { Scene, Vector3 } from '@babylonjs/core';
+import type { Observer, Scene, Vector3 } from '@babylonjs/core';
+import { ENEMY_BAR_Y_OFFSET } from './constants';
 
 export class GameHUD {
 	private gui: any = null;
@@ -10,6 +11,7 @@ export class GameHUD {
 	private localHealthFill: any = null;
 	private cooldownBars: { attack: any; ability1: any; ability2: any };
 	private getCharPosition: (id: number) => Vector3 | null;
+	private enemyBarObserver: Observer<Scene> | null = null;
 
 	constructor(scene: Scene, getCharPosition: (playerId: number) => Vector3 | null) {
 		this.scene = scene;
@@ -20,11 +22,11 @@ export class GameHUD {
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
 		// Update enemy bar positions every frame by projecting world-space position
-		this.scene.onBeforeRenderObservable.add(() => {
+		this.enemyBarObserver = this.scene.onBeforeRenderObservable.add(() => {
 			for (const [playerID, bar] of this.enemyBars.entries()) {
 				const pos = this.getCharPosition(playerID);
 				if (!pos) continue;
-				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + 2.4, pos.z), this.scene);
+				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z), this.scene);
 			}
 		});
 
@@ -110,6 +112,7 @@ export class GameHUD {
 	}
 
 	createEnemyBar(playerId: number): void {
+		if (this.enemyBars.has(playerId)) return;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const GUI = (BABYLON as any).GUI;
 
@@ -155,6 +158,10 @@ export class GameHUD {
 	}
 
 	dispose(): void {
+		if (this.enemyBarObserver) {
+			this.scene.onBeforeRenderObservable.remove(this.enemyBarObserver);
+			this.enemyBarObserver = null;
+		}
 		if (this.gui) {
 			this.gui.dispose();
 		}

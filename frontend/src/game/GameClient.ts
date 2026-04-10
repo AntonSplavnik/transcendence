@@ -7,6 +7,7 @@ import { GameHUD } from './HUD';
 import { SnapshotProcessor, DirectPositionStrategy } from './SnapshotProcessor';
 import { processEvents } from './EventProcessor';
 import { AnimPhase, tickJumpState } from './AnimationStateMachine';
+import { GROUND_Y_THRESHOLD } from './constants';
 import type { InputState } from './constants';
 
 /**
@@ -56,7 +57,7 @@ export class GameClient {
 	updateLocalAnimation(input: InputState): void {
 		if (!this.mgr.localCharacter || this.mgr.localIsDead) return;
 
-		const isGrounded = this.mgr.position.y <= 1.1;
+		const isGrounded = this.mgr.position.y <= GROUND_Y_THRESHOLD;
 		this.mgr.localJumpState = tickJumpState(
 			this.mgr.localCharacter, this.mgr.localJumpState, isGrounded, input.isJumping,
 		);
@@ -87,8 +88,8 @@ export class GameClient {
 		}
 	}
 
-	/** Called on HUD creation for enemy bars (delegated from snapshot processor). */
-	createEnemyBar(playerId: number): void {
-		this.hud.createEnemyBar(playerId);
+	dispose(): void {
+		this.mgr.dispose();
+		this.hud.dispose();
 	}
 }

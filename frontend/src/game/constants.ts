@@ -22,6 +22,16 @@ export const ISO_CAM_OFFSET = { x: ISO_CAM_DIST, y: ISO_CAM_HEIGHT, z: -ISO_CAM_
 /** Controls zoom level (80 would be full world in view) */
 export const ISO_ORTHO_SIZE = 10;
 
+// ── Physics thresholds ──────────────────────────────────────────────
+
+/** Y position at or below which a character is considered grounded */
+export const GROUND_Y_THRESHOLD = 1.1;
+
+// ── HUD layout ─────────────────────────────────────────────────────
+
+/** Vertical offset (world units) for enemy health bar above character root */
+export const ENEMY_BAR_Y_OFFSET = 2.4;
+
 // ── Combat tuning ───────────────────────────────────────────────────
 
 /** Crossfade seconds between chain attack animations */
