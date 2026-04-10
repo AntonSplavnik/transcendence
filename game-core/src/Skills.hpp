@@ -18,6 +18,7 @@ namespace ArenaGame {
 		SkillVariant params;
 		float cooldown     = 0.0f;  // cooldown duration after cast ends
 		float castDuration = 0.0f;  // how long player is locked into this skill
+		float staminaCost  = 0.0f;  // stamina consumed when cast completes
 	};
 
 	struct AttackStage {
@@ -28,6 +29,7 @@ namespace ArenaGame {
 		float chainWindow;            // time after duration expires to press again and continue
 									  // 0 on last stage means chain wraps back to stage 0
 		float attackAngle = 1.047f;   // half-angle in radians (≈60° → 120° frontal cone)
+		float staminaCost  = 0.0f;  // stamina consumed when this swing completes
 	};
 
 } // namespace ArenaGame
