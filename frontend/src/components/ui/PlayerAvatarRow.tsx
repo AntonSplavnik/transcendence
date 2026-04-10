@@ -8,7 +8,7 @@ export default function PlayerAvatarRow({ players, hostId }: PlayerAvatarRowProp
 
 	return (
 		<div className="flex flex-col items-center" style={{ gap: '6px' }}>
-			<span className="uppercase whitespace-nowrap" style={{ fontSize: '10px', color: '#4a6080', letterSpacing: '0.1em' }}>
+			<span className="uppercase whitespace-nowrap" style={{ fontSize: '10px', color: '#8d8177', letterSpacing: '0.1em' }}>
 				Players {players.size} · {readyCount} ready
 			</span>
 			<div className="flex items-center" style={{ gap: '10px' }}>
@@ -18,7 +18,7 @@ export default function PlayerAvatarRow({ players, hostId }: PlayerAvatarRowProp
 					const borderColor = p.ready ? '#4ade80' : isHost ? '#d97706' : '#fb923c';
 					const bgColor = isHost ? '#1e2a1a' : '#1a1a2a';
 					const initialsColor = isHost ? '#d97706' : '#a8a29e';
-					const nameColor = isHost ? '#d97706' : '#4a6070';
+					const nameColor = isHost ? '#d97706' : '#8d8177';
 					return (
 						<div key={uid} className="flex flex-col items-center" style={{ gap: '4px' }}>
 							<div
