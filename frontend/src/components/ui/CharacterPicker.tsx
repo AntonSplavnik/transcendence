@@ -37,7 +37,7 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 						`}
 						onClick={() => onChange(id)}
 					>
-						<div className="w-full h-[140px] rounded overflow-hidden">
+						<div className="relative w-full h-[140px] rounded overflow-hidden">
 							<ModelPreview
 								modelUrl={cfg.model}
 								characterConfig={cfg}

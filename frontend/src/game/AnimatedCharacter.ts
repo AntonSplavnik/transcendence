@@ -1,5 +1,5 @@
 import type { AbstractMesh, AnimationGroup, Scene, Observer } from '@babylonjs/core';
-import { Color3, SceneLoader, TransformNode, Vector3 } from '@babylonjs/core';
+import { Color3, ImportMeshAsync, TransformNode, Vector3 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import type { CharacterConfig } from './characterConfigs';
 import { SwingTrail } from './SwingTrail';
@@ -24,7 +24,7 @@ export class AnimatedCharacter {
 	}
 
 	async loadModel(assetUrl: string): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		const result = await ImportMeshAsync(assetUrl, this.scene);
 		result.meshes.forEach((mesh) => {
 			if (!mesh.parent) mesh.parent = this.rootNode;
 			this.meshes.push(mesh);
@@ -39,7 +39,7 @@ export class AnimatedCharacter {
 	}
 
 	async loadAnimations(assetUrl: string): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		const result = await ImportMeshAsync(assetUrl, this.scene);
 		if (!this.skeleton) return;
 
 		result.animationGroups.forEach((anim) => {
@@ -67,7 +67,7 @@ export class AnimatedCharacter {
 		position?: Vector3,
 		rotation?: Vector3,
 	): Promise<void> {
-		const result = await SceneLoader.ImportMeshAsync('', '', assetUrl, this.scene);
+		const result = await ImportMeshAsync(assetUrl, this.scene);
 		if (!this.skeleton) return;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const bone = this.skeleton.bones.find((b: any) => b.name === boneName);
