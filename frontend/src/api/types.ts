@@ -69,6 +69,7 @@ export interface ChangePasswordPayload {
 export interface PublicUser {
 	id: number;
 	nickname: string;
+	description: string;
 	created_at: string;
 	online: boolean;
 }

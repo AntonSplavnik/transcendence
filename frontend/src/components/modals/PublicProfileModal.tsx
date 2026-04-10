@@ -41,6 +41,16 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 					</div>
 				</div>
 
+				{/* Description */}
+				{user.description && (
+					<Card variant="inset">
+						<h3 className="text-sm font-semibold text-stone-300 mb-2">About</h3>
+						<p className="text-sm text-stone-400 whitespace-pre-wrap">
+							{user.description}
+						</p>
+					</Card>
+				)}
+
 				{/* Recent history */}
 				<Card variant="inset">
 					<h3 className="text-sm font-semibold text-stone-300 mb-2">Recent History</h3>
