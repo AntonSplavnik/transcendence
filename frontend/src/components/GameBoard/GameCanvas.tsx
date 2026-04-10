@@ -18,6 +18,7 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 	engine: Engine;
 	scene: Scene;
 	camera: UniversalCamera;
+	sceneLoaded: Promise<void>;
 }> {
 	const engine = new BABYLON.Engine(canvas, true);
 	await TOOLKIT.SceneManager.InitializeRuntime(engine);
@@ -49,54 +50,62 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 		scene.activeCamera = camera;
 	});
 
-	// Load the forest scene
-	BABYLON.SceneLoader.Append(
-		'/scenes/Export/scenes/',
-		'Forest.gltf',
-		scene,
-		() => {
-			scene.activeCamera = camera;
+	// Manage loading screen manually — prevent SceneLoader from auto-hiding it
+	BABYLON.SceneLoader.ShowLoadingScreen = false;
 
-			// Extended ground plane to hide backdrop past terrain edges
-			const bgGround = BABYLON.MeshBuilder.CreateGround(
-				'bg-ground', { width: 1000, height: 1000 }, scene,
-			);
-			bgGround.position.y = -0.01;
-			const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
-			bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
-			bgMat.specularColor = BABYLON.Color3.Black();
-			bgGround.material = bgMat;
+	// Load the forest scene (wrapped in a promise so callers can await completion)
+	const sceneLoaded = new Promise<void>((resolve, reject) => {
+		BABYLON.SceneLoader.Append(
+			'/scenes/Export/scenes/',
+			'Forest.gltf',
+			scene,
+			() => {
+				scene.activeCamera = camera;
 
-			// Arena boundary walls
-			const TERRAIN_EDGE = 25.0;
-			const WALL_H = 1.2;
-			const WALL_T = 0.8;
-			const WALL_POS = TERRAIN_EDGE + WALL_T / 2;
-			const WALL_SPAN = TERRAIN_EDGE * 2 + WALL_T * 2;
-			const wallMat = new BABYLON.StandardMaterial('wall-mat', scene);
-			wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.25, 0.15);
-			wallMat.specularColor = BABYLON.Color3.Black();
+				// Extended ground plane to hide backdrop past terrain edges
+				const bgGround = BABYLON.MeshBuilder.CreateGround(
+					'bg-ground', { width: 1000, height: 1000 }, scene,
+				);
+				bgGround.position.y = -0.01;
+				const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
+				bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
+				bgMat.specularColor = BABYLON.Color3.Black();
+				bgGround.material = bgMat;
 
-			const wallDefs = [
-				['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-				['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-				['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-				['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
-			] as const;
+				// Arena boundary walls
+				const TERRAIN_EDGE = 25.0;
+				const WALL_H = 1.2;
+				const WALL_T = 0.8;
+				const WALL_POS = TERRAIN_EDGE + WALL_T / 2;
+				const WALL_SPAN = TERRAIN_EDGE * 2 + WALL_T * 2;
+				const wallMat = new BABYLON.StandardMaterial('wall-mat', scene);
+				wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.25, 0.15);
+				wallMat.specularColor = BABYLON.Color3.Black();
 
-			for (const [name, w, h, d, x, y, z] of wallDefs) {
-				const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
-				wall.position.set(x, y, z);
-				wall.material = wallMat;
-			}
-		},
-		undefined,
-		(_s, message, exception) => {
-			console.error('Failed to load Forest scene:', message, exception);
-		},
-	);
+				const wallDefs = [
+					['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
+					['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
+					['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
+					['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+				] as const;
 
-	return { engine, scene, camera };
+				for (const [name, w, h, d, x, y, z] of wallDefs) {
+					const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+					wall.position.set(x, y, z);
+					wall.material = wallMat;
+				}
+
+				resolve();
+			},
+			undefined,
+			(_s, message, exception) => {
+				console.error('Failed to load Forest scene:', message, exception);
+				reject(new Error(String(message)));
+			},
+		);
+	});
+
+	return { engine, scene, camera, sceneLoaded };
 }
 
 // ── Input setup ─────────────────────────────────────────────────────
@@ -212,13 +221,16 @@ export default function GameCanvas({
 		let onResize: (() => void) | null = null;
 
 		(async () => {
-			const { engine, scene, camera } = await createArenaScene(canvas);
+			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas);
 			if (disposed) {
 				engine.dispose();
 				return;
 			}
 			engineInstance = engine;
 			sceneInstance = scene;
+
+			// Keep loading screen visible while map + character assets load
+			engine.displayLoadingUI();
 
 			// Inspector toggle
 			onKeydown = setupInspector(scene);
@@ -229,7 +241,9 @@ export default function GameCanvas({
 				scene, localPlayerId, camera, characterConfig, characterClassesRef,
 			);
 			gameClientInstance = gameClient;
-			gameClient
+
+			// Start loading character (awaited below together with scene)
+			const playerReady = gameClient
 				.initLocalPlayer()
 				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
 
@@ -286,6 +300,11 @@ export default function GameCanvas({
 
 				scene.render();
 			});
+
+			// Wait for map, character, and all textures before revealing the scene
+			await Promise.all([sceneLoaded.catch(() => {}), playerReady]);
+			await scene.whenReadyAsync();
+			if (!disposed) engine.hideLoadingUI();
 
 			// Resize handler
 			onResize = () => {

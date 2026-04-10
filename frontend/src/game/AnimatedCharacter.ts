@@ -234,6 +234,7 @@ export async function loadCharacter(
 	char: AnimatedCharacter,
 	config: CharacterConfig,
 ): Promise<void> {
+	char.rootNode.setEnabled(false);
 	await char.loadModel(config.model);
 	for (const animSet of config.animationSets) {
 		await char.loadAnimations(animSet);
@@ -248,4 +249,5 @@ export async function loadCharacter(
 		await char.attachToBone(slot.model, slot.bone, pos, rot);
 	}
 	char.rootNode.scaling.setAll(config.scale);
+	char.rootNode.setEnabled(true);
 }
