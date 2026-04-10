@@ -81,17 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	);
 
 	const clearAuth = useCallback(() => {
-		console.log('🔒 Clearing authentication data');
 		setUser(null);
 		setSession(null);
 		setTosTimestamp(null);
 		setTosRequired(false);
+		localStorage.removeItem('auth_hint');
 	}, []);
 
 	const setAuthData = (data: AuthResponse) => {
 		setUser(data.user);
 		setSession(data.session);
 		setAuthChecked(true);
+		localStorage.setItem('auth_hint', '1');
 	};
 
 	const handleSessionUpdate = useCallback((newSession: Session) => {
@@ -116,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			const info = await authApi.getTosTimestamp();
 			setTosTimestamp(info.current_tos_timestamp);
 		} catch (err) {
-			console.error('Failed to fetch ToS timestamp:', err);
+			console.warn('Failed to fetch ToS timestamp:', err);
 		}
 	}, []);
 
@@ -146,12 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	// initial auth check on mount
 	useEffect(() => {
 		async function checkAuth() {
+			if (!localStorage.getItem('auth_hint')) {
+				setAuthChecked(true);
+				return;
+			}
 			try {
 				const data: AuthResponse = await userApi.getMe();
 				setAuthData(data);
-				console.log('✅ Initial Auth Check: User is authenticated');
 			} catch {
-				console.log('Initial Auth Check: Not logged in');
 				clearAuth();
 			} finally {
 				setAuthChecked(true);
@@ -182,9 +185,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const logout = async (): Promise<void> => {
 		try {
 			await authApi.logout();
-			console.log('✅ Logged out successfully');
 		} catch (error) {
-			console.error('❌ Logout failed (will clear local state):', error);
+			console.warn('Logout failed (will clear local state):', error);
 		} finally {
 			clearAuth();
 		}
