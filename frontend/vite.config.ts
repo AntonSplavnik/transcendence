@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
 	plugins: [react()],
 	esbuild: {
-		pure: ['console.log', 'console.debug'],
+		pure: ['console.log', 'console.debug', 'console.info', 'console.warn'],
 	},
 	optimizeDeps: {
 		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm'],
