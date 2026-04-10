@@ -4,6 +4,7 @@
 #include "../components/Transform.hpp"
 #include "../components/PhysicsBody.hpp"
 #include "../components/CharacterController.hpp"
+#include "../components/Stamina.hpp"
 #include "../GameTypes.hpp"
 #include "../../entt/entt.hpp"
 
@@ -34,6 +35,7 @@ private:
 		Components::CharacterController& controller,
 		Components::PhysicsBody& physics,
 		Components::Transform& transform,
+		Components::Stamina& stamina,
 		float deltaTime
 	);
 };
@@ -47,13 +49,15 @@ inline void CharacterControllerSystem::earlyUpdate(float deltaTime) {
 	auto view = m_registry->view<
 		Components::CharacterController,
 		Components::PhysicsBody,
-		Components::Transform
+		Components::Transform,
+		Components::Stamina
 	>();
 
 	view.each([&](Components::CharacterController& controller,
 		Components::PhysicsBody& physics,
-		Components::Transform& transform) {
-		processCharacterMovement(controller, physics, transform, deltaTime);
+		Components::Transform& transform,
+		Components::Stamina& stamina) {
+		processCharacterMovement(controller, physics, transform, stamina, deltaTime);
 		});
 }
 
@@ -61,6 +65,7 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	Components::CharacterController& controller,
 	Components::PhysicsBody& physics,
 	Components::Transform& transform,
+	Components::Stamina& stamina,
 	float deltaTime
 ) {
 	// Skip if movement is disabled or dead
@@ -68,8 +73,18 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		return;
 	}
 
-	// Update sprinting state from input
-	controller.isSprinting = controller.input.isSprinting;
+	// Sprint gating: require stamina and not exhausted
+	if (controller.input.isSprinting) {
+		float frameCost = stamina.sprintCostPerSec * deltaTime;
+		if (!stamina.isExhausted() && stamina.canAfford(frameCost)) {
+			stamina.consume(frameCost);
+			controller.isSprinting = true;
+		} else {
+			controller.isSprinting = false;
+		}
+	} else {
+		controller.isSprinting = false;
+	}
 
 	// Get movement input
 	Vector3D moveDir = controller.getMovementDirection();
@@ -104,7 +119,9 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	}
 
 	// Handle jumping
-	if (controller.input.isJumping && controller.canJump && physics.isGrounded) {
+	if (controller.input.isJumping && controller.canJump && physics.isGrounded
+			&& stamina.canAfford(stamina.jumpCost)) {
+		stamina.consume(stamina.jumpCost);
 		physics.velocity.y = controller.jumpVelocity;
 		// Keep state as Moving (no Jumping state in enum)
 	}
