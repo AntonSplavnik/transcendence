@@ -105,7 +105,7 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		}
 
 		// Update state
-		controller.setState(controller.input.isSprinting
+		controller.setState(controller.isSprinting
 			? CharacterState::Sprinting
 			: CharacterState::Walking);
 	} else {
