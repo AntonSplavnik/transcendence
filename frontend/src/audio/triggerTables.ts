@@ -16,16 +16,18 @@ export interface InputState {
 
 export interface LocalInputTrigger {
 	soundId: string;
-	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1' | 'isUsingAbility2'>;
+	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1' | 'isUsingAbility2' | 'isGrounded'>;
 	edge: 'rising' | 'falling';
 	volume?: number;
 	/** Optional delay in ms before the sound plays — use to sync with animation */
 	delayMs?: number;
+	/** Initial value for edge detection (default: false). Set to true for fields like isGrounded to avoid a false trigger on first frame. */
+	initialValue?: boolean;
 }
 
 export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
 	{ soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
-	{ soundId: 'player_land', field: 'isJumping', edge: 'rising', delayMs: 550 },
+	{ soundId: 'player_land', field: 'isGrounded', edge: 'rising', initialValue: true },
 	{ soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
 	{ soundId: 'player_ability1', field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
 	{ soundId: 'player_ability2', field: 'isUsingAbility2', edge: 'rising', delayMs: 250 },

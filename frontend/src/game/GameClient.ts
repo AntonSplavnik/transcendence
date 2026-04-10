@@ -137,6 +137,7 @@ export class GameClient {
 	}
 
 	dispose(): void {
+		this.audioEventSystem?.dispose();
 		this.audioEventSystem = null;
 		this.mgr.dispose();
 		this.hud.dispose();

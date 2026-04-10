@@ -47,6 +47,8 @@ export class SoundBank {
 		const bus = engine.getBus(def.bus);
 		const variations: StaticSound[] = [];
 
+		const localVariations: StaticSound[] = [];
+
 		for (const url of def.variations) {
 			try {
 				const sound = await audioEngine.createSoundAsync(def.id, url, {
@@ -60,6 +62,16 @@ export class SoundBank {
 				});
 				variations.push(sound);
 				this.loadedFromFile.add(def.id);
+
+				// For spatial sounds, also create a non-spatial copy for local playback
+				if (def.spatial) {
+					const localSound = await audioEngine.createSoundAsync(def.id, url, {
+						outBus: bus,
+						maxInstances: def.maxInstances,
+						spatialEnabled: false,
+					});
+					localVariations.push(localSound);
+				}
 			} catch {
 				console.warn(
 					`Failed to load sound "${def.id}" from ${url}, using procedural fallback`,
@@ -70,6 +82,9 @@ export class SoundBank {
 		}
 
 		this.sounds.set(def.id, variations);
+		if (localVariations.length > 0) {
+			this.sounds.set(`${def.id}:local`, localVariations);
+		}
 	}
 
 	private async createProceduralFallback(

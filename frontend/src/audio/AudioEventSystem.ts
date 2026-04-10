@@ -27,12 +27,15 @@ export class AudioEventSystem {
 	private footstepTimers = new Map<number, number>();
 	// Pipeline 1b: continuous trigger timers (local player)
 	private continuousTimers = new Map<string, number>();
+	// Pending delayed sounds — tracked so they can be cancelled on dispose
+	private pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+	private disposed = false;
 
 	constructor(engine: GameAudioEngine, soundBank: SoundBank) {
 		this.engine = engine;
 		this.soundBank = soundBank;
 		for (const trigger of LOCAL_INPUT_TRIGGERS) {
-			this.prevInputState[trigger.field] = false;
+			this.prevInputState[trigger.field] = trigger.initialValue ?? false;
 		}
 	}
 
@@ -72,10 +75,11 @@ export class AudioEventSystem {
 				if (trigger.delayMs) {
 					const sid = trigger.soundId;
 					const vol = trigger.volume;
-					setTimeout(
-						() => this.playSoundAt(sid, position, vol, undefined, true),
-						trigger.delayMs,
-					);
+					const timer = setTimeout(() => {
+						this.pendingTimers.delete(timer);
+						if (!this.disposed) this.playSoundAt(sid, position, vol, undefined, true);
+					}, trigger.delayMs);
+					this.pendingTimers.add(timer);
 				} else {
 					this.playSoundAt(trigger.soundId, position, trigger.volume, undefined, true);
 				}
@@ -143,6 +147,12 @@ export class AudioEventSystem {
 		}
 	}
 
+	dispose(): void {
+		this.disposed = true;
+		for (const timer of this.pendingTimers) clearTimeout(timer);
+		this.pendingTimers.clear();
+	}
+
 	private playSoundAt(
 		soundId: string,
 		position: Vector3D,
@@ -159,7 +169,10 @@ export class AudioEventSystem {
 		if (now - lastPlay < def.cooldown) return;
 		this.lastPlayTimes.set(resolved, now);
 
-		const sound = this.soundBank.getRandomSound(resolved);
+		// Use the non-spatial local copy for local player sounds
+		const lookupId = disableSpatial ? `${resolved}:local` : resolved;
+		const sound = this.soundBank.getRandomSound(lookupId)
+			?? this.soundBank.getRandomSound(resolved);
 		if (!sound) return;
 
 		sound.volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);
