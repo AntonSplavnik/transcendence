@@ -1,5 +1,8 @@
 import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
 import rogueModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue.glb';
+import barbarianModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Barbarian.glb';
+import rangerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Ranger.glb';
+import mageModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Mage.glb';
 import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
@@ -7,7 +10,7 @@ import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1
 import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
 import daggerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.glb';
 
-export type CharacterChoice = 'Knight' | 'Rogue';
+export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
 
 export interface EquipmentSlot {
@@ -41,6 +44,7 @@ export interface TrailColor {
 export interface CharacterConfig {
 	label: string;
 	characterClass: string;
+	locked?: boolean;
 	model: string;
 	animationSets: string[];
 	equipment: EquipmentSlot[];
@@ -109,5 +113,62 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		stats: { attack: 9, defense: 4, speed: 10, health: 6 },
 		description: 'High burst damage. Glass cannon. Hit and run.',
 		weapons: ['Dagger (R)', 'Dagger (L)'],
+	},
+	Barbarian: {
+		label: 'Barbarian',
+		characterClass: 'Berserker',
+		locked: true,
+		model: barbarianModel,
+		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
+		equipment: [],
+		scale: 1,
+		previewBgColor: '#c45c2c',
+		idleAnimation:    { name: 'Idle_A' },
+		walkAnimation:    { name: 'Walking_B' },
+		runAnimation:     { name: 'Running_B' },
+		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
+		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop' }],
+		trailColor: { base: [255, 140, 60], tip: [255, 80, 30], maxWidth: 0.35, tailOpacity: 0.15, tipOpacity: 0.9 },
+		stats: { attack: 10, defense: 6, speed: 5, health: 8 },
+		description: 'Reckless brawler. Raw damage, low finesse.',
+		weapons: ['Greataxe'],
+	},
+	Ranger: {
+		label: 'Ranger',
+		characterClass: 'Marksman',
+		locked: true,
+		model: rangerModel,
+		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
+		equipment: [],
+		scale: 1,
+		previewBgColor: '#8b6d2e',
+		idleAnimation:    { name: 'Idle_A' },
+		walkAnimation:    { name: 'Walking_B' },
+		runAnimation:     { name: 'Running_B' },
+		attackAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		skillAnimations:  [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		trailColor: { base: [180, 160, 80], tip: [240, 220, 140], maxWidth: 0.25, tailOpacity: 0.1, tipOpacity: 0.8 },
+		stats: { attack: 8, defense: 3, speed: 8, health: 5 },
+		description: 'Ranged kiter. High mobility, fragile up close.',
+		weapons: ['Bow'],
+	},
+	Mage: {
+		label: 'Mage',
+		characterClass: 'Battlemage',
+		locked: true,
+		model: mageModel,
+		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
+		equipment: [],
+		scale: 1,
+		previewBgColor: '#7b3fa0',
+		idleAnimation:    { name: 'Idle_A' },
+		walkAnimation:    { name: 'Walking_B' },
+		runAnimation:     { name: 'Running_B' },
+		attackAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		skillAnimations:  [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		trailColor: { base: [160, 80, 220], tip: [220, 140, 255], maxWidth: 0.3, tailOpacity: 0.12, tipOpacity: 0.85 },
+		stats: { attack: 8, defense: 5, speed: 6, health: 7 },
+		description: 'Hybrid caster. Melee and magic, jack of all trades.',
+		weapons: ['Staff', 'Spells'],
 	},
 };
