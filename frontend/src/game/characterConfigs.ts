@@ -17,6 +17,19 @@ export interface EquipmentSlot {
 	rotation?: [number, number, number]; // bone-local XYZ rotation (radians)
 }
 
+export interface AnimationEntry {
+	name: string;
+	speed?: number;  // playback speed multiplier (default 1.0)
+}
+
+export interface TrailColor {
+	base: [number, number, number]; // RGB 0–255, color at the tail end (oldest point)
+	tip: [number, number, number];  // RGB 0–255, color at the weapon end (newest point, most visible)
+	maxWidth: number;               // ribbon half-width in world units at the weapon end
+	tailOpacity: number;            // opacity of the tail end (0.0 = invisible, 1.0 = fully opaque) — controls how visible the base color is
+	tipOpacity: number;             // opacity of the weapon end (0.0 = invisible, 1.0 = fully opaque) — keep below 1.0 for a translucent feel
+}
+
 export interface CharacterConfig {
 	label: string;
 	model: string;
@@ -24,9 +37,12 @@ export interface CharacterConfig {
 	equipment: EquipmentSlot[];
 	scale: number;
 	previewBgColor: string;
-	idleAnimation: string;
-	attackAnimations: string[];  // [stage0, stage1, stage2, ...] — index = chain stage
-	skillAnimations:  string[];  // [skill1anim, skill2anim] — index = slot - 1
+	idleAnimation:    AnimationEntry;
+	walkAnimation:    AnimationEntry;
+	runAnimation:     AnimationEntry;
+	attackAnimations: AnimationEntry[];  // [stage0, stage1, stage2, ...] — index = chain stage
+	skillAnimations:  AnimationEntry[];  // [skill1anim, skill2anim] — index = slot - 1
+	trailColor: TrailColor;
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
@@ -40,16 +56,19 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		],
 		scale: 1,
 		previewBgColor: '#18a880',
-		idleAnimation: 'Idle_A',
+		idleAnimation:  { name: 'Idle_A' },
+		walkAnimation:  { name: 'Walking_B', speed: 0.9 },
+		runAnimation:   { name: 'Running_B' },
 		attackAnimations: [
-			'Melee_1H_Attack_Slice_Diagonal',    // stage 0
-			'Melee_1H_Attack_Slice_Horizontal',  // stage 1
-			'Melee_1H_Attack_Stab',              // stage 2
+			{ name: 'Melee_1H_Attack_Slice_Diagonal' },       // stage 0
+			{ name: 'Melee_1H_Attack_Slice_Horizontal' },     // stage 1
+			{ name: 'Melee_1H_Attack_Stab', speed: 0.9 },     // stage 2 — heavy finisher
 		],
 		skillAnimations: [
-			'Melee_1H_Attack_Jump_Chop',  // skill1
-			'Melee_1H_Attack_Chop',       // skill2 — placeholder; replace with a distinct anim later
+			{ name: 'Melee_1H_Attack_Jump_Chop' },   // skill1
+			{ name: 'Melee_1H_Attack_Chop' },         // skill2 — placeholder
 		],
+		trailColor: { base: [220, 235, 255], tip: [100, 165, 255], maxWidth: 0.3, tailOpacity: 0.13, tipOpacity: 0.85 },
 	},
 	Rogue: {
 		label: 'Rogue',
@@ -61,8 +80,11 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		],
 		scale: 1,
 		previewBgColor: '#582880',
-		idleAnimation: 'Idle_A',
-		attackAnimations: ['Melee_Dualwield_Attack_Chop'],  // placeholder until Rogue chain is designed
-		skillAnimations:  ['Melee_Dualwield_Attack_Chop'],  // placeholder
+		idleAnimation:    { name: 'Idle_A' },
+		walkAnimation:    { name: 'Walking_B' },
+		runAnimation:     { name: 'Running_B', speed: 1.2 },
+		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
+		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
+		trailColor: { base: [102, 187, 106], tip: [200, 255, 200], maxWidth: 0.3, tailOpacity: 0.13, tipOpacity: 0.85 },
 	},
 };

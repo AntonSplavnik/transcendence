@@ -148,8 +148,9 @@ struct CombatController {
 			}
 		}
 
-		// Advance chain window — break chain if player is too slow
-		if (chainStage > 0) {
+		// Advance chain window — break chain if player is too slow.
+		// Only tick after the swing ends; the window is idle time between attacks.
+		if (chainStage > 0 && !isAttacking) {
 			chainTimer += deltaTime;
 			const float window = attackChain[static_cast<size_t>(chainStage - 1)].chainWindow;
 			if (chainTimer > window) {

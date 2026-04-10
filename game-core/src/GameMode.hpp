@@ -172,6 +172,26 @@ public:
 		, m_respawnDelay(respawnDelay)
 	{}
 
+	void onStart(GameModeContext& ctx,
+				 [[maybe_unused]] Components::GameModeComponent& gm,
+				 Components::MatchStatsComponent& stats) override {
+
+		entt::entity gameManager = entt::null;
+		for (auto e : ctx.registry.view<GameManagerTag>()) { gameManager = e; break; }
+		if (gameManager == entt::null) return;
+
+		auto* pp = ctx.registry.try_get<Components::PendingPlayersComponent>(gameManager);
+		if (!pp || pp->players.empty()) return;
+
+		m_spawns.initialize(static_cast<int>(pp->players.size()));
+
+		for (const auto& p : pp->players) {
+			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());
+			if (entity != entt::null)
+				stats.playerStats.try_emplace(entity);
+		}
+	}
+
 	void onDeath(const Events::DeathEvent& e,
 				 GameModeContext& ctx,
 				 Components::GameModeComponent& gm,
@@ -217,7 +237,7 @@ public:
 		// Respawn players whose timer expired
 		std::erase_if(m_respawnQueue, [&](const RespawnTimer& t) {
 			if (t.remaining > 0.0f) return false;
-			ctx.spawner.respawnPlayer(t.entity, Vector3D{0, 0, 0});
+			ctx.spawner.respawnPlayer(t.entity, m_spawns.next());
 			return true;
 		});
 	}
@@ -231,6 +251,7 @@ private:
 
 	std::unordered_map<entt::entity, int> m_killCounts;
 	std::vector<RespawnTimer>         m_respawnQueue;
+	SpawnPositions                    m_spawns;
 };
 
 // =============================================================================
