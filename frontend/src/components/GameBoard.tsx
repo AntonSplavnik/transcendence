@@ -5,7 +5,7 @@ import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
-import SimpleGameClient from './GameBoard/SimpleGameClient';
+import GameCanvas from './GameBoard/GameCanvas';
 
 /**
  * Game view — driven entirely by GameContext.
@@ -41,7 +41,7 @@ export default function GameBoard() {
 		CHARACTER_CONFIGS[storedChar ?? DEFAULT_CHARACTER] ?? CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 
 	return (
-		<SimpleGameClient
+		<GameCanvas
 			snapshotRef={snapshotRef}
 			characterClassesRef={characterClassesRef}
 			eventsRef={eventsRef}

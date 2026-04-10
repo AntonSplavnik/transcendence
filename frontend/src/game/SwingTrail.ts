@@ -111,6 +111,8 @@ export class SwingTrail {
     this.rebuildRibbon();
   }
 
+  // TODO(perf): Ribbon is recreated every frame because vertex count changes
+  // with the rolling window. Consider pre-allocating a max-size updatable ribbon.
   private rebuildRibbon(): void {
     const n = this.history.length;
 

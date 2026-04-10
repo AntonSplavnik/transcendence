@@ -25,6 +25,7 @@ struct CharacterSnapshot {
 	float ability2Timer;     // seconds remaining on ability 2 cooldown
 	float ability2Cooldown;  // max cooldown duration
 	float swingProgress;     // 0.0–1.0 progress through current attack swing (0 = not attacking)
+	bool isGrounded;         // true if character is on the ground (from physics)
 
 	CharacterSnapshot() = default;
 };
@@ -231,6 +232,7 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 		charSnapshot.swingProgress    = (combat.isAttacking && !combat.attackChain.empty())
 			? combat.swingTimer / combat.currentStage().duration
 			: 0.0f;
+		charSnapshot.isGrounded       = physics.isGrounded;
 
 		snapshot.characters.push_back(charSnapshot);
 	});

@@ -209,6 +209,10 @@ export class AnimatedCharacter {
 		this.rootNode.position.copyFrom(pos);
 	}
 
+	setPositionFromFloats(x: number, y: number, z: number): void {
+		this.rootNode.position.copyFromFloats(x, y, z);
+	}
+
 	setRotation(yaw: number): void {
 		this.rootNode.rotation.y = yaw;
 	}
@@ -216,7 +220,10 @@ export class AnimatedCharacter {
 	dispose(): void {
 		this.cancelBlend();
 		this.trail?.dispose();
-		this.animations.forEach((anim) => anim.stop());
+		this.animations.forEach((anim) => {
+			anim.stop();
+			anim.onAnimationGroupEndObservable.clear();
+		});
 		this.equipmentMeshes.forEach((mesh) => mesh.dispose());
 		this.meshes.forEach((mesh) => mesh.dispose());
 		this.rootNode.dispose();
@@ -227,6 +234,7 @@ export async function loadCharacter(
 	char: AnimatedCharacter,
 	config: CharacterConfig,
 ): Promise<void> {
+	char.rootNode.setEnabled(false);
 	await char.loadModel(config.model);
 	for (const animSet of config.animationSets) {
 		await char.loadAnimations(animSet);
@@ -241,4 +249,5 @@ export async function loadCharacter(
 		await char.attachToBone(slot.model, slot.bone, pos, rot);
 	}
 	char.rootNode.scaling.setAll(config.scale);
+	char.rootNode.setEnabled(true);
 }
