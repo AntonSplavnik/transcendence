@@ -93,6 +93,8 @@ export interface GameEventContext {
 	localPosition: Vector3D;
 	/** Last-known server positions for remote players (prev snapshot). */
 	remotePositions: ReadonlyMap<number, Vector3D>;
+	/** Character classes for all players (used for class-aware sound resolution). */
+	characterClasses: ReadonlyMap<number, string>;
 }
 
 /** Loose runtime shape stored in the table (narrowed via the `trigger()` helper). */
@@ -104,6 +106,8 @@ export interface GameEventTrigger {
 	/** Return 3D position for spatial playback, or null to skip this event. */
 	position: (event: GameEvent, ctx: GameEventContext) => Vector3D | null;
 	volumeMapper?: (event: GameEvent) => number;
+	/** Return the player ID that emits this sound (for class-aware resolution). */
+	playerId?: (event: GameEvent) => number;
 }
 
 /**
@@ -120,6 +124,7 @@ function trigger<T extends GameEvent['type']>(
 			ctx: GameEventContext,
 		) => Vector3D | null;
 		volumeMapper?: (event: Extract<GameEvent, { type: T }>) => number;
+		playerId?: (event: Extract<GameEvent, { type: T }>) => number;
 	},
 ): GameEventTrigger {
 	return {
@@ -128,6 +133,7 @@ function trigger<T extends GameEvent['type']>(
 		predicate: cfg.predicate as GameEventTrigger['predicate'],
 		position: cfg.position as GameEventTrigger['position'],
 		volumeMapper: cfg.volumeMapper as GameEventTrigger['volumeMapper'],
+		playerId: cfg.playerId as GameEventTrigger['playerId'],
 	};
 }
 
@@ -138,13 +144,21 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		predicate: (e, ctx) => e.attacker === ctx.localPlayerId,
 		position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
 	}),
-	// Examples for future sounds — uncomment & provide the SFX file + definition:
-	// trigger('Death', {
-	//   soundId: 'player_death',
-	//   position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
-	// }),
-	// trigger('Spawn', {
-	//   soundId: 'player_spawn',
-	//   position: (e) => e.position,
-	// }),
+	// Remote player started an attack → swing SFX at their position.
+	trigger('AttackStarted', {
+		soundId: 'player_attack_swing',
+		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId,
+		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+	}),
+	// Remote player used a skill → ability SFX at their position.
+	trigger('SkillUsed', {
+		soundId: 'player_ability1',
+		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 1,
+		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+	}),
+	trigger('SkillUsed', {
+		soundId: 'player_ability2',
+		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 2,
+		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+	}),
 ];

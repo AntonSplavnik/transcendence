@@ -1,6 +1,6 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core';
 import type { RefObject } from 'react';
-import type { GameEvent, GameStateSnapshot } from './types';
+import type { CharacterSnapshot, GameEvent, GameStateSnapshot } from './types';
 import type { CharacterConfig } from './characterConfigs';
 import { CharacterManager } from './CharacterManager';
 import { GameHUD } from './HUD';
@@ -26,6 +26,7 @@ export class GameClient {
 	private audioEngine: GameAudioEngine | null = null;
 	private localAbility1Timer: number = 0;
 	private localAbility2Timer: number = 0;
+	private prevRemoteSnapshots = new Map<number, CharacterSnapshot>();
 
 	constructor(
 		scene: Scene,
@@ -73,12 +74,26 @@ export class GameClient {
 
 	processSnapshot(snapshot: GameStateSnapshot): void {
 		this.snapshotProcessor.processSnapshot(snapshot, this.mgr, this.hud, this.camera);
-		// Cache local player cooldown timers for audio gating
+
 		for (const char of snapshot.characters) {
 			if (char.player_id === this.mgr.localPlayerID) {
+				// Cache local player cooldown timers for audio gating
 				this.localAbility1Timer = char.ability1_timer;
 				this.localAbility2Timer = char.ability2_timer;
-				break;
+			} else if (this.audioEventSystem) {
+				// Pipeline 2: remote player audio from snapshot deltas
+				const prev = this.prevRemoteSnapshots.get(char.player_id);
+				if (prev) {
+					this.audioEventSystem.onRemoteSnapshot(prev, char);
+				}
+				this.prevRemoteSnapshots.set(char.player_id, char);
+			}
+		}
+
+		// Clean up prev snapshots for disconnected players
+		for (const id of this.prevRemoteSnapshots.keys()) {
+			if (!snapshot.characters.some((c) => c.player_id === id)) {
+				this.prevRemoteSnapshots.delete(id);
 			}
 		}
 	}

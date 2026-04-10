@@ -48,12 +48,13 @@ export class AudioEventSystem {
 	 * e.g. "player_footstep" + class "knight" → "knight_footstep" (if loaded),
 	 * otherwise falls back to "player_footstep".
 	 */
-	private resolveSoundId(baseSoundId: string): string {
-		if (!this.characterClass) return baseSoundId;
+	private resolveSoundId(baseSoundId: string, characterClass?: string | null): string {
+		const cls = characterClass ?? this.characterClass;
+		if (!cls) return baseSoundId;
 
 		// "player_footstep" → "footstep", "player_attack_swing" → "attack_swing"
 		const suffix = baseSoundId.replace(/^player_/, '');
-		const classSpecificId = `${this.characterClass}_${suffix}`;
+		const classSpecificId = `${cls}_${suffix}`;
 
 		// Use class-specific only if real sound files were loaded (not just procedural fallbacks)
 		if (this.soundBank.hasLoadedFiles(classSpecificId)) {
