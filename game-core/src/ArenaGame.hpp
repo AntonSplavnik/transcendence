@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/World.hpp"
+#include "components/Stamina.hpp"
 #include "GameTypes.hpp"
 #include <vector>
 #include <chrono>
@@ -26,6 +27,9 @@ struct CharacterSnapshot {
 	float ability2Cooldown;  // max cooldown duration
 	float swingProgress;     // 0.0–1.0 progress through current attack swing (0 = not attacking)
 	bool isGrounded;         // true if character is on the ground (from physics)
+	// Stamina data for HUD
+	float stamina;
+	float maxStamina;
 
 	CharacterSnapshot() = default;
 };
@@ -204,7 +208,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 		Components::PhysicsBody,
 		Components::Health,
 		Components::CharacterController,
-		Components::CombatController
+		Components::CombatController,
+		Components::Stamina
 	>();
 
 	// Convert entities to character snapshots
@@ -213,7 +218,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 				  Components::PhysicsBody& physics,
 				  Components::Health& health,
 				  Components::CharacterController& controller,
-				  Components::CombatController& combat) {
+				  Components::CombatController& combat,
+				  Components::Stamina& stam) {
 
 		CharacterSnapshot charSnapshot;
 		charSnapshot.playerID = playerInfo.playerID;
@@ -233,6 +239,8 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 			? combat.swingTimer / combat.currentStage().duration
 			: 0.0f;
 		charSnapshot.isGrounded       = physics.isGrounded;
+		charSnapshot.stamina    = stam.current;
+		charSnapshot.maxStamina = stam.maximum;
 
 		snapshot.characters.push_back(charSnapshot);
 	});
