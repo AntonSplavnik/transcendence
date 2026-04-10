@@ -133,6 +133,10 @@ export class SnapshotProcessor {
 		const healthPct = charData.max_health > 0 ? charData.health / charData.max_health : 0;
 		hud.updateLocalHealth(healthPct);
 
+		// Stamina
+		const staminaPct = charData.max_stamina > 0 ? charData.stamina / charData.max_stamina : 0;
+		hud.updateLocalStamina(staminaPct);
+
 		// Death
 		if (charData.state === CharacterState.Dead && !mgr.localIsDead && mgr.localCharacter) {
 			mgr.localIsDead = true;
