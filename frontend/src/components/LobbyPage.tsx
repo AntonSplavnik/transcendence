@@ -286,6 +286,7 @@ export default function LobbyPage() {
 							variant={myPlayer.ready ? 'secondary' : 'success'}
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
+							className="min-w-[104px]"
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>

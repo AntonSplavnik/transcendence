@@ -8,7 +8,7 @@ export default function PlayerAvatarRow({ players, hostId }: PlayerAvatarRowProp
 
 	return (
 		<div className="flex flex-col items-center" style={{ gap: '6px' }}>
-			<span className="uppercase" style={{ fontSize: '10px', color: '#4a6080', letterSpacing: '0.1em' }}>
+			<span className="uppercase whitespace-nowrap" style={{ fontSize: '10px', color: '#4a6080', letterSpacing: '0.1em' }}>
 				Players {players.size} · {readyCount} ready
 			</span>
 			<div className="flex items-center" style={{ gap: '10px' }}>
