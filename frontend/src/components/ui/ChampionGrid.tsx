@@ -37,10 +37,10 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							onClick={() => { if (!locked) onChange(id); }}
 							className={`aspect-square rounded-2xl border-2 relative overflow-hidden transition-all duration-200 ${
 								locked
-									? 'border-stone-700/50 cursor-not-allowed'
+									? 'border-stone-700/50 cursor-not-allowed grayscale'
 									: selected
-										? 'border-gold-400 shadow-[0_0_14px_2px_rgba(224,160,48,0.45)] cursor-pointer'
-										: 'border-stone-700 opacity-60 hover:opacity-80 hover:border-stone-600 cursor-pointer'
+										? 'border-gold-400 shadow-[0_0_18px_3px_rgba(224,160,48,0.5)] scale-105 z-10 cursor-pointer'
+										: 'border-stone-700 opacity-50 hover:opacity-75 hover:border-stone-600 cursor-pointer'
 							}`}
 							style={{
 								background: `linear-gradient(to bottom, ${cfg.previewBgColor}, #0e0e10)`,
@@ -57,8 +57,8 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							/>
 							<div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent" />
 							{locked && (
-								<div className="absolute inset-0 bg-stone-950/60 flex items-center justify-center">
-									<Lock className="w-6 h-6 text-stone-500" />
+								<div className="absolute inset-0 bg-stone-950/70 flex items-center justify-center">
+									<Lock className="w-5 h-5 text-stone-600" />
 								</div>
 							)}
 							<span

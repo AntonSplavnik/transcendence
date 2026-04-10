@@ -3,6 +3,7 @@ import rogueModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rog
 import barbarianModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Barbarian.glb';
 import rangerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Ranger.glb';
 import mageModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Mage.glb';
+import rogueHoodedModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue_Hooded.glb';
 import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
@@ -10,7 +11,7 @@ import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1
 import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
 import daggerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.glb';
 
-export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage';
+export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage' | 'RogueHooded';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
 
 export interface EquipmentSlot {
@@ -170,5 +171,24 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		stats: { attack: 8, defense: 5, speed: 6, health: 7 },
 		description: 'Hybrid caster. Melee and magic, jack of all trades.',
 		weapons: ['Staff', 'Spells'],
+	},
+	RogueHooded: {
+		label: 'Shadow',
+		characterClass: 'Nightblade',
+		locked: true,
+		model: rogueHoodedModel,
+		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
+		equipment: [],
+		scale: 1,
+		previewBgColor: '#2a4a3a',
+		idleAnimation:    { name: 'Idle_A' },
+		walkAnimation:    { name: 'Walking_B' },
+		runAnimation:     { name: 'Running_B', speed: 1.1 },
+		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.3 }],
+		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.3 }],
+		trailColor: { base: [60, 120, 80], tip: [140, 220, 160], maxWidth: 0.25, tailOpacity: 0.1, tipOpacity: 0.8 },
+		stats: { attack: 9, defense: 3, speed: 9, health: 5 },
+		description: 'Silent killer. Stealth and poison, high risk high reward.',
+		weapons: ['Poison Blade', 'Throwing Knives'],
 	},
 };
