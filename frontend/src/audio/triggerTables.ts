@@ -144,21 +144,37 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		predicate: (e, ctx) => e.attacker === ctx.localPlayerId,
 		position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
 	}),
+	// Any player dies → death SFX at the victim's position.
+	trigger('Death', {
+		soundId: 'player_death',
+		position: (e, ctx) =>
+			e.victim === ctx.localPlayerId
+				? ctx.localPosition
+				: ctx.remotePositions.get(e.victim) ?? null,
+	}),
+	// Any player spawns (respawn) → spawn SFX at their position.
+	trigger('Spawn', {
+		soundId: 'player_spawn',
+		position: (e) => e.position,
+	}),
 	// Remote player started an attack → swing SFX at their position.
 	trigger('AttackStarted', {
 		soundId: 'player_attack_swing',
 		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId,
 		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		playerId: (e) => e.player_id,
 	}),
 	// Remote player used a skill → ability SFX at their position.
 	trigger('SkillUsed', {
 		soundId: 'player_ability1',
 		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 1,
 		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		playerId: (e) => e.player_id,
 	}),
 	trigger('SkillUsed', {
 		soundId: 'player_ability2',
 		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 2,
 		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		playerId: (e) => e.player_id,
 	}),
 ];

@@ -24,6 +24,7 @@ export class GameClient {
 	private characterConfig: CharacterConfig;
 	private audioEventSystem: AudioEventSystem | null = null;
 	private audioEngine: GameAudioEngine | null = null;
+	private characterClassesRef: RefObject<Map<number, string>>;
 	private localAbility1Timer: number = 0;
 	private localAbility2Timer: number = 0;
 	private prevRemoteSnapshots = new Map<number, CharacterSnapshot>();
@@ -39,6 +40,7 @@ export class GameClient {
 	) {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
+		this.characterClassesRef = characterClassesRef;
 
 		this.mgr = new CharacterManager(scene, localPlayerID);
 		this.hud = new GameHUD(
@@ -84,7 +86,8 @@ export class GameClient {
 				// Pipeline 2: remote player audio from snapshot deltas
 				const prev = this.prevRemoteSnapshots.get(char.player_id);
 				if (prev) {
-					this.audioEventSystem.onRemoteSnapshot(prev, char);
+					const charClass = this.characterClassesRef.current.get(char.player_id) ?? null;
+					this.audioEventSystem.onRemoteSnapshot(prev, char, charClass);
 				}
 				this.prevRemoteSnapshots.set(char.player_id, char);
 			}
@@ -104,6 +107,7 @@ export class GameClient {
 				localPlayerId: this.mgr.localPlayerID,
 				localPosition: { x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
 				remotePositions: this.snapshotProcessor.remotePositions,
+				characterClasses: this.characterClassesRef.current,
 			});
 		}
 		processEvents(events, this.mgr);

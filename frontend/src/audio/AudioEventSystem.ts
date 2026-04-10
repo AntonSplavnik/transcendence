@@ -49,8 +49,9 @@ export class AudioEventSystem {
 	 * otherwise falls back to "player_footstep".
 	 */
 	private resolveSoundId(baseSoundId: string, characterClass?: string | null): string {
-		const cls = characterClass ?? this.characterClass;
-		if (!cls) return baseSoundId;
+		const raw = characterClass ?? this.characterClass;
+		if (!raw) return baseSoundId;
+		const cls = raw.toLowerCase();
 
 		// "player_footstep" → "footstep", "player_attack_swing" → "attack_swing"
 		const suffix = baseSoundId.replace(/^player_/, '');
@@ -73,16 +74,16 @@ export class AudioEventSystem {
 			const fired = trigger.edge === 'rising' ? current && !previous : !current && previous;
 
 			if (fired) {
+				const resolved = this.resolveSoundId(trigger.soundId);
 				if (trigger.delayMs) {
-					const sid = trigger.soundId;
 					const vol = trigger.volume;
 					const timer = setTimeout(() => {
 						this.pendingTimers.delete(timer);
-						if (!this.disposed) this.playSoundAt(sid, position, vol);
+						if (!this.disposed) this.playSoundAt(resolved, position, vol);
 					}, trigger.delayMs);
 					this.pendingTimers.add(timer);
 				} else {
-					this.playSoundAt(trigger.soundId, position, trigger.volume);
+					this.playSoundAt(resolved, position, trigger.volume);
 				}
 			}
 		}
@@ -100,12 +101,12 @@ export class AudioEventSystem {
 			if (now - last < trigger.intervalMs) continue;
 
 			this.continuousTimers.set(trigger.soundId, now);
-			this.playSoundAt(trigger.soundId, position, trigger.volume);
+			this.playSoundAt(this.resolveSoundId(trigger.soundId), position, trigger.volume);
 		}
 	}
 
 	/** Pipeline 2: remote players via snapshot delta (same trigger as updateRemoteAnimation) */
-	onRemoteSnapshot(prev: CharacterSnapshot, cur: CharacterSnapshot): void {
+	onRemoteSnapshot(prev: CharacterSnapshot, cur: CharacterSnapshot, characterClass?: string | null): void {
 		if (!this.engine.isInitialized()) return;
 
 		for (const trigger of REMOTE_SNAPSHOT_TRIGGERS) {
@@ -121,7 +122,8 @@ export class AudioEventSystem {
 			}
 
 			const volume = trigger.volumeMapper?.(prev, cur);
-			this.playSoundAt(trigger.soundId, cur.position, volume);
+			const resolved = this.resolveSoundId(trigger.soundId, characterClass);
+			this.playSoundAt(resolved, cur.position, volume);
 		}
 	}
 
@@ -143,7 +145,12 @@ export class AudioEventSystem {
 				if (!position) continue;
 
 				const volume = trigger.volumeMapper?.(event);
-				this.playSoundAt(trigger.soundId, position, volume);
+				// Resolve class-specific sound for the player that emitted this event
+				const charClass = trigger.playerId
+					? ctx.characterClasses.get(trigger.playerId(event)) ?? null
+					: null;
+				const resolved = this.resolveSoundId(trigger.soundId, charClass);
+				this.playSoundAt(resolved, position, volume);
 			}
 		}
 	}
@@ -160,16 +167,15 @@ export class AudioEventSystem {
 		overrideVolume?: number,
 		overridePitch?: number,
 	): void {
-		const resolved = this.resolveSoundId(soundId);
-		const def = this.soundBank.getDefinition(resolved);
+		const def = this.soundBank.getDefinition(soundId);
 		if (!def) return;
 
 		const now = performance.now();
-		const lastPlay = this.lastPlayTimes.get(resolved) ?? 0;
+		const lastPlay = this.lastPlayTimes.get(soundId) ?? 0;
 		if (now - lastPlay < def.cooldown) return;
-		this.lastPlayTimes.set(resolved, now);
+		this.lastPlayTimes.set(soundId, now);
 
-		const sound = this.soundBank.getRandomSound(resolved);
+		const sound = this.soundBank.getRandomSound(soundId);
 		if (!sound) return;
 
 		sound.volume = overrideVolume ?? randomRange(def.volume.min, def.volume.max);

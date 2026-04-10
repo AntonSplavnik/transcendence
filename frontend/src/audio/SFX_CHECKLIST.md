@@ -81,7 +81,7 @@
 |-----------------------------|--------------------------------------|------------|--------|
 | `game_start`                | Match beginning (horn/bell)          | 1          | TODO   |
 | `game_end`                  | Match over (fanfare or defeat)       | 2          | TODO   |
-| `player_spawn`              | Spawn/teleport in                    | 1-2        | TODO   |
+| `player_spawn`              | Spawn/teleport in                    | 1          | DONE   |
 | `player_kill`               | Kill confirmation                    | 1-2        | TODO   |
 | `score_point`               | Point scored                         | 1          | LATER  |
 
