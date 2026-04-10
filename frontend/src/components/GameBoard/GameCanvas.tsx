@@ -324,6 +324,7 @@ export default function GameCanvas({
 				engine.hideLoadingUI();
 				gameClient.playSpawnAnimation();
 				gameAudio?.playSceneAmbient('amb_forest');
+				gameAudio?.playMusicPlaylist();
 			}
 
 			// Resize handler
@@ -341,7 +342,7 @@ export default function GameCanvas({
 		return () => {
 			disposed = true;
 			gameAudio?.stopSceneAmbient();
-			gameAudio?.stopSceneMusic();
+			gameAudio?.stopMusicPlaylist();
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);

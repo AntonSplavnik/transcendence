@@ -368,6 +368,26 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 		priority: 7,
 		maxInstances: 4,
 	},
+	// ─── Music - In-Game (shuffled playlist) ───────────────────────────────────
+	{
+		id: 'music_ingame',
+		variations: [
+			'/sounds/music/music_ingame_01.mp3',
+			'/sounds/music/music_ingame_02.mp3',
+			'/sounds/music/music_ingame_03.mp3',
+			'/sounds/music/music_ingame_04.mp3',
+			'/sounds/music/music_ingame_05.mp3',
+		],
+		volume: { min: 0.35, max: 0.35 },
+		pitch: { min: 1.0, max: 1.0 },
+		bus: 'music',
+		spatial: false,
+		cooldown: 0,
+		priority: 1,
+		maxInstances: 1,
+	},
+
+	// ─── Music - Menu ───────────────────────────────────────────────────────────
 	{
 		id: 'music_main_theme',
 		variations: ['/sounds/music/music_main_theme_02.wav'],

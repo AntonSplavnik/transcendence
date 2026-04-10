@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Node } from '@babylonjs/core/node';
+import type { Observer } from '@babylonjs/core/Misc/observable';
+import type { StaticSound } from '@babylonjs/core/AudioV2';
 import { GameAudioEngine } from './AudioEngine';
 import type { BusName } from './AudioEngine';
 import { SoundBank } from './SoundBank';
@@ -38,6 +40,10 @@ export interface GameAudioHandle {
 	stopSceneAmbient(): void;
 	playSceneMusic(soundId: string): void;
 	stopSceneMusic(): void;
+	/** Start a shuffled playlist of in-game music tracks. */
+	playMusicPlaylist(): void;
+	/** Stop the shuffled playlist. */
+	stopMusicPlaylist(): void;
 }
 
 interface AudioContextValue extends AudioHandle, GameAudioHandle {}
@@ -179,6 +185,57 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		currentMusicIdRef.current = null;
 	};
 
+	// ─── Shuffle playlist for in-game music ─────────────────────────────────
+	const playlistActiveRef = useRef(false);
+	const playlistObserverRef = useRef<Observer<StaticSound> | null>(null);
+
+	const playNextPlaylistTrack = (): void => {
+		const engine = engineRef.current;
+		const bank = bankRef.current;
+		if (!engine?.isInitialized() || !bank || !playlistActiveRef.current) return;
+
+		// Clean up previous observer
+		if (playlistObserverRef.current && currentMusicRef.current) {
+			currentMusicRef.current.onEndedObservable.remove(playlistObserverRef.current);
+			playlistObserverRef.current = null;
+		}
+
+		// Stop current track
+		if (currentMusicRef.current) {
+			currentMusicRef.current.stop();
+			currentMusicRef.current = null;
+		}
+
+		const sound = bank.getRandomSound('music_ingame');
+		if (!sound) return;
+
+		const def = bank.getDefinition('music_ingame');
+		if (def) sound.volume = def.volume.min;
+		sound.loop = false;
+		sound.play();
+		currentMusicRef.current = sound;
+		currentMusicIdRef.current = 'music_ingame';
+
+		// When track ends, play another random variation
+		playlistObserverRef.current = sound.onEndedObservable.addOnce(() => {
+			playNextPlaylistTrack();
+		});
+	};
+
+	const playMusicPlaylistImpl = (): void => {
+		playlistActiveRef.current = true;
+		playNextPlaylistTrack();
+	};
+
+	const stopMusicPlaylistImpl = (): void => {
+		playlistActiveRef.current = false;
+		if (playlistObserverRef.current && currentMusicRef.current) {
+			currentMusicRef.current.onEndedObservable.remove(playlistObserverRef.current);
+			playlistObserverRef.current = null;
+		}
+		stopMusicImpl();
+	};
+
 	const handle: AudioContextValue = useMemo(() => ({
 		isReady,
 		engine,
@@ -192,6 +249,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		stopSceneAmbient: stopAmbientImpl,
 		playSceneMusic: playMusicImpl,
 		stopSceneMusic: stopMusicImpl,
+		playMusicPlaylist: playMusicPlaylistImpl,
+		stopMusicPlaylist: stopMusicPlaylistImpl,
 
 		playSound(soundId: string): void {
 			const engine = engineRef.current;
