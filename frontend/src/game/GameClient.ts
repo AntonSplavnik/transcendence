@@ -34,6 +34,7 @@ export class GameClient {
 		this.mgr = new CharacterManager(scene, localPlayerID);
 		this.hud = new GameHUD(
 			scene,
+			localPlayerID,
 			(id) => this.mgr.getChar(id)?.rootNode.getAbsolutePosition() ?? null,
 		);
 		this.snapshotProcessor = new SnapshotProcessor(

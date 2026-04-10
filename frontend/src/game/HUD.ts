@@ -12,9 +12,11 @@ export class GameHUD {
 	private cooldownBars: { attack: any; ability1: any; ability2: any };
 	private getCharPosition: (id: number) => Vector3 | null;
 	private enemyBarObserver: Observer<Scene> | null = null;
+	private localPlayerID: number;
 
-	constructor(scene: Scene, getCharPosition: (playerId: number) => Vector3 | null) {
+	constructor(scene: Scene, localPlayerID: number, getCharPosition: (playerId: number) => Vector3 | null) {
 		this.scene = scene;
+		this.localPlayerID = localPlayerID;
 		this.getCharPosition = getCharPosition;
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +114,7 @@ export class GameHUD {
 	}
 
 	createEnemyBar(playerId: number): void {
+		if (playerId === this.localPlayerID) return;
 		if (this.enemyBars.has(playerId)) return;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const GUI = (BABYLON as any).GUI;
