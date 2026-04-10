@@ -5,6 +5,7 @@
 #include "../components/PhysicsBody.hpp"
 #include "../components/Collider.hpp"
 #include "../components/Health.hpp"
+#include "../components/Stamina.hpp"
 #include "../components/CharacterController.hpp"
 #include "../components/CombatController.hpp"
 #include "../components/Tags.hpp"
@@ -21,6 +22,7 @@
 #include "../systems/CollisionSystem.hpp"
 #include "../systems/CombatSystem.hpp"
 #include "../systems/GameModeSystem.hpp"
+#include "../systems/StaminaSystem.hpp"
 
 #include "../ISpawner.hpp"
 #include "../CharacterClassLookup.hpp"
@@ -165,6 +167,7 @@ inline void World::initialize() {
 	auto collisionSystem = std::make_unique<CollisionSystem>();
 	auto combatSystem = std::make_unique<CombatSystem>();
 	auto gameModeSystem = std::make_unique<GameModeSystem>();
+	auto staminaSystem = std::make_unique<StaminaSystem>();
 
 	m_gameManager = createGameManager();
 
@@ -174,6 +177,7 @@ inline void World::initialize() {
 	collisionSystem->setRegistry(&m_registry);
 	combatSystem->setRegistry(&m_registry);
 	gameModeSystem->setRegistry(&m_registry);
+	staminaSystem->setRegistry(&m_registry);
 	gameModeSystem->setSpawner(this);
 
 	// Pass GameManager to systems
@@ -182,6 +186,7 @@ inline void World::initialize() {
 	collisionSystem->setGameManager(m_gameManager);
 	combatSystem->setGameManager(m_gameManager);
 	gameModeSystem->setGameManager(m_gameManager);
+	staminaSystem->setGameManager(m_gameManager);
 
 	// Store raw pointers for convenience
 	m_characterControllerSystem = characterControllerSystem.get();
@@ -196,6 +201,7 @@ inline void World::initialize() {
 	m_systemManager.addSystem(std::move(collisionSystem));
 	m_systemManager.addSystem(std::move(combatSystem));
 	m_systemManager.addSystem(std::move(gameModeSystem));
+	m_systemManager.addSystem(std::move(staminaSystem));
 
 	// Initialize all systems
 	m_systemManager.initialize();
@@ -296,6 +302,7 @@ inline entt::entity World::createActor(const Vector3D& pos, const CharacterPrese
 	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createFromPreset(preset.movement));
 	m_registry.emplace<Components::Collider>(entity, Components::Collider::createFromPreset(preset.collider, layer));
 	m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset.health));
+	m_registry.emplace<Components::Stamina>(entity, Components::Stamina::createFromPreset(preset.stamina));
 	m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset.combat));
 
 	return entity;
@@ -429,6 +436,8 @@ inline void World::respawnPlayer(entt::entity player, const Vector3D& pos) {
 	if (transform)   transform->setPosition(pos.x, pos.y, pos.z);
 	if (physicsBody) physicsBody->setVelocity(0, 0, 0);
 	if (health)      health->revive();
+	auto* stamina = m_registry.try_get<Components::Stamina>(player);
+	if (stamina) stamina->restore();
 	if (controller) {
 		controller->setState(CharacterState::Idle);
 		controller->canMove = true;
