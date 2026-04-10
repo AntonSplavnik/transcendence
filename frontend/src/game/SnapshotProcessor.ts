@@ -6,7 +6,7 @@ import type { AnimatedCharacter } from './AnimatedCharacter';
 import type { CharacterManager } from './CharacterManager';
 import type { GameHUD } from './HUD';
 import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
-import { AnimationNames, CharacterState, GROUND_Y_THRESHOLD, ISO_CAM_OFFSET } from './constants';
+import { AnimationNames, CharacterState, ISO_CAM_OFFSET } from './constants';
 
 // ── Position strategy (interpolation injection point) ───────────────
 
@@ -118,6 +118,7 @@ export class SnapshotProcessor {
 	): void {
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
 		mgr.position.copyFromFloats(visual.position.x, visual.position.y, visual.position.z);
+		mgr.localIsGrounded = charData.is_grounded;
 
 		if (mgr.localCharacter) {
 			mgr.localCharacter.setPosition(mgr.position);
@@ -184,8 +185,7 @@ export class SnapshotProcessor {
 
 		// Jump state
 		const jumpState = mgr.getRemoteJumpState(charData.player_id);
-		const isGrounded = charData.position.y <= GROUND_Y_THRESHOLD;
-		const newJumpState = tickJumpState(remoteChar, jumpState, isGrounded, false);
+		const newJumpState = tickJumpState(remoteChar, jumpState, charData.is_grounded, false);
 		mgr.setRemoteJumpState(charData.player_id, newJumpState);
 
 		// Fallback animation (snapshot-driven)

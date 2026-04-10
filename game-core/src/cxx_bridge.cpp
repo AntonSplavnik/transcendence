@@ -118,6 +118,7 @@ GameStateSnapshot GameBridge::get_snapshot() const {
             /* ability2_timer    */ c.ability2Timer,
             /* ability2_cooldown */ c.ability2Cooldown,
             /* swing_progress    */ c.swingProgress,
+            /* is_grounded       */ c.isGrounded,
         });
     }
 

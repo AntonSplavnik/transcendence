@@ -21,6 +21,7 @@ export interface CharacterSnapshot {
 	ability2_timer: number;
 	ability2_cooldown: number;
 	swing_progress: number;
+	is_grounded: boolean;
 }
 
 export interface GameStateSnapshot {

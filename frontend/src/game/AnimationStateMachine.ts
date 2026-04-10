@@ -102,6 +102,7 @@ export function tickJumpState(
 		return JumpState.JUMP_START;
 	}
 	if (state === JumpState.AIRBORNE && !isGrounded) {
+		character.playAnimation(AnimationNames.jumpIdle, true);
 		return JumpState.AIRBORNE;
 	}
 	if (state === JumpState.AIRBORNE && isGrounded) {

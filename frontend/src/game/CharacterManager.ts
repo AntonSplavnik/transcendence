@@ -17,6 +17,7 @@ export class CharacterManager {
 	public localAnimSM: AnimationStateMachine = new AnimationStateMachine();
 	public localJumpState: JumpState = JumpState.GROUNDED;
 	public localIsDead: boolean = false;
+	public localIsGrounded: boolean = true;
 	public position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	public readonly localPlayerID: number;
 
