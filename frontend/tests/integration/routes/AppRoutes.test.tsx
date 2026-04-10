@@ -84,6 +84,7 @@ describe('AppRoutes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		localStorage.setItem('auth_hint', '1');
 	});
 
 	const renderRoutes = (initialRoute = '/landing') => {
