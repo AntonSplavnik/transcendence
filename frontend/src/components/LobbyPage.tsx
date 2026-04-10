@@ -18,10 +18,10 @@ import {
 // ─── Game modes ───────────────────────────────────────────────────────────────
 
 const GAME_MODES = [
-	{ id: 'Deathmatch', label: 'Deathmatch' },
-	{ id: 'LastStanding', label: 'Last Standing' },
-	{ id: 'WaveSurvival', label: 'Wave Survival' },
-	{ id: 'TeamDeathmatch', label: 'Team Deathmatch' },
+	{ id: 'Deathmatch', label: 'Deathmatch', enabled: true },
+	{ id: 'LastStanding', label: 'Last Standing', enabled: true },
+	{ id: 'WaveSurvival', label: 'Wave Survival', enabled: false },
+	{ id: 'TeamDeathmatch', label: 'Team Deathmatch', enabled: false },
 ] as const;
 
 // ─── Settings Edit Form ───────────────────────────────────────────────────────
@@ -325,16 +325,18 @@ export default function LobbyPage() {
 								<button
 									key={mode.id}
 									type="button"
-									disabled={!isHost}
+									disabled={!isHost || !mode.enabled}
 									onClick={() => {
-										if (isHost) void updateSettings({ gamemode: mode.id });
+										if (isHost && mode.enabled) void updateSettings({ gamemode: mode.id });
 									}}
 									className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-150 ${
-										active
-											? 'border-gold-400 bg-gold-400/10 text-gold-400'
-											: isHost
-												? 'border-stone-700 text-stone-500 hover:border-stone-500 hover:text-stone-300 cursor-pointer'
-												: 'border-stone-800 text-stone-600 cursor-default'
+										!mode.enabled
+											? 'border-stone-800 text-stone-700 cursor-not-allowed opacity-50'
+											: active
+												? 'border-gold-400 bg-gold-400/10 text-gold-400'
+												: isHost
+													? 'border-stone-700 text-stone-500 hover:border-stone-500 hover:text-stone-300 cursor-pointer'
+													: 'border-stone-800 text-stone-600 cursor-default'
 									}`}
 								>
 									{mode.label}
