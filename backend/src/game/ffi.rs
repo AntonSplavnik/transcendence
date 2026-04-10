@@ -54,6 +54,8 @@ mod bridge {
         ability2_cooldown: f32,
         swing_progress: f32,
         is_grounded: bool,
+        stamina: f32,
+        max_stamina: f32,
     }
 
     struct GameStateSnapshot {
@@ -211,6 +213,8 @@ pub struct CharacterSnapshot {
     pub ability2_cooldown: f32,
     pub swing_progress: f32,
     pub is_grounded: bool,
+    pub stamina: f32,
+    pub max_stamina: f32,
 }
 
 impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
@@ -237,6 +241,8 @@ impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
             ability2_cooldown: c.ability2_cooldown,
             swing_progress: c.swing_progress,
             is_grounded: c.is_grounded,
+            stamina: c.stamina,
+            max_stamina: c.max_stamina,
         }
     }
 }
