@@ -185,7 +185,7 @@ interface Props {
 	characterConfig?: CharacterConfig;
 }
 
-export default function SimpleGameClient({
+export default function GameCanvas({
 	snapshotRef,
 	characterClassesRef,
 	eventsRef,
