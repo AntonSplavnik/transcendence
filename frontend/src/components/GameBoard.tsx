@@ -5,6 +5,7 @@ import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
+import { useGameAudio } from '@/audio/AudioProvider';
 import GameCanvas from './GameBoard/GameCanvas';
 
 /**
@@ -25,6 +26,7 @@ export default function GameBoard() {
 	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput } = useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
+	const gameAudio = useGameAudio();
 
 	const isSpectator =
 		!!user &&
@@ -48,6 +50,8 @@ export default function GameBoard() {
 			onSendInput={sendInput}
 			localPlayerId={user.id}
 			characterConfig={characterConfig}
+			audioEngine={gameAudio.engine}
+			soundBank={gameAudio.soundBank}
 		/>
 	);
 }

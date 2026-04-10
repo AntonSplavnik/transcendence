@@ -8,6 +8,9 @@ import { SnapshotProcessor, DirectPositionStrategy } from './SnapshotProcessor';
 import { processEvents } from './EventProcessor';
 import { AnimPhase, tickJumpState } from './AnimationStateMachine';
 import type { InputState } from './constants';
+import type { GameAudioEngine } from '../audio/AudioEngine';
+import type { SoundBank } from '../audio/SoundBank';
+import { AudioEventSystem } from '../audio/AudioEventSystem';
 
 /**
  * Top-level game client that wires together the sub-systems:
@@ -19,6 +22,9 @@ export class GameClient {
 	private snapshotProcessor: SnapshotProcessor;
 	private camera: UniversalCamera;
 	private characterConfig: CharacterConfig;
+	private audioEventSystem: AudioEventSystem | null = null;
+	private localAbility1Timer: number = 0;
+	private localAbility2Timer: number = 0;
 
 	constructor(
 		scene: Scene,
@@ -26,6 +32,8 @@ export class GameClient {
 		camera: UniversalCamera,
 		characterConfig: CharacterConfig,
 		characterClassesRef: RefObject<Map<number, string>>,
+		audioEngine?: GameAudioEngine | null,
+		soundBank?: SoundBank | null,
 	) {
 		this.camera = camera;
 		this.characterConfig = characterConfig;
@@ -40,6 +48,13 @@ export class GameClient {
 			new DirectPositionStrategy(),
 			characterClassesRef,
 		);
+
+		if (audioEngine && soundBank) {
+			audioEngine.attachListenerToCamera(camera);
+			const aes = new AudioEventSystem(audioEngine, soundBank);
+			aes.setCharacterClass(characterConfig.label.toLowerCase());
+			this.audioEventSystem = aes;
+		}
 	}
 
 	async initLocalPlayer(): Promise<void> {
@@ -52,6 +67,14 @@ export class GameClient {
 
 	processSnapshot(snapshot: GameStateSnapshot): void {
 		this.snapshotProcessor.processSnapshot(snapshot, this.mgr, this.hud, this.camera);
+		// Cache local player cooldown timers for audio gating
+		for (const char of snapshot.characters) {
+			if (char.player_id === this.mgr.localPlayerID) {
+				this.localAbility1Timer = char.ability1_timer;
+				this.localAbility2Timer = char.ability2_timer;
+				break;
+			}
+		}
 	}
 
 	processEvents(events: GameEvent[]): void {
@@ -60,6 +83,21 @@ export class GameClient {
 
 	updateLocalAnimation(input: InputState): void {
 		if (!this.mgr.localCharacter || this.mgr.localIsDead) return;
+
+		// Trigger audio — abilities on cooldown are masked so no sound plays,
+		// but the raw input is still sent to the server (server is authoritative).
+		this.audioEventSystem?.onLocalInput(
+			{
+				movementDirection: input.movementDirection,
+				isAttacking: input.isAttacking,
+				isJumping: input.isJumping,
+				isSprinting: input.isSprinting,
+				isGrounded: this.mgr.localIsGrounded,
+				isUsingAbility1: input.isUsingAbility1 && this.localAbility1Timer <= 0,
+				isUsingAbility2: input.isUsingAbility2 && this.localAbility2Timer <= 0,
+			},
+			{ x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
+		);
 
 		this.mgr.localJumpState = tickJumpState(
 			this.mgr.localCharacter, this.mgr.localJumpState, this.mgr.localIsGrounded, input.isJumping,
@@ -92,6 +130,7 @@ export class GameClient {
 	}
 
 	dispose(): void {
+		this.audioEventSystem = null;
 		this.mgr.dispose();
 		this.hud.dispose();
 	}
