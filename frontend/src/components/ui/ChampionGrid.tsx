@@ -23,7 +23,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 			style={{ flex: '8 1 0%' }}
 		>
 			<span className="text-xs text-stone-500 uppercase tracking-widest">Champions</span>
-			<div className="grid grid-cols-3 gap-2 content-start">
+			<div className="grid grid-cols-3 gap-3 content-start">
 				{characters.map(([id, cfg]) => {
 					const locked = cfg.locked === true;
 					const selected = !locked && value === id;
