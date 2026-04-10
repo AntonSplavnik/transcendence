@@ -37,7 +37,7 @@ export default function CreateLobbyModal({ onClose }: CreateLobbyModalProps) {
 
 		const settings: LobbySettings = {
 			name: trimmedName,
-			gamemode: 'Deathmatch',
+			gamemode: null,
 			public: isPublic,
 		};
 
