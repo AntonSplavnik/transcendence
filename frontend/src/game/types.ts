@@ -33,6 +33,18 @@ export interface GameStateSnapshot {
 	characters: CharacterSnapshot[];
 }
 
+/** Per-player stats sent with the MatchEnd event. Mirrors backend PlayerMatchStatsPayload. */
+export interface PlayerMatchStats {
+	player_id: number;
+	name: string;
+	character_class: string;
+	kills: number;
+	deaths: number;
+	damage_dealt: number;
+	damage_taken: number;
+	placement: number;
+}
+
 // From backend/src/game/messages.rs
 // Using discriminated union with 'type' field (matches Rust #[serde(tag = "type")])
 export type GameServerMessage =
@@ -44,7 +56,7 @@ export type GameServerMessage =
 	| { type: 'StateChange'; player_id: number; state: number }
 	| { type: 'AttackStarted'; player_id: number; chain_stage: number }
 	| { type: 'SkillUsed'; player_id: number; skill_slot: number }
-	| { type: 'MatchEnd' }
+	| { type: 'MatchEnd'; players: PlayerMatchStats[] }
 	| { type: 'Error'; message: string };
 
 /** Subset of GameServerMessage that represents in-game events (not snapshots or meta). */
