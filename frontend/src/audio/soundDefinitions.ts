@@ -232,10 +232,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'player_ability1',
-		variations: [
-			'/sounds/sfx/swoosh_quick_01.wav',
-			'/sounds/sfx/swoosh_quick_02.wav',
-		],
+		variations: ['/sounds/sfx/swoosh_quick_01.wav', '/sounds/sfx/swoosh_quick_02.wav'],
 		volume: { min: 0.4, max: 0.6 },
 		pitch: { min: 0.9, max: 1.1 },
 		bus: 'sfx',
@@ -253,7 +250,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 			'/sounds/sfx/combat/knight/knight_attack_A_02.wav',
 		],
 		volume: { min: 0.6, max: 0.7 },
-		pitch: { min: 1.00, max: 1.00 },
+		pitch: { min: 1.0, max: 1.0 },
 		bus: 'sfx',
 		spatial: true,
 		maxDistance: 25,
@@ -264,10 +261,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'player_ability2',
-		variations: [
-			'/sounds/sfx/swoosh_quick_01.wav',
-			'/sounds/sfx/swoosh_quick_02.wav',
-		],
+		variations: ['/sounds/sfx/swoosh_quick_01.wav', '/sounds/sfx/swoosh_quick_02.wav'],
 		volume: { min: 0.5, max: 0.6 },
 		pitch: { min: 0.9, max: 1.1 },
 		bus: 'sfx',
@@ -280,11 +274,9 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'knight_ability2',
-		variations: [
-			'/sounds/sfx/combat/knight/knight_attack_F_01.wav',
-		],
+		variations: ['/sounds/sfx/combat/knight/knight_attack_F_01.wav'],
 		volume: { min: 0.5, max: 0.6 },
-		pitch: { min: 1.00, max: 1.00 },
+		pitch: { min: 1.0, max: 1.0 },
 		bus: 'sfx',
 		spatial: true,
 		maxDistance: 25,
@@ -295,11 +287,9 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'rogue_ability2',
-		variations: [
-			'/sounds/sfx/combat/rogue/rogue_attack_F_01.wav',
-		],
+		variations: ['/sounds/sfx/combat/rogue/rogue_attack_F_01.wav'],
 		volume: { min: 0.5, max: 0.6 },
-		pitch: { min: 1.00, max: 1.00 },
+		pitch: { min: 1.0, max: 1.0 },
 		bus: 'sfx',
 		spatial: true,
 		maxDistance: 25,

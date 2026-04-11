@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import type { Node } from '@babylonjs/core/node';
 import type { Observer } from '@babylonjs/core/Misc/observable';
 import type { AbstractSound } from '@babylonjs/core/AudioV2';
@@ -229,57 +237,60 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		playNextPlaylistTrackRef.current = playNextPlaylistTrack;
 	}, [playNextPlaylistTrack]);
 
-	const handle: AudioContextValue = useMemo(() => ({
-		isReady,
-		engine,
-		soundBank: bank,
+	const handle: AudioContextValue = useMemo(
+		() => ({
+			isReady,
+			engine,
+			soundBank: bank,
 
-		attachListener(node: Node): void {
-			engineRef.current?.attachListener(node);
-		},
+			attachListener(node: Node): void {
+				engineRef.current?.attachListener(node);
+			},
 
-		playSceneAmbient: playAmbientImpl,
-		stopSceneAmbient: stopAmbientImpl,
-		playSceneMusic: playMusicImpl,
-		stopSceneMusic: stopMusicImpl,
-		playMusicPlaylist(): void {
-			playlistActiveRef.current = true;
-			playNextPlaylistTrack();
-		},
-		stopMusicPlaylist(): void {
-			playlistActiveRef.current = false;
-			if (playlistObserverRef.current && currentMusicRef.current) {
-				currentMusicRef.current.onEndedObservable.remove(playlistObserverRef.current);
-				playlistObserverRef.current = null;
-			}
-			stopMusicImpl();
-		},
+			playSceneAmbient: playAmbientImpl,
+			stopSceneAmbient: stopAmbientImpl,
+			playSceneMusic: playMusicImpl,
+			stopSceneMusic: stopMusicImpl,
+			playMusicPlaylist(): void {
+				playlistActiveRef.current = true;
+				playNextPlaylistTrack();
+			},
+			stopMusicPlaylist(): void {
+				playlistActiveRef.current = false;
+				if (playlistObserverRef.current && currentMusicRef.current) {
+					currentMusicRef.current.onEndedObservable.remove(playlistObserverRef.current);
+					playlistObserverRef.current = null;
+				}
+				stopMusicImpl();
+			},
 
-		playSound(soundId: string): void {
-			const engine = engineRef.current;
-			const bank = bankRef.current;
-			if (!engine?.isInitialized() || !bank) return;
-			bank.playRandomised(soundId);
-		},
+			playSound(soundId: string): void {
+				const engine = engineRef.current;
+				const bank = bankRef.current;
+				if (!engine?.isInitialized() || !bank) return;
+				bank.playRandomised(soundId);
+			},
 
-		playMusic: playMusicImpl,
-		stopMusic: stopMusicImpl,
-		playAmbient: playAmbientImpl,
-		stopAmbient: stopAmbientImpl,
+			playMusic: playMusicImpl,
+			stopMusic: stopMusicImpl,
+			playAmbient: playAmbientImpl,
+			stopAmbient: stopAmbientImpl,
 
-		setBusVolume(bus, volume): void {
-			const engine = engineRef.current;
-			if (!engine?.isInitialized()) return;
-			const audioBus = engine.getBus(bus);
-			if (audioBus) audioBus.volume = volume;
-		},
+			setBusVolume(bus, volume): void {
+				const engine = engineRef.current;
+				if (!engine?.isInitialized()) return;
+				const audioBus = engine.getBus(bus);
+				if (audioBus) audioBus.volume = volume;
+			},
 
-		setMuted(muted: boolean): void {
-			const engine = engineRef.current;
-			if (!engine?.isInitialized()) return;
-			engine.setMasterVolume(muted ? 0 : 1);
-		},
-	}), [isReady, engine, bank, playNextPlaylistTrack]);
+			setMuted(muted: boolean): void {
+				const engine = engineRef.current;
+				if (!engine?.isInitialized()) return;
+				engine.setMasterVolume(muted ? 0 : 1);
+			},
+		}),
+		[isReady, engine, bank, playNextPlaylistTrack],
+	);
 
 	return <AudioCtx.Provider value={handle}>{children}</AudioCtx.Provider>;
 }

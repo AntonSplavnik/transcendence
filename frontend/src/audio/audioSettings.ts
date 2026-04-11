@@ -51,11 +51,11 @@ export function loadAudioSettings(): AudioSettings {
 			inGameMusicVolume:
 				typeof parsed.inGameMusicVolume === 'number'
 					? clamp01(parsed.inGameMusicVolume)
-					: legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameMusicVolume,
+					: (legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameMusicVolume),
 			inGameSfxVolume:
 				typeof parsed.inGameSfxVolume === 'number'
 					? clamp01(parsed.inGameSfxVolume)
-					: legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameSfxVolume,
+					: (legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameSfxVolume),
 			muted: typeof parsed.muted === 'boolean' ? parsed.muted : DEFAULT_AUDIO_SETTINGS.muted,
 		};
 	} catch {

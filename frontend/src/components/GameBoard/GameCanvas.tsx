@@ -65,7 +65,9 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 
 				// Extended ground plane to hide backdrop past terrain edges
 				const bgGround = BABYLON.MeshBuilder.CreateGround(
-					'bg-ground', { width: 1000, height: 1000 }, scene,
+					'bg-ground',
+					{ width: 1000, height: 1000 },
+					scene,
 				);
 				bgGround.position.y = -0.01;
 				const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
@@ -84,14 +86,18 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 				wallMat.specularColor = BABYLON.Color3.Black();
 
 				const wallDefs = [
-					['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-					['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-					['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-					['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+					['wall-n', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, WALL_POS],
+					['wall-s', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, -WALL_POS],
+					['wall-e', WALL_T, WALL_H, WALL_SPAN, WALL_POS, WALL_H / 2, 0],
+					['wall-w', WALL_T, WALL_H, WALL_SPAN, -WALL_POS, WALL_H / 2, 0],
 				] as const;
 
 				for (const [name, w, h, d, x, y, z] of wallDefs) {
-					const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+					const wall = BABYLON.MeshBuilder.CreateBox(
+						name,
+						{ width: w, height: h, depth: d },
+						scene,
+					);
 					wall.position.set(x, y, z);
 					wall.material = wallMat;
 				}
@@ -242,8 +248,13 @@ export default function GameCanvas({
 
 			// Game client
 			const gameClient = new GameClient(
-				scene, localPlayerId, camera, characterConfig, characterClassesRef,
-				gameAudio?.engine, gameAudio?.soundBank,
+				scene,
+				localPlayerId,
+				camera,
+				characterConfig,
+				characterClassesRef,
+				gameAudio?.engine,
+				gameAudio?.soundBank,
 			);
 			gameClientInstance = gameClient;
 

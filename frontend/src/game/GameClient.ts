@@ -105,7 +105,11 @@ export class GameClient {
 		if (this.audioEventSystem && events.length > 0) {
 			this.audioEventSystem.onGameEvents(events, {
 				localPlayerId: this.mgr.localPlayerID,
-				localPosition: { x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
+				localPosition: {
+					x: this.mgr.position.x,
+					y: this.mgr.position.y,
+					z: this.mgr.position.z,
+				},
 				remotePositions: this.snapshotProcessor.remotePositions,
 				characterClasses: this.characterClassesRef.current,
 			});
@@ -133,7 +137,10 @@ export class GameClient {
 
 		const previousJumpState = this.mgr.localJumpState;
 		this.mgr.localJumpState = tickJumpState(
-			this.mgr.localCharacter, this.mgr.localJumpState, this.mgr.localIsGrounded, input.isJumping,
+			this.mgr.localCharacter,
+			this.mgr.localJumpState,
+			this.mgr.localIsGrounded,
+			input.isJumping,
 		);
 		if (
 			this.audioEventSystem &&
@@ -150,15 +157,17 @@ export class GameClient {
 
 		const isPlaying = this.mgr.localCharacter.currentAnimation?.isPlaying ?? false;
 		const serverState = this.mgr.localState;
-		const isMoving = serverState === CharacterState.Walking
-			|| serverState === CharacterState.Sprinting;
+		const isMoving =
+			serverState === CharacterState.Walking || serverState === CharacterState.Sprinting;
 		const isSprinting = serverState === CharacterState.Sprinting;
 
 		const transitioned = this.mgr.localAnimSM.tick(isPlaying, isMoving);
 
 		// If attack was cancelled by movement, immediately start the move animation
 		if (transitioned && this.mgr.localAnimSM.phase === AnimPhase.Idle && isMoving) {
-			const m = isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+			const m = isSprinting
+				? this.characterConfig.runAnimation
+				: this.characterConfig.walkAnimation;
 			this.mgr.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 			return;
 		}
@@ -168,7 +177,9 @@ export class GameClient {
 
 		// Normal movement/idle
 		if (isMoving) {
-			const m = isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+			const m = isSprinting
+				? this.characterConfig.runAnimation
+				: this.characterConfig.walkAnimation;
 			this.mgr.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 		} else {
 			const idle = this.characterConfig.idleAnimation;

@@ -28,10 +28,7 @@ export interface PositionStrategy {
 	): void;
 
 	/** Get the visual position/yaw to render this frame. */
-	getVisualState(
-		playerId: number,
-		renderTime: number,
-	): { position: Vector3D; yaw: number };
+	getVisualState(playerId: number, renderTime: number): { position: Vector3D; yaw: number };
 
 	/** Stop tracking a player. */
 	remove(playerId: number): void;
@@ -157,10 +154,14 @@ export class SnapshotProcessor {
 		}
 
 		// Cooldowns
-		const cd1 = charData.ability1_cooldown > 0
-			? charData.ability1_timer / charData.ability1_cooldown : 0;
-		const cd2 = charData.ability2_cooldown > 0
-			? charData.ability2_timer / charData.ability2_cooldown : 0;
+		const cd1 =
+			charData.ability1_cooldown > 0
+				? charData.ability1_timer / charData.ability1_cooldown
+				: 0;
+		const cd2 =
+			charData.ability2_cooldown > 0
+				? charData.ability2_timer / charData.ability2_cooldown
+				: 0;
 		hud.updateCooldowns(charData.swing_progress, cd1, cd2);
 
 		// Camera follow
@@ -202,7 +203,12 @@ export class SnapshotProcessor {
 		const config = mgr.getConfig(charData.player_id);
 		if (config) {
 			this.updateSnapshotFallbackAnimation(
-				charData.player_id, remoteChar, charData, config, newJumpState, mgr,
+				charData.player_id,
+				remoteChar,
+				charData,
+				config,
+				newJumpState,
+				mgr,
 			);
 		}
 
@@ -230,14 +236,17 @@ export class SnapshotProcessor {
 		// Guard: event-driven animation still playing
 		const animSM = mgr.getRemoteAnimSM(playerID);
 		const isPlaying = char.currentAnimation?.isPlaying ?? false;
-		const isMoving = charData.state === CharacterState.Walking
-			|| charData.state === CharacterState.Sprinting;
+		const isMoving =
+			charData.state === CharacterState.Walking ||
+			charData.state === CharacterState.Sprinting;
 		const transitioned = animSM.tick(isPlaying, isMoving);
 
 		// If attack/skill was cancelled by movement, immediately start move animation
 		if (transitioned && animSM.phase === AnimPhase.Idle && isMoving) {
-			const m = charData.state === CharacterState.Sprinting
-				? config.runAnimation : config.walkAnimation;
+			const m =
+				charData.state === CharacterState.Sprinting
+					? config.runAnimation
+					: config.walkAnimation;
 			char.playAnimation(m.name, true, m.speed ?? 1.0);
 			return;
 		}
@@ -259,8 +268,10 @@ export class SnapshotProcessor {
 			}
 			case CharacterState.Dead:
 				mgr.getRemoteAnimSM(playerID).enter(AnimPhase.Death);
-				if (char.animationName !== AnimationNames.death &&
-					char.animationName !== AnimationNames.deathPose) {
+				if (
+					char.animationName !== AnimationNames.death &&
+					char.animationName !== AnimationNames.deathPose
+				) {
 					const deathAnim = char.animations.get(AnimationNames.death);
 					char.playAnimation(AnimationNames.death, false);
 					if (deathAnim) {
@@ -274,13 +285,25 @@ export class SnapshotProcessor {
 				char.playAnimation(AnimationNames.hit, false);
 				break;
 			case CharacterState.Walking:
-				char.playAnimation(config.walkAnimation.name, true, config.walkAnimation.speed ?? 1.0);
+				char.playAnimation(
+					config.walkAnimation.name,
+					true,
+					config.walkAnimation.speed ?? 1.0,
+				);
 				break;
 			case CharacterState.Sprinting:
-				char.playAnimation(config.runAnimation.name, true, config.runAnimation.speed ?? 1.0);
+				char.playAnimation(
+					config.runAnimation.name,
+					true,
+					config.runAnimation.speed ?? 1.0,
+				);
 				break;
 			default:
-				char.playAnimation(config.idleAnimation.name, true, config.idleAnimation.speed ?? 1.0);
+				char.playAnimation(
+					config.idleAnimation.name,
+					true,
+					config.idleAnimation.speed ?? 1.0,
+				);
 				break;
 		}
 	}

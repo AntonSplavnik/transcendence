@@ -6,7 +6,15 @@ export type { InputState };
 
 export interface LocalInputTrigger {
 	soundId: string;
-	field: keyof Pick<InputState, 'isJumping' | 'isAttacking' | 'isSprinting' | 'isUsingAbility1' | 'isUsingAbility2' | 'isGrounded'>;
+	field: keyof Pick<
+		InputState,
+		| 'isJumping'
+		| 'isAttacking'
+		| 'isSprinting'
+		| 'isUsingAbility1'
+		| 'isUsingAbility2'
+		| 'isGrounded'
+	>;
 	edge: 'rising' | 'falling';
 	volume?: number;
 	/** Optional delay in ms before the sound plays — use to sync with animation */
@@ -40,7 +48,6 @@ const isRunning = (input: InputState) =>
 	input.isGrounded &&
 	input.isSprinting &&
 	(input.movementDirection.x !== 0 || input.movementDirection.z !== 0);
-
 
 export const LOCAL_CONTINUOUS_TRIGGERS: LocalContinuousTrigger[] = [
 	{ soundId: 'player_footstep', predicate: isWalking, intervalMs: 550, volume: 0.2 },
@@ -146,7 +153,7 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		position: (e, ctx) =>
 			e.victim === ctx.localPlayerId
 				? ctx.localPosition
-				: ctx.remotePositions.get(e.victim) ?? null,
+				: (ctx.remotePositions.get(e.victim) ?? null),
 	}),
 	// Any player spawns (respawn) → spawn SFX at their position.
 	trigger('Spawn', {
@@ -159,7 +166,7 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		position: (e, ctx) =>
 			e.player_id === ctx.localPlayerId
 				? ctx.localPosition
-				: ctx.remotePositions.get(e.player_id) ?? null,
+				: (ctx.remotePositions.get(e.player_id) ?? null),
 		playerId: (e) => e.player_id,
 	}),
 	// Remote player used a skill → ability SFX at their position.
@@ -169,7 +176,7 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		position: (e, ctx) =>
 			e.player_id === ctx.localPlayerId
 				? ctx.localPosition
-				: ctx.remotePositions.get(e.player_id) ?? null,
+				: (ctx.remotePositions.get(e.player_id) ?? null),
 		playerId: (e) => e.player_id,
 	}),
 	trigger('SkillUsed', {
@@ -178,7 +185,7 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 		position: (e, ctx) =>
 			e.player_id === ctx.localPlayerId
 				? ctx.localPosition
-				: ctx.remotePositions.get(e.player_id) ?? null,
+				: (ctx.remotePositions.get(e.player_id) ?? null),
 		playerId: (e) => e.player_id,
 	}),
 ];

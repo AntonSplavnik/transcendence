@@ -106,7 +106,11 @@ export class AudioEventSystem {
 	}
 
 	/** Pipeline 2: remote players via snapshot delta (same trigger as updateRemoteAnimation) */
-	onRemoteSnapshot(prev: CharacterSnapshot, cur: CharacterSnapshot, characterClass?: string | null): void {
+	onRemoteSnapshot(
+		prev: CharacterSnapshot,
+		cur: CharacterSnapshot,
+		characterClass?: string | null,
+	): void {
 		if (!this.engine.isInitialized()) return;
 
 		for (const trigger of REMOTE_SNAPSHOT_TRIGGERS) {
@@ -170,7 +174,7 @@ export class AudioEventSystem {
 				const volume = trigger.volumeMapper?.(event);
 				// Resolve class-specific sound for the player that emitted this event
 				const charClass = trigger.playerId
-					? ctx.characterClasses.get(trigger.playerId(event)) ?? null
+					? (ctx.characterClasses.get(trigger.playerId(event)) ?? null)
 					: null;
 				const resolved = this.resolveSoundId(trigger.soundId, charClass);
 				this.playSoundAt(resolved, position, volume);

@@ -8,7 +8,8 @@ declare const BABYLON: typeof BabylonType & { GUI: typeof import('@babylonjs/gui
 export class GameHUD {
 	private gui: AdvancedDynamicTexture | null = null;
 	private scene: Scene;
-	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle; positioned: boolean }> = new Map();
+	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle; positioned: boolean }> =
+		new Map();
 	private localHealthBg: Rectangle | null = null;
 	private localHealthFill: Rectangle | null = null;
 	private localStaminaFill: Rectangle | null = null;
@@ -17,7 +18,11 @@ export class GameHUD {
 	private enemyBarObserver: Observer<Scene> | null = null;
 	private localPlayerID: number;
 
-	constructor(scene: Scene, localPlayerID: number, getCharPosition: (playerId: number) => Vector3 | null) {
+	constructor(
+		scene: Scene,
+		localPlayerID: number,
+		getCharPosition: (playerId: number) => Vector3 | null,
+	) {
 		this.scene = scene;
 		this.localPlayerID = localPlayerID;
 		this.getCharPosition = getCharPosition;
@@ -35,7 +40,10 @@ export class GameHUD {
 			for (const [playerID, bar] of this.enemyBars.entries()) {
 				const pos = this.getCharPosition(playerID);
 				if (!pos) continue;
-				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z), this.scene);
+				bar.bg.moveToVector3(
+					new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z),
+					this.scene,
+				);
 				if (!bar.positioned) {
 					bar.positioned = true;
 					bar.bg.isVisible = true;
@@ -129,7 +137,7 @@ export class GameHUD {
 		};
 
 		this.cooldownBars = {
-			attack:   makeCdBar('attack',   '#e67e22'),
+			attack: makeCdBar('attack', '#e67e22'),
 			ability1: makeCdBar('ability1', '#3498db'),
 			ability2: makeCdBar('ability2', '#9b59b6'),
 		};
@@ -151,12 +159,9 @@ export class GameHUD {
 	}
 
 	updateCooldowns(attack: number, ability1: number, ability2: number): void {
-		this.cooldownBars.attack.width =
-			`${(Math.max(0, Math.min(1, attack)) * 100).toFixed(1)}%`;
-		this.cooldownBars.ability1.width =
-			`${(Math.max(0, Math.min(1, ability1)) * 100).toFixed(1)}%`;
-		this.cooldownBars.ability2.width =
-			`${(Math.max(0, Math.min(1, ability2)) * 100).toFixed(1)}%`;
+		this.cooldownBars.attack.width = `${(Math.max(0, Math.min(1, attack)) * 100).toFixed(1)}%`;
+		this.cooldownBars.ability1.width = `${(Math.max(0, Math.min(1, ability1)) * 100).toFixed(1)}%`;
+		this.cooldownBars.ability2.width = `${(Math.max(0, Math.min(1, ability2)) * 100).toFixed(1)}%`;
 	}
 
 	createEnemyBar(playerId: number): void {

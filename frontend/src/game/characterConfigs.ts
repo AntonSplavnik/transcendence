@@ -31,15 +31,15 @@ export interface CharacterStatValues {
 
 export interface AnimationEntry {
 	name: string;
-	speed?: number;  // playback speed multiplier (default 1.0)
+	speed?: number; // playback speed multiplier (default 1.0)
 }
 
 export interface TrailColor {
 	base: [number, number, number]; // RGB 0–255, color at the tail end (oldest point)
-	tip: [number, number, number];  // RGB 0–255, color at the weapon end (newest point, most visible)
-	maxWidth: number;               // ribbon half-width in world units at the weapon end
-	tailOpacity: number;            // opacity of the tail end (0.0 = invisible, 1.0 = fully opaque) — controls how visible the base color is
-	tipOpacity: number;             // opacity of the weapon end (0.0 = invisible, 1.0 = fully opaque) — keep below 1.0 for a translucent feel
+	tip: [number, number, number]; // RGB 0–255, color at the weapon end (newest point, most visible)
+	maxWidth: number; // ribbon half-width in world units at the weapon end
+	tailOpacity: number; // opacity of the tail end (0.0 = invisible, 1.0 = fully opaque) — controls how visible the base color is
+	tipOpacity: number; // opacity of the weapon end (0.0 = invisible, 1.0 = fully opaque) — keep below 1.0 for a translucent feel
 }
 
 export interface CharacterConfig {
@@ -51,11 +51,11 @@ export interface CharacterConfig {
 	equipment: EquipmentSlot[];
 	scale: number;
 	previewBgColor: string;
-	idleAnimation:    AnimationEntry;
-	walkAnimation:    AnimationEntry;
-	runAnimation:     AnimationEntry;
-	attackAnimations: AnimationEntry[];  // [stage0, stage1, stage2, ...] — index = chain stage
-	skillAnimations:  AnimationEntry[];  // [skill1anim, skill2anim] — index = slot - 1
+	idleAnimation: AnimationEntry;
+	walkAnimation: AnimationEntry;
+	runAnimation: AnimationEntry;
+	attackAnimations: AnimationEntry[]; // [stage0, stage1, stage2, ...] — index = chain stage
+	skillAnimations: AnimationEntry[]; // [skill1anim, skill2anim] — index = slot - 1
 	trailColor: TrailColor;
 	/** Mirrors server-side stats. Hardcoded until server exposes a config endpoint. */
 	stats: CharacterStatValues;
@@ -77,19 +77,25 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		],
 		scale: 1,
 		previewBgColor: '#1cc0d3',
-		idleAnimation:  { name: 'Idle_A' },
-		walkAnimation:  { name: 'Walking_B', speed: 0.9 },
-		runAnimation:   { name: 'Running_B' },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B', speed: 0.9 },
+		runAnimation: { name: 'Running_B' },
 		attackAnimations: [
-			{ name: 'Melee_1H_Attack_Slice_Diagonal' },       // stage 0
-			{ name: 'Melee_1H_Attack_Slice_Horizontal' },     // stage 1
-			{ name: 'Melee_1H_Attack_Stab', speed: 0.9 },     // stage 2 — heavy finisher
+			{ name: 'Melee_1H_Attack_Slice_Diagonal' }, // stage 0
+			{ name: 'Melee_1H_Attack_Slice_Horizontal' }, // stage 1
+			{ name: 'Melee_1H_Attack_Stab', speed: 0.9 }, // stage 2 — heavy finisher
 		],
 		skillAnimations: [
-			{ name: 'Melee_1H_Attack_Jump_Chop' },   // skill1
-			{ name: 'Melee_1H_Attack_Chop' },         // skill2 — placeholder
+			{ name: 'Melee_1H_Attack_Jump_Chop' }, // skill1
+			{ name: 'Melee_1H_Attack_Chop' }, // skill2 — placeholder
 		],
-		trailColor: { base: [220, 235, 255], tip: [100, 165, 255], maxWidth: 0.3, tailOpacity: 0.13, tipOpacity: 0.85 },
+		trailColor: {
+			base: [220, 235, 255],
+			tip: [100, 165, 255],
+			maxWidth: 0.3,
+			tailOpacity: 0.13,
+			tipOpacity: 0.85,
+		},
 		stats: { attack: 7, defense: 9, speed: 4, health: 10 },
 		description: 'Durable front-liner. High armor, slow movement.',
 		weapons: ['Sword', 'Shield'],
@@ -105,18 +111,24 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		],
 		scale: 1,
 		previewBgColor: '#20c259',
-		idleAnimation:    { name: 'Idle_A' },
-		walkAnimation:    { name: 'Walking_B' },
-		runAnimation:     { name: 'Running_B', speed: 1.2 },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B' },
+		runAnimation: { name: 'Running_B', speed: 1.2 },
 		attackAnimations: [
-			{ name: 'Melee_Dualwield_Attack_Chop',  speed: 1.4 },   // stage 0 — opener
-			{ name: 'Melee_Dualwield_Attack_Slice', speed: 1.3 },   // stage 1 — finisher
+			{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }, // stage 0 — opener
+			{ name: 'Melee_Dualwield_Attack_Slice', speed: 1.3 }, // stage 1 — finisher
 		],
 		skillAnimations: [
-			{ name: 'Melee_Dualwield_Attack_Stab' },   // skill1 — dash stab
-			{ name: 'Melee_Unarmed_Attack_Kick' },     // skill2 — kick
+			{ name: 'Melee_Dualwield_Attack_Stab' }, // skill1 — dash stab
+			{ name: 'Melee_Unarmed_Attack_Kick' }, // skill2 — kick
 		],
-		trailColor: { base: [102, 187, 106], tip: [200, 255, 200], maxWidth: 0.3, tailOpacity: 0.13, tipOpacity: 0.85 },
+		trailColor: {
+			base: [102, 187, 106],
+			tip: [200, 255, 200],
+			maxWidth: 0.3,
+			tailOpacity: 0.13,
+			tipOpacity: 0.85,
+		},
 		stats: { attack: 9, defense: 4, speed: 10, health: 6 },
 		description: 'High burst damage. Glass cannon. Hit and run.',
 		weapons: ['Dagger (R)', 'Dagger (L)'],
@@ -130,12 +142,18 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		equipment: [],
 		scale: 1,
 		previewBgColor: '#c45c2c',
-		idleAnimation:    { name: 'Idle_A' },
-		walkAnimation:    { name: 'Walking_B' },
-		runAnimation:     { name: 'Running_B' },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B' },
+		runAnimation: { name: 'Running_B' },
 		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
-		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop' }],
-		trailColor: { base: [255, 140, 60], tip: [255, 80, 30], maxWidth: 0.35, tailOpacity: 0.15, tipOpacity: 0.9 },
+		skillAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
+		trailColor: {
+			base: [255, 140, 60],
+			tip: [255, 80, 30],
+			maxWidth: 0.35,
+			tailOpacity: 0.15,
+			tipOpacity: 0.9,
+		},
 		stats: { attack: 10, defense: 6, speed: 5, health: 8 },
 		description: 'Reckless brawler. Raw damage, low finesse.',
 		weapons: ['Greataxe'],
@@ -149,12 +167,18 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		equipment: [],
 		scale: 1,
 		previewBgColor: '#8b6d2e',
-		idleAnimation:    { name: 'Idle_A' },
-		walkAnimation:    { name: 'Walking_B' },
-		runAnimation:     { name: 'Running_B' },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B' },
+		runAnimation: { name: 'Running_B' },
 		attackAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
-		skillAnimations:  [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
-		trailColor: { base: [180, 160, 80], tip: [240, 220, 140], maxWidth: 0.25, tailOpacity: 0.1, tipOpacity: 0.8 },
+		skillAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		trailColor: {
+			base: [180, 160, 80],
+			tip: [240, 220, 140],
+			maxWidth: 0.25,
+			tailOpacity: 0.1,
+			tipOpacity: 0.8,
+		},
 		stats: { attack: 8, defense: 3, speed: 8, health: 5 },
 		description: 'Ranged kiter. High mobility, fragile up close.',
 		weapons: ['Bow'],
@@ -168,12 +192,18 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		equipment: [],
 		scale: 1,
 		previewBgColor: '#7b3fa0',
-		idleAnimation:    { name: 'Idle_A' },
-		walkAnimation:    { name: 'Walking_B' },
-		runAnimation:     { name: 'Running_B' },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B' },
+		runAnimation: { name: 'Running_B' },
 		attackAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
-		skillAnimations:  [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
-		trailColor: { base: [160, 80, 220], tip: [220, 140, 255], maxWidth: 0.3, tailOpacity: 0.12, tipOpacity: 0.85 },
+		skillAnimations: [{ name: 'Melee_1H_Attack_Slice_Diagonal' }],
+		trailColor: {
+			base: [160, 80, 220],
+			tip: [220, 140, 255],
+			maxWidth: 0.3,
+			tailOpacity: 0.12,
+			tipOpacity: 0.85,
+		},
 		stats: { attack: 8, defense: 5, speed: 6, health: 7 },
 		description: 'Hybrid caster. Melee and magic, jack of all trades.',
 		weapons: ['Staff', 'Spells'],
@@ -187,12 +217,18 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		equipment: [],
 		scale: 1,
 		previewBgColor: '#2a4a3a',
-		idleAnimation:    { name: 'Idle_A' },
-		walkAnimation:    { name: 'Walking_B' },
-		runAnimation:     { name: 'Running_B', speed: 1.1 },
+		idleAnimation: { name: 'Idle_A' },
+		walkAnimation: { name: 'Walking_B' },
+		runAnimation: { name: 'Running_B', speed: 1.1 },
 		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.3 }],
-		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.3 }],
-		trailColor: { base: [60, 120, 80], tip: [140, 220, 160], maxWidth: 0.25, tailOpacity: 0.1, tipOpacity: 0.8 },
+		skillAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.3 }],
+		trailColor: {
+			base: [60, 120, 80],
+			tip: [140, 220, 160],
+			maxWidth: 0.25,
+			tailOpacity: 0.1,
+			tipOpacity: 0.8,
+		},
 		stats: { attack: 9, defense: 3, speed: 9, health: 5 },
 		description: 'Silent killer. Stealth and poison, high risk high reward.',
 		weapons: ['Poison Blade', 'Throwing Knives'],
