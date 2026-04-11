@@ -124,6 +124,7 @@ export class SnapshotProcessor {
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
 		mgr.position.copyFromFloats(visual.position.x, visual.position.y, visual.position.z);
 		mgr.localIsGrounded = charData.is_grounded;
+		mgr.localState = charData.state as CharacterState;
 
 		if (mgr.localCharacter) {
 			mgr.localCharacter.setPosition(mgr.position);
