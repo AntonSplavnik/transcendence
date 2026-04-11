@@ -8,7 +8,7 @@
 export interface AudioSettings {
 	musicVolume: number;
 	uiVolume: number;
-	/** Combined slider driving both the `sfx` and `ambient` buses. */
+	/** Combined slider driving the `sfx`, `ambient`, and `music` buses in-game. */
 	inGameVolume: number;
 	muted: boolean;
 }

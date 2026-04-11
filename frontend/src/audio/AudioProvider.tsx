@@ -224,6 +224,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 	const playMusicPlaylistImpl = (): void => {
 		playlistActiveRef.current = true;
+		// Switch music bus to inGameVolume so the "Game Volume" slider controls it
+		const eng = engineRef.current;
+		if (eng?.isInitialized()) {
+			const musicBus = eng.getBus('music');
+			if (musicBus) musicBus.volume = loadAudioSettings().inGameVolume;
+		}
 		playNextPlaylistTrack();
 	};
 
@@ -234,6 +240,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			playlistObserverRef.current = null;
 		}
 		stopMusicImpl();
+		// Restore music bus to menu musicVolume
+		const eng = engineRef.current;
+		if (eng?.isInitialized()) {
+			const musicBus = eng.getBus('music');
+			if (musicBus) musicBus.volume = loadAudioSettings().musicVolume;
+		}
 	};
 
 	const handle: AudioContextValue = useMemo(() => ({

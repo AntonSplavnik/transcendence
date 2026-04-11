@@ -36,6 +36,7 @@ export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps)
 		if (patch.inGameVolume !== undefined) {
 			audio.setBusVolume('sfx', patch.inGameVolume);
 			audio.setBusVolume('ambient', patch.inGameVolume);
+			audio.setBusVolume('music', patch.inGameVolume);
 		}
 		if (patch.muted !== undefined) {
 			audio.setMuted(patch.muted);
