@@ -113,7 +113,7 @@ namespace Presets {
 			.skill1 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
 			            .cooldown=4.0f, .castDuration=0.40f, .staminaCost=15.0f },
 			// Skill 2 — kick: close-range knockback/disengage tool
-			.skill2 = { .params = MeleeAOE{ .range=1.4f, .movementMultiplier=0.2f, .dmgMultiplier=1.0f },
+			.skill2 = { .params = MeleeAOE{ .range=1.4f, .movementMultiplier=0.2f, .dmgMultiplier=1.4f },
 			            .cooldown=6.0f, .castDuration=0.45f, .staminaCost=12.0f },
 		},
 	};
