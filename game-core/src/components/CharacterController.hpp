@@ -34,13 +34,15 @@ struct CharacterController {
 	bool canJump;
 	bool canMove;
 	bool canRotate;
+	float activeMovementMultiplier = 1.0f;  // applied by CharacterControllerSystem; reset to 1.0f when no cast
 
 	// Air control
 	float airControlFactor;     // How much control player has while airborne (0.0-1.0)
 
 	// Movement smoothing (for better feel)
-	float acceleration;         // How fast to reach target speed
-	float deceleration;         // How fast to slow down
+	float acceleration;         // How fast to reach target speed (m/s²)
+	float deceleration;         // How fast to slow down (m/s²)
+	float rotationSpeed;        // Max angular speed when turning to face look dir (rad/s)
 
 	// State machine (optional - can be used by CharacterSystem)
 	CharacterState state;
@@ -57,9 +59,11 @@ struct CharacterController {
 		, canJump(true)
 		, canMove(true)
 		, canRotate(true)
+		, activeMovementMultiplier(1.0f)
 		, airControlFactor(0.3f)
 		, acceleration(100.0f)
 		, deceleration(100.0f)
+		, rotationSpeed(12.0f)
 		, state(CharacterState::Idle)
 	{}
 
@@ -109,13 +113,22 @@ struct CharacterController {
 
 	// State queries
 	bool isIdle() const { return state == CharacterState::Idle; }
-	bool isMoving() const { return state == CharacterState::Moving; }
+	bool isWalking() const { return state == CharacterState::Walking; }
+	bool isSprintingState() const { return state == CharacterState::Sprinting; }
+	bool isMoving() const { return isWalking() || isSprintingState(); }
 	bool isAttacking() const { return state == CharacterState::Attacking; }
 	bool isStunned() const { return state == CharacterState::Stunned; }
 	bool isDead() const { return state == CharacterState::Dead; }
 
 	void setState(CharacterState newState) {
 		state = newState;
+	}
+
+	// Pick Idle/Walking/Sprinting based on current input. Used after swing/cast ends.
+	void restoreMovementState() {
+		setState(hasMovementInput()
+			? (input.isSprinting ? CharacterState::Sprinting : CharacterState::Walking)
+			: CharacterState::Idle);
 	}
 
 	// Enable/disable capabilities
@@ -138,6 +151,7 @@ struct CharacterController {
 		cc.airControlFactor = preset.airControlFactor;
 		cc.acceleration     = preset.acceleration;
 		cc.deceleration     = preset.deceleration;
+		cc.rotationSpeed    = preset.rotationSpeed;
 		return cc;
 	}
 	static CharacterController createDefault() {

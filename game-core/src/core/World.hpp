@@ -5,6 +5,7 @@
 #include "../components/PhysicsBody.hpp"
 #include "../components/Collider.hpp"
 #include "../components/Health.hpp"
+#include "../components/Stamina.hpp"
 #include "../components/CharacterController.hpp"
 #include "../components/CombatController.hpp"
 #include "../components/Tags.hpp"
@@ -13,6 +14,7 @@
 #include "../components/NetworkEventsComponent.hpp"
 #include "../events/NetworkEvents.hpp"
 #include "../components/InternalEventsComponent.hpp"
+#include "../components/PendingPlayersComponent.hpp"
 
 #include "../systems/SystemManager.hpp"
 #include "../systems/CharacterControllerSystem.hpp"
@@ -20,8 +22,10 @@
 #include "../systems/CollisionSystem.hpp"
 #include "../systems/CombatSystem.hpp"
 #include "../systems/GameModeSystem.hpp"
+#include "../systems/StaminaSystem.hpp"
 
 #include "../ISpawner.hpp"
+#include "../CharacterClassLookup.hpp"
 
 #include "../../entt/entt.hpp"
 #include <memory>
@@ -86,7 +90,10 @@ public:
 	void clearEntities();
 
 	// Convenience methods for player management
-	entt::entity createPlayer(PlayerID id, const std::string& name, Vector3D pos, const CharacterPreset& preset);
+	bool addPlayer(PlayerID id, const std::string& name, const std::string& characterClass);
+	entt::entity createPlayer(PlayerID id, const std::string& name,
+							  const std::string& characterClass,
+							  Vector3D pos);
 	void respawnPlayer(entt::entity player, const Vector3D& pos);
 	bool removePlayer(PlayerID id);
 	size_t getPlayerCount() const { return m_playerToEntity.size(); }
@@ -160,6 +167,7 @@ inline void World::initialize() {
 	auto collisionSystem = std::make_unique<CollisionSystem>();
 	auto combatSystem = std::make_unique<CombatSystem>();
 	auto gameModeSystem = std::make_unique<GameModeSystem>();
+	auto staminaSystem = std::make_unique<StaminaSystem>();
 
 	m_gameManager = createGameManager();
 
@@ -169,6 +177,7 @@ inline void World::initialize() {
 	collisionSystem->setRegistry(&m_registry);
 	combatSystem->setRegistry(&m_registry);
 	gameModeSystem->setRegistry(&m_registry);
+	staminaSystem->setRegistry(&m_registry);
 	gameModeSystem->setSpawner(this);
 
 	// Pass GameManager to systems
@@ -177,6 +186,7 @@ inline void World::initialize() {
 	collisionSystem->setGameManager(m_gameManager);
 	combatSystem->setGameManager(m_gameManager);
 	gameModeSystem->setGameManager(m_gameManager);
+	staminaSystem->setGameManager(m_gameManager);
 
 	// Store raw pointers for convenience
 	m_characterControllerSystem = characterControllerSystem.get();
@@ -191,6 +201,7 @@ inline void World::initialize() {
 	m_systemManager.addSystem(std::move(collisionSystem));
 	m_systemManager.addSystem(std::move(combatSystem));
 	m_systemManager.addSystem(std::move(gameModeSystem));
+	m_systemManager.addSystem(std::move(staminaSystem));
 
 	// Initialize all systems
 	m_systemManager.initialize();
@@ -238,7 +249,7 @@ inline entt::entity World::createGameManager() {
 	m_registry.emplace<Components::MatchStatsComponent>(gameManager);
 	m_registry.emplace<Components::InternalEventsComponent>(gameManager);
 	m_registry.emplace<Components::NetworkEventsComponent>(gameManager);
-
+	m_registry.emplace<Components::PendingPlayersComponent>(gameManager);
 
 	return gameManager;
 }
@@ -252,18 +263,19 @@ inline void World::setGameMode(GameModeType mode) {
 	}
 
 	auto* ne = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
-	ne->events.clear();
+	if(ne) ne->events.clear();
 
 	auto* ie = m_registry.try_get<Components::InternalEventsComponent>(m_gameManager);
-	ie->events.clear();
+	if(ie) ie->events.clear();
 
 	auto* stats = m_registry.try_get<Components::MatchStatsComponent>(m_gameManager);
-	if(stats)
-		stats->playerStats.clear();
+	if(stats) stats->playerStats.clear();
 
-	if(m_gameModeSystem) {
-		m_gameModeSystem->startMode();
-	}
+	// Do we handle it after player creation?
+	// auto* pp = m_registry.try_get<Components::PendingPlayersComponent>(m_gameManager);
+	// if(pp) pp->players.clear();
+
+	if(m_gameModeSystem) m_gameModeSystem->startMode();
 }
 
 inline void World::clearNetrowEvents() {
@@ -290,6 +302,7 @@ inline entt::entity World::createActor(const Vector3D& pos, const CharacterPrese
 	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createFromPreset(preset.movement));
 	m_registry.emplace<Components::Collider>(entity, Components::Collider::createFromPreset(preset.collider, layer));
 	m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset.health));
+	m_registry.emplace<Components::Stamina>(entity, Components::Stamina::createFromPreset(preset.stamina));
 	m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset.combat));
 
 	return entity;
@@ -363,7 +376,7 @@ inline void World::clearEntities() {
 	m_registry.clear();
 }
 
-// Player entity
+// Player
 inline entt::entity World::getEntityByPlayerID(PlayerID id) const {
 	auto it = m_playerToEntity.find(id);
 	return (it != m_playerToEntity.end()) ? it->second : entt::null;
@@ -374,24 +387,25 @@ inline PlayerID World::getPlayerIDByEntity(entt::entity entity) const {
 }
 
 inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
-										Vector3D pos, const CharacterPreset& preset) {
+										const std::string& characterClass,
+										Vector3D pos) {
 
 	// Check if entity already exists
 	if (m_playerToEntity.find(id) != m_playerToEntity.end()) {
 		return entt::null;
 	}
 
+	const CharacterPreset& preset = presetFromClass(characterClass);
 	entt::entity entity = createActor(pos, preset, Components::CollisionLayer::Player);
 
-	// Add PlayerInfo component
 	m_registry.emplace<PlayerTag>(entity);
-	m_registry.emplace<Components::PlayerInfo>(entity, id, name);
+	m_registry.emplace<Components::PlayerInfo>(entity, id, name, characterClass);
 	m_registry.emplace<Components::CharacterController>(entity, Components::CharacterController::createFromPreset(preset.movement));
 
 	registerPlayerIDMapping(entity, id);
 
 	auto* ne = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
-	if (ne) ne->events.push_back(NetEvents::SpawnEvent{ id, pos });
+	if (ne) ne->events.push_back(NetEvents::SpawnEvent{ id, pos, characterClass });
 
 	return entity;
 }
@@ -417,13 +431,21 @@ inline void World::respawnPlayer(entt::entity player, const Vector3D& pos) {
 	auto* physicsBody = m_registry.try_get<Components::PhysicsBody>(player);
 	auto* transform   = m_registry.try_get<Components::Transform>(player);
 
+	auto* controller = m_registry.try_get<Components::CharacterController>(player);
+
 	if (transform)   transform->setPosition(pos.x, pos.y, pos.z);
 	if (physicsBody) physicsBody->setVelocity(0, 0, 0);
 	if (health)      health->revive();
+	auto* stamina = m_registry.try_get<Components::Stamina>(player);
+	if (stamina) stamina->restore();
+	if (controller) {
+		controller->setState(CharacterState::Idle);
+		controller->canMove = true;
+	}
 
-	auto* ne = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
-	if (ne) ne->events.push_back(NetEvents::SpawnEvent{ getPlayerIDByEntity(player), pos });
-	// health.invulnerable = true  (also would need logic for the flag in combatsystem or health)
+	auto* ne   = m_registry.try_get<Components::NetworkEventsComponent>(m_gameManager);
+	auto* info = m_registry.try_get<Components::PlayerInfo>(player);
+	if (ne && info) ne->events.push_back(NetEvents::SpawnEvent{ info->playerID, pos, info->characterClass });
 }
 inline void World::setPlayerInput(PlayerID id, const InputState& input) {
 	entt::entity entity = getEntityByPlayerID(id);
@@ -437,7 +459,12 @@ inline void World::setPlayerInput(PlayerID id, const InputState& input) {
 		controller->setInput(input);
 	}
 }
-
+inline bool World::addPlayer(PlayerID id, const std::string& name, const std::string& characterClass) {
+	auto* pp = m_registry.try_get<Components::PendingPlayersComponent>(m_gameManager);
+	if (!pp) return false;
+	pp->players.push_back({ id, name, characterClass });
+	return true;
+}
 inline void World::registerPlayerIDMapping(entt::entity entity, PlayerID id) {
 	m_playerToEntity[id] = entity;
 	m_entityToPlayer[entity] = id;

@@ -4,6 +4,7 @@
 #include "../components/Transform.hpp"
 #include "../components/PhysicsBody.hpp"
 #include "../components/CharacterController.hpp"
+#include "../components/Stamina.hpp"
 #include "../GameTypes.hpp"
 #include "../../entt/entt.hpp"
 
@@ -34,6 +35,7 @@ private:
 		Components::CharacterController& controller,
 		Components::PhysicsBody& physics,
 		Components::Transform& transform,
+		Components::Stamina& stamina,
 		float deltaTime
 	);
 };
@@ -47,13 +49,15 @@ inline void CharacterControllerSystem::earlyUpdate(float deltaTime) {
 	auto view = m_registry->view<
 		Components::CharacterController,
 		Components::PhysicsBody,
-		Components::Transform
+		Components::Transform,
+		Components::Stamina
 	>();
 
 	view.each([&](Components::CharacterController& controller,
 		Components::PhysicsBody& physics,
-		Components::Transform& transform) {
-		processCharacterMovement(controller, physics, transform, deltaTime);
+		Components::Transform& transform,
+		Components::Stamina& stamina) {
+		processCharacterMovement(controller, physics, transform, stamina, deltaTime);
 		});
 }
 
@@ -61,63 +65,113 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	Components::CharacterController& controller,
 	Components::PhysicsBody& physics,
 	Components::Transform& transform,
+	Components::Stamina& stamina,
 	float deltaTime
 ) {
-	// Skip if movement is disabled
-	if (!controller.canMove) {
+	// Skip if movement is disabled or dead
+	if (!controller.canMove || controller.isDead()) {
 		return;
 	}
 
-	// Update sprinting state from input
-	controller.isSprinting = controller.input.isSprinting;
+	// Sprint gating: require stamina and not exhausted.
+	if (controller.input.isSprinting && !stamina.isExhausted()) {
+		float frameCost = stamina.sprintCostPerSec * deltaTime;
+		if (stamina.canAfford(frameCost)) {
+			stamina.consume(frameCost);
+			controller.isSprinting = true;
+		} else {
+			// Force exhaustion so drainDelayTimer pauses regen — otherwise
+			// the regen floor causes state to flicker Sprinting/Walking.
+			stamina.current = 0.0f;
+			stamina.exhausted = true;
+			stamina.drainDelayTimer = stamina.drainDelay;
+			controller.isSprinting = false;
+		}
+	} else {
+		controller.isSprinting = false;
+	}
 
 	// Get movement input
 	Vector3D moveDir = controller.getMovementDirection();
-	float speed = controller.getEffectiveSpeed();
+	float speed = controller.getEffectiveSpeed() * controller.activeMovementMultiplier;
+	bool hasInput = controller.hasMovementInput();
+
+	// Target horizontal velocity (zero if no input — we decelerate toward rest).
+	float targetVx = hasInput ? moveDir.x * speed : 0.0f;
+	float targetVz = hasInput ? moveDir.z * speed : 0.0f;
 
 	// Apply movement to horizontal velocity
-	if (controller.hasMovementInput()) {
-		// On ground: full control
-		if (physics.isGrounded) {
-			physics.velocity.x = moveDir.x * speed;
-			physics.velocity.z = moveDir.z * speed;
+	if (physics.isGrounded) {
+		// Smooth toward target using accel (input) or decel (no input).
+		// This replaces the old instant velocity snap, which made 8-direction
+		// keyboard input feel stiff: direction changes now curve, stops slide.
+		float rate = hasInput ? controller.acceleration : controller.deceleration;
+		float dvx = targetVx - physics.velocity.x;
+		float dvz = targetVz - physics.velocity.z;
+		float distSq = dvx * dvx + dvz * dvz;
+		float maxStep = rate * deltaTime;
+		if (distSq <= maxStep * maxStep) {
+			physics.velocity.x = targetVx;
+			physics.velocity.z = targetVz;
+		} else {
+			float inv = maxStep / std::sqrt(distSq);
+			physics.velocity.x += dvx * inv;
+			physics.velocity.z += dvz * inv;
 		}
-		// In air: limited control
-		else {
-			float airControl = controller.airControlFactor;
-			physics.velocity.x += moveDir.x * speed * airControl * deltaTime;
-			physics.velocity.z += moveDir.z * speed * airControl * deltaTime;
-		}
+	} else if (hasInput) {
+		// In air: limited additive control (unchanged — air feel is separate).
+		float airControl = controller.airControlFactor;
+		physics.velocity.x += moveDir.x * speed * airControl * deltaTime;
+		physics.velocity.z += moveDir.z * speed * airControl * deltaTime;
+	}
+	// In air with no input: keep momentum.
 
-		// Update state
-		controller.setState(CharacterState::Moving);
-	} else {
-		// No input - stop horizontal movement
-		if (physics.isGrounded) {
-			physics.velocity.x = 0.0f;
-			physics.velocity.z = 0.0f;
-			controller.setState(CharacterState::Idle);
-		}
-		// In air: keep momentum (can't stop mid-air without input)
+	// Update movement state. While coasting to a stop, stay in Walking until
+	// horizontal speed drops below a small threshold so animations don't pop
+	// to Idle mid-slide.
+	if (hasInput) {
+		controller.setState(controller.isSprinting
+			? CharacterState::Sprinting
+			: CharacterState::Walking);
+	} else if (physics.isGrounded) {
+		float horizSpeedSq = physics.velocity.x * physics.velocity.x
+		                   + physics.velocity.z * physics.velocity.z;
+		controller.setState(horizSpeedSq < 0.01f  // ~0.1 m/s
+			? CharacterState::Idle
+			: CharacterState::Walking);
 	}
 
 	// Handle jumping
-	if (controller.input.isJumping && controller.canJump && physics.isGrounded) {
+	if (controller.input.isJumping && controller.canJump && physics.isGrounded
+			&& stamina.canAfford(stamina.jumpCost)) {
+		stamina.consume(stamina.jumpCost);
 		physics.velocity.y = controller.jumpVelocity;
 		// Keep state as Moving (no Jumping state in enum)
 	}
 
-	// Update rotation based on look direction (if enabled)
+	// Update rotation based on look direction (if enabled).
+	// Smoothly step current yaw toward the target using rotationSpeed (rad/s),
+	// taking the shortest arc around ±π. Instant setRotation used to make the
+	// character's facing flip the moment the player changed keys — the single
+	// biggest contributor to the "8-direction snap" feel.
 	if (controller.canRotate && controller.hasLookInput()) {
 		Vector3D lookDir = controller.getLookDirection();
-		// Calculate yaw from look direction
-		float yaw = std::atan2(lookDir.x, lookDir.z);
-		transform.setRotation(0.0f, yaw, 0.0f);
-	}
+		float targetYaw  = std::atan2(lookDir.x, lookDir.z);
+		float currentYaw = transform.getYaw();
 
-	// Handle attacking state
-	if (controller.input.isAttacking) {
-		controller.setState(CharacterState::Attacking);
+		// Shortest angular distance, wrapped to (-π, π].
+		constexpr float kPi    = 3.14159265358979323846f;
+		constexpr float kTwoPi = 2.0f * kPi;
+		float diff = targetYaw - currentYaw;
+		while (diff >  kPi) diff -= kTwoPi;
+		while (diff < -kPi) diff += kTwoPi;
+
+		float maxStep = controller.rotationSpeed * deltaTime;
+		if (std::fabs(diff) <= maxStep) {
+			transform.setYaw(targetYaw);
+		} else {
+			transform.setYaw(currentYaw + (diff > 0.0f ? maxStep : -maxStep));
+		}
 	}
 
 	// Handle stunned/dead states (set by combat system)

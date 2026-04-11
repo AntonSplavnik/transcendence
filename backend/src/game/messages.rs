@@ -1,4 +1,4 @@
-use super::ffi::{CharacterClass, GameStateSnapshot, Vector3D};
+use super::ffi::{CharacterClass, GameStateSnapshot, PlayerMatchStatsPayload, Vector3D};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent FROM server TO client over the game stream
@@ -7,13 +7,6 @@ use serde::{Deserialize, Serialize};
 pub enum GameServerMessage {
     /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
-
-    /// Player successfully joined the game
-    PlayerJoined {
-        player_id: u32,
-        name: String,
-        character_class: CharacterClass,
-    },
 
     /// Another player left the game
     PlayerLeft { player_id: u32 },
@@ -28,14 +21,27 @@ pub enum GameServerMessage {
         damage: f32,
     },
 
-    /// A player spawned
-    Spawn { player_id: u32, position: Vector3D },
+    /// A player spawned or respawned
+    Spawn {
+        player_id: u32,
+        position: Vector3D,
+        name: String,
+        character_class: CharacterClass,
+    },
 
     /// A player's state changed
     StateChange { player_id: u32, state: u8 },
 
-    /// The match has ended
-    MatchEnd,
+    /// A player started an attack swing
+    AttackStarted { player_id: u32, chain_stage: u8 },
+
+    /// A player activated a skill
+    SkillUsed { player_id: u32, skill_slot: u8 },
+
+    /// The match has ended — carries the final per-player stats leaderboard.
+    MatchEnd {
+        players: Vec<PlayerMatchStatsPayload>,
+    },
 
     /// Error occurred during gameplay
     Error { message: String },

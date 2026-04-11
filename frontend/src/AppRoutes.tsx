@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import type { StoredError } from './api/error';
 import { retrieveStoredError } from './api/error';
 import AuthPage from './components/AuthPage';
+import FriendsDrawer from './components/friends/FriendsDrawer';
 import GameBoard from './components/GameBoard';
 import Home from './components/Home';
 import LandingPage from './components/LandingPage';
@@ -15,7 +16,6 @@ import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
 import ConnectionStatusBanner from './components/ui/ConnectionStatusBanner';
 import ErrorBanner from './components/ui/ErrorBanner';
-import FriendsDrawer from './components/friends/FriendsDrawer';
 import Layout from './components/ui/Layout';
 import NotificationToast from './components/ui/NotificationToast';
 import { useAuth } from './contexts/AuthContext';
@@ -177,7 +177,7 @@ export default function AppRoutes() {
 	const { connectionManager } = useStream();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const hideFooter = location.pathname === '/game';
+	const hideFooter = location.pathname === '/game' || location.pathname === '/lobby';
 	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 

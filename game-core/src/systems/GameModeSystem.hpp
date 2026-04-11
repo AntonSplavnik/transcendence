@@ -4,6 +4,8 @@
 #include "../components/MatchStatsComponent.hpp"
 #include "../components/InternalEventsComponent.hpp"
 #include "../components/NetworkEventsComponent.hpp"
+#include "../components/PlayerInfo.hpp"
+#include "../components/Tags.hpp"
 #include "../events/InternalEvents.hpp"
 #include "../events/NetworkEvents.hpp"
 #include "System.hpp"
@@ -13,6 +15,35 @@
 #include <memory>
 
 namespace ArenaGame {
+
+	// Builds the MatchEnd payload from final match stats.
+	// Skips bots (human-facing modal) and entities missing PlayerInfo.
+	inline NetEvents::MatchEndEvent buildMatchEndEvent(
+		const entt::registry& registry,
+		const Components::MatchStatsComponent& stats)
+	{
+		NetEvents::MatchEndEvent out;
+		out.players.reserve(stats.playerStats.size());
+
+		for (const auto& [entity, ps] : stats.playerStats) {
+			if (registry.all_of<BotTag>(entity)) continue;
+
+			const auto* info = registry.try_get<Components::PlayerInfo>(entity);
+			if (!info) continue;
+
+			out.players.push_back(NetEvents::PlayerMatchStats{
+				info->playerID,
+				info->name,
+				info->characterClass,
+				ps.kills,
+				ps.deaths,
+				ps.damageDealt,
+				ps.damageTaken,
+				ps.placement,
+			});
+		}
+		return out;
+	}
 
 	class GameModeSystem : public System {
 	public:
@@ -62,7 +93,7 @@ namespace ArenaGame {
 		if (m_mode->isOver()) {
 			gm->matchStatus = MatchStatus::Over;
 			auto* ne = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
-			if (ne) ne->events.push_back(NetEvents::MatchEndEvent{});
+			if (ne) ne->events.push_back(buildMatchEndEvent(*m_registry, *stats));
 		}
 
 		ie->events.clear();
