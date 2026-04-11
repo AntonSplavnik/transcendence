@@ -62,6 +62,62 @@ namespace Presets {
 			            .cooldown=10.0f, .castDuration=0.5f, .staminaCost=30.0f },
 		},
 	};
+
+	inline const CharacterPreset ROGUE = {
+		.health = {
+			.maxHealth  = 80.0f,
+			.armor      = 0.0f,
+			.resistance = 0.0f,
+		},
+		.movement = {
+			.movementSpeed    = 2.2f,
+			.rotationSpeed    = 22.0f,  // ~70ms for a 90° turn — very snappy
+			.sprintMultiplier = 3.2f,   // light armor — fast sprint
+			.crouchMultiplier = 0.6f,   // stealthier crouch, still quick
+			.jumpVelocity     = 7.5f,   // high jump — agile
+			.dodgeVelocity    = 11.0f,  // signature dodge — long reposition
+			.airControlFactor = 0.35f,  // good air control
+			.acceleration     = 28.0f,  // ~50ms to walk, ~140ms to sprint
+			.deceleration     = 35.0f,  // ~45ms walk stop, ~105ms sprint slide
+			.mass             = 60.0f,
+			.friction         = 0.7f,   // slides a bit — momentum after stops
+			.drag             = 0.0f,
+			.maxSpeed         = 10.0f,
+			.maxFallSpeed     = 55.0f,
+		},
+		.collider = {
+			.radius = 0.35f,
+			.height = 1.75f,           // slimmer than knight
+		},
+		.stamina = {
+			.maxStamina        = 120.0f,
+			.baseRegenRate     = 55.0f,    // effective: 5.5/s (10% floor) to 55.0/s
+			.drainDelaySeconds = 1.0f,     // short pause — recovers fast
+			.sprintCostPerSec  = 10.0f,    // ~12s of continuous sprint
+			.jumpCost          = 5.0f,     // ~24 jumps from full
+		},
+		.combat = {
+			.baseDamage         = 12.0f,
+			.damageMultiplier   = 1.0f,
+			.criticalChance     = 0.35f,   // high crit — glass cannon
+			.criticalMultiplier = 2.0f,
+			.attackChain = {
+				// Stage 0 — quick jab: fast opener, mobile
+				{ .damageMultiplier=0.75f, .range=1.6f, .duration=0.30f,
+				  .movementMultiplier=0.4f, .chainWindow=0.5f, .staminaCost=6.0f },
+				// Stage 1 — cross slash: fast follow-up
+				{ .damageMultiplier=0.85f, .range=1.7f, .duration=0.32f,
+				  .movementMultiplier=0.4f, .chainWindow=0.45f, .staminaCost=8.0f },
+				// Stage 2 — double stab: finisher, chain resets (chainWindow=0)
+				{ .damageMultiplier=1.3f, .range=1.5f, .duration=0.40f,
+				  .movementMultiplier=0.3f, .chainWindow=0.0f, .staminaCost=14.0f },
+			},
+			.skill1 = { .params = MeleeAOE{ .range=1.8f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
+			            .cooldown=4.0f, .castDuration=0.35f, .staminaCost=15.0f },
+			.skill2 = { .params = MeleeAOE{ .range=2.2f, .movementMultiplier=0.8f, .dmgMultiplier=1.4f },
+			            .cooldown=8.0f, .castDuration=0.40f, .staminaCost=22.0f },
+		},
+	};
 /*
 	// ── AI enemies ─────────────────────────────────────────────────────
 	inline const CharacterPreset SKELETON = {
