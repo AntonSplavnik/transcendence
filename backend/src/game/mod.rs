@@ -1,4 +1,5 @@
 mod ffi;
+#[allow(clippy::module_inception)]
 mod game;
 pub mod lobby;
 pub mod lobby_messages;

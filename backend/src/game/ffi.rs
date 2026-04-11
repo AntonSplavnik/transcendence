@@ -292,6 +292,7 @@ impl GameHandle {
         self.game.pin_mut().remove_player(player_id)
     }
 
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     pub fn set_input(
         &mut self,
         player_id: u32,
@@ -373,11 +374,13 @@ impl GameHandle {
     }
 
     /// Minimum number of players required to start a game.
+    #[allow(clippy::unused_self)]
     pub fn min_players(&self) -> u32 {
         2
     }
 
     /// Maximum number of players allowed in a game.
+    #[allow(clippy::unused_self)]
     pub fn max_players(&self) -> u32 {
         8
     }

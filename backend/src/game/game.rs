@@ -7,8 +7,8 @@ use super::ffi::{GameHandle, GameMode, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
-/// Owns a Mutex<GameHandle>, so it is Send + Sync via the mutex.
-/// Networking-agnostic; exposes on_connect / on_disconnect hooks.
+/// Owns a `Mutex<GameHandle>`, so it is Send + Sync via the mutex.
+/// Networking-agnostic; exposes `on_connect` / `on_disconnect` hooks.
 pub struct Game {
     handle: Mutex<GameHandle>,
     mode: GameMode,
@@ -22,7 +22,7 @@ impl Game {
         }
     }
 
-    /// Provides exclusive access to the underlying GameHandle.
+    /// Provides exclusive access to the underlying `GameHandle`.
     pub fn lock(&self) -> MutexGuard<'_, GameHandle> {
         self.handle.lock()
     }
@@ -49,6 +49,7 @@ impl Game {
 
     /// Process an incoming client message for a given player.
     /// Returns `false` if the player wants to leave (caller should disconnect them).
+    #[allow(clippy::needless_pass_by_value)]
     pub fn on_client_msg(&self, player_id: u32, msg: GameClientMessage) -> bool {
         match msg {
             GameClientMessage::Input {

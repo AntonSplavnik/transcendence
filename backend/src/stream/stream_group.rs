@@ -105,7 +105,7 @@ impl<S: Clone + Serialize + Send + 'static> StreamGroup<S> {
     // cancel into a local Vec and release the lock before cancelling.
     pub fn broadcast(&self, msg: &S) {
         let lock = self.inner.lock();
-        for (&user_id, sink) in lock.handles.iter() {
+        for (&user_id, sink) in &lock.handles {
             match sink.try_send(msg.clone()) {
                 Ok(()) => {}
                 Err(mpsc::error::TrySendError::Full(_)) => {
@@ -179,10 +179,10 @@ impl<S: Serialize + Send + 'static> StreamGroup<S> {
             if let Some(group) = group.upgrade() {
                 let mut lock = group.inner.lock();
                 // Only remove if the map still stores *this* sink (not a replacement).
-                if let Some((idx, _, existing)) = lock.handles.get_full(&user_id) {
-                    if *existing == sink_snapshot {
-                        lock.handles.swap_remove_index(idx);
-                    }
+                if let Some((idx, _, existing)) = lock.handles.get_full(&user_id)
+                    && *existing == sink_snapshot
+                {
+                    lock.handles.swap_remove_index(idx);
                 }
             }
         });
