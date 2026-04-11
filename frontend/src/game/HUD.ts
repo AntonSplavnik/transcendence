@@ -5,7 +5,8 @@ import { ENEMY_BAR_Y_OFFSET } from './constants';
 export class GameHUD {
 	private gui: AdvancedDynamicTexture | null = null;
 	private scene: Scene;
-	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle }> = new Map();
+	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle; positioned: boolean }> = new Map();
+	private localHealthBg: Rectangle | null = null;
 	private localHealthFill: Rectangle | null = null;
 	private localStaminaFill: Rectangle | null = null;
 	private cooldownBars: { attack: Rectangle; ability1: Rectangle; ability2: Rectangle };
@@ -22,15 +23,20 @@ export class GameHUD {
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
 		// Update enemy bar positions every frame by projecting world-space position.
-		// Bars start hidden (isVisible = false) and are revealed on the first
-		// successful positioning to avoid flashing at the screen centre while
-		// the remote character model is still loading.
+		// Bars start hidden and are revealed on the first successful positioning
+		// (tracked via `positioned` flag) to avoid flashing at the screen centre
+		// while the remote character model is still loading. After that, visibility
+		// is controlled solely by updateEnemyHealth() — the observer must not
+		// touch isVisible, or it will fight the dead-state hide.
 		this.enemyBarObserver = this.scene.onBeforeRenderObservable.add(() => {
 			for (const [playerID, bar] of this.enemyBars.entries()) {
 				const pos = this.getCharPosition(playerID);
 				if (!pos) continue;
 				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z), this.scene);
-				if (!bar.bg.isVisible) bar.bg.isVisible = true;
+				if (!bar.positioned) {
+					bar.positioned = true;
+					bar.bg.isVisible = true;
+				}
 			}
 		});
 
@@ -46,6 +52,7 @@ export class GameHUD {
 		localBg.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
 		localBg.top = '-40px';
 		this.gui.addControl(localBg);
+		this.localHealthBg = localBg;
 
 		const localFill = new GUI.Rectangle('local-hp-fill');
 		localFill.width = '100%';
@@ -125,8 +132,11 @@ export class GameHUD {
 		};
 	}
 
-	updateLocalHealth(pct: number): void {
-		if (this.localHealthFill) {
+	updateLocalHealth(pct: number, isDead: boolean): void {
+		if (this.localHealthBg) {
+			this.localHealthBg.isVisible = !isDead;
+		}
+		if (this.localHealthFill && !isDead) {
 			this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
 		}
 	}
@@ -172,7 +182,7 @@ export class GameHUD {
 		fill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
 		bg.addControl(fill);
 
-		this.enemyBars.set(playerId, { bg, fill });
+		this.enemyBars.set(playerId, { bg, fill, positioned: false });
 	}
 
 	removeEnemyBar(playerId: number): void {

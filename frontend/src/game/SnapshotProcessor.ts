@@ -132,7 +132,7 @@ export class SnapshotProcessor {
 
 		// Health
 		const healthPct = charData.max_health > 0 ? charData.health / charData.max_health : 0;
-		hud.updateLocalHealth(healthPct);
+		hud.updateLocalHealth(healthPct, charData.state === CharacterState.Dead);
 
 		// Stamina
 		const staminaPct = charData.max_stamina > 0 ? charData.stamina / charData.max_stamina : 0;
