@@ -3,12 +3,14 @@ import {
 	Color4,
 	Engine,
 	HemisphericLight,
+	ImportMeshAsync,
 	Scene,
-	SceneLoader,
 	Vector3,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import { useEffect, useRef } from 'react';
+import treeModel from '@/assets/landing/Tree_1_A_Color1.glb';
+import landingBg from '@/assets/landing/mountains_forest_river_hut.jpg';
 
 export default function LandingScene() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,27 +43,10 @@ export default function LandingScene() {
 		// Load models
 		(async () => {
 			try {
-				const [treeResult, rockResult] = await Promise.all([
-					SceneLoader.ImportMeshAsync(
-						null,
-						'/models/ForestKaykit/',
-						'Tree_1_A_Color1.gltf',
-						scene,
-					),
-					SceneLoader.ImportMeshAsync(
-						null,
-						'/models/ForestKaykit/',
-						'Rock_1_A_Color1.gltf',
-						scene,
-					),
-				]);
+				const treeResult = await ImportMeshAsync(treeModel, scene);
 
 				treeResult.meshes.forEach((mesh) => {
 					mesh.position.x = -3;
-				});
-
-				rockResult.meshes.forEach((mesh) => {
-					mesh.position.x = 3;
 				});
 			} catch (error) {
 				console.error('Failed to load models:', error);
@@ -122,7 +107,7 @@ export default function LandingScene() {
 					left: '-2%',
 					width: '105%',
 					height: '105%',
-					backgroundImage: 'url(/images/mountains_forest_river_hut.jpg)',
+					backgroundImage: `url(${landingBg})`,
 					backgroundSize: 'cover',
 					backgroundPosition: 'center',
 					transition: 'transform 0.1s ease-out',
