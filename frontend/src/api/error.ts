@@ -138,7 +138,7 @@ export function retrieveStoredError(): StoredError | null {
 		}
 		return error;
 	} catch (e) {
-		console.error('Failed to parse stored error:', e);
+		console.warn('Failed to parse stored error:', e);
 		localStorage.removeItem('auth_error');
 		return null;
 	}
