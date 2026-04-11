@@ -33,6 +33,13 @@ namespace Presets {
 			.radius = 0.45f,
 			.height = 1.9f,            // tall with armor
 		},
+		.stamina = {
+			.maxStamina        = 100.0f,
+			.baseRegenRate     = 40.0f,    // effective: 4.0/s (10% floor) to 40.0/s
+			.drainDelaySeconds = 1.5f,     // pause after full depletion
+			.sprintCostPerSec  = 15.0f,    // ~6.6s of continuous sprint
+			.jumpCost          = 8.0f,     // ~12 jumps from full
+		},
 		.combat = {
 			.baseDamage         = 18.0f,
 			.damageMultiplier   = 1.0f,
@@ -41,18 +48,18 @@ namespace Presets {
 			.attackChain = {
 				// Stage 0 — diagonal slice: quick opener
 				{ .damageMultiplier=0.8f, .range=2.0f, .duration=0.45f,
-				  .movementMultiplier=0.0f, .chainWindow=0.6f },
+				  .movementMultiplier=0.0f, .chainWindow=0.6f, .staminaCost=10.0f },
 				// Stage 1 — horizontal slice: mid combo
 				{ .damageMultiplier=0.9f, .range=2.2f, .duration=0.50f,
-				  .movementMultiplier=0.0f, .chainWindow=0.5f },
+				  .movementMultiplier=0.0f, .chainWindow=0.5f, .staminaCost=15.0f },
 				// Stage 2 — stab: heavy finisher, chain resets (chainWindow=0)
 				{ .damageMultiplier=1.6f, .range=1.8f, .duration=0.60f,
-				  .movementMultiplier=0.0f, .chainWindow=0.0f },
+				  .movementMultiplier=0.0f, .chainWindow=0.0f, .staminaCost=25.0f },
 			},
 			.skill1 = { .params = MeleeAOE{ .range=2.5f, .movementMultiplier=0.0f, .dmgMultiplier=1.8f },
-			            .cooldown=5.0f, .castDuration=0.7f },
+			            .cooldown=5.0f, .castDuration=0.7f, .staminaCost=20.0f },
 			.skill2 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=0.7f, .dmgMultiplier=1.5f },
-			            .cooldown=10.0f, .castDuration=0.5f },
+			            .cooldown=10.0f, .castDuration=0.5f, .staminaCost=30.0f },
 		},
 	};
 /*

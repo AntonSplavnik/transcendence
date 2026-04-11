@@ -22,6 +22,9 @@ export interface CharacterSnapshot {
 	ability2_cooldown: number;
 	swing_progress: number;
 	is_grounded: boolean;
+	// Stamina data
+	stamina: number;
+	max_stamina: number;
 }
 
 export interface GameStateSnapshot {

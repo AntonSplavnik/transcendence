@@ -35,6 +35,14 @@ namespace ArenaGame {
 		float height;
 	};
 
+	struct StaminaPreset {
+		float maxStamina;          // total stamina pool
+		float baseRegenRate;       // max regen per second (at 100% stamina)
+		float drainDelaySeconds;   // seconds of no regen after full depletion
+		float sprintCostPerSec;    // stamina consumed per second while sprinting
+		float jumpCost;            // flat stamina consumed per jump
+	};
+
 	struct CombatPreset {
 		float baseDamage;
 		float damageMultiplier;
@@ -49,6 +57,7 @@ namespace ArenaGame {
 		HealthPreset   health;
 		MovementPreset movement;
 		ColliderPreset collider;
+		StaminaPreset  stamina;
 		CombatPreset   combat;
 	};
 
