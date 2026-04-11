@@ -6,6 +6,7 @@ import { useLobby } from '../contexts/LobbyContext';
 import { formatGameMode } from '../stream/types';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
+import { useGameAudio } from '@/audio/AudioProvider';
 import GameCanvas from './GameBoard/GameCanvas';
 import GameEndModal from './modals/GameEndModal';
 
@@ -27,6 +28,7 @@ export default function GameBoard() {
 	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } = useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
+	const gameAudio = useGameAudio();
 
 	const isSpectator =
 		!!user &&
@@ -54,6 +56,7 @@ export default function GameBoard() {
 				onSendInput={sendInput}
 				localPlayerId={user.id}
 				characterConfig={characterConfig}
+				gameAudio={gameAudio}
 			/>
 			{gameState.status === 'active' && gameState.matchEndData !== null && (
 				<GameEndModal

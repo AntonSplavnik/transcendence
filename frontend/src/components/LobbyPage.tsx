@@ -2,10 +2,11 @@ import { Check, ChevronLeft, Copy, LogOut, Pencil, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
+import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
+import { useUIAudio } from '@/audio/AudioProvider';
 import { useAuth } from '../contexts/AuthContext';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
-import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '../components/ui';
 import {
 	Badge,
@@ -109,8 +110,10 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 export default function LobbyPage() {
 	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
+	const audio = useUIAudio();
 
 	const codeCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const tickingFiredRef = useRef(false);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 	const [isLeaving, setIsLeaving] = useState(false);
@@ -146,6 +149,7 @@ export default function LobbyPage() {
 		}
 		if (countdownMs === null) {
 			setSecondsLeft(null);
+			tickingFiredRef.current = false;
 			return;
 		}
 		const tick = () =>
@@ -156,6 +160,13 @@ export default function LobbyPage() {
 			if (intervalRef.current !== null) clearInterval(intervalRef.current);
 		};
 	}, [countdownMs]);
+	useEffect(() => {
+		if (secondsLeft === null || tickingFiredRef.current) return;
+		if (secondsLeft > 0 && secondsLeft <= 3) {
+			audio.playSound('ui_ticking');
+			tickingFiredRef.current = true;
+		}
+	}, [secondsLeft, audio]);
 
 	// Cleanup modePulse timer on unmount.
 	useEffect(() => {

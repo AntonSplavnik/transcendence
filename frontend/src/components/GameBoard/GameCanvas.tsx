@@ -7,6 +7,7 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { ISO_CAM_OFFSET, ISO_ORTHO_SIZE, ISO_DIRECTIONS } from '@/game/constants';
 import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
+import type { GameAudioHandle } from '@/audio/AudioProvider';
 
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
@@ -190,6 +191,7 @@ interface Props {
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
+	gameAudio?: GameAudioHandle;
 }
 
 export default function GameCanvas({
@@ -199,6 +201,7 @@ export default function GameCanvas({
 	onSendInput,
 	localPlayerId,
 	characterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
+	gameAudio,
 }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -237,6 +240,7 @@ export default function GameCanvas({
 			// Game client
 			const gameClient = new GameClient(
 				scene, localPlayerId, camera, characterConfig, characterClassesRef,
+				gameAudio?.engine, gameAudio?.soundBank,
 			);
 			gameClientInstance = gameClient;
 
@@ -317,6 +321,8 @@ export default function GameCanvas({
 			if (!disposed) {
 				engine.hideLoadingUI();
 				gameClient.playSpawnAnimation();
+				gameAudio?.playSceneAmbient('amb_forest');
+				gameAudio?.playMusicPlaylist();
 			}
 
 			// Resize handler
@@ -333,6 +339,8 @@ export default function GameCanvas({
 
 		return () => {
 			disposed = true;
+			gameAudio?.stopSceneAmbient();
+			gameAudio?.stopMusicPlaylist();
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
