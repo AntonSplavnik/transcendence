@@ -284,6 +284,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 				onClose() {
 					console.debug('[Game] stream closed');
+
+					// Already cleaned up (e.g. leaveGame() ran before the stream closed).
+					if (gameStateRef.current.status === 'idle') return;
+
 					sendRef.current = null;
 					snapshotRef.current = null;
 					characterClassesRef.current.clear();
