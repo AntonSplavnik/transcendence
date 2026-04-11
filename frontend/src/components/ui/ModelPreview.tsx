@@ -173,7 +173,7 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent, cameraPosition, cameraTarget]);
+	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent, cameraPosition, cameraTarget, initialRotationY]);
 
 	return (
 		<canvas
