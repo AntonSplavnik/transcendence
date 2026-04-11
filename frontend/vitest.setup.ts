@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+import { server } from './tests/helpers/msw-handlers';
 
 // ModelPreview uses BabylonJS + WebGL which are unavailable in jsdom
 vi.mock('@/components/ui/ModelPreview', () => ({ default: () => null }));
@@ -30,11 +32,15 @@ vi.mock('@/contexts/LobbyContext', async (importOriginal) => {
 		}),
 	};
 });
-import { cleanup } from '@testing-library/react';
-import { server } from './tests/helpers/msw-handlers';
 
 // Start MSW server before all tests
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+
+// Seed auth hint so AuthProvider's initial check calls getMe() (mirrors a returning user).
+// localStorage.clear() in afterEach wipes it between tests.
+beforeEach(() => {
+	localStorage.setItem('auth_hint', '1');
+});
 
 // Reset handlers after each test
 afterEach(() => {

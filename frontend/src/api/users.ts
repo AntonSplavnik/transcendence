@@ -22,7 +22,7 @@ export async function nicknameExists(nickname: string): Promise<string> {
 		}
 		return '✅';
 	} catch (error) {
-		console.error('Nickname validation error:', error);
+		console.warn('Nickname validation error:', error);
 		return 'Error checking nickname';
 	}
 }
