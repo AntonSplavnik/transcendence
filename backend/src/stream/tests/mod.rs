@@ -1,6 +1,7 @@
 mod cancel;
 mod receive_loop;
 mod room;
+mod room_registry;
 mod sink;
 mod stream_api;
 pub(super) mod test_utils;

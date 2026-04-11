@@ -10,14 +10,18 @@
 //! ```
 //!
 //! All types are re-exported from this module. For room-based broadcast,
-//! see [`stream_room`]. For standalone streams, use [`StreamSink`] directly
-//! via [`StreamManager`] or [`spawn_receive_loop`].
+//! see [`stream_room`]. For structural room/user indexing plus unpublished
+//! loading slots, checked publication, caller-owned claim finalization, and
+//! both authoritative unchecked destroy and identity-checked destroy by
+//! incarnation, see [`room_registry`]. For standalone streams, use
+//! [`StreamSink`] directly via [`StreamManager`] or [`spawn_receive_loop`].
 //!
 //! # Module Index
 //!
 //! | Module | Purpose |
 //! |--------|---------|
 //! | `cancel` | [`CancelHandle`], [`CancelReason`] — cancellation with structured reasons |
+//! | `room_registry` | [`RoomRegistry<R, S>`], claim/loading types — structural room and user indexing, unpublished loading, checked publication, caller-owned claim finalization, and unchecked vs incarnation-checked destroy paths |
 //! | `sink` | [`StreamSink<S>`], buffer constants |
 //! | `stream_room` | [`StreamRoom<P>`], [`RoomProtocol`] — room lifecycle callbacks |
 //! | `stream_manager` | [`StreamManager`] — WebTransport connections |
@@ -25,6 +29,7 @@
 
 mod cancel;
 mod compress_cbor_codec;
+mod room_registry;
 mod sink;
 mod stream_manager;
 mod stream_room;
@@ -36,6 +41,11 @@ use salvo::Depot;
 // StreamRoom / request_stream. Plan B (chat module) will also use
 // JoinError, RoomProtocol, and StreamRoom via this re-export.
 #[allow(unused_imports)]
+pub use room_registry::{
+    ClaimCommitError, ClaimGuard, DestroyResult, EntryState, LoaderContext, RegistryError,
+    RegistryLink, RemoveResult, RoomRegistry, SingleSlot, UnlimitedSlot, UserIndexEntry, UserSlot,
+};
+#[allow(unused_imports)]
 pub use sink::{
     ConfirmedBatchError, ConfirmedSendError, DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink,
 };
@@ -45,7 +55,10 @@ pub use stream_manager::{
     connect_stream, router, webtransport_router,
 };
 #[allow(unused_imports)]
-pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
+pub use stream_room::{
+    JoinError, LeaveDispatcher, LeaveDisposition, LeaveReason, MemberLeftResult, RoomProtocol,
+    StreamRoom,
+};
 // Renamed to avoid collision with potential StreamRoom SendError types.
 #[allow(unused_imports)]
 pub use user_stream::{
