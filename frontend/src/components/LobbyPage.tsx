@@ -84,7 +84,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 				/>
 				<span className="text-sm text-stone-300 group-hover:text-stone-100 transition-colors">
 					Make lobby public{' '}
-					<span className="text-xs text-stone-500">(cannot be undone)</span>
+					<span className="text-xs text-stone-350">(cannot be undone)</span>
 				</span>
 			</label>
 			<div className="flex gap-2 pt-1">
@@ -120,6 +120,8 @@ export default function LobbyPage() {
 	const [isTogglingReady, setIsTogglingReady] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
+	const [modePulse, setModePulse] = useState(false);
+	const modePulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [selectedCharacter, setSelectedCharacter] = useState<CharacterChoice>(
 		() => (localStorage.getItem('selectedCharacter') as CharacterChoice) ?? DEFAULT_CHARACTER,
 	);
@@ -166,6 +168,13 @@ export default function LobbyPage() {
 		}
 	}, [secondsLeft, audio]);
 
+	// Cleanup modePulse timer on unmount.
+	useEffect(() => {
+		return () => {
+			if (modePulseTimerRef.current) clearTimeout(modePulseTimerRef.current);
+		};
+	}, []);
+
 	if (lobbyState.status === 'idle') {
 		return <Navigate to="/home" replace />;
 	}
@@ -178,6 +187,12 @@ export default function LobbyPage() {
 
 	const handleToggleReady = async () => {
 		if (!myPlayer) return;
+		if (!settings.gamemode && !myPlayer.ready) {
+			setModePulse(true);
+			if (modePulseTimerRef.current) clearTimeout(modePulseTimerRef.current);
+			modePulseTimerRef.current = setTimeout(() => setModePulse(false), 2000);
+			return;
+		}
 		setIsTogglingReady(true);
 		try {
 			await setReady(!myPlayer.ready);
@@ -213,7 +228,7 @@ export default function LobbyPage() {
 		<>
 		<Link
 			to="/home"
-			className="fixed top-3 left-3 z-50 inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-200 transition-colors"
+			className="fixed top-3 left-3 z-50 inline-flex items-center gap-1 text-sm text-stone-350 hover:text-stone-200 transition-colors"
 		>
 			<ChevronLeft className="w-4 h-4" aria-hidden="true" />
 			Home
@@ -228,7 +243,7 @@ export default function LobbyPage() {
 						{canEditSettings && (
 							<button
 								onClick={() => setShowSettings((s) => !s)}
-								className="shrink-0 p-1 rounded text-stone-400 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
+								className="shrink-0 p-1 rounded text-stone-350 hover:text-stone-200 hover:bg-stone-700/50 transition-colors"
 								aria-label={showSettings ? 'Cancel editing settings' : 'Edit lobby settings'}
 							>
 								<Pencil className="w-4 h-4" aria-hidden="true" />
@@ -244,12 +259,12 @@ export default function LobbyPage() {
 						)}
 					</div>
 					<div className="flex items-center gap-1">
-						<span className="font-mono text-sm text-stone-600 tracking-wider select-none" aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}>
+						<span className="font-mono text-sm text-stone-350 tracking-wider select-none" aria-label={`Lobby code ending in ${lobbyId.slice(-SUFFIX_LEN)}`}>
 							{maskedCode}
 						</span>
 						<button
 							onClick={copyCode}
-							className="p-0.5 rounded text-stone-600 hover:text-stone-300 transition-colors"
+							className="p-0.5 rounded text-stone-350 hover:text-stone-200 transition-colors"
 							aria-label={codeCopied ? 'Lobby code copied' : 'Copy full lobby code'}
 						>
 							{codeCopied ? (
@@ -267,24 +282,24 @@ export default function LobbyPage() {
 				{/* Center: countdown when all ready, otherwise player avatars */}
 				<div className="flex-1 flex justify-center items-center">
 					{secondsLeft !== null ? (
-						<div className="flex flex-col items-center gap-1">
-							<span className="text-[8px] text-amber-700 uppercase tracking-widest">
+						<div className="flex flex-col items-center gap-1" aria-live="polite">
+							<span className="text-[8px] text-amber-500 uppercase tracking-widest">
 								{players.size} / {players.size} players ready
 							</span>
 							<div className="flex items-baseline gap-1.5">
 								<span className="text-2xl font-black text-gold-400 tabular-nums leading-none">
 									{secondsLeft}s
 								</span>
-								<span className="text-[9px] text-stone-600 tracking-wide">until game starts</span>
+								<span className="text-[9px] text-stone-350 tracking-wide">until game starts</span>
 							</div>
 						</div>
 					) : players.size > 0 ? (
 						<PlayerAvatarRow players={players} hostId={hostId} />
 					) : (
-						<span className="text-sm text-stone-500 italic">No players yet.</span>
+						<span className="text-sm text-stone-350 italic">No players yet.</span>
 					)}
 					{spectators.size > 0 && secondsLeft === null && (
-						<span className="text-xs text-stone-500 ml-4 self-center">
+						<span className="text-xs text-stone-350 ml-4 self-center">
 							+{spectators.size} spectator{spectators.size !== 1 ? 's' : ''}
 						</span>
 					)}
@@ -297,6 +312,7 @@ export default function LobbyPage() {
 							variant={myPlayer.ready ? 'secondary' : 'success'}
 							onClick={() => void handleToggleReady()}
 							loading={isTogglingReady}
+							className="min-w-[104px]"
 						>
 							{myPlayer.ready ? 'Unready' : 'Ready Up'}
 						</Button>
@@ -325,17 +341,21 @@ export default function LobbyPage() {
 
 			{/* ── Game mode row ─────────────────────────────────────────────── */}
 			{!gameActive && (
-				<div className="flex items-center gap-4 px-4 py-3 bg-stone-950 rounded-2xl border border-stone-800">
-					<span className="text-xs text-stone-500 uppercase tracking-widest shrink-0">
+				<div className={`flex items-center gap-4 px-4 py-3 bg-stone-950 rounded-2xl border transition-colors duration-300 ${
+					modePulse ? 'border-warning animate-pulse' : 'border-stone-800'
+				}`}>
+					<span className="text-xs text-stone-350 uppercase tracking-widest shrink-0">
 						Game Mode
 					</span>
-					<div className="flex gap-2 flex-wrap">
+					<div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Game mode">
 						{GAME_MODES.map((mode) => {
 							const active = settings.gamemode === mode.id;
 							return (
 								<button
 									key={mode.id}
 									type="button"
+									role="radio"
+									aria-checked={active}
 									disabled={!isHost || !mode.enabled}
 									onClick={() => {
 										if (isHost && mode.enabled) void updateSettings({ gamemode: mode.id });
@@ -346,8 +366,8 @@ export default function LobbyPage() {
 											: active
 												? 'border-gold-400 bg-gold-400/10 text-gold-400'
 												: isHost
-													? 'border-stone-700 text-stone-500 hover:border-stone-500 hover:text-stone-300 cursor-pointer'
-													: 'border-stone-800 text-stone-600 cursor-default'
+													? 'border-stone-700 text-stone-350 hover:border-stone-500 hover:text-stone-300 cursor-pointer'
+													: 'border-stone-800 text-stone-350 cursor-default'
 									}`}
 								>
 									{mode.label}

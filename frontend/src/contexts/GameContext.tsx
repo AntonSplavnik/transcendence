@@ -29,6 +29,7 @@ import type {
 	GameEvent,
 	GameServerMessage,
 	GameStateSnapshot,
+	PlayerMatchStats,
 	Vector3D,
 } from '../game/types';
 import type { BidiHandlerFactory } from '../stream/types';
@@ -42,6 +43,8 @@ export type GameState =
 	| { status: 'idle' }
 	| {
 			status: 'active';
+			/** Non-null when the match has ended — contains the final leaderboard. */
+			matchEndData: PlayerMatchStats[] | null;
 			/** Keyed by player_id */
 			players: ReadonlyMap<number, { name: string }>;
 	  };
@@ -51,15 +54,19 @@ export type GameState =
 type GameAction =
 	| { type: 'OPEN' }
 	| { type: 'CLOSE' }
+	| { type: 'MATCH_ENDED'; stats: PlayerMatchStats[] }
 	| { type: 'PLAYER_JOINED'; player_id: number; name: string }
 	| { type: 'PLAYER_LEFT'; player_id: number };
 
 function gameReducer(state: GameState, action: GameAction): GameState {
 	switch (action.type) {
 		case 'OPEN':
-			return { status: 'active', players: new Map() };
+			return { status: 'active', matchEndData: null, players: new Map() };
 		case 'CLOSE':
 			return { status: 'idle' };
+		case 'MATCH_ENDED':
+			if (state.status !== 'active') return state;
+			return { ...state, matchEndData: action.stats };
 		case 'PLAYER_JOINED': {
 			if (state.status !== 'active') return state;
 			const players = new Map(state.players);
@@ -119,6 +126,11 @@ export interface GameContextType {
 	 */
 	eventsRef: RefObject<GameEvent[]>;
 	/**
+	 * Clean up game state and navigate to lobby/home.
+	 * Used by GameEndModal after match end (button click or timer expiry).
+	 */
+	leaveGame(): void;
+	/**
 	 * Send a player input frame to the server.
 	 * No-op when the game is not active or the send callback is not set.
 	 */
@@ -174,6 +186,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	const gameStateRef = useRef(gameState);
 	useEffect(() => {
 		gameStateRef.current = gameState;
+	}, [gameState]);
+
+	// Mirror matchEndData into a ref so the onClose closure can read it
+	// without being a stale closure.  The ref is the synchronization primitive
+	// between onMessage(MatchEnd) and onClose — both sequential, same handler.
+	const matchEndedRef = useRef(false);
+	useEffect(() => {
+		matchEndedRef.current = gameState.status === 'active' && gameState.matchEndData !== null;
 	}, [gameState]);
 
 	// Track spectator status — spectators must not send input to the server.
@@ -239,13 +259,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
 						eventsRef.current.push(msg);
 						return;
 					}
+					if (msg.type === 'MatchEnd') {
+						eventsRef.current.push(msg);
+						// Set the ref synchronously BEFORE dispatch so the onClose
+						// callback (which fires next in the same handler chain) sees it.
+						matchEndedRef.current = true;
+						dispatch({ type: 'MATCH_ENDED', stats: msg.players });
+						return;
+					}
 					if (
 						msg.type === 'Death' ||
 						msg.type === 'Damage' ||
 						msg.type === 'StateChange' ||
 						msg.type === 'AttackStarted' ||
-						msg.type === 'SkillUsed' ||
-						msg.type === 'MatchEnd'
+						msg.type === 'SkillUsed'
 					) {
 						eventsRef.current.push(msg);
 						return;
@@ -256,11 +283,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
 				},
 
 				onClose() {
-					console.debug('[Game] stream closed, dispatching CLOSE');
+					console.debug('[Game] stream closed');
+
+					// Already cleaned up (e.g. leaveGame() ran before the stream closed).
+					if (gameStateRef.current.status === 'idle') return;
+
 					sendRef.current = null;
 					snapshotRef.current = null;
 					characterClassesRef.current.clear();
 					eventsRef.current.length = 0;
+
+					if (matchEndedRef.current) {
+						// Match ended normally — GameEndModal handles navigation.
+						// Keep gameState 'active' so GameBoard stays mounted with the modal.
+						console.debug('[Game] match ended, suppressing onClose navigation');
+						matchEndedRef.current = false;
+						return;
+					}
+
 					dispatch({ type: 'CLOSE' });
 					// Navigate back to lobby if still in one, otherwise home.
 					if (lobbyStateRef.current.status === 'active') {
@@ -285,6 +325,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 			connectionManager.unregisterHandler('Game');
 		};
 	}, [connectionManager]);
+
+	// ─── leaveGame (used by GameEndModal after match ends) ───────────
+	const leaveGame = useCallback(() => {
+		dispatch({ type: 'CLOSE' });
+		if (lobbyStateRef.current.status === 'active') {
+			navigateRef.current('/lobby');
+		} else {
+			navigateRef.current('/home');
+		}
+	}, []);
 
 	// ─── sendInput (stable, reads from refs) ─────────────────────────
 	const sendInput = useCallback(
@@ -318,9 +368,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<GameContext.Provider
-			value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput }}
-		>
+		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame }}>
 			{children}
 		</GameContext.Provider>
 	);
