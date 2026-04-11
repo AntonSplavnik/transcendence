@@ -73,13 +73,18 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		return;
 	}
 
-	// Sprint gating: require stamina and not exhausted
-	if (controller.input.isSprinting) {
+	// Sprint gating: require stamina and not exhausted.
+	if (controller.input.isSprinting && !stamina.isExhausted()) {
 		float frameCost = stamina.sprintCostPerSec * deltaTime;
-		if (!stamina.isExhausted() && stamina.canAfford(frameCost)) {
+		if (stamina.canAfford(frameCost)) {
 			stamina.consume(frameCost);
 			controller.isSprinting = true;
 		} else {
+			// Force exhaustion so drainDelayTimer pauses regen — otherwise
+			// the regen floor causes state to flicker Sprinting/Walking.
+			stamina.current = 0.0f;
+			stamina.exhausted = true;
+			stamina.drainDelayTimer = stamina.drainDelay;
 			controller.isSprinting = false;
 		}
 	} else {

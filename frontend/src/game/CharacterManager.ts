@@ -6,7 +6,7 @@ import { AnimatedCharacter, loadCharacter } from './AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from './characterConfigs';
 import type { CharacterConfig } from './characterConfigs';
 import { AnimationStateMachine, AnimPhase, JumpState } from './AnimationStateMachine';
-import { AnimationNames } from './constants';
+import { AnimationNames, CharacterState } from './constants';
 
 declare const BABYLON: typeof BabylonType;
 
@@ -18,6 +18,8 @@ export class CharacterManager {
 	public localJumpState: JumpState = JumpState.GROUNDED;
 	public localIsDead: boolean = false;
 	public localIsGrounded: boolean = true;
+	// Server-authoritative character state, driven by CharacterSnapshot.state.
+	public localState: CharacterState = CharacterState.Idle;
 	public position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	public readonly localPlayerID: number;
 

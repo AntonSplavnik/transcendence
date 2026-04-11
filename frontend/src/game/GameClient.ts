@@ -7,7 +7,7 @@ import { GameHUD } from './HUD';
 import { SnapshotProcessor, DirectPositionStrategy } from './SnapshotProcessor';
 import { processEvents } from './EventProcessor';
 import { AnimPhase, tickJumpState } from './AnimationStateMachine';
-import type { InputState } from './constants';
+import { CharacterState, type InputState } from './constants';
 
 /**
  * Top-level game client that wires together the sub-systems:
@@ -67,13 +67,16 @@ export class GameClient {
 		if (this.mgr.localJumpState !== 'grounded') return;
 
 		const isPlaying = this.mgr.localCharacter.currentAnimation?.isPlaying ?? false;
-		const isMoving = input.movementDirection.x !== 0 || input.movementDirection.z !== 0;
+		const serverState = this.mgr.localState;
+		const isMoving = serverState === CharacterState.Walking
+			|| serverState === CharacterState.Sprinting;
+		const isSprinting = serverState === CharacterState.Sprinting;
 
 		const transitioned = this.mgr.localAnimSM.tick(isPlaying, isMoving);
 
 		// If attack was cancelled by movement, immediately start the move animation
 		if (transitioned && this.mgr.localAnimSM.phase === AnimPhase.Idle && isMoving) {
-			const m = input.isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+			const m = isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
 			this.mgr.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 			return;
 		}
@@ -83,7 +86,7 @@ export class GameClient {
 
 		// Normal movement/idle
 		if (isMoving) {
-			const m = input.isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
+			const m = isSprinting ? this.characterConfig.runAnimation : this.characterConfig.walkAnimation;
 			this.mgr.localCharacter.playAnimation(m.name, true, m.speed ?? 1.0);
 		} else {
 			const idle = this.characterConfig.idleAnimation;
