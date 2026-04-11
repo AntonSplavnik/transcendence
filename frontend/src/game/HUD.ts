@@ -1,17 +1,18 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const BABYLON: any;
-
+import type * as BabylonType from '@babylonjs/core';
 import type { Observer, Scene, Vector3 } from '@babylonjs/core';
+import type { AdvancedDynamicTexture, Rectangle } from '@babylonjs/gui';
 import { ENEMY_BAR_Y_OFFSET } from './constants';
 
+declare const BABYLON: typeof BabylonType & { GUI: typeof import('@babylonjs/gui') };
+
 export class GameHUD {
-	private gui: any = null;
+	private gui: AdvancedDynamicTexture | null = null;
 	private scene: Scene;
-	private enemyBars: Map<number, { bg: any; fill: any; positioned: boolean }> = new Map();
-	private localHealthBg: any = null;
-	private localHealthFill: any = null;
-	private localStaminaFill: any = null;
-	private cooldownBars: { attack: any; ability1: any; ability2: any };
+	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle; positioned: boolean }> = new Map();
+	private localHealthBg: Rectangle | null = null;
+	private localHealthFill: Rectangle | null = null;
+	private localStaminaFill: Rectangle | null = null;
+	private cooldownBars: { attack: Rectangle; ability1: Rectangle; ability2: Rectangle };
 	private getCharPosition: (id: number) => Vector3 | null;
 	private enemyBarObserver: Observer<Scene> | null = null;
 	private localPlayerID: number;
@@ -21,8 +22,7 @@ export class GameHUD {
 		this.localPlayerID = localPlayerID;
 		this.getCharPosition = getCharPosition;
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const GUI = (BABYLON as any).GUI;
+		const GUI = BABYLON.GUI;
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
 		// Update enemy bar positions every frame by projecting world-space position.
@@ -162,8 +162,8 @@ export class GameHUD {
 	createEnemyBar(playerId: number): void {
 		if (playerId === this.localPlayerID) return;
 		if (this.enemyBars.has(playerId)) return;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const GUI = (BABYLON as any).GUI;
+		if (!this.gui) return;
+		const GUI = BABYLON.GUI;
 
 		const bg = new GUI.Rectangle(`enemy-hp-bg-${playerId}`);
 		bg.width = '54px';
