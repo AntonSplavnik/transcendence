@@ -280,14 +280,57 @@ impl GameManager {
             });
         }
 
-        // Phase 3: sync — finalize, send snapshot (under lobby lock)
-        {
+        // Phase 3: sync — finalize, send snapshot, collect mid-game data (under lobby lock)
+        let mid_game = {
             let mut lobby = lobby_arc.lock();
             lobby.finish_add_spectator(user_id, nickname);
             let snapshot = lobby.info();
             lobby
                 .lobby_streams()
                 .send(user_id, &LobbyServerMessage::LobbySnapshot(snapshot));
+
+            // If a game is already running, open a game stream for this spectator immediately
+            // so they can watch. Collect the data we need (under lock) before releasing.
+            if lobby.is_game_active() {
+                let players = lobby.player_data().collect::<Vec<_>>();
+                let game_streams = Arc::clone(lobby.game_streams());
+                Some((players, game_streams))
+            } else {
+                None
+            }
+        };
+
+        // Phase 4: async — open game stream for mid-game spectator (no locks held)
+        if let Some((players, game_streams)) = mid_game {
+            let result = game_streams
+                .create_stream::<GameClientMessage>(
+                    user_id,
+                    StreamType::Game,
+                    &self.sm,
+                    |_user_id, _msg| true,
+                )
+                .await;
+
+            match result {
+                Ok(_) => {
+                    // Send PlayerJoined for every current player so the spectator's
+                    // GameContext knows who is in the game.
+                    for (uid, nick, character_class) in &players {
+                        game_streams.send(
+                            user_id,
+                            &GameServerMessage::PlayerJoined {
+                                player_id: *uid as u32,
+                                name: nick.to_string(),
+                                character_class: character_class.clone(),
+                            },
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!(lobby_id = %lobby_id, user_id, error = %e,
+                        "failed to open mid-game game stream for spectator");
+                }
+            }
         }
 
         debug!(lobby_id = %lobby_id, user_id, "spectator joined lobby");

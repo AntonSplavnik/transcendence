@@ -8,6 +8,13 @@ pub enum GameServerMessage {
     /// Full game state snapshot (sent at 60 Hz)
     Snapshot(GameStateSnapshot),
 
+    /// Player successfully joined the game
+    PlayerJoined {
+        player_id: u32,
+        name: String,
+        character_class: CharacterClass,
+    },
+
     /// Another player left the game
     PlayerLeft { player_id: u32 },
 
