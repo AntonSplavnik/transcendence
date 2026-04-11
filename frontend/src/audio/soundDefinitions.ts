@@ -380,7 +380,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 		],
 		volume: { min: 0.35, max: 0.35 },
 		pitch: { min: 1.0, max: 1.0 },
-		bus: 'music',
+		bus: 'music_ingame',
 		spatial: false,
 		cooldown: 0,
 		priority: 1,

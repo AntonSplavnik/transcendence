@@ -8,15 +8,18 @@
 export interface AudioSettings {
 	musicVolume: number;
 	uiVolume: number;
-	/** Combined slider driving the `sfx`, `ambient`, and `music` buses in-game. */
-	inGameVolume: number;
+	/** In-game music slider driving the `music_ingame` bus. */
+	inGameMusicVolume: number;
+	/** In-game SFX slider driving the `sfx` and `ambient` buses. */
+	inGameSfxVolume: number;
 	muted: boolean;
 }
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
 	musicVolume: 0.5,
 	uiVolume: 0.7,
-	inGameVolume: 1.0,
+	inGameMusicVolume: 1.0,
+	inGameSfxVolume: 1.0,
 	muted: false,
 };
 
@@ -33,7 +36,9 @@ export function loadAudioSettings(): AudioSettings {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return { ...DEFAULT_AUDIO_SETTINGS };
-		const parsed = JSON.parse(raw) as Partial<AudioSettings>;
+		const parsed = JSON.parse(raw) as Partial<AudioSettings> & { inGameVolume?: number };
+		const legacyInGameVolume =
+			typeof parsed.inGameVolume === 'number' ? clamp01(parsed.inGameVolume) : null;
 		return {
 			musicVolume:
 				typeof parsed.musicVolume === 'number'
@@ -43,10 +48,14 @@ export function loadAudioSettings(): AudioSettings {
 				typeof parsed.uiVolume === 'number'
 					? clamp01(parsed.uiVolume)
 					: DEFAULT_AUDIO_SETTINGS.uiVolume,
-			inGameVolume:
-				typeof parsed.inGameVolume === 'number'
-					? clamp01(parsed.inGameVolume)
-					: DEFAULT_AUDIO_SETTINGS.inGameVolume,
+			inGameMusicVolume:
+				typeof parsed.inGameMusicVolume === 'number'
+					? clamp01(parsed.inGameMusicVolume)
+					: legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameMusicVolume,
+			inGameSfxVolume:
+				typeof parsed.inGameSfxVolume === 'number'
+					? clamp01(parsed.inGameSfxVolume)
+					: legacyInGameVolume ?? DEFAULT_AUDIO_SETTINGS.inGameSfxVolume,
 			muted: typeof parsed.muted === 'boolean' ? parsed.muted : DEFAULT_AUDIO_SETTINGS.muted,
 		};
 	} catch {

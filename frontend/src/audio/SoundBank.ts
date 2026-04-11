@@ -7,7 +7,7 @@ export interface SoundDefinition {
 	variations: string[];
 	volume: { min: number; max: number };
 	pitch: { min: number; max: number };
-	bus: 'sfx' | 'music' | 'ambient' | 'ui';
+	bus: 'sfx' | 'music' | 'music_ingame' | 'ambient' | 'ui';
 	spatial: boolean;
 	/** Only used when spatial is true. */
 	maxDistance?: number;

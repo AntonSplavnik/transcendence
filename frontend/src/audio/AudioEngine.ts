@@ -2,7 +2,7 @@ import { CreateAudioEngineAsync } from '@babylonjs/core/AudioV2/webAudio/webAudi
 import type { AudioEngineV2, AudioBus, MainAudioBus } from '@babylonjs/core/AudioV2';
 import type { Node } from '@babylonjs/core/node';
 
-export type BusName = 'sfx' | 'music' | 'ambient' | 'ui';
+export type BusName = 'sfx' | 'music' | 'music_ingame' | 'ambient' | 'ui';
 
 export class GameAudioEngine {
 	private engine: AudioEngineV2 | null = null;
@@ -27,6 +27,10 @@ export class GameAudioEngine {
 			outBus: this.masterBus,
 			volume: 0.5,
 		});
+		const inGameMusicBus = await this.engine.createBusAsync('music_ingame', {
+			outBus: this.masterBus,
+			volume: 1.0,
+		});
 		const ambientBus = await this.engine.createBusAsync('ambient', {
 			outBus: this.masterBus,
 			volume: 1.0,
@@ -38,6 +42,7 @@ export class GameAudioEngine {
 
 		this.buses.set('sfx', sfxBus);
 		this.buses.set('music', musicBus);
+		this.buses.set('music_ingame', inGameMusicBus);
 		this.buses.set('ambient', ambientBus);
 		this.buses.set('ui', uiBus);
 

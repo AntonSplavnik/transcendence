@@ -11,12 +11,13 @@ interface AudioSettingsModalProps {
 }
 
 /**
- * Audio preferences modal — menu (music + UI) and in-game (SFX + ambient)
+ * Audio preferences modal — menu (music + UI) and in-game (music + SFX)
  * volume sections, plus a global mute.
  *
  * Live preview: every slider change applies immediately via the AudioProvider
  * and is persisted to localStorage so the setting survives reloads. The
- * in-game slider drives the `sfx` and `ambient` buses together.
+ * in-game music slider drives `music_ingame`; in-game SFX slider drives
+ * `sfx` and `ambient` together.
  */
 export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps) {
 	const audio = useUIAudio();
@@ -33,10 +34,12 @@ export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps)
 		if (patch.uiVolume !== undefined) {
 			audio.setBusVolume('ui', patch.uiVolume);
 		}
-		if (patch.inGameVolume !== undefined) {
-			audio.setBusVolume('sfx', patch.inGameVolume);
-			audio.setBusVolume('ambient', patch.inGameVolume);
-			audio.setBusVolume('music', patch.inGameVolume);
+		if (patch.inGameMusicVolume !== undefined) {
+			audio.setBusVolume('music_ingame', patch.inGameMusicVolume);
+		}
+		if (patch.inGameSfxVolume !== undefined) {
+			audio.setBusVolume('sfx', patch.inGameSfxVolume);
+			audio.setBusVolume('ambient', patch.inGameSfxVolume);
 		}
 		if (patch.muted !== undefined) {
 			audio.setMuted(patch.muted);
@@ -87,11 +90,18 @@ export default function AudioSettingsModal({ onClose }: AudioSettingsModalProps)
 						In-Game
 					</h3>
 					<VolumeSlider
-						id="ingame-volume"
-						label="Game Volume"
-						value={settings.inGameVolume}
+						id="ingame-music-volume"
+						label="In-Game Music Volume"
+						value={settings.inGameMusicVolume}
 						disabled={disabled}
-						onChange={(v) => update({ inGameVolume: v })}
+						onChange={(v) => update({ inGameMusicVolume: v })}
+					/>
+					<VolumeSlider
+						id="ingame-sfx-volume"
+						label="In-Game SFX Volume"
+						value={settings.inGameSfxVolume}
+						disabled={disabled}
+						onChange={(v) => update({ inGameSfxVolume: v })}
 					/>
 				</section>
 

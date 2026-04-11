@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Node } from '@babylonjs/core/node';
 import type { Observer } from '@babylonjs/core/Misc/observable';
-import type { StaticSound } from '@babylonjs/core/AudioV2';
+import type { AbstractSound } from '@babylonjs/core/AudioV2';
 import { GameAudioEngine } from './AudioEngine';
 import type { BusName } from './AudioEngine';
 import { SoundBank } from './SoundBank';
@@ -80,13 +80,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 				// Restore persisted user preferences before first playback.
 				const settings = loadAudioSettings();
 				const musicBus = engine.getBus('music');
+				const inGameMusicBus = engine.getBus('music_ingame');
 				const uiBus = engine.getBus('ui');
 				const sfxBus = engine.getBus('sfx');
 				const ambientBus = engine.getBus('ambient');
 				if (musicBus) musicBus.volume = settings.musicVolume;
+				if (inGameMusicBus) inGameMusicBus.volume = settings.inGameMusicVolume;
 				if (uiBus) uiBus.volume = settings.uiVolume;
-				if (sfxBus) sfxBus.volume = settings.inGameVolume;
-				if (ambientBus) ambientBus.volume = settings.inGameVolume;
+				if (sfxBus) sfxBus.volume = settings.inGameSfxVolume;
+				if (ambientBus) ambientBus.volume = settings.inGameSfxVolume;
 				engine.setMasterVolume(settings.muted ? 0 : 1);
 				setEngine(engine);
 				setBank(bank);
@@ -187,7 +189,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 	// ─── Shuffle playlist for in-game music ─────────────────────────────────
 	const playlistActiveRef = useRef(false);
-	const playlistObserverRef = useRef<Observer<StaticSound> | null>(null);
+	const playlistObserverRef = useRef<Observer<AbstractSound> | null>(null);
 
 	const playNextPlaylistTrack = (): void => {
 		const engine = engineRef.current;
@@ -224,12 +226,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 	const playMusicPlaylistImpl = (): void => {
 		playlistActiveRef.current = true;
-		// Switch music bus to inGameVolume so the "Game Volume" slider controls it
-		const eng = engineRef.current;
-		if (eng?.isInitialized()) {
-			const musicBus = eng.getBus('music');
-			if (musicBus) musicBus.volume = loadAudioSettings().inGameVolume;
-		}
 		playNextPlaylistTrack();
 	};
 
@@ -240,12 +236,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			playlistObserverRef.current = null;
 		}
 		stopMusicImpl();
-		// Restore music bus to menu musicVolume
-		const eng = engineRef.current;
-		if (eng?.isInitialized()) {
-			const musicBus = eng.getBus('music');
-			if (musicBus) musicBus.volume = loadAudioSettings().musicVolume;
-		}
 	};
 
 	const handle: AudioContextValue = useMemo(() => ({

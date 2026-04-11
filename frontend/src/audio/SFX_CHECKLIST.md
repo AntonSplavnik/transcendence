@@ -93,10 +93,10 @@
 | `ui_hover`                  | Button hover                         | 1          | TODO   |
 | `ui_back`                   | Back/cancel                          | 1          | TODO   |
 | `ui_error`                  | Error feedback                       | 1          | TODO   |
-| `ui_notification`           | Notification popup                   | 1          | TODO   |
-| `ui_lobby_join`             | Player joins lobby                   | 1          | TODO   |
-| `ui_lobby_leave`            | Player leaves lobby                  | 1          | TODO   |
-| `ui_countdown`              | Countdown tick (3, 2, 1)             | 1          | TODO   |
+| `ui_notification`           | Notification popup                   | 1          | DONE   |
+| `ui_lobby_join`             | Player joins lobby                   | 1          | DONE   |
+| `ui_lobby_leave`            | Player leaves lobby                  | 1          | DONE   |
+| `ui_countdown`              | Countdown tick (3, 2, 1)             | 1          | DONE   |
 | `ui_ready`                  | Ready confirmation                   | 1          | TODO   |
 
 ### Ambient / Music
