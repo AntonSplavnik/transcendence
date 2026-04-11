@@ -15,14 +15,14 @@ namespace Presets {
 		},
 		.movement = {
 			.movementSpeed    = 1.5f,
-			.rotationSpeed    = 1.0f,
+			.rotationSpeed    = 12.0f,  // ~130ms for a 90° turn — heavy but not snappy
 			.sprintMultiplier = 2.5f,   // heavy armor limits sprint
 			.crouchMultiplier = 0.4f,   // slow crouch
 			.jumpVelocity     = 5.0f,   // low jump — armored
 			.dodgeVelocity    = 7.0f,   // slow dodge — armored
 			.airControlFactor = 0.1f,   // poor air control
-			.acceleration     = 60.0f,  // slow to get moving
-			.deceleration     = 90.0f,  // stops quickly (planted stance)
+			.acceleration     = 18.0f,  // ~80ms to walk, ~210ms to sprint
+			.deceleration     = 25.0f,  // ~60ms walk stop, ~150ms sprint slide
 			.mass             = 90.0f,
 			.friction         = 0.9f,   // high friction — doesn't slide
 			.drag             = 0.0f,
