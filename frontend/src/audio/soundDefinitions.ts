@@ -372,7 +372,6 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	{
 		id: 'music_ingame',
 		variations: [
-			'/sounds/music/music_ingame_01.mp3',
 			'/sounds/music/music_ingame_02.mp3',
 			'/sounds/music/music_ingame_03.mp3',
 			'/sounds/music/music_ingame_04.mp3',
