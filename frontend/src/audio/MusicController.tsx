@@ -13,8 +13,9 @@ const DASHBOARD_ROUTES = new Set<string>(['/home', '/lobby', '/sessions']);
 
 function resolveMusic(pathname: string): string | null {
 	if (pathname === '/landing' || pathname === '/') return 'music_main_theme';
+	if (pathname === '/auth' || pathname.startsWith('/auth/')) return 'music_main_theme';
 	if (DASHBOARD_ROUTES.has(pathname)) return 'music_dashboard';
-	return null; // /auth, /game, /privacy, /terms → silence
+	return null; // /game, /privacy, /terms → silence
 }
 
 function resolveAmbient(pathname: string): string | null {
