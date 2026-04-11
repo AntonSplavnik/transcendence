@@ -108,8 +108,14 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		idleAnimation:    { name: 'Idle_A' },
 		walkAnimation:    { name: 'Walking_B' },
 		runAnimation:     { name: 'Running_B', speed: 1.2 },
-		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
-		skillAnimations:  [{ name: 'Melee_Dualwield_Attack_Chop', speed: 1.4 }],  // placeholder
+		attackAnimations: [
+			{ name: 'Melee_Dualwield_Attack_Chop',  speed: 1.4 },   // stage 0 — opener
+			{ name: 'Melee_Dualwield_Attack_Slice', speed: 1.3 },   // stage 1 — finisher
+		],
+		skillAnimations: [
+			{ name: 'Melee_Dualwield_Attack_Stab' },   // skill1 — dash stab
+			{ name: 'Melee_Unarmed_Attack_Kick' },     // skill2 — kick
+		],
 		trailColor: { base: [102, 187, 106], tip: [200, 255, 200], maxWidth: 0.3, tailOpacity: 0.13, tipOpacity: 0.85 },
 		stats: { attack: 9, defense: 4, speed: 10, health: 6 },
 		description: 'High burst damage. Glass cannon. Hit and run.',
