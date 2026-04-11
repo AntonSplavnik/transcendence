@@ -9,8 +9,8 @@ End-to-end documentation of the audio system used in the Transcendence frontend:
 The audio system has to serve very different needs at the same time:
 
 - **Menu / UI audio** — background music that follows the route (landing, dashboard…), one-shot click sounds for every interactive element, notification chimes from realtime stream events.
-- **Gameplay audio** — 3D-positional SFX for footsteps, jumps, lands, attacks, hits; ambient loops tied to the current scene; combat music slots ready for future use.
-- **User control** — a settings modal exposes Music / UI / In-Game volume sliders and a global mute, with persistence across reloads.
+- **Gameplay audio** — 3D-positional SFX for footsteps, jumps, lands, attacks, hits, deaths, spawns; ambient loops tied to the current scene; shuffled in-game music playlist.
+- **User control** — a settings modal exposes Music / UI / In-Game volume sliders and a global mute, with persistence across reloads. The In-Game slider controls SFX, ambient, **and** music when in-game.
 - **One source of truth** — a single Babylon `AudioEngineV2` and a single shared `SoundBank`, so the volume sliders and mute toggle reach every sound, and so we never load the same buffer twice.
 
 The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and exposed to React through a single context provider.
@@ -30,9 +30,9 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 │   │   master ─┬─> music bus ──► currentMusic slot (1 active)       │     │
 │   │           ├─> ambient bus ─► currentAmbient slot (1 active)    │     │
 │   │           ├─> sfx bus ─────► gameplay footsteps/jumps/combat   │     │
-│   │           └─> ui bus ──────► clicks, notifications             │     │
+│   │           └─> ui bus ──────► clicks, notifications, lobby      │     │
 │   │                                                                │     │
-│   │   listener  ──► attached to active camera (menu or game)       │     │
+│   │   listener  ──► attached to local player root node             │     │
 │   └────────────────────────────────────────────────────────────────┘     │
 │                                                                          │
 │   ┌────────────────────────────────────────────────────────────────┐     │
@@ -40,32 +40,42 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 │   │   loads every sound once at startup — reused by UI + game      │     │
 │   └────────────────────────────────────────────────────────────────┘     │
 │                                                                          │
+│   ┌────────────────────────────────────────────────────────────────┐     │
+│   │             Shuffle playlist (in-game music)                   │     │
+│   │   plays random tracks from music_ingame variations             │     │
+│   │   chains via onEndedObservable — never repeats same track      │     │
+│   └────────────────────────────────────────────────────────────────┘     │
+│                                                                          │
 │   state: { isReady, engine, bank }  ──► context value                    │
 └──────────────┬───────────────────────────────────┬───────────────────────┘
                │                                   │
                │                                   │
-       ┌───────▼────────┐                 ┌────────▼─────────┐
-       │  useUIAudio()  │                 │  useGameAudio()  │
-       │                │                 │                  │
-       │  playSound     │                 │  engine          │
-       │  playMusic     │                 │  soundBank       │
-       │  stopMusic     │                 │  attachListener  │
-       │  playAmbient   │                 │  playSceneMusic  │
-       │  stopAmbient   │                 │  stopSceneMusic  │
-       │  setBusVolume  │                 │  playSceneAmbient│
-       │  setMuted      │                 │  stopSceneAmbient│
-       └───────┬────────┘                 └────────┬─────────┘
+       ┌───────▼────────┐                 ┌────────▼──────────┐
+       │  useUIAudio()  │                 │  useGameAudio()   │
+       │                │                 │                   │
+       │  playSound     │                 │  engine           │
+       │  playMusic     │                 │  soundBank        │
+       │  stopMusic     │                 │  attachListener   │
+       │  playAmbient   │                 │  playSceneMusic   │
+       │  stopAmbient   │                 │  stopSceneMusic   │
+       │  setBusVolume  │                 │  playSceneAmbient │
+       │  setMuted      │                 │  stopSceneAmbient │
+       │                │                 │  playMusicPlaylist│
+       │                │                 │  stopMusicPlaylist│
+       └───────┬────────┘                 └────────┬──────────┘
                │                                   │
    ┌───────────┼───────────┐                       │
    │           │           │                       │
 ┌──▼────┐ ┌────▼─────┐ ┌───▼──────┐        ┌───────▼────────────┐
-│Audio  │ │ Music    │ │Notif     │        │ SimpleGameClient   │
+│Audio  │ │ Music    │ │Notif     │        │ GameCanvas         │
 │Setting│ │Controller│ │Toast     │        │ (React component)  │
 │Modal  │ │(route→   │ │(stream   │        │                    │
 │       │ │ music/   │ │ events)  │        │  - isReady gate    │
 │sliders│ │ ambient) │ │          │        │  - playSceneAmbient│
 │+ mute │ │          │ │          │        │    ('amb_forest')  │
-└───────┘ └──────────┘ └──────────┘        │  - passes engine + │
+└───────┘ └──────────┘ └──────────┘        │  - playMusicPlay  │
+                                           │    list()          │
+                                           │  - passes engine + │
                                            │    bank to ctor    │
                                            └─────────┬──────────┘
                                                      │ constructs
@@ -74,7 +84,7 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
                                            │ GameClient (class) │
                                            │                    │
                                            │  engine.attach     │
-                                           │   ListenerToCamera │
+                                           │   Listener(root)   │
                                            │                    │
                                            │  AudioEventSystem  │
                                            │  ├─ onLocalInput   │
@@ -93,9 +103,10 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 **Key invariants:**
 
 1. **One engine, one bank.** The `GameAudioEngine` and `SoundBank` are created once by `AudioProvider` and reused by every consumer — UI, modal, game scene. There is no "second audio system" running in parallel.
-2. **Two hooks, one context.** `useUIAudio()` exposes the high-level UI API (play music, set bus volumes, mute). `useGameAudio()` exposes the lower-level game API (raw engine, sound bank, listener attachment, scene-scoped music/ambient). Both read the same context — they are different views of the same state.
-3. **Bus structure is fixed.** Four output buses — `sfx`, `music`, `ambient`, `ui` — all routed through a `master` bus. The settings sliders map directly to these buses (Music → music, UI → ui, Game → sfx + ambient together).
+2. **Two hooks, one context.** `useUIAudio()` exposes the high-level UI API (play music, set bus volumes, mute). `useGameAudio()` exposes the lower-level game API (raw engine, sound bank, listener attachment, scene-scoped music/ambient, playlist). Both read the same context — they are different views of the same state.
+3. **Bus structure is fixed.** Four output buses — `sfx`, `music`, `ambient`, `ui` — all routed through a `master` bus. The settings sliders map directly to these buses (Music → music, UI → ui, Game → sfx + ambient + music together).
 4. **All routing happens through the buses.** Individual sounds never set `volume` directly for muting; the master bus is the only gate. Setting `master.volume = 0` silences the entire app.
+5. **Music bus is context-aware.** In menus the music bus volume is driven by the "Music Volume" slider. When the in-game playlist starts, the bus switches to the "Game Volume" slider. When the game ends, it reverts to the menu slider value.
 
 ---
 
@@ -103,20 +114,19 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 
 | File | Lines | Role |
 |---|---|---|
-| `AudioEngine.ts` | 80 | Babylon `AudioEngineV2` wrapper. Creates the master + sfx/music/ambient/ui buses, exposes `getBus(name)`, `attachListenerToCamera(camera)`, `setMasterVolume(v)`, `dispose()`. The only file that talks to Babylon's audio API directly. |
-| `SoundBank.ts` | 147 | Loads every entry from `SOUND_DEFINITIONS` once at startup. Builds an `id → StaticSound[]` map for variation rolls. Falls back to procedural synth when a file fails to load. |
-| `soundDefinitions.ts` | 305 | Pure data table: every sound the app knows about — id, file paths, volume/pitch ranges, bus assignment, spatial settings, cooldown. The single source of truth for "what sounds exist". |
-| `AudioProvider.tsx` | 259 | React context provider. Owns the engine + bank lifecycle, applies persisted user settings on init, exposes `useUIAudio()` and `useGameAudio()` hooks, manages the global click sound listener. |
-| `audioSettings.ts` | 63 | `localStorage` persistence for `{ musicVolume, uiVolume, inGameVolume, muted }`. Validates + clamps values on read so corrupted storage never breaks the engine. |
-| `AudioEventSystem.ts` | 174 | Game-side event router. Three pipelines (local input, remote snapshot delta, server game events) consume the trigger tables and play the right sound at the right position. Lives inside `GameClient`. |
-| `triggerTables.ts` | 160 | Pure data tables that drive `AudioEventSystem`. Add a new gameplay sound = add a row, no code changes. Type-safe authoring helper for `GameEvent` triggers. |
-| `MusicController.tsx` | 56 | Tiny React component that maps the current route to a `music_*`/`amb_*` id and calls `useUIAudio().playMusic/playAmbient`. Mounted once inside `<AudioProvider>`. |
-| `SFX_CHECKLIST.md` | — | Living checklist of sounds we want to add and which ones are still missing — not loaded at runtime. |
+| `AudioEngine.ts` | ~85 | Babylon `AudioEngineV2` wrapper. Creates the master + sfx/music/ambient/ui buses, exposes `getBus(name)`, `attachListener(node)`, `setMasterVolume(v)`, `dispose()`. The only file that talks to Babylon's audio API directly. |
+| `SoundBank.ts` | ~176 | Loads every entry from `SOUND_DEFINITIONS` once at startup. Builds an `id → StaticSound[]` map for variation rolls. Falls back to procedural synth when a file fails to load. |
+| `soundDefinitions.ts` | ~470 | Pure data table: every sound the app knows about — id, file paths, volume/pitch ranges, bus assignment, spatial settings, cooldown. The single source of truth for "what sounds exist". |
+| `AudioProvider.tsx` | ~300 | React context provider. Owns the engine + bank lifecycle, applies persisted user settings on init, exposes `useUIAudio()` and `useGameAudio()` hooks, manages the global click sound listener, and the in-game music shuffle playlist. |
+| `audioSettings.ts` | ~63 | `localStorage` persistence for `{ musicVolume, uiVolume, inGameVolume, muted }`. Validates + clamps values on read so corrupted storage never breaks the engine. |
+| `AudioEventSystem.ts` | ~190 | Game-side event router. Three pipelines (local input, remote snapshot delta, server game events) consume the trigger tables and play the right sound at the right position. Lives inside `GameClient`. |
+| `triggerTables.ts` | ~180 | Pure data tables that drive `AudioEventSystem`. Add a new gameplay sound = add a row, no code changes. Type-safe authoring helper for `GameEvent` triggers. |
+| `MusicController.tsx` | ~47 | Tiny React component that maps the current route to a `music_*`/`amb_*` id and calls `useUIAudio().playMusic/playAmbient`. Mounted once inside `<AudioProvider>`. |
 
-Plus two consumer files outside the audio folder:
+Plus consumer files outside the audio folder:
 
-- `frontend/src/components/modals/AudioSettingsModal.tsx` — the settings dialog with the four sliders + mute checkbox.
-- `frontend/src/components/GameBoard/SimpleGameClient.tsx` — the React component that mounts the Babylon scene; it consumes `useGameAudio()` and feeds the engine + bank into the `GameClient` class that runs the game loop.
+- `frontend/src/components/modals/AudioSettingsModal.tsx` — the settings dialog with the three sliders + mute checkbox.
+- `frontend/src/components/GameBoard/GameCanvas.tsx` — the React component that mounts the Babylon scene; it consumes `useGameAudio()` and feeds the engine + bank into the `GameClient` class that runs the game loop.
 
 ---
 
@@ -129,7 +139,7 @@ class GameAudioEngine {
   initialize(): Promise<void>          // create the AudioEngineV2 + 5 buses
   getEngine(): AudioEngineV2
   getBus(name): AudioBus               // 'sfx' | 'music' | 'ambient' | 'ui' (defaults to sfx)
-  attachListenerToCamera(camera): void // for 3D spatial audio
+  attachListener(node): void           // for 3D spatial audio
   setMasterVolume(volume): void        // 0 silences everything
   isInitialized(): boolean
   dispose(): void
@@ -146,7 +156,7 @@ master (MainAudioBus)
  └─ ui      (default volume 0.7)
 ```
 
-These default volumes are immediately overridden by `loadAudioSettings()` once `AudioProvider` finishes init — so the first frame the user hears uses their persisted preferences, not the hard-coded values.
+These default volumes are immediately overridden by `loadAudioSettings()` once `AudioProvider` finishes init so the first frame the user hears uses their persisted preferences, not the hard-coded values.
 
 The `listenerEnabled: true` flag passed to `CreateAudioEngineAsync` is what unlocks 3D positional audio. Without it, every spatial sound would play at center-pan with no distance attenuation.
 
@@ -174,29 +184,34 @@ The `listenerEnabled: true` flag passed to `CreateAudioEngineAsync` is what unlo
 }
 ```
 
-The system currently knows about ~20 sound IDs grouped by category:
+The system currently knows about ~38 sound IDs grouped by category:
 
 | Category | IDs |
 |---|---|
-| Movement (generic fallback) | `player_jump`, `player_land`, `player_footstep` |
-| Movement — Knight class | `knight_footstep`, `knight_jump`, `knight_land`, `knight_foley` |
-| Movement — Rogue class | `rogue_footstep`, `rogue_jump`, `rogue_land`, `rogue_foley` |
-| Combat | `player_attack_swing`, `player_hit` |
-| UI | `ui_click`, `ui_notif` |
-| Music | `music_main_theme`, `music_dashboard` |
-| Ambient | `amb_montagne`, `amb_forest` |
+| Movement (generic fallback) | `player_jump` (4 vars), `player_land` (1), `player_footstep` (5) |
+| Movement — Knight class | `knight_footstep` (3), `knight_jump` (3), `knight_land` (2) |
+| Movement — Rogue class | `rogue_footstep` (3), `rogue_jump` (3), `rogue_land` (2) |
+| Combat (generic fallback) | `player_attack_swing` (5), `player_ability1` (2), `player_ability2` (2) |
+| Combat — Knight class | `knight_attack_swing` (4), `knight_ability1` (2), `knight_ability2` (1) |
+| Combat — Rogue class | `rogue_attack_swing` (4) |
+| Impacts | `player_hit` (1), `player_death` (1) |
+| Spawning | `player_spawn` (1) |
+| UI | `ui_click` (1), `ui_notif` (1), `ui_ticking` (1), `ui_lobby_join` (1), `ui_lobby_leave` (1) |
+| Music — In-Game | `music_ingame` (5 variations, shuffled playlist) |
+| Music — Menu | `music_main_theme` (1), `music_dashboard` (1) |
+| Ambient | `amb_montagne` (1), `amb_forest` (1) |
 
 `SoundBank.loadAll(engine)`:
 
 1. Iterates `SOUND_DEFINITIONS`.
 2. For each variation, calls `createSoundAsync(url, { outBus: <bus from def>, spatialEnabled, spatialMaxDistance, … })`.
 3. On success, pushes the loaded `StaticSound` into the variation list and records the id in `loadedFromFile`.
-4. On failure, calls `createProceduralFallback(def, engine, audioEngine)` — this synthesises a tone with the right envelope for the category (jump = upward sweep, land = downward thump, etc.) so the gameplay still has audio feedback even if a file is missing or 404s.
+4. On failure, calls `createProceduralFallback(def, engine, audioEngine)` this synthesises a tone with the right envelope for the category (jump = upward sweep, land = downward thump, etc.) so the gameplay still has audio feedback even if a file is missing or 404s.
 5. Returns when every definition is processed.
 
 `getRandomSound(id)` rolls one variation uniformly. Callers (the AudioProvider and AudioEventSystem) then apply per-shot randomization on `volume` + `playbackRate` from `def.volume` and `def.pitch` ranges, so two consecutive footsteps never sound identical.
 
-`isLoadedFromFile(id)` is used by `AudioEventSystem` for the **class-aware fallback** — see §4.6.
+`hasLoadedFiles(id)` is used by `AudioEventSystem` for the **class-aware fallback** — see §4.6.
 
 ### 4.3 `audioSettings.ts`
 
@@ -206,7 +221,7 @@ Tiny module, big role: it's the ground truth for what the user wants their volum
 interface AudioSettings {
   musicVolume: number;   // 0..1
   uiVolume: number;      // 0..1
-  inGameVolume: number;  // 0..1, drives sfx + ambient together
+  inGameVolume: number;  // 0..1, drives sfx + ambient + music in-game
   muted: boolean;
 }
 
@@ -218,7 +233,7 @@ const DEFAULT_AUDIO_SETTINGS = {
 };
 ```
 
-`loadAudioSettings()` reads `localStorage['transcendence.audio_settings']`, defensively parses it, clamps every numeric field to `[0, 1]`, falls back to defaults for missing or invalid fields, and never throws — corrupted storage just yields defaults.
+`loadAudioSettings()` reads `localStorage['transcendence.audio_settings']`, defensively parses it, clamps every numeric field to `[0, 1]`, falls back to defaults for missing or invalid fields, and never throws corrupted storage just yields defaults.
 
 `saveAudioSettings(settings)` swallows storage errors silently (private mode, quota exceeded), so the in-memory state stays correct even when persistence is unavailable.
 
@@ -229,16 +244,20 @@ Owns the entire audio lifecycle. Mounted once at the app root, **above** `MusicC
 **State:**
 
 ```ts
-const engineRef       = useRef<GameAudioEngine | null>(null);
-const bankRef         = useRef<SoundBank | null>(null);
-const currentMusicRef = useRef<StaticSound | null>(null);
-const currentMusicIdRef = useRef<string | null>(null);
-const currentAmbientRef = useRef<StaticSound | null>(null);
+const engineRef           = useRef<GameAudioEngine | null>(null);
+const bankRef             = useRef<SoundBank | null>(null);
+const currentMusicRef     = useRef<StaticSound | null>(null);
+const currentMusicIdRef   = useRef<string | null>(null);
+const currentAmbientRef   = useRef<StaticSound | null>(null);
 const currentAmbientIdRef = useRef<string | null>(null);
 
+// Playlist state
+const playlistActiveRef   = useRef(false);
+const playlistObserverRef = useRef<Observer<StaticSound> | null>(null);
+
 const [isReady, setIsReady] = useState(false);
-const [engine, setEngine] = useState<GameAudioEngine | null>(null);
-const [bank,   setBank]   = useState<SoundBank | null>(null);
+const [engine, setEngine]   = useState<GameAudioEngine | null>(null);
+const [bank,   setBank]     = useState<SoundBank | null>(null);
 ```
 
 The refs are for imperative reads inside the `play*Impl` helpers (no closure staleness, no re-render churn). The `useState` mirrors are for the **context value** — consumers like `useGameAudio()` need a reactive engine/bank that triggers re-renders when init finishes (and reading refs during render is unsafe in React).
@@ -249,7 +268,7 @@ The refs are for imperative reads inside the `play*Impl` helpers (no closure sta
 2. `engine.initialize()` — creates the Web Audio context + buses.
 3. `bank.loadAll(engine)` — loads every sound file in parallel.
 4. `loadAudioSettings()` — read user preferences from localStorage.
-5. Apply volumes to all four buses (`music`, `ui`, `sfx`, `ambient`).
+5. Apply volumes to all four buses (`music` ← musicVolume, `ui` ← uiVolume, `sfx` ← inGameVolume, `ambient` ← inGameVolume).
 6. `engine.setMasterVolume(settings.muted ? 0 : 1)`.
 7. `setEngine(engine); setBank(bank); setIsReady(true)`.
 
@@ -265,7 +284,34 @@ The four `play*Impl` helpers (`playMusicImpl`, `stopMusicImpl`, `playAmbientImpl
 - If a different track is playing → stop it, start the new one, update the ref pair.
 - `stopMusic()` halts the current track and clears the refs.
 
-Because `playSceneMusic` / `playSceneAmbient` (game-facing) **alias the same impl helpers**, there is exactly one music slot and one ambient slot for the whole app — not one per consumer. This is intentional: when you enter a game, `MusicController` stops the menu music (because `/game/:id` isn't in its route table) and `SimpleGameClient` then starts `amb_forest` on the now-empty ambient slot. They never overlap in practice.
+Because `playSceneMusic` / `playSceneAmbient` (game-facing) **alias the same impl helpers**, there is exactly one music slot and one ambient slot for the whole app, not one per consumer. This is intentional: when you enter a game, `MusicController` stops the menu music (because `/game/:id` isn't in its route table) and `GameCanvas` then starts `amb_forest` on the now-empty ambient slot. They never overlap in practice.
+
+**In-game music shuffle playlist:**
+
+The `playMusicPlaylistImpl` / `stopMusicPlaylistImpl` methods provide automatic track rotation for in-game music:
+
+```ts
+playMusicPlaylistImpl():
+  1. Set playlistActiveRef = true
+  2. Switch music bus volume to inGameVolume (from persisted settings)
+  3. Call playNextPlaylistTrack()
+
+playNextPlaylistTrack():
+  1. Clean up any existing onEndedObservable observer
+  2. Stop current track
+  3. Pick a random variation from 'music_ingame' via bank.getRandomSound()
+  4. Set loop = false (individual tracks don't loop)
+  5. Play the track
+  6. Register onEndedObservable.addOnce() → calls playNextPlaylistTrack() again
+
+stopMusicPlaylistImpl():
+  1. Set playlistActiveRef = false
+  2. Remove onEndedObservable observer
+  3. Stop current music
+  4. Restore music bus volume to musicVolume (menu setting)
+```
+
+This creates an infinite jukebox that randomly rotates through all 5 in-game tracks. The `onEndedObservable` callback only fires if `playlistActiveRef` is still true, so stopping the playlist cleanly prevents orphaned callbacks.
 
 **Global UI click sound:**
 
@@ -305,7 +351,7 @@ function resolveAmbient(pathname): string | null {
 
 A `useEffect([pathname, audio.isReady])` calls `audio.playMusic(...)` / `stopMusic()` / `playAmbient(...)` / `stopAmbient()` accordingly. Adding a new route track is one entry in `resolveMusic`/`resolveAmbient`, no plumbing.
 
-When the route is `/game/:id`, both resolvers return `null`, so the controller stops the menu music and ambient — leaving the slots free for `SimpleGameClient` to use.
+When the route is `/game/:id`, both resolvers return `null`, so the controller stops the menu music and ambient — leaving the slots free for `GameCanvas` to start the shuffle playlist and scene ambient.
 
 ### 4.6 `AudioEventSystem.ts` and `triggerTables.ts`
 
@@ -319,13 +365,15 @@ The trigger tables in `triggerTables.ts` are pure data and define **three pipeli
 
 ```ts
 [
-  { soundId: 'player_jump',         field: 'isJumping',   edge: 'rising' },
-  { soundId: 'player_land',         field: 'isJumping',   edge: 'rising', delayMs: 550 },
-  { soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
+  { soundId: 'player_jump',         field: 'isJumping',      edge: 'rising' },
+  { soundId: 'player_land',         field: 'isGrounded',     edge: 'rising', initialValue: true },
+  { soundId: 'player_attack_swing', field: 'isAttacking',    edge: 'rising', delayMs: 250 },
+  { soundId: 'player_ability1',     field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
+  { soundId: 'player_ability2',     field: 'isUsingAbility2', edge: 'rising', delayMs: 250 },
 ]
 ```
 
-`AudioEventSystem.onLocalInput(input, position)` compares the current `InputState` against the previous frame, detects rising/falling edges on the watched fields, and plays the sound. `delayMs` is used to sync the sound with an animation (e.g. attack swing should land mid-anim, not on key press).
+`AudioEventSystem.onLocalInput(input, position)` compares the current `InputState` against the previous frame, detects rising/falling edges on the watched fields, and plays the sound. `delayMs` is used to sync the sound with an animation (e.g. attack swing should land mid-anim, not on key press). Ability sounds are masked by cooldown timers to prevent audio spam when mashing buttons during cooldown.
 
 #### Pipeline 1b — local continuous (interval-throttled loops)
 
@@ -333,13 +381,12 @@ The trigger tables in `triggerTables.ts` are pure data and define **three pipeli
 
 ```ts
 [
-  { soundId: 'player_footstep', predicate: isWalking, intervalMs: 550 },
+  { soundId: 'player_footstep', predicate: isWalking, intervalMs: 550, volume: 0.2 },
   { soundId: 'player_footstep', predicate: isRunning, intervalMs: 320, volume: 0.4 },
-  { soundId: 'player_foley',    predicate: isMoving,  intervalMs: 400 },
 ]
 ```
 
-`isWalking` / `isRunning` / `isMoving` are predicates over the input state. `player_foley` is the layered armor/leather rustle that plays whenever the local character is moving — class-aware (see below).
+`isWalking` = grounded + not sprinting + moving. `isRunning` = grounded + sprinting + moving. Interval is throttled per-sound with a `continuousTimers` Map, preventing spam.
 
 #### Pipeline 2 — remote snapshot deltas
 
@@ -363,11 +410,11 @@ The trigger tables in `triggerTables.ts` are pure data and define **three pipeli
 ]
 ```
 
-`throttled: true` enables an adaptive per-player rate limit so a remote player running across the arena doesn't fire 60 footsteps/second.
+`throttled: true` enables an adaptive per-player rate limit so a remote player running across the arena doesn't fire 60 footsteps/second. The interval adapts to speed: `max(200, 500 - speedXZ * 15)`.
 
 #### Pipeline 3 — game events (server messages)
 
-`GAME_EVENT_TRIGGERS` is the most flexible pipeline. It dispatches on the discriminated union `GameEvent['type']` (Damage, Death, Spawn, StateChange, …) using a type-safe `trigger()` helper that narrows the event type inside each callback.
+`GAME_EVENT_TRIGGERS` is the most flexible pipeline. It dispatches on the discriminated union `GameEvent['type']` (Damage, Death, Spawn, AttackStarted, SkillUsed, …) using a type-safe `trigger()` helper that narrows the event type inside each callback.
 
 ```ts
 trigger('Damage', {
@@ -375,9 +422,30 @@ trigger('Damage', {
   predicate: (e, ctx) => e.attacker === ctx.localPlayerId,
   position: (e, ctx) => ctx.remotePositions.get(e.victim) ?? ctx.localPosition,
 }),
+trigger('Death', {
+  soundId: 'player_death',
+  position: (e, ctx) => /* victim position (local or remote) */,
+}),
+trigger('Spawn', {
+  soundId: 'player_spawn',
+  position: (e) => e.position,
+}),
+trigger('AttackStarted', {
+  soundId: 'player_attack_swing',
+  predicate: (e, ctx) => e.playerId !== ctx.localPlayerId, // remote only
+  position: (e, ctx) => ctx.remotePositions.get(e.playerId),
+}),
+trigger('SkillUsed', {
+  soundId: 'player_ability1',
+  predicate: (e, ctx) => e.slot === 1 && e.playerId !== ctx.localPlayerId,
+  position: (e, ctx) => ctx.remotePositions.get(e.playerId),
+}),
+trigger('SkillUsed', {
+  soundId: 'player_ability2',
+  predicate: (e, ctx) => e.slot === 2 && e.playerId !== ctx.localPlayerId,
+  position: (e, ctx) => ctx.remotePositions.get(e.playerId),
+}),
 ```
-
-`AudioEventSystem.onGameEvents(events, ctx)` walks the events, finds matching triggers, evaluates the optional predicate, computes the spatial position, and plays.
 
 Adding a new gameplay sound for a server event is **one row** in `GAME_EVENT_TRIGGERS` — no new methods, no new class fields, no new wiring.
 
@@ -386,15 +454,18 @@ Adding a new gameplay sound for a server event is **one row** in `GAME_EVENT_TRI
 When the local player is a Knight, calling `play('player_footstep')` should actually play `knight_footstep`. When they're a Rogue, `rogue_footstep`. This is handled by `AudioEventSystem.resolveSoundId()`:
 
 ```ts
-private resolveSoundId(baseSoundId: string): string {
-  if (!this.characterClass) return baseSoundId;
-  const classSpecific = baseSoundId.replace(/^player_/, `${this.characterClass}_`);
-  if (this.soundBank.isLoadedFromFile(classSpecific)) return classSpecific;
+private resolveSoundId(baseSoundId: string, characterClass?: string | null): string {
+  if (!raw) return baseSoundId;
+  const suffix = baseSoundId.replace(/^player_/, '');
+  const classSpecificId = `${cls}_${suffix}`;
+  if (this.soundBank.hasLoadedFiles(classSpecificId)) return classSpecificId;
   return baseSoundId; // fall back to generic
 }
 ```
 
-So `player_footstep` → `knight_footstep` if it exists in the bank, otherwise the generic stays. The class is set once at game start via `aes.setCharacterClass('knight')`.
+So `player_footstep` → `knight_footstep` if it exists in the bank (loaded from real files, not procedural), otherwise the generic stays. The class is set once at game start via `aes.setCharacterClass('knight')`.
+
+For remote players, the class is looked up dynamically from a `characterClasses: ReadonlyMap<number, string>` passed in the context.
 
 ### 4.7 `AudioSettingsModal` (consumer)
 
@@ -411,22 +482,22 @@ if (patch.uiVolume     !== undefined) audio.setBusVolume('ui',    patch.uiVolume
 if (patch.inGameVolume !== undefined) {
   audio.setBusVolume('sfx',     patch.inGameVolume);
   audio.setBusVolume('ambient', patch.inGameVolume);
+  audio.setBusVolume('music',   patch.inGameVolume);
 }
 if (patch.muted !== undefined) audio.setMuted(patch.muted);
 ```
 
-The Game slider is the only one that fans out to two buses — the design treats SFX and ambient as one user-facing knob even though they're two separate buses internally.
+The Game slider fans out to **three buses** — `sfx`, `ambient`, and `music`. This means dragging Game Volume to zero silences all in-game audio: SFX, ambient loops, and in-game music. The Music slider in the Menu section also writes to the music bus, so whichever slider is changed last wins for the music bus volume.
+
+In practice, the menu and game contexts never overlap: when you enter a game, the playlist start switches the music bus to `inGameVolume`, and when you leave, `stopMusicPlaylist` restores it to `musicVolume`.
 
 Mute toggles `master.volume` between 0 and 1, which silences every downstream bus regardless of their individual volumes. Toggling mute off restores the previous slider positions because the slider state is persisted — the master simply goes back to 1.
 
 Every slider exposes `aria-valuetext="N percent"` and the sections use `aria-labelledby` for screen-reader navigation.
 
-### 4.8 `SimpleGameClient` (consumer)
+### 4.8 `GameCanvas` (consumer)
 
-Lives at `frontend/src/components/GameBoard/SimpleGameClient.tsx`. The file contains two things:
-
-- A **React component** `SimpleGameClient` (default export) that renders the canvas, owns the Babylon engine, and manages the game lifecycle.
-- A **plain TypeScript class** `GameClient` that runs the game loop, owns the player characters, the camera, and the `AudioEventSystem`.
+Lives at `frontend/src/components/GameBoard/GameCanvas.tsx`. The file contains a React component that renders the Babylon canvas, owns the Babylon engine, and manages the game lifecycle. It constructs a `GameClient` class that runs the game loop, owns the player characters, the camera, and the `AudioEventSystem`.
 
 The React component calls `useGameAudio()`, gates its main `useEffect` on `gameAudio.isReady`, and once the engine is ready it constructs the `GameClient` with the **shared** engine + bank passed as constructor arguments:
 
@@ -443,28 +514,29 @@ useEffect(() => {
     scene,
     localPlayerId,
     camera,
-    gameAudio.engine,    // ← shared
-    gameAudio.soundBank, // ← shared
     characterConfig,
     characterClassesRef,
+    gameAudio.engine,    // ← shared
+    gameAudio.soundBank, // ← shared
   );
 
   gameAudio.playSceneAmbient('amb_forest');
+  gameAudio.playMusicPlaylist();  // ← starts shuffled in-game music
 
   return () => {
     gameAudio.stopSceneAmbient();
-    gameAudio.stopSceneMusic();
+    gameAudio.stopMusicPlaylist();  // ← stops playlist + restores menu music volume
     // …dispose Babylon scene + engine…
   };
-}, [localPlayerId, gameAudio.isReady]);
+}, [localPlayerId]);
 ```
 
-Inside `GameClient`, the constructor stores nothing of the audio engine itself — it only attaches the listener and wires the `AudioEventSystem` to the injected engine + bank:
+Inside `GameClient`, the constructor attaches the listener to the local player's root node and wires up the `AudioEventSystem`:
 
 ```ts
 constructor(scene, localPlayerID, camera, audioEngine, soundBank, ...) {
   // …
-  audioEngine.attachListenerToCamera(camera);
+  audioEngine.attachListener(this.mgr.localCharacter.rootNode);
   const aes = new AudioEventSystem(audioEngine, soundBank);
   aes.setCharacterClass(characterConfig.label.toLowerCase());
   this.audioEventSystem = aes;
@@ -484,8 +556,10 @@ The class never disposes the engine. Engine ownership belongs to `AudioProvider`
 2. useEffect runs:
    ├─ new GameAudioEngine() / new SoundBank()
    ├─ engine.initialize()                       (~50 ms)
-   ├─ bank.loadAll(engine)                      (parallel fetch of every WAV)
+   ├─ bank.loadAll(engine)                      (parallel fetch of every WAV/MP3)
    ├─ apply persisted bus volumes
+   │     music ← musicVolume, ui ← uiVolume,
+   │     sfx ← inGameVolume, ambient ← inGameVolume
    ├─ apply persisted mute state
    └─ setIsReady(true) — re-render
 3. <MusicController> picks up isReady, reads route, starts music_main_theme + amb_montagne
@@ -510,39 +584,55 @@ The class never disposes the engine. Engine ownership belongs to `AudioProvider`
 2. Dragging the Game slider fires onChange(value/100)
 3. update({ inGameVolume: 0.4 }) is called
    ├─ setSettings({ ...prev, inGameVolume: 0.4 })
-   ├─ saveAudioSettings(...)            → localStorage
-   ├─ audio.setBusVolume('sfx',     0.4) → master>sfx>volume
-   └─ audio.setBusVolume('ambient', 0.4) → master>ambient>volume
-4. Live: every footstep, jump, ambient loop is now at 40%
+   ├─ saveAudioSettings(...)              → localStorage
+   ├─ audio.setBusVolume('sfx',     0.4)  → master>sfx>volume
+   ├─ audio.setBusVolume('ambient', 0.4)  → master>ambient>volume
+   └─ audio.setBusVolume('music',   0.4)  → master>music>volume
+4. Live: every footstep, jump, ambient loop, AND in-game music is now at 40%
 ```
 
-### 5.4 Entering a game, taking damage, leaving
+### 5.4 Entering a game, playing, leaving
 
 ```
 1. Route changes to /game/:id
    └─ MusicController stops menu music + ambient (resolvers return null)
 
-2. SimpleGameClient mounts
+2. GameCanvas mounts
    ├─ gameAudio.isReady === true → effect runs
    ├─ Babylon engine + scene created
    ├─ new GameClient(scene, id, camera, engine, bank, …)
-   │     └─ engine.attachListenerToCamera(camera)
+   │     └─ engine.attachListener(localPlayer.rootNode)
    │     └─ new AudioEventSystem(engine, bank).setCharacterClass('knight')
-   └─ gameAudio.playSceneAmbient('amb_forest')
+   ├─ gameAudio.playSceneAmbient('amb_forest')
+   └─ gameAudio.playMusicPlaylist()
+         ├─ music bus volume → inGameVolume
+         └─ plays random track from music_ingame (5 variations)
 
 3. Game loop: every frame
    ├─ aes.onLocalInput(input, position)
-   │     └─ edge detection → player_jump, then player_land 550ms later
-   │     └─ continuous → footsteps every 550ms while walking
+   │     └─ edge detection → player_jump, player_land
+   │     └─ continuous → footsteps every 550ms/320ms
+   │     └─ abilities (masked by cooldown timers)
    ├─ aes.onRemoteSnapshot(prev, cur) per remote player
    │     └─ remote land/jump/footstep based on velocity deltas
+   │     └─ class-aware resolution per remote player
    └─ aes.onGameEvents(events, ctx)
-         └─ Damage event from server → player_hit at victim position
+         └─ Damage → player_hit at victim position
+         └─ Death  → player_death at victim position
+         └─ Spawn  → player_spawn at spawn position
+         └─ AttackStarted → remote attack swing
+         └─ SkillUsed → remote abilities
 
-4. Player navigates back to /home
-   ├─ SimpleGameClient unmounts
+4. In-game music: when a track ends
+   └─ onEndedObservable fires → playNextPlaylistTrack()
+   └─ picks another random variation from music_ingame
+   └─ infinite jukebox, never the same track twice in a row
+
+5. Player navigates back to /home
+   ├─ GameCanvas unmounts
    │     ├─ gameAudio.stopSceneAmbient()
-   │     ├─ gameAudio.stopSceneMusic()
+   │     ├─ gameAudio.stopMusicPlaylist()
+   │     │     └─ music bus volume → musicVolume (restored)
    │     ├─ Babylon scene + render engine disposed
    │     └─ Audio engine + bank stay alive (owned by AudioProvider)
    └─ MusicController route effect → music_dashboard
@@ -554,7 +644,7 @@ The class never disposes the engine. Engine ownership belongs to `AudioProvider`
 
 ### Add a new sound file
 
-1. Drop the WAV under `frontend/public/sounds/...`.
+1. Drop the WAV/MP3 under `frontend/public/sounds/...`.
 2. Add a `SoundDefinition` row in `soundDefinitions.ts` with the file path, volume/pitch ranges, and target bus.
 3. The bank picks it up automatically on next reload.
 
@@ -571,15 +661,23 @@ No code changes outside the table.
 
 Edit `MusicController.tsx` and add a branch in `resolveMusic()` / `resolveAmbient()`. Done.
 
-### Add in-game music (future)
+### Add in-game music tracks
 
-The `useGameAudio()` API already exposes `playSceneMusic(id)` and `stopSceneMusic()`. From any code with access to the hook, call:
+Add more variation files to the existing `music_ingame` definition in `soundDefinitions.ts`:
 
 ```ts
-gameAudio.playSceneMusic('music_combat');
+{
+  id: 'music_ingame',
+  variations: [
+    '/sounds/music/music_ingame_01.mp3',
+    '/sounds/music/music_ingame_02.mp3',
+    // add more here…
+  ],
+  // …
+}
 ```
 
-`SimpleGameClient` already calls `stopSceneMusic()` in its cleanup, so the music is bounded to the game session lifetime even if you never explicitly stop it.
+The shuffle playlist picks from all variations automatically — no code changes needed.
 
 ### Add a new bus
 
@@ -600,6 +698,8 @@ on storage error:  silently ignore (private browsing, quota exceeded)
 
 The defaults are intentionally asymmetric — music starts quieter than UI (which is in turn quieter than gameplay) so the first-time experience feels balanced without any user adjustment.
 
+**Music bus volume context switching:** At init, the music bus uses `musicVolume` (menu context). When `playMusicPlaylist()` is called (entering game), the bus switches to `inGameVolume`. When `stopMusicPlaylist()` is called (leaving game), the bus reverts to `musicVolume`. The `inGameVolume` slider in the settings modal always writes to all three in-game buses (sfx + ambient + music), so changes take effect immediately regardless of context.
+
 ---
 
 ## 8. Why this shape?
@@ -611,6 +711,10 @@ A few decisions worth calling out:
 - **Data tables instead of switch statements.** `triggerTables.ts` is the entire gameplay sound policy expressed as data. The `AudioEventSystem` class is the executor — it never has to grow when we add sounds. This is the same pattern as `MusicController` (route → music id table) and `SOUND_DEFINITIONS` (id → file paths).
 
 - **Shared music/ambient slots between UI and game.** The `playSceneMusic` / `playSceneAmbient` methods of `useGameAudio()` are aliases of the UI `playMusic` / `playAmbient` — they share the same refs. In practice the menu side and game side never overlap (the route change stops menu audio before the game mounts), and sharing means there is exactly one music slot and one ambient slot in the entire app. No way to accidentally end up with two musics layered on top of each other.
+
+- **Shuffle playlist via `onEndedObservable`.** Instead of looping a single track, in-game music uses Babylon's `onEndedObservable` to chain tracks. Each track plays once (`loop = false`), and when it ends, the callback picks a new random variation. This gives variety without any timer-based polling. The playlist is bounded to the game session — `stopMusicPlaylist()` removes the observer and restores the menu music bus volume.
+
+- **Context-aware music bus volume.** The music bus serves both menu music (controlled by Music Volume slider) and in-game music (controlled by Game Volume slider). Rather than adding a separate bus, the volume is switched when entering/leaving a game. This keeps the bus topology simple while giving the user intuitive control in each context.
 
 - **`isReady` gate on the game side.** The game React component early-returns from its main effect if the audio isn't ready yet, instead of buffering "play this sound when you can". This means the `GameClient` class can assume engine + bank are always available — no `if (engine)` checks scattered through the gameplay code.
 
@@ -642,11 +746,13 @@ export interface GameAudioHandle {
   isReady: boolean;
   engine: GameAudioEngine | null;
   soundBank: SoundBank | null;
-  attachListener(camera: Node): void;
+  attachListener(node: Node): void;
   playSceneAmbient(soundId: string): void;
   stopSceneAmbient(): void;
   playSceneMusic(soundId: string): void;
   stopSceneMusic(): void;
+  playMusicPlaylist(): void;
+  stopMusicPlaylist(): void;
 }
 
 export function useUIAudio(): AudioHandle;
@@ -654,3 +760,26 @@ export function useGameAudio(): GameAudioHandle;
 ```
 
 Both hooks throw if used outside `<AudioProvider>`.
+
+---
+
+## 10. Sound assets inventory
+
+Located in `frontend/public/sounds/`:
+
+| Category | Files |
+|---|---|
+| Music (menu) | `music_main_theme_01.wav`, `music_main_theme_02.wav`, `music_dashbord.mp3` |
+| Music (in-game) | `music_ingame_01.mp3` through `music_ingame_05.mp3` |
+| Ambient | `amb_montagne.wav`, `amb_forest.mp3` |
+| UI | `ui_click.mp3`, `ui_notif.mp3`, `ui_ticking.wav`, `ui_lobby_join.mp3`, `ui_lobby_leave.mp3` |
+| SFX — Movement (generic) | 4 jumps, 1 land, 5 footsteps |
+| SFX — Movement (knight) | 3 jumps, 2 lands, 3 footsteps |
+| SFX — Movement (rogue) | 3 jumps, 2 lands, 3 footsteps |
+| SFX — Combat (generic) | 5 attack swings |
+| SFX — Combat (knight) | 4 attack swings, 2 ability A, 1 ability F |
+| SFX — Combat (rogue) | 4 attack swings |
+| SFX — Impacts | `player_hit_01.wav`, `player_death.wav` |
+| SFX — Spawning | `player_spawn.mp3` |
+
+Total: ~56 audio files.
