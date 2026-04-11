@@ -527,10 +527,11 @@ impl GameManager {
             }
         }
 
-        // Phase 4: sync — connect players to the C++ engine and broadcast PlayerJoined.
+        // Phase 4: sync — connect players to the C++ engine.
         // Done after stream setup so the engine and streams are ready together.
+        // The C++ engine signals player spawns via SpawnEvent, which carries name + character_class.
         for (uid, nick, character_class) in &players {
-            game.on_connect(uid.cast_unsigned(), nick.as_ref());
+            game.on_connect(uid.cast_unsigned(), nick.as_ref(), character_class.clone());
             game_streams.broadcast(&GameServerMessage::PlayerJoined {
                 player_id: uid.cast_unsigned(),
                 name: nick.to_string(),

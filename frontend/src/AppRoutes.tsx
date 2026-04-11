@@ -177,7 +177,7 @@ export default function AppRoutes() {
 	const { connectionManager } = useStream();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const hideFooter = location.pathname === '/game';
+	const hideFooter = location.pathname === '/game' || location.pathname === '/lobby';
 	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 

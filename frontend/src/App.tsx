@@ -1,5 +1,7 @@
 import { HashRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
+import { AudioProvider } from './audio/AudioProvider';
+import MusicController from './audio/MusicController';
 import { AuthProvider } from './contexts/AuthContext';
 import { FriendsProvider } from './contexts/FriendsContext';
 import { GameProvider } from './contexts/GameContext';
@@ -10,19 +12,22 @@ import { StreamProvider } from './contexts/StreamContext';
 function App() {
 	return (
 		<HashRouter>
-			<AuthProvider>
-				<StreamProvider>
-					<NotificationProvider>
-						<FriendsProvider>
-							<LobbyProvider>
-								<GameProvider>
-									<AppRoutes />
-								</GameProvider>
-							</LobbyProvider>
-						</FriendsProvider>
-					</NotificationProvider>
-				</StreamProvider>
-			</AuthProvider>
+			<AudioProvider>
+				<AuthProvider>
+					<StreamProvider>
+						<NotificationProvider>
+							<FriendsProvider>
+								<LobbyProvider>
+									<GameProvider>
+										<MusicController />
+										<AppRoutes />
+									</GameProvider>
+								</LobbyProvider>
+							</FriendsProvider>
+						</NotificationProvider>
+					</StreamProvider>
+				</AuthProvider>
+			</AudioProvider>
 		</HashRouter>
 	);
 }

@@ -19,6 +19,8 @@ mod bridge {
         Spawn = 3,
         StateChange = 4,
         MatchEnd = 5,
+        AttackStarted = 6,
+        SkillUsed = 7,
     }
 
     struct Vec3 {
@@ -51,6 +53,9 @@ mod bridge {
         ability2_timer: f32,
         ability2_cooldown: f32,
         swing_progress: f32,
+        is_grounded: bool,
+        stamina: f32,
+        max_stamina: f32,
     }
 
     struct GameStateSnapshot {
@@ -73,11 +78,37 @@ mod bridge {
     struct SpawnEvent {
         player_id: u32,
         position: Vec3,
+        character_class: String,
     }
 
     struct StateChangeEvent {
         player_id: u32,
         state: u8,
+    }
+
+    struct AttackStartedEvent {
+        player_id: u32,
+        chain_stage: u8,
+    }
+
+    struct SkillUsedEvent {
+        player_id: u32,
+        skill_slot: u8,
+    }
+
+    struct PlayerMatchStats {
+        player_id: u32,
+        name: String,
+        character_class: String,
+        kills: i32,
+        deaths: i32,
+        damage_dealt: f32,
+        damage_taken: f32,
+        placement: i32,
+    }
+
+    struct MatchEndEvent {
+        players: Vec<PlayerMatchStats>,
     }
 
     unsafe extern "C++" {
@@ -92,7 +123,7 @@ mod bridge {
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
 
-        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str) -> bool;
+        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str, character_class: &str) -> bool;
         fn remove_player(self: Pin<&mut GameBridge>, id: u32) -> bool;
         fn set_player_input(self: Pin<&mut GameBridge>, id: u32, input: &PlayerInput);
 
@@ -106,6 +137,9 @@ mod bridge {
         fn get_damage_at(self: &EventQueue, idx: usize) -> DamageEvent;
         fn get_spawn_at(self: &EventQueue, idx: usize) -> SpawnEvent;
         fn get_state_change_at(self: &EventQueue, idx: usize) -> StateChangeEvent;
+        fn get_attack_started_at(self: &EventQueue, idx: usize) -> AttackStartedEvent;
+        fn get_skill_used_at(self: &EventQueue, idx: usize) -> SkillUsedEvent;
+        fn get_match_end_at(self: &EventQueue, idx: usize) -> MatchEndEvent;
 
         fn take_events(self: Pin<&mut GameBridge>) -> UniquePtr<EventQueue>;
     }
@@ -145,6 +179,24 @@ pub enum CharacterClass {
     Rogue,
 }
 
+impl CharacterClass {
+    pub fn as_str(&self) -> &str {
+        match self {
+            CharacterClass::Knight => "knight",
+            CharacterClass::Rogue => "rogue",
+        }
+    }
+}
+
+impl From<&str> for CharacterClass {
+    fn from(s: &str) -> Self {
+        match s {
+            "rogue" => CharacterClass::Rogue,
+            _ => CharacterClass::Knight,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct Vector3D {
     pub x: f32,
@@ -176,6 +228,9 @@ pub struct CharacterSnapshot {
     pub ability2_timer: f32,
     pub ability2_cooldown: f32,
     pub swing_progress: f32,
+    pub is_grounded: bool,
+    pub stamina: f32,
+    pub max_stamina: f32,
 }
 
 impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
@@ -201,6 +256,9 @@ impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
             ability2_timer: c.ability2_timer,
             ability2_cooldown: c.ability2_cooldown,
             swing_progress: c.swing_progress,
+            is_grounded: c.is_grounded,
+            stamina: c.stamina,
+            max_stamina: c.max_stamina,
         }
     }
 }
@@ -227,6 +285,18 @@ impl From<bridge::GameStateSnapshot> for GameStateSnapshot {
 // =============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PlayerMatchStatsPayload {
+    pub player_id: u32,
+    pub name: String,
+    pub character_class: String,
+    pub kills: i32,
+    pub deaths: i32,
+    pub damage_dealt: f32,
+    pub damage_taken: f32,
+    pub placement: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum NetworkEvent {
     Death {
@@ -241,12 +311,23 @@ pub enum NetworkEvent {
     Spawn {
         player_id: u32,
         position: Vector3D,
+        character_class: String,
     },
     StateChange {
         player_id: u32,
         state: u8,
     },
-    MatchEnd,
+    MatchEnd {
+        players: Vec<PlayerMatchStatsPayload>,
+    },
+    AttackStarted {
+        player_id: u32,
+        chain_stage: u8,
+    },
+    SkillUsed {
+        player_id: u32,
+        skill_slot: u8,
+    },
 }
 
 // =============================================================================
@@ -284,8 +365,8 @@ impl GameHandle {
         self.game.get_player_count()
     }
 
-    pub fn add_player(&mut self, player_id: u32, name: &str) -> bool {
-        self.game.pin_mut().add_player(player_id, name)
+    pub fn add_player(&mut self, player_id: u32, name: &str, character_class: &str) -> bool {
+        self.game.pin_mut().add_player(player_id, name, character_class)
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
@@ -358,6 +439,7 @@ impl GameHandle {
                             y: e.position.y,
                             z: e.position.z,
                         },
+                        character_class: e.character_class.to_string(),
                     }
                 }
                 bridge::NetworkEventType::StateChange => {
@@ -367,7 +449,33 @@ impl GameHandle {
                         state: e.state,
                     }
                 }
-                bridge::NetworkEventType::MatchEnd => NetworkEvent::MatchEnd,
+                bridge::NetworkEventType::MatchEnd => {
+                    let e = queue.get_match_end_at(i);
+                    NetworkEvent::MatchEnd {
+                        players: e
+                            .players
+                            .into_iter()
+                            .map(|p| PlayerMatchStatsPayload {
+                                player_id: p.player_id,
+                                name: p.name,
+                                character_class: p.character_class,
+                                kills: p.kills,
+                                deaths: p.deaths,
+                                damage_dealt: p.damage_dealt,
+                                damage_taken: p.damage_taken,
+                                placement: p.placement,
+                            })
+                            .collect(),
+                    }
+                }
+                bridge::NetworkEventType::AttackStarted => {
+                    let e = queue.get_attack_started_at(i);
+                    NetworkEvent::AttackStarted { player_id: e.player_id, chain_stage: e.chain_stage }
+                }
+                bridge::NetworkEventType::SkillUsed => {
+                    let e = queue.get_skill_used_at(i);
+                    NetworkEvent::SkillUsed { player_id: e.player_id, skill_slot: e.skill_slot }
+                }
                 _ => unreachable!(),
             })
             .collect()

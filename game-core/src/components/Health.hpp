@@ -4,7 +4,6 @@
 #include "../CharacterPreset.hpp"
 #include "../../entt/entt.hpp"
 #include <algorithm>
-#include <cstdio>
 
 namespace ArenaGame {
 namespace Components {
@@ -111,11 +110,6 @@ struct Health {
 
 		// Apply resistance (percentage reduction)
 		float finalDamage = damageAfterArmor * (1.0f - resistance);
-
-		fprintf(stderr, "[HEALTH] raw=%.2f  -armor(%.1f)=%.2f  -resist(%.0f%%)=%.2f  hp: %.1f -> %.1f\n",
-			static_cast<double>(rawDamage), static_cast<double>(armor), static_cast<double>(damageAfterArmor),
-			static_cast<double>(resistance * 100.0f), static_cast<double>(finalDamage),
-			static_cast<double>(current), static_cast<double>(std::max(0.0f, current - finalDamage)));
 
 		// Apply damage
 		current -= finalDamage;

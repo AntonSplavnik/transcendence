@@ -46,7 +46,9 @@ beforeEach(() => {
 afterEach(() => {
 	server.resetHandlers();
 	cleanup();
-	localStorage.clear();
+	if (localStorage && typeof localStorage.clear === 'function') {
+		localStorage.clear();
+	}
 	vi.clearAllTimers();
 });
 
