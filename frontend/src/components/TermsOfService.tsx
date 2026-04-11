@@ -371,7 +371,9 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 						</Button>
 					</div>
 					{acceptError && (
-						<p className="text-red-400 text-sm mt-2 text-center" role="alert">{acceptError}</p>
+						<p className="text-red-400 text-sm mt-2 text-center" role="alert">
+							{acceptError}
+						</p>
 					)}
 				</div>
 			)}
