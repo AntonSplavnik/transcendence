@@ -26,6 +26,7 @@
 mod cancel;
 mod compress_cbor_codec;
 mod sink;
+mod stream_group;
 mod stream_manager;
 mod stream_room;
 mod user_stream;
@@ -44,6 +45,8 @@ pub use stream_manager::{
     Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
     connect_stream, router, webtransport_router,
 };
+#[allow(unused_imports)]
+pub use stream_group::StreamGroup;
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
 // Renamed to avoid collision with potential StreamRoom SendError types.

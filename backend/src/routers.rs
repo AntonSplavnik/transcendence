@@ -6,8 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    email::Mailer, notifications::NotificationManager, prelude::*, stream::StreamManager,
-    tos::CurrentTosTimestamp, utils::NickCache,
+    email::Mailer, game::GameManager, notifications::NotificationManager, prelude::*,
+    stream::StreamManager, tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -29,6 +29,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
             users::router("users"),
             crate::avatar::router("avatar"),
             crate::friends::router("friends"),
+            crate::game::router("game"),
             crate::stream::router("stream"),
             Router::with_path("tos")
                 .oapi_tag("tos")
@@ -50,6 +51,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
     }
 
     let notification_manager = NotificationManager::new(database.clone());
+    let game_manager = GameManager::new(Arc::clone(&stream_manager));
 
     Router::new()
         .hoop(affix_state::inject(database))
@@ -57,6 +59,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
         .hoop(affix_state::inject(mailer))
         .hoop(affix_state::inject(stream_manager))
         .hoop(affix_state::inject(notification_manager))
+        .hoop(affix_state::inject(game_manager))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }

@@ -14,6 +14,7 @@ pub mod db;
 pub mod email;
 mod error;
 mod friends;
+mod game;
 mod models;
 mod notifications;
 mod prelude;
