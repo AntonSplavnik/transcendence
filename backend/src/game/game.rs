@@ -13,7 +13,7 @@ use super::messages::{GameClientMessage, GameServerMessage};
 pub struct Game {
     handle: Mutex<GameHandle>,
     mode: GameMode,
-    /// Maps player_id → (name, character_class). Used to enrich Spawn events.
+    /// Maps `player_id` → (name, `character_class`). Used to enrich Spawn events.
     player_info: Mutex<HashMap<u32, (String, CharacterClass)>>,
 }
 
@@ -44,7 +44,7 @@ impl Game {
     pub fn on_connect(&self, player_id: u32, name: &str, character_class: CharacterClass) -> bool {
         self.player_info
             .lock()
-            .insert(player_id, (name.to_string(), character_class.clone()));
+            .insert(player_id, (name.to_string(), character_class));
         self.handle
             .lock()
             .add_player(player_id, name, character_class.as_str())

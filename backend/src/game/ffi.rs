@@ -177,7 +177,7 @@ impl From<GameMode> for bridge::GameModeType {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema)]
 pub enum CharacterClass {
     #[default]
     Knight,
@@ -187,8 +187,8 @@ pub enum CharacterClass {
 impl CharacterClass {
     pub fn as_str(&self) -> &str {
         match self {
-            CharacterClass::Knight => "knight",
-            CharacterClass::Rogue => "rogue",
+            Self::Knight => "knight",
+            Self::Rogue => "rogue",
         }
     }
 }
@@ -196,8 +196,8 @@ impl CharacterClass {
 impl From<&str> for CharacterClass {
     fn from(s: &str) -> Self {
         match s {
-            "rogue" => CharacterClass::Rogue,
-            _ => CharacterClass::Knight,
+            "rogue" => Self::Rogue,
+            _ => Self::Knight,
         }
     }
 }
@@ -446,7 +446,7 @@ impl GameHandle {
                             y: e.position.y,
                             z: e.position.z,
                         },
-                        character_class: e.character_class.to_string(),
+                        character_class: e.character_class,
                     }
                 }
                 bridge::NetworkEventType::StateChange => {

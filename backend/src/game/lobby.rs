@@ -198,7 +198,7 @@ impl Lobby {
                     user_id,
                     nickname: state.nickname,
                     ready: state.ready,
-                    character_class: state.character_class.clone(),
+                    character_class: state.character_class,
                 })
                 .collect(),
             game_active: self.game_active,
@@ -503,7 +503,7 @@ impl Lobby {
     pub fn player_data(&self) -> impl Iterator<Item = (i32, Nickname, CharacterClass)> + '_ {
         self.players
             .iter()
-            .map(|(&uid, state)| (uid, state.nickname, state.character_class.clone()))
+            .map(|(&uid, state)| (uid, state.nickname, state.character_class))
     }
 
     /// Returns the spectator user IDs.
