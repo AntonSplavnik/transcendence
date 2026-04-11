@@ -115,6 +115,7 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 		isAttacking: false,
 		isJumping: false,
 		isSprinting: false,
+		isGrounded: false,
 		isUsingAbility1: false,
 		isUsingAbility2: false,
 	};
