@@ -140,6 +140,8 @@ private:
 	// Internal helpers
 	void registerPlayerIDMapping(entt::entity entity, PlayerID id);
 	void unregisterPlayerIDMapping(entt::entity entity);
+	entt::entity createStaticMapEntity(const Vector3D& position, Components::Collider collider);
+	void spawnHardcodedMapColliders();
 };
 
 // =============================================================================
@@ -170,6 +172,7 @@ inline void World::initialize() {
 	auto staminaSystem = std::make_unique<StaminaSystem>();
 
 	m_gameManager = createGameManager();
+	spawnHardcodedMapColliders();
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
@@ -332,19 +335,26 @@ inline entt::entity World::createProjectile(const Vector3D& spawnPos, const Vect
 
 	return entity;
 }
-inline entt::entity World::createWall(const Vector3D& position, const Vector3D& halfExtents) {
+inline entt::entity World::createStaticMapEntity(const Vector3D& position, Components::Collider collider) {
 	entt::entity entity = m_registry.create();
 	if (entity == entt::null) {
 		return entt::null;
 	}
 
-	// Initialize as wall
 	m_registry.emplace<WallTag>(entity);
 	m_registry.emplace<Components::Transform>(entity, position);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createWall(halfExtents));
+	m_registry.emplace<Components::Collider>(entity, std::move(collider));
 	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createStatic());
 
 	return entity;
+}
+inline entt::entity World::createWall(const Vector3D& position, const Vector3D& halfExtents) {
+	auto collider = Components::Collider::createWall(halfExtents);
+	collider.collidesWith = Components::CollisionLayer::Player |
+		Components::CollisionLayer::Enemy |
+		Components::CollisionLayer::Projectile;
+
+	return createStaticMapEntity(position, std::move(collider));
 }
 inline entt::entity World::createTrigger(const Vector3D& position, float radius) {
 
@@ -359,6 +369,64 @@ inline entt::entity World::createTrigger(const Vector3D& position, float radius)
 	m_registry.emplace<Components::Collider>(entity, Components::Collider::createTrigger(radius));
 
 	return entity;
+}
+inline void World::spawnHardcodedMapColliders() {
+	struct MapColliderSpec {
+		enum class Shape {
+			Cylinder,
+			Box,
+		};
+
+		const char* name;
+		Shape shape;
+		Vector3D position;
+		Vector3D halfExtents;
+		float radius;
+	};
+
+	static const std::vector<MapColliderSpec> specs = {
+		{ "Fontaine", MapColliderSpec::Shape::Cylinder, Vector3D(5.15f, 0.0f, 5.53f), Vector3D(0.0f, 0.0f, 0.0f), 4.06f },
+		{ "bench NE", MapColliderSpec::Shape::Box, Vector3D(5.54f, 0.0f, 11.54f), Vector3D(1.66f, 0.0f, 0.76f), 0.0f },
+		{ "bench NW", MapColliderSpec::Shape::Box, Vector3D(-0.23f, 0.0f, 5.96f), Vector3D(0.70f, 0.0f, 1.92f), 0.0f },
+		{ "bench SW", MapColliderSpec::Shape::Box, Vector3D(5.57f, 0.0f, -0.29f), Vector3D(1.64f, 0.0f, 0.70f), 0.0f },
+		{ "bench SE", MapColliderSpec::Shape::Box, Vector3D(11.10f, 0.0f, 5.12f), Vector3D(0.93f, 0.0f, 1.69f), 0.0f },
+		{ "base windmill", MapColliderSpec::Shape::Cylinder, Vector3D(17.98f, 0.0f, 19.63f), Vector3D(0.0f, 0.0f, 0.0f), 4.96f },
+		{ "ext windmill", MapColliderSpec::Shape::Box, Vector3D(20.64f, 0.0f, 15.14f), Vector3D(2.20f, 0.0f, 2.28f), 0.0f },
+		{ "buche", MapColliderSpec::Shape::Box, Vector3D(20.21f, 0.0f, 0.18f), Vector3D(2.48f, 0.0f, 1.91f), 0.0f },
+		{ "barrieres + tree", MapColliderSpec::Shape::Cylinder, Vector3D(14.50f, 0.0f, 1.34f), Vector3D(0.0f, 0.0f, 0.0f), 2.19f },
+		{ "barrieres", MapColliderSpec::Shape::Cylinder, Vector3D(18.45f, 0.0f, -0.77f), Vector3D(0.0f, 0.0f, 0.0f), 2.27f },
+		{ "small rock right side", MapColliderSpec::Shape::Cylinder, Vector3D(21.52f, 0.0f, -7.48f), Vector3D(0.0f, 0.0f, 0.0f), 2.72f },
+		{ "big Rock box corner", MapColliderSpec::Shape::Cylinder, Vector3D(21.62f, 0.0f, -19.30f), Vector3D(0.0f, 0.0f, 0.0f), 3.19f },
+		{ "big rock camping", MapColliderSpec::Shape::Cylinder, Vector3D(13.39f, 0.0f, -18.95f), Vector3D(0.0f, 0.0f, 0.0f), 2.82f },
+		{ "Tonneau", MapColliderSpec::Shape::Box, Vector3D(7.70f, 0.0f, -9.37f), Vector3D(1.08f, 0.0f, 1.61f), 0.0f },
+		{ "lower rock left forest", MapColliderSpec::Shape::Box, Vector3D(3.29f, 0.0f, -9.06f), Vector3D(1.76f, 0.0f, 3.28f), 0.0f },
+		{ "big tree forest", MapColliderSpec::Shape::Box, Vector3D(-1.79f, 0.0f, -18.12f), Vector3D(1.37f, 0.0f, 1.55f), 0.0f },
+		{ "redhouse", MapColliderSpec::Shape::Box, Vector3D(-14.20f, 0.0f, -4.21f), Vector3D(5.18f, 0.0f, 7.18f), 0.0f },
+		{ "barriere left greenfarm", MapColliderSpec::Shape::Box, Vector3D(-16.96f, 0.0f, 4.95f), Vector3D(7.58f, 0.0f, 0.88f), 0.0f },
+		{ "small part barriere left greenfarm", MapColliderSpec::Shape::Box, Vector3D(-9.21f, 0.0f, 6.75f), Vector3D(0.70f, 0.0f, 1.75f), 0.0f },
+		{ "greenfarm", MapColliderSpec::Shape::Box, Vector3D(-19.55f, 0.0f, 12.98f), Vector3D(3.32f, 0.0f, 4.70f), 0.0f },
+		{ "barriere front long greenfarm", MapColliderSpec::Shape::Box, Vector3D(-9.16f, 0.0f, 18.09f), Vector3D(0.73f, 0.0f, 4.21f), 0.0f },
+		{ "barriere right greenfarm", MapColliderSpec::Shape::Box, Vector3D(-17.02f, 0.0f, 22.63f), Vector3D(7.53f, 0.0f, 0.51f), 0.0f },
+	};
+
+	const auto mapCollisionMask = Components::CollisionLayer::Player |
+		Components::CollisionLayer::Enemy |
+		Components::CollisionLayer::Projectile;
+
+	for (const auto& spec : specs) {
+		Components::Collider collider;
+		if (spec.shape == MapColliderSpec::Shape::Box) {
+			collider = Components::Collider::createWall(spec.halfExtents);
+		} else {
+			collider = Components::Collider::createCylinder(spec.radius, spec.radius * 2.0f);
+		}
+
+		collider.layer = Components::CollisionLayer::Wall;
+		collider.collidesWith = mapCollisionMask;
+		collider.isStatic = true;
+
+		createStaticMapEntity(spec.position, std::move(collider));
+	}
 }
 inline bool World::destroyEntity(entt::entity entity) {
 
