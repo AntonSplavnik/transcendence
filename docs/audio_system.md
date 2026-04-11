@@ -1,6 +1,19 @@
-# Audio Engine
+# Audio System
 
 End-to-end documentation of the audio system used in the Transcendence frontend: how sounds are loaded, routed, triggered, and persisted, plus a per-file walkthrough of every module under `frontend/src/audio/`.
+
+## Table of Contents
+
+1. [Goals](#1-goals)
+2. [Architecture overview](#2-architecture-overview)
+3. [Files in `frontend/src/audio/`](#3-files-in-frontendsrcaudio)
+4. [Module-by-module walkthrough](#4-module-by-module-walkthrough)
+5. [End-to-end flows](#5-end-to-end-flows)
+6. [Extending the system](#6-extending-the-system)
+7. [Persistence and defaults](#7-persistence-and-defaults)
+8. [Why this shape?](#8-why-this-shape)
+9. [Reference: the AudioHandle and GameAudioHandle interfaces](#9-reference-the-audiohandle-and-gameaudiohandle-interfaces)
+10. [Sound assets inventory](#10-sound-assets-inventory)
 
 ---
 
@@ -14,6 +27,40 @@ The audio system has to serve very different needs at the same time:
 - **One source of truth** — a single Babylon `AudioEngineV2` and a single shared `SoundBank`, so the volume sliders and mute toggle reach every sound, and so we never load the same buffer twice.
 
 The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and exposed to React through a single context provider.
+
+### Why an Audio System (and not ad-hoc sound calls)?
+
+In a multiplayer game, audio is not just a UI detail. It is part of game readability and player feedback, with hard constraints:
+
+- **Synchronization**: sound must line up with what players see locally and remotely.
+- **Spatialization**: position and distance must be audible (an enemy 2m away should not sound like one 50m away).
+- **Low perceived latency**: local actions must feel immediate, even when the server stays authoritative.
+- **Variation**: repeating the same sample hundreds of times causes fatigue; randomized pitch/volume/variation are required.
+- **Performance**: many concurrent sounds without glitching, clipping, or runaway CPU usage.
+- **Extensibility**: adding a new gameplay sound should be mostly data work, not control-flow surgery.
+
+This is why the project uses a dedicated audio architecture (engine + buses + bank + trigger tables) instead of scattered `playSound("x")` calls.
+
+### Industry References and Design Principles
+
+The design follows patterns popularized by middleware such as **Wwise** and **FMOD**, adapted to our Babylon/React stack:
+
+- **Event-driven audio**: gameplay emits semantic events, not file paths.
+- **Sound banks**: assets are loaded and reused from a central registry.
+- **Mixer buses**: category routing (`master > sfx/music/ambient/ui`) for consistent mixing and user controls.
+- **Decoupled responsibilities**: gameplay decides *what happened*; audio decides *how to render it*.
+- **Parametric randomization**: per-play variation for realism and fatigue reduction.
+- **Concurrency control**: `maxInstances`, cooldowns, and priorities to avoid audio spam.
+
+Guiding rule:
+
+```
+Gameplay never says "play jump_03.wav at volume 0.7".
+Gameplay says "a jump happened at position (x, y, z)".
+The audio system decides how to play it.
+```
+
+This separation keeps gameplay code clean and lets us iterate on assets/mix/routing without touching core game logic.
 
 ---
 
