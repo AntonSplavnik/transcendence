@@ -3,9 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
+import { formatGameMode } from '../stream/types';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
 import GameCanvas from './GameBoard/GameCanvas';
+import GameEndModal from './modals/GameEndModal';
 
 /**
  * Game view — driven entirely by GameContext.
@@ -22,7 +24,7 @@ import GameCanvas from './GameBoard/GameCanvas';
  * a direct URL visit.
  */
 export default function GameBoard() {
-	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput } = useGame();
+	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } = useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
 
@@ -40,14 +42,27 @@ export default function GameBoard() {
 	const characterConfig =
 		CHARACTER_CONFIGS[storedChar ?? DEFAULT_CHARACTER] ?? CHARACTER_CONFIGS[DEFAULT_CHARACTER];
 
+	const gameMode =
+		lobbyState.status === 'active' ? formatGameMode(lobbyState.settings.gamemode) : null;
+
 	return (
-		<GameCanvas
-			snapshotRef={snapshotRef}
-			characterClassesRef={characterClassesRef}
-			eventsRef={eventsRef}
-			onSendInput={sendInput}
-			localPlayerId={user.id}
-			characterConfig={characterConfig}
-		/>
+		<>
+			<GameCanvas
+				snapshotRef={snapshotRef}
+				characterClassesRef={characterClassesRef}
+				eventsRef={eventsRef}
+				onSendInput={sendInput}
+				localPlayerId={user.id}
+				characterConfig={characterConfig}
+			/>
+			{gameState.status === 'active' && gameState.matchEndData !== null && (
+				<GameEndModal
+					title={gameMode ?? 'Match Over'}
+					onLeave={leaveGame}
+					stats={gameState.matchEndData}
+					localPlayerId={user.id}
+				/>
+			)}
+		</>
 	);
 }
