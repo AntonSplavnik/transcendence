@@ -51,7 +51,11 @@ export function processEvents(events: GameEvent[], mgr: CharacterManager): void 
 				const config = mgr.getConfig(event.player_id);
 				const entry = config?.skillAnimations[event.skill_slot - 1];
 				if (entry) {
-					mgr.getChar(event.player_id)?.playAnimation(entry.name, false, entry.speed ?? 1.0);
+					mgr.getChar(event.player_id)?.playAnimation(
+						entry.name,
+						false,
+						entry.speed ?? 1.0,
+					);
 				}
 				if (event.player_id === mgr.localPlayerID) {
 					mgr.localAnimSM.enter(AnimPhase.Skill);

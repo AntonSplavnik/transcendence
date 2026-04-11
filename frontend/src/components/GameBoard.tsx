@@ -24,7 +24,8 @@ import GameEndModal from './modals/GameEndModal';
  * a direct URL visit.
  */
 export default function GameBoard() {
-	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } = useGame();
+	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } =
+		useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
 

@@ -1,4 +1,15 @@
-import type { Engine, Scene, UniversalCamera } from '@babylonjs/core';
+import {
+	Camera,
+	Color3,
+	Engine,
+	MeshBuilder,
+	Scene,
+	SceneLoader,
+	StandardMaterial,
+	UniversalCamera,
+	Vector3,
+	type Nullable,
+} from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
@@ -18,16 +29,16 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 	camera: UniversalCamera;
 	sceneLoaded: Promise<void>;
 }> {
-	const engine = new BABYLON.Engine(canvas, true);
+	const engine = new Engine(canvas, true);
 	await TOOLKIT.SceneManager.InitializeRuntime(engine);
 
-	const scene = new BABYLON.Scene(engine);
+	const scene = new Scene(engine);
 
 	// Isometric camera: 35.264deg elevation, 45deg rotation, orthographic
-	const arenaCenter = new BABYLON.Vector3(0, 0, 0);
-	const camera = new BABYLON.UniversalCamera(
+	const arenaCenter = new Vector3(0, 0, 0);
+	const camera = new UniversalCamera(
 		'camera',
-		new BABYLON.Vector3(
+		new Vector3(
 			arenaCenter.x + ISO_CAM_OFFSET.x,
 			arenaCenter.y + ISO_CAM_OFFSET.y,
 			arenaCenter.z + ISO_CAM_OFFSET.z,
@@ -35,7 +46,7 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 		scene,
 	);
 	camera.setTarget(arenaCenter);
-	camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+	camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
 	const aspect = engine.getRenderWidth() / engine.getRenderHeight();
 	camera.orthoLeft = -ISO_ORTHO_SIZE * aspect;
 	camera.orthoRight = ISO_ORTHO_SIZE * aspect;
@@ -49,11 +60,11 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 	});
 
 	// Manage loading screen manually — prevent SceneLoader from auto-hiding it
-	BABYLON.SceneLoader.ShowLoadingScreen = false;
+	SceneLoader.ShowLoadingScreen = false;
 
 	// Load the forest scene (wrapped in a promise so callers can await completion)
 	const sceneLoaded = new Promise<void>((resolve, reject) => {
-		BABYLON.SceneLoader.Append(
+		SceneLoader.Append(
 			'/scenes/Export/scenes/',
 			'Forest.gltf',
 			scene,
@@ -61,13 +72,15 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 				scene.activeCamera = camera;
 
 				// Extended ground plane to hide backdrop past terrain edges
-				const bgGround = BABYLON.MeshBuilder.CreateGround(
-					'bg-ground', { width: 1000, height: 1000 }, scene,
+				const bgGround = MeshBuilder.CreateGround(
+					'bg-ground',
+					{ width: 1000, height: 1000 },
+					scene,
 				);
 				bgGround.position.y = -0.01;
-				const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
-				bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
-				bgMat.specularColor = BABYLON.Color3.Black();
+				const bgMat = new StandardMaterial('bg-ground-mat', scene);
+				bgMat.diffuseColor = new Color3(0.15, 0.35, 0.1);
+				bgMat.specularColor = Color3.Black();
 				bgGround.material = bgMat;
 
 				// Arena boundary walls
@@ -76,19 +89,23 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 				const WALL_T = 0.8;
 				const WALL_POS = TERRAIN_EDGE + WALL_T / 2;
 				const WALL_SPAN = TERRAIN_EDGE * 2 + WALL_T * 2;
-				const wallMat = new BABYLON.StandardMaterial('wall-mat', scene);
-				wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.25, 0.15);
-				wallMat.specularColor = BABYLON.Color3.Black();
+				const wallMat = new StandardMaterial('wall-mat', scene);
+				wallMat.diffuseColor = new Color3(0.35, 0.25, 0.15);
+				wallMat.specularColor = Color3.Black();
 
 				const wallDefs = [
-					['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-					['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-					['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-					['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+					['wall-n', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, WALL_POS],
+					['wall-s', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, -WALL_POS],
+					['wall-e', WALL_T, WALL_H, WALL_SPAN, WALL_POS, WALL_H / 2, 0],
+					['wall-w', WALL_T, WALL_H, WALL_SPAN, -WALL_POS, WALL_H / 2, 0],
 				] as const;
 
 				for (const [name, w, h, d, x, y, z] of wallDefs) {
-					const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+					const wall = MeshBuilder.CreateBox(
+						name,
+						{ width: w, height: h, depth: d },
+						scene,
+					);
 					wall.position.set(x, y, z);
 					wall.material = wallMat;
 				}
@@ -96,7 +113,7 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 				resolve();
 			},
 			undefined,
-			(_s, message, exception) => {
+			(_scene: Scene, message: string, exception?: Nullable<Error>) => {
 				console.error('Failed to load Forest scene:', message, exception);
 				reject(new Error(String(message)));
 			},
@@ -236,7 +253,11 @@ export default function GameCanvas({
 
 			// Game client
 			const gameClient = new GameClient(
-				scene, localPlayerId, camera, characterConfig, characterClassesRef,
+				scene,
+				localPlayerId,
+				camera,
+				characterConfig,
+				characterClassesRef,
 			);
 			gameClientInstance = gameClient;
 

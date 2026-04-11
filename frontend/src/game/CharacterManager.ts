@@ -1,4 +1,4 @@
-import type { Scene, Vector3 } from '@babylonjs/core';
+import { Scene, Vector3 } from '@babylonjs/core';
 import type { RefObject } from 'react';
 import type { Vector3D } from './types';
 import { AnimatedCharacter, loadCharacter } from './AnimatedCharacter';
@@ -17,7 +17,7 @@ export class CharacterManager {
 	public localIsGrounded: boolean = true;
 	// Server-authoritative character state, driven by CharacterSnapshot.state.
 	public localState: CharacterState = CharacterState.Idle;
-	public position: Vector3 = new BABYLON.Vector3(0, 1, 0);
+	public position: Vector3 = new Vector3(0, 1, 0);
 	public readonly localPlayerID: number;
 
 	// ── Private fields ──────────────────────────────────────────────────
@@ -106,7 +106,7 @@ export class CharacterManager {
 			}
 
 			char.setPosition(
-				new BABYLON.Vector3(charData.position.x, charData.position.y, charData.position.z),
+				new Vector3(charData.position.x, charData.position.y, charData.position.z),
 			);
 			char.setRotation(charData.yaw);
 

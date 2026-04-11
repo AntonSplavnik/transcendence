@@ -34,7 +34,9 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							aria-label={locked ? `${cfg.label} (locked)` : `Select ${cfg.label}`}
 							aria-pressed={selected}
 							disabled={locked}
-							onClick={() => { if (!locked) onChange(id); }}
+							onClick={() => {
+								if (!locked) onChange(id);
+							}}
 							className={`aspect-square rounded-2xl border-2 relative overflow-hidden transition-all duration-200 ${
 								locked
 									? 'border-stone-700/50 cursor-not-allowed grayscale'
@@ -63,7 +65,11 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							)}
 							<span
 								className={`absolute bottom-2 left-0 right-0 text-center text-[11px] font-bold tracking-wide ${
-									locked ? 'text-stone-600' : selected ? 'text-gold-400' : 'text-stone-400'
+									locked
+										? 'text-stone-600'
+										: selected
+											? 'text-gold-400'
+											: 'text-stone-400'
 								}`}
 							>
 								{cfg.label}
