@@ -37,7 +37,10 @@ export class SwingTrail {
 
     this.material = new StandardMaterial('swingTrailMat', scene);
     this.material.backFaceCulling = false;
-    this.material.hasVertexAlpha = true;
+    // hasVertexAlpha lives on AbstractMesh in Babylon's type system, but
+    // setting it on the material triggers the correct shader variant when
+    // the UMD runtime evaluates the effect.
+    (this.material as any).hasVertexAlpha = true;
     this.material.disableLighting = true;
     this.material.emissiveColor = new Color3(0.6, 0.6, 0.6); // vertex RGB × 0.4 = 40% brightness
 
