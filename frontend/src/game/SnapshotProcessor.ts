@@ -138,10 +138,6 @@ export class SnapshotProcessor {
 		const healthPct = charData.max_health > 0 ? charData.health / charData.max_health : 0;
 		hud.updateLocalHealth(healthPct);
 
-		// Stamina
-		const staminaPct = charData.max_stamina > 0 ? charData.stamina / charData.max_stamina : 0;
-		hud.updateLocalStamina(staminaPct);
-
 		// Death
 		if (charData.state === CharacterState.Dead && !mgr.localIsDead && mgr.localCharacter) {
 			mgr.localIsDead = true;
@@ -189,7 +185,7 @@ export class SnapshotProcessor {
 
 		// Position via strategy
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
-		remoteChar.setPositionFromFloats(visual.position.x, visual.position.y, visual.position.z);
+		remoteChar.rootNode.position.copyFromFloats(visual.position.x, visual.position.y, visual.position.z);
 		remoteChar.setRotation(visual.yaw);
 
 		// Jump state

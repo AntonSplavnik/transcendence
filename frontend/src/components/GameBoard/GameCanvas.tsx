@@ -146,7 +146,7 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 		input.movementDirection.x = dir[0];
 		input.movementDirection.z = dir[1];
 		input.isJumping = keysPressed.has(' ');
-		input.isSprinting = keysPressed.has('shift');
+		input.isSprinting = true;
 	});
 
 	return { input, cleanup: () => {} };
