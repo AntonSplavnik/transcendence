@@ -6,7 +6,7 @@ import { CharacterManager } from './CharacterManager';
 import { GameHUD } from './HUD';
 import { SnapshotProcessor, DirectPositionStrategy } from './SnapshotProcessor';
 import { processEvents } from './EventProcessor';
-import { AnimPhase, tickJumpState } from './AnimationStateMachine';
+import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
 import type { InputState } from './constants';
 import type { GameAudioEngine } from '../audio/AudioEngine';
 import type { SoundBank } from '../audio/SoundBank';
@@ -131,9 +131,21 @@ export class GameClient {
 			{ x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
 		);
 
+		const previousJumpState = this.mgr.localJumpState;
 		this.mgr.localJumpState = tickJumpState(
 			this.mgr.localCharacter, this.mgr.localJumpState, this.mgr.localIsGrounded, input.isJumping,
 		);
+		if (
+			this.audioEventSystem &&
+			previousJumpState !== JumpState.JUMP_START &&
+			this.mgr.localJumpState === JumpState.JUMP_START
+		) {
+			this.audioEventSystem.onLocalAnimationEvent('player_jump', {
+				x: this.mgr.position.x,
+				y: this.mgr.position.y,
+				z: this.mgr.position.z,
+			});
+		}
 		if (this.mgr.localJumpState !== 'grounded') return;
 
 		const isPlaying = this.mgr.localCharacter.currentAnimation?.isPlaying ?? false;

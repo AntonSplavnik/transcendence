@@ -16,11 +16,7 @@ export interface LocalInputTrigger {
 }
 
 export const LOCAL_INPUT_TRIGGERS: LocalInputTrigger[] = [
-	{ soundId: 'player_jump', field: 'isJumping', edge: 'rising' },
 	{ soundId: 'player_land', field: 'isGrounded', edge: 'rising', initialValue: true },
-	{ soundId: 'player_attack_swing', field: 'isAttacking', edge: 'rising', delayMs: 250 },
-	{ soundId: 'player_ability1', field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
-	{ soundId: 'player_ability2', field: 'isUsingAbility2', edge: 'rising', delayMs: 250 },
 ];
 
 // ─── Pipeline 1b: Local continuous triggers ──────────────────────────────────
@@ -160,21 +156,29 @@ export const GAME_EVENT_TRIGGERS: GameEventTrigger[] = [
 	// Remote player started an attack → swing SFX at their position.
 	trigger('AttackStarted', {
 		soundId: 'player_attack_swing',
-		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId,
-		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		position: (e, ctx) =>
+			e.player_id === ctx.localPlayerId
+				? ctx.localPosition
+				: ctx.remotePositions.get(e.player_id) ?? null,
 		playerId: (e) => e.player_id,
 	}),
 	// Remote player used a skill → ability SFX at their position.
 	trigger('SkillUsed', {
 		soundId: 'player_ability1',
-		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 1,
-		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		predicate: (e) => e.skill_slot === 1,
+		position: (e, ctx) =>
+			e.player_id === ctx.localPlayerId
+				? ctx.localPosition
+				: ctx.remotePositions.get(e.player_id) ?? null,
 		playerId: (e) => e.player_id,
 	}),
 	trigger('SkillUsed', {
 		soundId: 'player_ability2',
-		predicate: (e, ctx) => e.player_id !== ctx.localPlayerId && e.skill_slot === 2,
-		position: (e, ctx) => ctx.remotePositions.get(e.player_id) ?? null,
+		predicate: (e) => e.skill_slot === 2,
+		position: (e, ctx) =>
+			e.player_id === ctx.localPlayerId
+				? ctx.localPosition
+				: ctx.remotePositions.get(e.player_id) ?? null,
 		playerId: (e) => e.player_id,
 	}),
 ];

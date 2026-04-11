@@ -128,6 +128,29 @@ export class AudioEventSystem {
 	}
 
 	/**
+	 * Explicit one-shot tied to a local animation/state transition.
+	 * Use this for actions that must be heard only when the animation actually starts.
+	 */
+	onLocalAnimationEvent(
+		soundId: string,
+		position: Vector3D,
+		overrideVolume?: number,
+		delayMs?: number,
+	): void {
+		if (!this.engine.isInitialized()) return;
+		const resolved = this.resolveSoundId(soundId);
+		if (delayMs && delayMs > 0) {
+			const timer = setTimeout(() => {
+				this.pendingTimers.delete(timer);
+				if (!this.disposed) this.playSoundAt(resolved, position, overrideVolume);
+			}, delayMs);
+			this.pendingTimers.add(timer);
+			return;
+		}
+		this.playSoundAt(resolved, position, overrideVolume);
+	}
+
+	/**
 	 * Pipeline 3: discrete gameplay events from the server (Damage, Death, Spawn…).
 	 *
 	 * Single dispatcher — each sound is one row in GAME_EVENT_TRIGGERS. Adding a
