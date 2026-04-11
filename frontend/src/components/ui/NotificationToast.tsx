@@ -247,7 +247,7 @@ export default function NotificationToast() {
 						key={toast.id}
 						className={`absolute left-0 w-full ${
 							interactive ? 'pointer-events-auto cursor-pointer' : ''
-						} ${isExiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+						} ${interactive && !hasAction ? 'focus-visible:ring-1 focus-visible:ring-gold-400/50 outline-none rounded-lg' : ''} ${isExiting ? 'animate-toast-out' : 'animate-toast-in'}`}
 						style={{
 							bottom: `${bottom}px`,
 							zIndex: 50 - index,

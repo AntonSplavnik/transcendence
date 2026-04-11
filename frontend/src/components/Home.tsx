@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import EditUserModal from './modals/EditUserModal';
@@ -42,6 +43,7 @@ interface HomeProps {
 }
 
 export default function Home({ onLogout, onSessions }: HomeProps) {
+	useDocumentTitle('Home');
 	const { user, session, isEmailConfirmed } = useAuth();
 	const { lobbyState } = useLobby();
 	const [show2FASettings, setShow2FASettings] = useState(false);
@@ -206,7 +208,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 							<p className="text-stone-200 text-sm font-medium mb-1">
 								{lobbyState.settings.name}
 							</p>
-							<p className="text-stone-400 text-xs mb-3">
+							<p className="text-stone-300 text-xs mb-3">
 								You're already in a lobby.
 							</p>
 							<Link to="/lobby">

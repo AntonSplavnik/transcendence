@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { useGame } from '../contexts/GameContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { formatGameMode } from '../stream/types';
@@ -25,6 +26,7 @@ import GameEndModal from './modals/GameEndModal';
  * a direct URL visit.
  */
 export default function GameBoard() {
+	useDocumentTitle('Game');
 	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } =
 		useGame();
 	const { lobbyState } = useLobby();

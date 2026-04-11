@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ScrollText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { Button, Card } from './ui';
 
 interface TermsOfServiceProps {
@@ -9,6 +10,7 @@ interface TermsOfServiceProps {
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
+	useDocumentTitle('Terms of Service');
 	const { user, hasAcceptedTos, tosLoaded, acceptTos } = useAuth();
 	const navigate = useNavigate();
 	const [accepting, setAccepting] = useState(false);

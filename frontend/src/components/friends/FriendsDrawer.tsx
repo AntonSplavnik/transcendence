@@ -62,7 +62,10 @@ export default function FriendsDrawer() {
 				aria-expanded={isOpen}
 			>
 				{incoming.length > 0 && (
-					<span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+					<span
+						className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold"
+						aria-label={`${incoming.length} pending friend ${incoming.length === 1 ? 'request' : 'requests'}`}
+					>
 						{incoming.length > 9 ? '9+' : incoming.length}
 					</span>
 				)}
@@ -107,7 +110,7 @@ export default function FriendsDrawer() {
 						<p
 							role="status"
 							aria-live="polite"
-							className="text-stone-400 text-sm text-center py-4"
+							className="text-stone-300 text-sm text-center py-4"
 						>
 							Loading...
 						</p>
@@ -166,7 +169,7 @@ export default function FriendsDrawer() {
 								<section>
 									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Pending Requests
-										<span className="ml-1.5 text-stone-500 font-normal normal-case tracking-normal">
+										<span className="ml-1.5 text-stone-350 font-normal normal-case tracking-normal">
 											({outgoing.length})
 										</span>
 									</h3>
@@ -207,7 +210,7 @@ export default function FriendsDrawer() {
 									Friends ({friends.length})
 								</h3>
 								{friends.length === 0 ? (
-									<p className="text-stone-500 text-sm px-2 py-1">
+									<p className="text-stone-350 text-sm px-2 py-1">
 										No friends yet.
 									</p>
 								) : (

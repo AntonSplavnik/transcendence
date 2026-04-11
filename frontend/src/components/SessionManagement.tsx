@@ -19,6 +19,7 @@ import {
 	logoutSessions,
 } from '../api/user';
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { validateMfaCode } from '../utils/validation';
 import { Alert, Badge, Button, Card, InfoBlock, Input, LoadingSpinner, Modal } from './ui';
 
@@ -172,6 +173,7 @@ const ACTION_CONFIG: Record<
 // ==================== COMPONENT ====================
 
 export default function SessionManagement({ onBack, onLogout }: SessionManagementProps) {
+	useDocumentTitle('Sessions');
 	const { user, session: authSession } = useAuth();
 	const currentSessionId = authSession?.session_id ?? null;
 

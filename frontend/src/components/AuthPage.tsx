@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { getErrorBrief, getErrorMessage } from '../api/error';
 import * as usersApi from '../api/users';
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { validateEmail, validateNickname } from '../utils/validation';
 import TwoFactorLoginModal from './modals/TwoFactorLoginModal';
 import { Alert, Button, Card, Input } from './ui';
@@ -17,6 +18,7 @@ export default function AuthPage({
 	onBack: () => void;
 	onAuthSuccess: () => void;
 }) {
+	useDocumentTitle('Sign In');
 	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);

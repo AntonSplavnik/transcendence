@@ -1,4 +1,5 @@
 import { ArrowLeft, Shield } from 'lucide-react';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { Card } from './ui';
 
 interface PrivacyPolicyProps {
@@ -6,6 +7,7 @@ interface PrivacyPolicyProps {
 }
 
 export default function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
+	useDocumentTitle('Privacy Policy');
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			<div className="flex items-center gap-4 mb-8">

@@ -145,7 +145,7 @@ function UsernameContextMenu({
 						onShowProfile();
 						onClose();
 					}}
-					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
+					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 focus-visible:bg-stone-700 outline-none transition-colors"
 				>
 					Show Profile
 				</button>
@@ -154,7 +154,7 @@ function UsernameContextMenu({
 					role="menuitem"
 					disabled
 					aria-disabled="true"
-					className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+					className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				>
 					Show Profile
 				</button>
@@ -162,7 +162,7 @@ function UsernameContextMenu({
 			{/* Message (stub P2) */}
 			<button
 				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				disabled
 				aria-disabled="true"
 			>
@@ -175,7 +175,7 @@ function UsernameContextMenu({
 			<button
 				role="menuitem"
 				onClick={handleCopyUsername}
-				className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
+				className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 focus-visible:bg-stone-700 outline-none transition-colors"
 			>
 				Copy Username
 			</button>
@@ -186,7 +186,7 @@ function UsernameContextMenu({
 			{!isFriend && (
 				<button
 					role="menuitem"
-					className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+					className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 					disabled
 					aria-disabled="true"
 				>
@@ -196,7 +196,7 @@ function UsernameContextMenu({
 			{/* Invite to Game (stub) */}
 			<button
 				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				disabled
 				aria-disabled="true"
 			>
@@ -210,7 +210,7 @@ function UsernameContextMenu({
 				role="menuitem"
 				disabled
 				aria-disabled="true"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 			>
 				Block
 			</button>
@@ -235,7 +235,7 @@ export default function Username({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 
 	if (isSelf) {
-		return <span className="text-stone-400">You</span>;
+		return <span className="text-stone-300">You</span>;
 	}
 
 	const color = colored ? getUserColor(userId) : 'text-stone-100';

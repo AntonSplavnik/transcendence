@@ -22,8 +22,8 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 			className="flex flex-col gap-3 p-4 bg-stone-900 border-r border-stone-800 overflow-hidden"
 			style={{ flex: '8 1 0%' }}
 		>
-			<span className="text-xs text-stone-500 uppercase tracking-widest">Champions</span>
-			<div className="grid grid-cols-3 gap-3 content-start">
+			<span className="text-xs text-stone-350 uppercase tracking-widest">Champions</span>
+			<div className="grid grid-cols-3 gap-3 content-start" role="radiogroup" aria-label="Champion selection">
 				{characters.map(([id, cfg]) => {
 					const locked = cfg.locked === true;
 					const selected = !locked && value === id;
@@ -32,7 +32,8 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							key={id}
 							type="button"
 							aria-label={locked ? `${cfg.label} (locked)` : `Select ${cfg.label}`}
-							aria-pressed={selected}
+							role="radio"
+							aria-checked={selected}
 							disabled={locked}
 							onClick={() => {
 								if (!locked) onChange(id);
@@ -60,7 +61,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							<div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent" />
 							{locked && (
 								<div className="absolute inset-0 bg-stone-950/70 flex items-center justify-center">
-									<Lock className="w-5 h-5 text-stone-600" />
+									<Lock className="w-5 h-5 text-stone-600" aria-hidden="true" />
 								</div>
 							)}
 							<span
@@ -69,7 +70,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 										? 'text-stone-600'
 										: selected
 											? 'text-gold-400'
-											: 'text-stone-400'
+											: 'text-stone-300'
 								}`}
 							>
 								{cfg.label}

@@ -166,8 +166,8 @@ export function DropdownItem({
 
 	const variantClass =
 		variant === 'danger'
-			? 'text-danger-light hover:bg-danger-bg'
-			: 'text-stone-200 hover:bg-stone-700/60';
+			? 'text-danger-light hover:bg-danger-bg focus-visible:bg-danger-bg'
+			: 'text-stone-200 hover:bg-stone-700/60 focus-visible:bg-stone-700/60';
 
 	return (
 		<button
@@ -176,7 +176,7 @@ export function DropdownItem({
 			onClick={handleClick}
 			className={`
         w-full px-4 py-2.5 text-left text-sm flex items-center gap-3
-        transition-colors duration-150 ${variantClass}
+        transition-colors duration-150 outline-none ${variantClass}
       `}
 		>
 			{icon && (
