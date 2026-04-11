@@ -235,8 +235,19 @@ export default function GameCanvas({
 			// Keep loading screen visible while map + character assets load
 			engine.displayLoadingUI();
 
-			// Inspector toggle
-			onKeydown = setupInspector(scene);
+			// Inspector toggle + debug helpers
+			const inspectorHandler = setupInspector(scene);
+			onKeydown = (event: KeyboardEvent) => {
+				inspectorHandler(event);
+				if (event.key === 'o' || event.key === 'O') {
+					event.preventDefault();
+					gameClientInstance?.toggleDebug();
+				}
+				if (event.key === 'p' || event.key === 'P') {
+					event.preventDefault();
+					gameClientInstance?.logCurrentPosition();
+				}
+			};
 			window.addEventListener('keydown', onKeydown);
 
 			// Game client
@@ -302,6 +313,7 @@ export default function GameCanvas({
 					input.isUsingAbility2,
 				);
 
+				gameClient.updateDebugCoords();
 				scene.render();
 			});
 

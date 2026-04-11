@@ -1,0 +1,65 @@
+[
+  {
+    "id": "windmill_extension_square",
+    "type": "box",
+    "center": {"x": 20.51, "y": 0, "z": 15.23},
+    "halfExtents": {"x": 1.75, "y": 1.0, "z": 1.88},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "Rotated ~45°; alternative to cylinder for precision"
+  },
+  {
+    "id": "windmill_base_building",
+    "type": "box",
+    "center": {"x": 17.87, "y": 0, "z": 18.96},
+    "halfExtents": {"x": 3.57, "y": 1.0, "z": 2.57},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "Rotated ~45°; alternative to cylinder"
+  },
+  {
+    "id": "wood",
+    "type": "box",
+    "center": {"x": 20.29, "y": 0, "z": 0.28},
+    "halfExtents": {"x": 2.62, "y": 1.0, "z": 2.0},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "Rotated; use cylinder if no rotation support"
+  },
+  {
+    "id": "barrieres_1",
+    "type": "box",
+    "center": {"x": 14.5, "y": 0, "z": 0.57},
+    "halfExtents": {"x": 2.21, "y": 1.0, "z": 0.75},
+    "rotationY": 0.465,
+    "height": 2.0,
+    "note": "Small rotation; could be cylinder"
+  },
+  {
+    "id": "barrieres_2",
+    "type": "box",
+    "center": {"x": 18.96, "y": 0, "z": -0.98},
+    "halfExtents": {"x": 2.07, "y": 1.0, "z": 1.46},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "Rotated; recommend cylinder if no OBB support"
+  },
+  {
+    "id": "forest_zone_1",
+    "type": "box",
+    "center": {"x": 19.79, "y": 0, "z": -9.41},
+    "halfExtents": {"x": 5.04, "y": 1.0, "z": 3.72},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "LARGE zone with 45° rotation; may need split into 2 zones"
+  },
+  {
+    "id": "forest_zone_2",
+    "type": "box",
+    "center": {"x": 21.87, "y": 0, "z": -19.47},
+    "halfExtents": {"x": 2.68, "y": 1.0, "z": 2.57},
+    "rotationY": 0.785,
+    "height": 2.0,
+    "note": "Rotated; use cylinder if no rotation support"
+  }
+]

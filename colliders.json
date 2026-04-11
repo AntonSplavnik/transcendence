@@ -1,0 +1,86 @@
+[
+  {
+    "id": "windmill_extension_square",
+    "type": "cylinder",
+    "center": {
+      "x": 20.51,
+      "y": 0,
+      "z": 15.23
+    },
+    "radius": 1.88,
+    "height": 2.0,
+    "note": "rotated ~45° (deviation 1.52m from axis-aligned corners)"
+  },
+  {
+    "id": "windmill_base_building",
+    "type": "cylinder",
+    "center": {
+      "x": 17.87,
+      "y": 0,
+      "z": 18.96
+    },
+    "radius": 3.57,
+    "height": 2.0,
+    "note": "rotated ~45° (deviation 1.55m)"
+  },
+  {
+    "id": "wood",
+    "type": "cylinder",
+    "center": {
+      "x": 20.29,
+      "y": 0,
+      "z": 0.28
+    },
+    "radius": 2.62,
+    "height": 2.0,
+    "note": "rotated (deviation 1.71m)"
+  },
+  {
+    "id": "barrieres_1",
+    "type": "cylinder",
+    "center": {
+      "x": 14.5,
+      "y": 0,
+      "z": 0.57
+    },
+    "radius": 2.21,
+    "height": 2.0,
+    "note": "rotated (deviation 0.49m)"
+  },
+  {
+    "id": "barrieres_2",
+    "type": "cylinder",
+    "center": {
+      "x": 18.96,
+      "y": 0,
+      "z": -0.98
+    },
+    "radius": 2.07,
+    "height": 2.0,
+    "note": "rotated (deviation 1.11m)"
+  },
+  {
+    "id": "forest_zone_1",
+    "type": "cylinder",
+    "center": {
+      "x": 19.79,
+      "y": 0,
+      "z": -9.41
+    },
+    "radius": 5.04,
+    "height": 2.0,
+    "note": "LARGE rotated area (deviation 4.03m) - might need 2 separate cylinders"
+  },
+  {
+    "id": "forest_zone_2",
+    "type": "cylinder",
+    "center": {
+      "x": 21.87,
+      "y": 0,
+      "z": -19.47
+    },
+    "radius": 2.68,
+    "height": 2.0,
+    "note": "rotated (deviation 1.48m)"
+  }
+]

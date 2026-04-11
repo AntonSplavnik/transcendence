@@ -14,6 +14,9 @@ export class GameHUD {
 	private getCharPosition: (id: number) => Vector3 | null;
 	private enemyBarObserver: Observer<Scene> | null = null;
 	private localPlayerID: number;
+	private debugText: any = null;
+	private debugVisible: boolean = false;
+	private savedPoints: { x: number; y: number; z: number }[] = [];
 
 	constructor(scene: Scene, localPlayerID: number, getCharPosition: (playerId: number) => Vector3 | null) {
 		this.scene = scene;
@@ -126,6 +129,23 @@ export class GameHUD {
 			ability1: makeCdBar('ability1', '#3498db'),
 			ability2: makeCdBar('ability2', '#9b59b6'),
 		};
+
+		// Debug coordinates overlay (toggled with F3)
+		const debugTxt = new GUI.TextBlock('debug-coords');
+		debugTxt.text = '';
+		debugTxt.color = '#00ff00';
+		debugTxt.fontSize = 14;
+		debugTxt.fontFamily = 'monospace';
+		debugTxt.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+		debugTxt.textVerticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+		debugTxt.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+		debugTxt.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+		debugTxt.left = '10px';
+		debugTxt.top = '10px';
+		debugTxt.isVisible = false;
+		debugTxt.resizeToFit = true;
+		this.gui.addControl(debugTxt);
+		this.debugText = debugTxt;
 	}
 
 	updateLocalHealth(pct: number): void {
@@ -195,6 +215,32 @@ export class GameHUD {
 				bar.fill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
 			}
 		}
+	}
+
+	toggleDebug(): void {
+		this.debugVisible = !this.debugVisible;
+		if (this.debugText) this.debugText.isVisible = this.debugVisible;
+	}
+
+	updateDebugCoords(pos: Vector3): void {
+		if (!this.debugVisible || !this.debugText) return;
+		this.debugText.text =
+			`X: ${pos.x.toFixed(2)}\nY: ${pos.y.toFixed(2)}\nZ: ${pos.z.toFixed(2)}`;
+	}
+
+	logCurrentPosition(pos: Vector3): void {
+		const point = { x: +pos.x.toFixed(2), y: +pos.y.toFixed(2), z: +pos.z.toFixed(2) };
+		this.savedPoints.push(point);
+		const index = this.savedPoints.length;
+		console.log(`[ColliderPoint #${index}]`, point);
+		console.log(`All points so far:`, JSON.stringify(this.savedPoints));
+		navigator.clipboard.writeText(JSON.stringify(point))
+			.then(() => console.log('Copied to clipboard!'))
+			.catch(() => {});
+	}
+
+	isDebugVisible(): boolean {
+		return this.debugVisible;
 	}
 
 	dispose(): void {

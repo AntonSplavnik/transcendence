@@ -1,0 +1,85 @@
+# Feuille de collecte - Colliders Map
+# Remplis ce fichier au fur et à mesure que tu relèves les points
+
+## Zone 1: [NOM DE L'OBSTACLE]
+Position 1 (coin NW): 
+Position 2 (coin NE): 
+Position 3 (coin SW): 
+Position 4 (coin SE): 
+Notes: 
+
+Calcul min/max:
+minX = 
+maxX = 
+minZ = 
+maxZ = 
+center = (,)
+halfExtents = (,)
+
+---
+
+## Zone 2: [NOM DE L'OBSTACLE]
+Position 1 (coin NW): 
+Position 2 (coin NE): 
+Position 3 (coin SW): 
+Position 4 (coin SE): 
+Notes: 
+
+Calcul min/max:
+minX = 
+maxX = 
+minZ = 
+maxZ = 
+center = (,)
+halfExtents = (,)
+
+---
+
+## Zone 3: [NOM DE L'OBSTACLE]
+Position 1 (coin NW): 
+Position 2 (coin NE): 
+Position 3 (coin SW): 
+Position 4 (coin SE): 
+Notes: 
+
+Calcul min/max:
+minX = 
+maxX = 
+minZ = 
+maxZ = 
+center = (,)
+halfExtents = (,)
+
+---
+
+## Zone 4: [NOM DE L'OBSTACLE]
+Position 1 (coin NW): 
+Position 2 (coin NE): 
+Position 3 (coin SW): 
+Position 4 (coin SE): 
+Notes: 
+
+Calcul min/max:
+minX = 
+maxX = 
+minZ = 
+maxZ = 
+center = (,)
+halfExtents = (,)
+
+---
+
+## Zone 5: [NOM DE L'OBSTACLE]
+Position 1 (coin NW): 
+Position 2 (coin NE): 
+Position 3 (coin SW): 
+Position 4 (coin SE): 
+Notes: 
+
+Calcul min/max:
+minX = 
+maxX = 
+minZ = 
+maxZ = 
+center = (,)
+halfExtents = (,)

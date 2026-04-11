@@ -61,6 +61,18 @@ export class GameClient {
 		}
 	}
 
+	toggleDebug(): void {
+		this.hud.toggleDebug();
+	}
+
+	updateDebugCoords(): void {
+		this.hud.updateDebugCoords(this.mgr.position);
+	}
+
+	logCurrentPosition(): void {
+		this.hud.logCurrentPosition(this.mgr.position);
+	}
+
 	async initLocalPlayer(): Promise<void> {
 		await this.mgr.initLocalPlayer(this.characterConfig);
 		// Attach audio listener to the player (not the camera) so spatial
