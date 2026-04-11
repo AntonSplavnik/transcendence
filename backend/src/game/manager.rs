@@ -415,9 +415,9 @@ impl GameManager {
             .collect()
     }
 
-    pub fn user_lobby(&self, user_id: i32) -> Option<Ulid> {
-        self.state.lock().user_lobby.get(&user_id).copied()
-    }
+    // pub fn user_lobby(&self, user_id: i32) -> Option<Ulid> {
+    //     self.state.lock().user_lobby.get(&user_id).copied()
+    // }
 
     /// Called synchronously when the countdown finishes.
     /// Spawns an async task that opens all streams and starts the game.

@@ -6,5 +6,5 @@ pub mod manager;
 mod messages;
 mod router;
 
-pub use manager::{GameError, GameManager, GameManagerDepotExt};
+pub use manager::{GameError, GameManager};
 pub use router::router;

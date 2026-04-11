@@ -180,9 +180,9 @@ impl Scribe for ApiError {
                     | GameError::LobbyFull
                     | GameError::SettingsLocked
                     | GameError::LobbyMismatch => StatusError::bad_request().brief(variant),
-                    GameError::NotInLobby
-                    | GameError::LobbyNotFound
-                    | GameError::NotAPlayer => StatusError::not_found().brief(variant),
+                    GameError::NotInLobby | GameError::LobbyNotFound | GameError::NotAPlayer => {
+                        StatusError::not_found().brief(variant)
+                    }
                     GameError::NotHost => StatusError::forbidden().brief(variant),
                     GameError::Stream(err) => {
                         tracing::error!(error = ?err, "game stream error");

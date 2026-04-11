@@ -87,7 +87,7 @@ mod bridge {
 
         fn create_bridge() -> UniquePtr<GameBridge>;
         fn start(self: Pin<&mut GameBridge>, mode: GameModeType);
-        fn stop(self: Pin<&mut GameBridge>);
+        // fn stop(self: Pin<&mut GameBridge>);
         fn update(self: Pin<&mut GameBridge>);
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
@@ -268,9 +268,9 @@ impl GameHandle {
         self.game.pin_mut().start(mode.into());
     }
 
-    pub fn stop(&mut self) {
-        self.game.pin_mut().stop();
-    }
+    // pub fn stop(&mut self) {
+    //     self.game.pin_mut().stop();
+    // }
 
     pub fn update(&mut self) {
         self.game.pin_mut().update();

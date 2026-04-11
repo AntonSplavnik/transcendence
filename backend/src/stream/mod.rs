@@ -41,12 +41,12 @@ pub use sink::{
     ConfirmedBatchError, ConfirmedSendError, DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink,
 };
 #[allow(unused_imports)]
+pub use stream_group::StreamGroup;
+#[allow(unused_imports)]
 pub use stream_manager::{
     Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
     connect_stream, router, webtransport_router,
 };
-#[allow(unused_imports)]
-pub use stream_group::StreamGroup;
 #[allow(unused_imports)]
 pub use stream_room::{JoinError, RoomProtocol, StreamRoom};
 // Renamed to avoid collision with potential StreamRoom SendError types.
