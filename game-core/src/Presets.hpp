@@ -102,20 +102,19 @@ namespace Presets {
 			.criticalChance     = 0.35f,   // high crit — glass cannon
 			.criticalMultiplier = 2.0f,
 			.attackChain = {
-				// Stage 0 — quick jab: fast opener, mobile
-				{ .damageMultiplier=0.75f, .range=1.6f, .duration=0.30f,
-				  .movementMultiplier=0.4f, .chainWindow=0.5f, .staminaCost=6.0f },
-				// Stage 1 — cross slash: fast follow-up
-				{ .damageMultiplier=0.85f, .range=1.7f, .duration=0.32f,
-				  .movementMultiplier=0.4f, .chainWindow=0.45f, .staminaCost=8.0f },
-				// Stage 2 — double stab: finisher, chain resets (chainWindow=0)
-				{ .damageMultiplier=1.3f, .range=1.5f, .duration=0.40f,
+				// Stage 0 — chop: fast opener, mobile
+				{ .damageMultiplier=0.8f, .range=1.7f, .duration=0.5f,
+				  .movementMultiplier=0.4f, .chainWindow=0.5f, .staminaCost=8.0f },
+				// Stage 1 — slice: heavier finisher, chain resets (chainWindow=0)
+				{ .damageMultiplier=1.3f, .range=1.8f, .duration=0.6f,
 				  .movementMultiplier=0.3f, .chainWindow=0.0f, .staminaCost=14.0f },
 			},
-			.skill1 = { .params = MeleeAOE{ .range=1.8f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
-			            .cooldown=4.0f, .castDuration=0.35f, .staminaCost=15.0f },
-			.skill2 = { .params = MeleeAOE{ .range=2.2f, .movementMultiplier=0.8f, .dmgMultiplier=1.4f },
-			            .cooldown=8.0f, .castDuration=0.40f, .staminaCost=22.0f },
+			// Skill 1 — dash stab: quick forward lunge
+			.skill1 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
+			            .cooldown=4.0f, .castDuration=0.40f, .staminaCost=15.0f },
+			// Skill 2 — kick: close-range knockback/disengage tool
+			.skill2 = { .params = MeleeAOE{ .range=1.4f, .movementMultiplier=0.2f, .dmgMultiplier=1.0f },
+			            .cooldown=6.0f, .castDuration=0.45f, .staminaCost=12.0f },
 		},
 	};
 /*
