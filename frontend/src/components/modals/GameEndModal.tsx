@@ -45,7 +45,13 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 			closable={false}
 			maxWidth="lg"
 			footer={
-				<Button variant="primary" fullWidth onClick={handleLeave}>
+				<Button
+					variant="primary"
+					fullWidth
+					onClick={handleLeave}
+					autoFocus
+					aria-label="Return to Lobby"
+				>
 					Return to Lobby ({secondsLeft}s)
 				</Button>
 			}
@@ -53,8 +59,9 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 			{sorted.length > 0 ? (
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
+						<caption className="sr-only">Match results leaderboard</caption>
 						<thead>
-							<tr className="bg-stone-800/60 text-stone-400 text-xs uppercase tracking-wider">
+							<tr className="bg-stone-800/60 text-stone-300 text-xs uppercase tracking-wider">
 								<th className="px-3 py-2 text-left">#</th>
 								<th className="px-3 py-2 text-left">Player</th>
 								<th className="px-3 py-2 text-left">Class</th>
@@ -71,6 +78,7 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 								return (
 									<tr
 										key={p.player_id}
+										aria-current={isLocal ? 'true' : undefined}
 										className={
 											isLocal
 												? 'bg-gold-400/10 border-l-2 border-l-gold-400 border-b border-stone-700/50'
@@ -85,14 +93,20 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 										<td className="px-3 py-2 text-stone-200 font-medium">
 											{p.name}
 											{isLocal && (
-												<span className="ml-1.5 text-xs text-gold-400">(you)</span>
+												<span className="ml-1.5 text-xs text-gold-400">
+													(you)
+												</span>
 											)}
 										</td>
-										<td className="px-3 py-2 text-stone-400 capitalize">
+										<td className="px-3 py-2 text-stone-300 capitalize">
 											{p.character_class}
 										</td>
-										<td className="px-3 py-2 text-right text-stone-200">{p.kills}</td>
-										<td className="px-3 py-2 text-right text-stone-200">{p.deaths}</td>
+										<td className="px-3 py-2 text-right text-stone-200">
+											{p.kills}
+										</td>
+										<td className="px-3 py-2 text-right text-stone-200">
+											{p.deaths}
+										</td>
 										<td className="px-3 py-2 text-right text-stone-200">
 											{Math.round(p.damage_dealt)}
 										</td>
@@ -106,7 +120,12 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 					</table>
 				</div>
 			) : (
-				<p className="text-stone-400 text-center py-6">Match complete!</p>
+				<p className="text-stone-300 text-center py-6">Match complete!</p>
+			)}
+			{secondsLeft === 10 && (
+				<span className="sr-only" role="alert">
+					Returning to lobby in 10 seconds
+				</span>
 			)}
 		</Modal>
 	);
