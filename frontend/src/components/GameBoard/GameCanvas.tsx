@@ -1,4 +1,5 @@
 import type { Engine, Scene, UniversalCamera } from '@babylonjs/core';
+import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
@@ -9,6 +10,7 @@ import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
 import type { GameAudioHandle } from '@/audio/AudioProvider';
 
+declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
 
 // ── Scene setup ─────────────────────────────────────────────────────
