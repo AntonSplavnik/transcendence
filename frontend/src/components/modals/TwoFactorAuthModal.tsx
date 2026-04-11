@@ -141,7 +141,7 @@ export default function TwoFactorModal({ user, onClose, onSuccess }: TwoFactorMo
 			await navigator.clipboard.writeText(text);
 			setCopiedCodes(true);
 		} catch (err) {
-			console.error('Failed to copy recovery codes:', err);
+			console.warn('Failed to copy recovery codes:', err);
 		}
 	};
 

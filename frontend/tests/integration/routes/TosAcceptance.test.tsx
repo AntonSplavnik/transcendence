@@ -73,6 +73,7 @@ describe('ToS acceptance flow', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		localStorage.setItem('auth_hint', '1');
 	});
 
 	/**

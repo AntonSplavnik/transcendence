@@ -230,7 +230,7 @@ describe('error utilities', () => {
 		it('returns null and clears invalid JSON', () => {
 			localStorage.setItem('auth_error', 'invalid json');
 
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 			expect(retrieveStoredError()).toBeNull();
 			expect(localStorage.getItem('auth_error')).toBeNull();
 			expect(consoleSpy).toHaveBeenCalled();
