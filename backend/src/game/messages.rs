@@ -1,4 +1,4 @@
-use super::ffi::{CharacterClass, GameStateSnapshot, Vector3D};
+use super::ffi::{CharacterClass, GameStateSnapshot, PlayerMatchStatsPayload, Vector3D};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent FROM server TO client over the game stream
@@ -38,8 +38,10 @@ pub enum GameServerMessage {
     /// A player activated a skill
     SkillUsed { player_id: u32, skill_slot: u8 },
 
-    /// The match has ended
-    MatchEnd,
+    /// The match has ended — carries the final per-player stats leaderboard.
+    MatchEnd {
+        players: Vec<PlayerMatchStatsPayload>,
+    },
 
     /// Error occurred during gameplay
     Error { message: String },

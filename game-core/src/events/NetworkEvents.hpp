@@ -3,6 +3,7 @@
 #include "../GameTypes.hpp"
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace ArenaGame {
 namespace NetEvents {
@@ -29,7 +30,20 @@ struct StateChangeEvent {
 	CharacterState state;
 };
 
-struct MatchEndEvent {};
+struct PlayerMatchStats {
+	PlayerID    playerID;
+	std::string name;
+	std::string characterClass;
+	int         kills;
+	int         deaths;
+	float       damageDealt;
+	float       damageTaken;
+	int         placement;
+};
+
+struct MatchEndEvent {
+	std::vector<PlayerMatchStats> players;
+};
 
 // Emitted by CombatSystem when a player starts an attack swing.
 struct AttackStartedEvent {

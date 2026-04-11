@@ -207,7 +207,6 @@ public:
 			m_killCounts[e.killer]++;
 			if (m_killCounts[e.killer] >= m_killLimit) {
 				m_over = true;
-				gm.matchStatus = MatchStatus::Over;
 			}
 		}
 
