@@ -1,26 +1,26 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import {
 	ArrowLeft,
-	LogOut,
 	Key,
-	Monitor,
 	Lock,
-	Trash2,
-	ShieldAlert,
+	LogOut,
+	Monitor,
 	RefreshCw,
+	ShieldAlert,
+	Trash2,
 } from 'lucide-react';
-import { Button, Card, Badge, Input, Alert, InfoBlock, LoadingSpinner, Modal } from './ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getErrorMessage } from '../api/error';
+import type { Session } from '../api/types';
 import {
 	changePassword,
-	getSessions,
-	logoutSessions,
-	logoutOtherSessions,
 	deleteSessions,
+	getSessions,
+	logoutOtherSessions,
+	logoutSessions,
 } from '../api/user';
-import { getErrorMessage } from '../api/error';
+import { useAuth } from '../contexts/AuthContext';
 import { validateMfaCode } from '../utils/validation';
-import type { Session } from '../api/types';
+import { Alert, Badge, Button, Card, InfoBlock, Input, LoadingSpinner, Modal } from './ui';
 
 interface SessionManagementProps {
 	onBack: () => void;

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>TRANSCENDENCE</title>
+  <!-- Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * ws: wss: gap: data: file: http: https: blob:; style-src * 'unsafe-inline' ws: wss: gap: data: file: http: https: blob:; script-src * 'unsafe-inline' 'unsafe-eval' ws: wss: gap: data: file: http: https: blob:" />
+  <!-- Caches -->
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- Default -->
+  <meta name="edge" content="IE=edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, shrink-to-fit=no, user-scalable=no, viewport-fit=cover">
+  <meta name="browsermode" content="application">
+  <meta name="description" content="TRANSCENDENCE">
+  <meta name="theme-color" content="#2A2342">
+  <!-- Apple -->
+  <meta name="apple-mobile-web-app-title" content="TRANSCENDENC">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- Android  -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- Windows  -->
+  <meta name="application-name" content="TRANSCENDENCE">
+  <meta name="msapplication-navbutton-color" content="#2A2342">
+  <meta name="msapplication-tooltip" content="TRANSCENDENCE">
+  <meta name="msapplication-starturl" content=".">
+  <meta name="msapplication-TileColor" content="#2A2342">
+  <meta name="msapplication-tap-highlight" content="no">
+    <!-- Favorite -->
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
+    <!-- Toaster - https://github.com/dolce/iziToast -->
+    <link href="css/toaster.css" rel="stylesheet" type="text/css">
+    
+    <link rel="stylesheet" type="text/css" href="style.css" nonce="none">
+    <link rel="stylesheet" type="text/css" href="splash.css" nonce="none">
+    <link rel="stylesheet" type="text/css" href="custom.css" nonce="none">
+    <style>
+      #logo {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 210px;
+          height: 182px;
+          min-width: 210px;
+          min-height: 182px;
+          margin-top: -368px;
+          margin-left: -105px;
+          z-index: 10802;
+      }
+      #link {
+          position: absolute;
+          left: 50%;
+          bottom: 1%;
+          width: 200px;
+          height: 50px;
+          min-width: 200px;
+          min-height: 50px;
+          margin-bottom: -25px;
+          margin-left: -55px;
+          font-size: 10px;
+          cursor: pointer;
+          z-index: 10802;
+      }
+    </style>
+</head>
+<body touch-action="none">
+  <img id="logo" src="images/spinner.png"></img>
+  <script type="text/javascript" src="scripts/zmobile.js"></script>
+  <script type="text/javascript" nonce="none">
+    window.getUrlParameter = (name) => {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        var results = regex.exec(window.location.search);
+        return (results !== null) ? decodeURIComponent(results[1].replace(/\+/g, ' ')) : null;
+    };
+    var desktop = false;
+    window.desktopUrl = "index.html";
+    if (window.location.search != null) {
+      window.desktopUrl += window.location.search;
+    }
+    if (window.desktopUrl.indexOf("?") >= 0) {
+      window.desktopUrl += "&desktop=yes";
+    } else {
+      window.desktopUrl += "?desktop=yes";
+    }
+    if (desktop === true) {
+      var link = document.createElement("span");
+      link.id = "link";
+      link.innerHTML = "Open Desktop Version";
+      link.style.color = "#FFFFFF";
+      link.style.textDecoration = "underline";
+      link.addEventListener("click", function() { window.top.location.replace(window.desktopUrl); });
+      document.body.appendChild(link);
+    }
+    var url = "" + (window.getUrlParameter("url") || window.top.location.href);
+    var label = document.getElementById("status");
+    if (label) label.innerHTML = url;
+    var title = "hidden";
+    window["MobileOnly"].showUI({ header: (title === "visible") ? "TRANSCENDENCE" : " ", instructions: "Use your phone's camera to scan the code below", footer: "or visit", url: url });
+  </script>
+</body>
+</html>

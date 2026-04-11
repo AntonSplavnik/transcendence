@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react-swc'
 import { defineConfig } from 'vite'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,11 +9,17 @@ export default defineConfig({
 		pure: ['console.log', 'console.debug', 'console.info', 'console.warn'],
 	},
 	optimizeDeps: {
-		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm'],
+		exclude: ['@jsquash/resize', '@jsquash/avif', '@bokuweb/zstd-wasm', '@babylonjs/core'],
 	},
 	worker: {
 		format: 'es'
 	},
+	resolve: {
+		alias: {
+			'@': path.resolve(__dirname, './src'),
+		},
+	},
+	assetsInclude: ['**/*.glb', '**/*.gltf'],
 	server: {
 		port: 5173,
 		strictPort: true,
@@ -23,5 +30,5 @@ export default defineConfig({
 				secure: false,
 			},
 		},
-	},
+	}
 })

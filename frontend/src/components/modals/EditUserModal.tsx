@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { uploadAvatar, deleteAvatar } from '../../api/avatar';
-import { updateDescription } from '../../api/user';
-import { validateAvatarFile, validateDescription } from '../../utils/validation';
+import { useEffect, useRef, useState } from 'react';
+import { deleteAvatar, uploadAvatar } from '../../api/avatar';
 import { getErrorMessage } from '../../api/error';
-import { convertToAvatarAvif } from '../../utils/avatarConverter';
-import type { AvatarVariants } from '../../utils/avatarConverter';
 import type { User } from '../../api/types';
+import { updateDescription } from '../../api/user';
+import type { AvatarVariants } from '../../utils/avatarConverter';
+import { convertToAvatarAvif } from '../../utils/avatarConverter';
+import { validateAvatarFile, validateDescription } from '../../utils/validation';
+import { Alert, Button, Modal } from '../ui';
 import AvatarDisplay from '../ui/AvatarDisplay';
-import { Button, Modal, Alert } from '../ui';
 
 interface EditProfileProps {
 	user: User;

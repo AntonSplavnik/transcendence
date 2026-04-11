@@ -10,6 +10,56 @@
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <div id="root"></div>
+    <script src="/scenes/Export/scripts/babylon.min.js"></script>
+    <script src="/scenes/Export/scripts/babylon.gltf.min.js"></script>
+    <script src="/scenes/Export/scripts/babylon.gui.min.js"></script>
+    <script src="/scenes/Export/scripts/babylon.materials.min.js"></script>
+    <script src="/scenes/Export/scripts/babylon.addons.min.js"></script>
+    <script src="/scenes/Export/scripts/havokphysics_umd.js"></script>
+    <script>
+      // babylon.toolkit.js calls BABYLON.HavokPhysics() during glTF scene
+      // parsing (Forest.gltf has physics metadata). The newer
+      // havokphysics_umd.js publishes its factory on globalThis.HavokPhysics,
+      // not BABYLON.HavokPhysics, so the toolkit throws a TypeError. We can't
+      // suppress the call (BABYLON.HavokPlugin is a non-configurable webpack
+      // getter, so delete/reassignment silently fail), so bridge the factory
+      // onto BABYLON so the await resolves cleanly.
+      if (typeof window.HavokPhysics === 'function') {
+        window.BABYLON.HavokPhysics = window.HavokPhysics;
+      }
+    </script>
+    <script src="/scenes/Export/scripts/babylon.toolkit.js"></script>
+    <script>
+      // babylon.toolkit.js calls ConfigurePhysicsEngine fire-and-forget from
+      // preProcessSceneProperties, then runs postProcessSceneComponents in the
+      // same tick — so DoProcessPendingPhysics checks isPhysicsEnabled() while
+      // the async Havok init is still pending and warns "Physics engine not
+      // loaded." Nothing in this app uses Havok impostors, so filter the known
+      // toolkit Havok noise at the logger level. Remove this block if the app
+      // ever starts consuming the toolkit's physics integration.
+      (function () {
+        var suppressedSubstrings = [
+          'Havok.js physics library not loaded',
+          'Physics engine not loaded. Physics impostors will not be created',
+          'Havok.js initialized with sub time step',
+          'Havok.js initialized with a heap size',
+        ];
+        function shouldSuppress(msg) {
+          return typeof msg === 'string' &&
+            suppressedSubstrings.some(function (s) { return msg.indexOf(s) !== -1; });
+        }
+        var originalWarn = BABYLON.Tools.Warn.bind(BABYLON.Tools);
+        var originalLog = BABYLON.Tools.Log.bind(BABYLON.Tools);
+        BABYLON.Tools.Warn = function (msg) {
+          if (shouldSuppress(msg)) return;
+          return originalWarn.apply(null, arguments);
+        };
+        BABYLON.Tools.Log = function (msg) {
+          if (shouldSuppress(msg)) return;
+          return originalLog.apply(null, arguments);
+        };
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
