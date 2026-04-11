@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 // ModelPreview uses BabylonJS + WebGL which are unavailable in jsdom
 vi.mock('@/components/ui/ModelPreview', () => ({ default: () => null }));
