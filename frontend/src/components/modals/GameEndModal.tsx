@@ -18,7 +18,12 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 	const hasLeftRef = useRef(false);
 
 	useEffect(() => {
-		const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
+		const id = setInterval(() => {
+			setSecondsLeft((s) => {
+				if (s <= 1) clearInterval(id);
+				return Math.max(0, s - 1);
+			});
+		}, 1000);
 		return () => clearInterval(id);
 	}, []);
 
@@ -50,9 +55,9 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 					fullWidth
 					onClick={handleLeave}
 					autoFocus
-					aria-label="Return to Lobby"
+					aria-label="Return"
 				>
-					Return to Lobby ({secondsLeft}s)
+					Return ({secondsLeft}s)
 				</Button>
 			}
 		>
