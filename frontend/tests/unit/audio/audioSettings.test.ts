@@ -30,14 +30,16 @@ describe('audioSettings', () => {
 				JSON.stringify({
 					musicVolume: 0.25,
 					uiVolume: 0.9,
-					inGameVolume: 0.4,
+					inGameMusicVolume: 0.4,
+					inGameSfxVolume: 0.6,
 					muted: true,
 				}),
 			);
 			expect(loadAudioSettings()).toEqual({
 				musicVolume: 0.25,
 				uiVolume: 0.9,
-				inGameVolume: 0.4,
+				inGameMusicVolume: 0.4,
+				inGameSfxVolume: 0.6,
 				muted: true,
 			});
 		});
@@ -60,20 +62,48 @@ describe('audioSettings', () => {
 			expect(loadAudioSettings().uiVolume).toBe(0);
 		});
 
-		it('clamps inGameVolume to [0, 1]', () => {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: 3 }));
-			expect(loadAudioSettings().inGameVolume).toBe(1);
+		it('clamps inGameMusicVolume to [0, 1]', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameMusicVolume: 3 }));
+			expect(loadAudioSettings().inGameMusicVolume).toBe(1);
 
-			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: -1 }));
-			expect(loadAudioSettings().inGameVolume).toBe(0);
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameMusicVolume: -1 }));
+			expect(loadAudioSettings().inGameMusicVolume).toBe(0);
 		});
 
-		it('falls back to default inGameVolume when missing or invalid', () => {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
-			expect(loadAudioSettings().inGameVolume).toBe(DEFAULT_AUDIO_SETTINGS.inGameVolume);
+		it('clamps inGameSfxVolume to [0, 1]', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameSfxVolume: 3 }));
+			expect(loadAudioSettings().inGameSfxVolume).toBe(1);
 
-			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: 'loud' }));
-			expect(loadAudioSettings().inGameVolume).toBe(DEFAULT_AUDIO_SETTINGS.inGameVolume);
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameSfxVolume: -1 }));
+			expect(loadAudioSettings().inGameSfxVolume).toBe(0);
+		});
+
+		it('falls back to default in-game volumes when missing or invalid', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
+			expect(loadAudioSettings().inGameMusicVolume).toBe(
+				DEFAULT_AUDIO_SETTINGS.inGameMusicVolume,
+			);
+			expect(loadAudioSettings().inGameSfxVolume).toBe(
+				DEFAULT_AUDIO_SETTINGS.inGameSfxVolume,
+			);
+
+			localStorage.setItem(
+				STORAGE_KEY,
+				JSON.stringify({ inGameMusicVolume: 'loud', inGameSfxVolume: 'loud' }),
+			);
+			expect(loadAudioSettings().inGameMusicVolume).toBe(
+				DEFAULT_AUDIO_SETTINGS.inGameMusicVolume,
+			);
+			expect(loadAudioSettings().inGameSfxVolume).toBe(
+				DEFAULT_AUDIO_SETTINGS.inGameSfxVolume,
+			);
+		});
+
+		it('migrates legacy inGameVolume to both in-game volume fields', () => {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ inGameVolume: 0.4 }));
+			const s = loadAudioSettings();
+			expect(s.inGameMusicVolume).toBe(0.4);
+			expect(s.inGameSfxVolume).toBe(0.4);
 		});
 
 		it('falls back to default for non-number volume fields', () => {
@@ -96,7 +126,8 @@ describe('audioSettings', () => {
 			expect(loadAudioSettings()).toEqual({
 				musicVolume: DEFAULT_AUDIO_SETTINGS.musicVolume,
 				uiVolume: DEFAULT_AUDIO_SETTINGS.uiVolume,
-				inGameVolume: DEFAULT_AUDIO_SETTINGS.inGameVolume,
+				inGameMusicVolume: DEFAULT_AUDIO_SETTINGS.inGameMusicVolume,
+				inGameSfxVolume: DEFAULT_AUDIO_SETTINGS.inGameSfxVolume,
 				muted: true,
 			});
 		});
@@ -124,7 +155,8 @@ describe('audioSettings', () => {
 			saveAudioSettings({
 				musicVolume: 0.1,
 				uiVolume: 0.2,
-				inGameVolume: 0.3,
+				inGameMusicVolume: 0.3,
+				inGameSfxVolume: 0.4,
 				muted: false,
 			});
 			const raw = localStorage.getItem(STORAGE_KEY);
@@ -132,7 +164,8 @@ describe('audioSettings', () => {
 			expect(JSON.parse(raw!)).toEqual({
 				musicVolume: 0.1,
 				uiVolume: 0.2,
-				inGameVolume: 0.3,
+				inGameMusicVolume: 0.3,
+				inGameSfxVolume: 0.4,
 				muted: false,
 			});
 		});
@@ -141,7 +174,8 @@ describe('audioSettings', () => {
 			const input = {
 				musicVolume: 0.42,
 				uiVolume: 0.77,
-				inGameVolume: 0.55,
+				inGameMusicVolume: 0.55,
+				inGameSfxVolume: 0.66,
 				muted: true,
 			};
 			saveAudioSettings(input);
@@ -158,7 +192,8 @@ describe('audioSettings', () => {
 					saveAudioSettings({
 						musicVolume: 0.5,
 						uiVolume: 0.5,
-						inGameVolume: 0.5,
+						inGameMusicVolume: 0.5,
+						inGameSfxVolume: 0.5,
 						muted: false,
 					}),
 				).not.toThrow();
