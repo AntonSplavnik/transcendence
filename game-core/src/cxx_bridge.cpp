@@ -192,4 +192,23 @@ SkillUsedEvent EventQueue::get_skill_used_at(size_t idx) const {
     return SkillUsedEvent{ ev.playerID, ev.skillSlot };
 }
 
+MatchEndEvent EventQueue::get_match_end_at(size_t idx) const {
+    const auto& ev = std::get<::ArenaGame::NetEvents::MatchEndEvent>(events[idx]);
+    MatchEndEvent out;
+    out.players.reserve(ev.players.size());
+    for (const auto& p : ev.players) {
+        out.players.push_back(PlayerMatchStats{
+            /* player_id        */ p.playerID,
+            /* name             */ rust::String(p.name),
+            /* character_class  */ rust::String(p.characterClass),
+            /* kills            */ p.kills,
+            /* deaths           */ p.deaths,
+            /* damage_dealt     */ p.damageDealt,
+            /* damage_taken     */ p.damageTaken,
+            /* placement        */ p.placement,
+        });
+    }
+    return out;
+}
+
 } // namespace arena_game

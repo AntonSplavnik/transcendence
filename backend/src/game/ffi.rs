@@ -96,6 +96,21 @@ mod bridge {
         skill_slot: u8,
     }
 
+    struct PlayerMatchStats {
+        player_id: u32,
+        name: String,
+        character_class: String,
+        kills: i32,
+        deaths: i32,
+        damage_dealt: f32,
+        damage_taken: f32,
+        placement: i32,
+    }
+
+    struct MatchEndEvent {
+        players: Vec<PlayerMatchStats>,
+    }
+
     unsafe extern "C++" {
         include!("cxx_bridge.hpp");
 
@@ -124,6 +139,7 @@ mod bridge {
         fn get_state_change_at(self: &EventQueue, idx: usize) -> StateChangeEvent;
         fn get_attack_started_at(self: &EventQueue, idx: usize) -> AttackStartedEvent;
         fn get_skill_used_at(self: &EventQueue, idx: usize) -> SkillUsedEvent;
+        fn get_match_end_at(self: &EventQueue, idx: usize) -> MatchEndEvent;
 
         fn take_events(self: Pin<&mut GameBridge>) -> UniquePtr<EventQueue>;
     }
@@ -269,6 +285,18 @@ impl From<bridge::GameStateSnapshot> for GameStateSnapshot {
 // =============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PlayerMatchStatsPayload {
+    pub player_id: u32,
+    pub name: String,
+    pub character_class: String,
+    pub kills: i32,
+    pub deaths: i32,
+    pub damage_dealt: f32,
+    pub damage_taken: f32,
+    pub placement: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum NetworkEvent {
     Death {
@@ -289,7 +317,9 @@ pub enum NetworkEvent {
         player_id: u32,
         state: u8,
     },
-    MatchEnd,
+    MatchEnd {
+        players: Vec<PlayerMatchStatsPayload>,
+    },
     AttackStarted {
         player_id: u32,
         chain_stage: u8,
@@ -418,7 +448,25 @@ impl GameHandle {
                         state: e.state,
                     }
                 }
-                bridge::NetworkEventType::MatchEnd => NetworkEvent::MatchEnd,
+                bridge::NetworkEventType::MatchEnd => {
+                    let e = queue.get_match_end_at(i);
+                    NetworkEvent::MatchEnd {
+                        players: e
+                            .players
+                            .into_iter()
+                            .map(|p| PlayerMatchStatsPayload {
+                                player_id: p.player_id,
+                                name: p.name,
+                                character_class: p.character_class,
+                                kills: p.kills,
+                                deaths: p.deaths,
+                                damage_dealt: p.damage_dealt,
+                                damage_taken: p.damage_taken,
+                                placement: p.placement,
+                            })
+                            .collect(),
+                    }
+                }
                 bridge::NetworkEventType::AttackStarted => {
                     let e = queue.get_attack_started_at(i);
                     NetworkEvent::AttackStarted { player_id: e.player_id, chain_stage: e.chain_stage }

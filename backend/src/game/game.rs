@@ -156,7 +156,7 @@ impl Game {
                     NetworkEvent::SkillUsed { player_id, skill_slot } => {
                         GameServerMessage::SkillUsed { player_id, skill_slot }
                     }
-                    NetworkEvent::MatchEnd => GameServerMessage::MatchEnd,
+                    NetworkEvent::MatchEnd { players } => GameServerMessage::MatchEnd { players },
                 });
                 broadcast(msg);
             }
