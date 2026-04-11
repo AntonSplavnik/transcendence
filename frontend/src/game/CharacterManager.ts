@@ -1,5 +1,4 @@
 import type { Scene, Vector3 } from '@babylonjs/core';
-import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import type { Vector3D } from './types';
 import { AnimatedCharacter, loadCharacter } from './AnimatedCharacter';
@@ -7,8 +6,6 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from './characterConfigs';
 import type { CharacterConfig } from './characterConfigs';
 import { AnimationStateMachine, AnimPhase, JumpState } from './AnimationStateMachine';
 import { AnimationNames } from './constants';
-
-declare const BABYLON: typeof BabylonType;
 
 export class CharacterManager {
 	// ── Public fields ───────────────────────────────────────────────────
