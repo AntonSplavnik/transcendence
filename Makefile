@@ -6,7 +6,7 @@ CHROME_URL ?= https://localhost:8443
 .PHONY: all lean dev build \
         docker-down docker-clean \
         setup check-cert chrome-dev reset-db \
-        install-prek prek-update prek clean
+        install-prek prek-update prek clean bear
 
 # ── Default: Docker build + run (foreground) ──────────────────
 
@@ -42,13 +42,13 @@ dev: setup
 	@$(COMPOSE) up --build -d
 	@$(MAKE) chrome-dev CHROME_URL=http://localhost:5173 &
 	@trap '$(COMPOSE) down' INT TERM EXIT; \
-	cd frontend && npm install && \
+	cd frontend && npm ci && \
 		VITE_STREAM_URL=https://localhost:8443/api/stream/connect npm run dev
 
 # ── Local build (for cargo check, cargo test, prek) ──────────
 
 build:
-	@cd frontend && npm install && npm run build
+	@cd frontend && npm ci && npm run build
 	@cd backend && cargo build
 
 # ── Docker management ─────────────────────────────────────────
@@ -78,7 +78,9 @@ setup:
 			2>/dev/null; \
 		chmod 644 backend/certs/key.pem backend/certs/cert.pem; \
 		echo "✅ Generated self-signed TLS certificate in backend/certs/."; \
-		if command -v certutil >/dev/null 2>&1; then \
+	fi
+	@if command -v certutil >/dev/null 2>&1; then \
+		if [ -f backend/certs/cert.pem ]; then \
 			mkdir -p $$HOME/.pki/nssdb; \
 			if [ ! -f $$HOME/.pki/nssdb/cert9.db ]; then \
 				certutil -d sql:$$HOME/.pki/nssdb -N -f /dev/null 2>/dev/null; \
@@ -86,11 +88,11 @@ setup:
 			certutil -d sql:$$HOME/.pki/nssdb -D -n "transcendence-dev" -f /dev/null 2>/dev/null || true; \
 			certutil -d sql:$$HOME/.pki/nssdb -A -n "transcendence-dev" -t "CT,," \
 				-i backend/certs/cert.pem -f /dev/null 2>/dev/null; \
-			echo "✅ Certificate registered in user NSS store (Chrome/Firefox will trust it)."; \
-		else \
-			echo "⚠️  certutil not found — install libnss3-tools for browser trust."; \
-			echo "   Until then, browsers will show an untrusted certificate warning."; \
+			echo "✅ Certificate synchronized in user NSS store (Chrome/Firefox will trust it)."; \
 		fi; \
+	else \
+		echo "⚠️  certutil not found — install libnss3-tools for browser trust."; \
+		echo "   Until then, browsers will show an untrusted certificate warning."; \
 	fi
 
 check-cert:
@@ -110,16 +112,6 @@ check-cert:
 
 chrome-dev:
 	@echo "🌐 Launching Chrome dev instance (WebTransport enabled)..."; \
-	CHROME_BIN=""; \
-	for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
-		if command -v $$bin >/dev/null 2>&1; then \
-			CHROME_BIN=$$bin; break; \
-		fi; \
-	done; \
-	if [ -z "$$CHROME_BIN" ]; then \
-		echo "⚠️  No Chrome/Chromium binary found in PATH."; \
-		exit 1; \
-	fi; \
 	SPKI_FLAG=""; \
 	if ! command -v certutil >/dev/null 2>&1; then \
 		SPKI=$$(openssl x509 -in backend/certs/cert.pem -noout -pubkey 2>/dev/null \
@@ -128,19 +120,49 @@ chrome-dev:
 			| base64); \
 		SPKI_FLAG="--ignore-certificate-errors-spki-list=$$SPKI"; \
 	fi; \
-	$$CHROME_BIN \
-		--user-data-dir="/tmp/chrome-dev-wt" \
-		--webtransport-developer-mode \
-		$$SPKI_FLAG \
-		--no-first-run \
-		--no-default-browser-check \
-		--disable-default-apps \
-		--disable-popup-blocking \
-		--disable-translate \
-		--disable-sync \
-		--password-store=basic \
-		"$(CHROME_URL)" \
-		"http://localhost:8025" >/dev/null 2>&1 &
+	if [ "$$(uname)" = "Darwin" ]; then \
+		if ! open -Ra "Google Chrome" >/dev/null 2>&1; then \
+			echo "⚠️  Google Chrome not found. Install it and try again."; \
+			exit 1; \
+		fi; \
+		open -na "Google Chrome" --args \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			$$SPKI_FLAG \
+			"$(CHROME_URL)" \
+			"http://localhost:8025" >/dev/null 2>&1 & \
+	else \
+		CHROME_BIN=""; \
+		for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
+			if command -v $$bin >/dev/null 2>&1; then \
+				CHROME_BIN=$$bin; break; \
+			fi; \
+		done; \
+		if [ -z "$$CHROME_BIN" ]; then \
+			echo "⚠️  No Chrome/Chromium binary found in PATH."; \
+			exit 1; \
+		fi; \
+		$$CHROME_BIN \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			$$SPKI_FLAG \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			"$(CHROME_URL)" \
+			"http://localhost:8025" >/dev/null 2>&1 & \
+	fi
 
 # ── Database management ───────────────────────────────────────
 
@@ -161,6 +183,29 @@ prek-update:
 
 prek:
 	@prek run --all-files --stage manual
+
+# ── C++ language server support ───────────────────────────────
+
+bear:
+	@echo "🐻 Generating compile_commands.json via bear..."
+	@command -v bear >/dev/null 2>&1 || { \
+		echo "❌ bear not found."; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			echo "   Install with: brew install bear"; \
+		else \
+			echo "   Install with: apt install bear"; \
+		fi; \
+		exit 1; \
+	}
+	@cd backend && bear -- cargo build
+	@mv backend/compile_commands.json compile_commands.json
+	@echo "✅ compile_commands.json written to repo root."
+	@echo ""
+	@echo "   VS Code setup:"
+	@echo "   - Recommended: install the clangd extension (llvm-vs-code-extensions.vscode-clangd)"
+	@echo "   - Microsoft C/C++ extension: add to .vscode/settings.json:"
+	@echo '     "C_Cpp.default.compileCommands": ["$${workspaceFolder}/compile_commands.json"]'
+
 
 # ── Cleanup ───────────────────────────────────────────────────
 

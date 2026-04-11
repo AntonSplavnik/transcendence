@@ -29,9 +29,28 @@ export type { ErrorBannerProps } from './ErrorBanner';
 export { default as LoadingSpinner } from './LoadingSpinner';
 export type { LoadingSpinnerProps } from './LoadingSpinner';
 
+// 3D
+export { default as ModelPreview } from './ModelPreview';
+export type { ModelPreviewProps } from './ModelPreview';
+
+export { default as CharacterPicker } from './CharacterPicker';
+export type { CharacterChoice, CharacterPickerProps } from './CharacterPicker';
+
+export { default as PlayerAvatarRow } from './PlayerAvatarRow';
+export type { PlayerAvatarRowProps } from './PlayerAvatarRow';
+
+export { default as ChampionGrid } from './ChampionGrid';
+export type { ChampionGridProps } from './ChampionGrid';
+
+export { default as CharacterStats } from './CharacterStats';
+export type { CharacterStatsProps } from './CharacterStats';
+
+export { default as CharacterSelector } from './CharacterSelector';
+export type { CharacterSelectorProps } from './CharacterSelector';
+
 // Overlay
 export { default as Modal } from './Modal';
 export type { ModalProps } from './Modal';
 
 export { Dropdown, DropdownItem, DropdownSeparator } from './Dropdown';
-export type { DropdownProps, DropdownItemProps } from './Dropdown';
+export type { DropdownItemProps, DropdownProps } from './Dropdown';
