@@ -42,7 +42,7 @@ export default function MusicController() {
 
 		if (desiredAmbient) audio.playAmbient(desiredAmbient);
 		else audio.stopAmbient();
-	}, [pathname, audio.isReady]);
+	}, [pathname, audio]);
 
 	return null;
 }

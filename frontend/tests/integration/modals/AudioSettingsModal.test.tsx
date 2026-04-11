@@ -39,14 +39,16 @@ describe('AudioSettingsModal', () => {
 		expect(screen.getByRole('heading', { name: /audio settings/i })).toBeInTheDocument();
 	});
 
-	it('renders Music, UI and Game Volume sliders with associated labels', () => {
+	it('renders Music, UI and in-game Music/SFX sliders with associated labels', () => {
 		renderModal();
 		const music = screen.getByLabelText('Music Volume');
 		const ui = screen.getByLabelText('UI Volume');
-		const game = screen.getByLabelText('Game Volume');
+		const inGameMusic = screen.getByLabelText('In-Game Music Volume');
+		const inGameSfx = screen.getByLabelText('In-Game SFX Volume');
 		expect(music).toHaveAttribute('type', 'range');
 		expect(ui).toHaveAttribute('type', 'range');
-		expect(game).toHaveAttribute('type', 'range');
+		expect(inGameMusic).toHaveAttribute('type', 'range');
+		expect(inGameSfx).toHaveAttribute('type', 'range');
 	});
 
 	it('groups sliders into Menu and In-Game sections', () => {
@@ -65,10 +67,11 @@ describe('AudioSettingsModal', () => {
 
 	it('shows default values when nothing is stored', () => {
 		renderModal();
-		// Defaults: music 0.5 → 50%, ui 0.7 → 70%, inGame 1.0 → 100%
+		// Defaults: music 0.5 → 50%, ui 0.7 → 70%, in-game music 1.0 → 100%, in-game sfx 1.0 → 100%
 		expect(screen.getByLabelText('Music Volume')).toHaveValue('50');
 		expect(screen.getByLabelText('UI Volume')).toHaveValue('70');
-		expect(screen.getByLabelText('Game Volume')).toHaveValue('100');
+		expect(screen.getByLabelText('In-Game Music Volume')).toHaveValue('100');
+		expect(screen.getByLabelText('In-Game SFX Volume')).toHaveValue('100');
 		expect(screen.getByRole('checkbox', { name: /mute all sounds/i })).not.toBeChecked();
 	});
 
@@ -78,14 +81,16 @@ describe('AudioSettingsModal', () => {
 			JSON.stringify({
 				musicVolume: 0.1,
 				uiVolume: 0.9,
-				inGameVolume: 0.35,
+				inGameMusicVolume: 0.35,
+				inGameSfxVolume: 0.45,
 				muted: true,
 			}),
 		);
 		renderModal();
 		expect(screen.getByLabelText('Music Volume')).toHaveValue('10');
 		expect(screen.getByLabelText('UI Volume')).toHaveValue('90');
-		expect(screen.getByLabelText('Game Volume')).toHaveValue('35');
+		expect(screen.getByLabelText('In-Game Music Volume')).toHaveValue('35');
+		expect(screen.getByLabelText('In-Game SFX Volume')).toHaveValue('45');
 		expect(screen.getByRole('checkbox', { name: /mute all sounds/i })).toBeChecked();
 	});
 
@@ -109,14 +114,23 @@ describe('AudioSettingsModal', () => {
 		expect(stored.uiVolume).toBe(0.8);
 	});
 
-	it('dispatches in-game volume to BOTH sfx and ambient buses and persists', () => {
+	it('dispatches and persists in-game music volume changes', () => {
 		renderModal();
-		fireEvent.change(screen.getByLabelText('Game Volume'), { target: { value: '40' } });
+		fireEvent.change(screen.getByLabelText('In-Game Music Volume'), { target: { value: '40' } });
+
+		expect(setBusVolume).toHaveBeenCalledWith('music_ingame', 0.4);
+		const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+		expect(stored.inGameMusicVolume).toBe(0.4);
+	});
+
+	it('dispatches in-game SFX volume to BOTH sfx and ambient buses and persists', () => {
+		renderModal();
+		fireEvent.change(screen.getByLabelText('In-Game SFX Volume'), { target: { value: '40' } });
 
 		expect(setBusVolume).toHaveBeenCalledWith('sfx', 0.4);
 		expect(setBusVolume).toHaveBeenCalledWith('ambient', 0.4);
 		const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-		expect(stored.inGameVolume).toBe(0.4);
+		expect(stored.inGameSfxVolume).toBe(0.4);
 	});
 
 	it('dispatches and persists mute toggle', async () => {
@@ -142,7 +156,8 @@ describe('AudioSettingsModal', () => {
 
 		expect(screen.getByLabelText('Music Volume')).toBeDisabled();
 		expect(screen.getByLabelText('UI Volume')).toBeDisabled();
-		expect(screen.getByLabelText('Game Volume')).toBeDisabled();
+		expect(screen.getByLabelText('In-Game Music Volume')).toBeDisabled();
+		expect(screen.getByLabelText('In-Game SFX Volume')).toBeDisabled();
 	});
 
 	// ─── Close behaviour ───────────────────────────────────────────────────────
