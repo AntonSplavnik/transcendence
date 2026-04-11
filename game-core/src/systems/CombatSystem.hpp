@@ -120,8 +120,7 @@ private:
 	void updateCooldowns(float deltaTime);
 
 	// ── updateCooldowns sub-phases (per entity) ──────────────────────────
-	bool tryCancelSwingByMovement(entt::entity entity,
-	                              Components::CombatController& combat,
+	bool tryCancelSwingByMovement(Components::CombatController& combat,
 	                              Components::CharacterController& controller);
 	void handleSwingEnd(entt::entity entity,
 	                    Components::CombatController& combat,
@@ -136,8 +135,7 @@ private:
 	                   Components::PhysicsBody& physics);
 
 	// ── processInputAttacks helpers ──────────────────────────────────────
-	void triggerSkill(Components::CombatController& comcon,
-	                  Components::CharacterController& charcon,
+	void triggerSkill(Components::CharacterController& charcon,
 	                  const SkillDefinition& def,
 	                  float& castTimer, bool& hitPending,
 	                  Components::NetworkEventsComponent* ne,
@@ -198,7 +196,6 @@ inline void CombatSystem::removeSkillMovementLock(
 // ── Input processing ─────────────────────────────────────────────────────────
 
 inline void CombatSystem::triggerSkill(
-		Components::CombatController& comcon,
 		Components::CharacterController& charcon,
 		const SkillDefinition& def,
 		float& castTimer, bool& hitPending,
@@ -222,8 +219,8 @@ inline void CombatSystem::processInputAttacks() {
 				  CharacterController& charcon,
 				  CombatController&    comcon,
 				  Health&              health,
-				  Transform&           trans,
-				  PhysicsBody&         physics,
+				  [[maybe_unused]] Transform& trans,
+				  [[maybe_unused]] PhysicsBody& physics,
 				  Stamina&             stamina) {
 
 		if (!health.isAlive()) return;
@@ -257,11 +254,11 @@ inline void CombatSystem::processInputAttacks() {
 
 		// Priority: Skill2 > Skill1 > Attack
 		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(comcon.ability2.staminaCost)) {
-			triggerSkill(comcon, charcon, comcon.ability2,
+			triggerSkill(charcon, comcon.ability2,
 			             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
 
 		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(comcon.ability1.staminaCost)) {
-			triggerSkill(comcon, charcon, comcon.ability1,
+			triggerSkill(charcon, comcon.ability1,
 			             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
 
 		} else if (wantsAttack && comcon.canPerformAttack() && stamina.canAfford(comcon.currentStage().staminaCost)) {
@@ -374,7 +371,6 @@ inline void CombatSystem::processDamage() {
 // ── Timer updates (per-entity sub-phases) ────────────────────────────────────
 
 inline bool CombatSystem::tryCancelSwingByMovement(
-		entt::entity entity,
 		Components::CombatController& combat,
 		Components::CharacterController& controller) {
 	if (!combat.isAttacking || !controller.hasMovementInput()) return false;
@@ -461,7 +457,7 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 	view.each([&](entt::entity entity, CombatController& combat, CharacterController& controller,
 				  Health& health, Transform& trans, PhysicsBody& physics) {
 
-		if (tryCancelSwingByMovement(entity, combat, controller)) return;
+		if (tryCancelSwingByMovement(combat, controller)) return;
 
 		const bool wasAttacking = combat.isAttacking;
 		combat.updateTimers(deltaTime);

@@ -194,7 +194,7 @@ public:
 
 	void onDeath(const Events::DeathEvent& e,
 				 GameModeContext& ctx,
-				 Components::GameModeComponent& gm,
+				 [[maybe_unused]] Components::GameModeComponent& gm,
 				 Components::MatchStatsComponent& stats) override
 	{
 		// Queue victim for respawn (skip bots)

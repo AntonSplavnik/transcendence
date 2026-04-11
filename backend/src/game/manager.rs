@@ -11,7 +11,7 @@ use ulid::Ulid;
 use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::{GameClientMessage, GameServerMessage};
+use super::messages::GameClientMessage;
 use crate::models::nickname::Nickname;
 use crate::stream::{StreamManager, StreamType};
 
@@ -531,7 +531,7 @@ impl GameManager {
         // Done after stream setup so the engine and streams are ready together.
         // The C++ engine signals player spawns via SpawnEvent, which carries name + character_class.
         for (uid, nick, character_class) in &players {
-            game.on_connect(uid.cast_unsigned(), nick.as_ref(), character_class.clone());
+            game.on_connect(uid.cast_unsigned(), nick.as_ref(), *character_class);
         }
 
         let lobby_weak = Arc::downgrade(&lobby_arc);
