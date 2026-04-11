@@ -78,6 +78,9 @@ public:
 	// Uses fixed timestep internally for deterministic physics
 	void update();
 
+	// Stops the loop when the GameManager reports MatchStatus::Over.
+	void checkMatchOver();
+
 	// Player management
 	bool addPlayer(PlayerID playerID, const std::string& name, const std::string& characterClass);
 	bool removePlayer(PlayerID playerID);
@@ -179,6 +182,20 @@ inline void ArenaGame::update() {
 
 	// PHASE 4: LateUpdate - Post-processing, interpolation (variable dt)
 	m_world.lateUpdate(deltaTime);
+
+	// PHASE 5: Stop the loop if the active game mode has concluded.
+	checkMatchOver();
+}
+
+inline void ArenaGame::checkMatchOver() {
+	auto& reg = m_world.getRegistry();
+	for (auto e : reg.view<GameManagerTag>()) {
+		if (auto* gm = reg.try_get<Components::GameModeComponent>(e);
+			gm && gm->matchStatus == MatchStatus::Over) {
+			m_isRunning = false;
+		}
+		break;
+	}
 }
 
 inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name, const std::string& characterClass) {
