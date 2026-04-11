@@ -2,10 +2,10 @@
 
 ## Character Classes
 
-| Class    | Weapon              | Movement Style        |
-|----------|---------------------|-----------------------|
-| **Knight** | Sword + Shield      | Heavy / Armored boots |
-| **Rogue**  | Two Daggers         | Light / Leather boots |
+| Class      | Weapon         | Movement Style        |
+| ---------- | -------------- | --------------------- |
+| **Knight** | Sword + Shield | Heavy / Armored boots |
+| **Rogue**  | Two Daggers    | Light / Leather boots |
 
 ---
 
@@ -13,102 +13,102 @@
 
 ### Movement - Knight
 
-| Sound ID               | Description                          | Variations | Status |
-|-------------------------|--------------------------------------|------------|--------|
-| `knight_footstep`       | Heavy armored boot footsteps         | 1-3        | DONE   |
-| `knight_jump`           | Heavy jump impulse                   | 2-3        | DONE   |
-| `knight_land`           | Heavy landing impact                 | 1-2        | DONE   |
-| `knight_armor_foley`    | Plate armor clinking on movement     | 3-4        | LATER   |
-| `knight_dodge`          | Heavy dodge/roll swish               | 2-3        | LATER  |
+| Sound ID             | Description                      | Variations | Status |
+| -------------------- | -------------------------------- | ---------- | ------ |
+| `knight_footstep`    | Heavy armored boot footsteps     | 1-3        | DONE   |
+| `knight_jump`        | Heavy jump impulse               | 2-3        | DONE   |
+| `knight_land`        | Heavy landing impact             | 1-2        | DONE   |
+| `knight_armor_foley` | Plate armor clinking on movement | 3-4        | LATER  |
+| `knight_dodge`       | Heavy dodge/roll swish           | 2-3        | LATER  |
 
 ### Movement - Rogue
 
-| Sound ID               | Description                          | Variations | Status |
-|-------------------------|--------------------------------------|------------|--------|
-| `rogue_footstep`        | Light sneaky leather footsteps       | 1-3        | DONE   |
-| `rogue_jump`            | Light agile jump                     | 2-3        | DONE   |
-| `rogue_land`            | Soft silent landing                  | 1-2        | DONE   |
-| `rogue_leather_foley`   | Leather gear rustling on movement    | 3-4        | LATER   |
-| `rogue_dodge`           | Fast dash whoosh                     | 2-3        | LATER  |
+| Sound ID              | Description                       | Variations | Status |
+| --------------------- | --------------------------------- | ---------- | ------ |
+| `rogue_footstep`      | Light sneaky leather footsteps    | 1-3        | DONE   |
+| `rogue_jump`          | Light agile jump                  | 2-3        | DONE   |
+| `rogue_land`          | Soft silent landing               | 1-2        | DONE   |
+| `rogue_leather_foley` | Leather gear rustling on movement | 3-4        | LATER  |
+| `rogue_dodge`         | Fast dash whoosh                  | 2-3        | LATER  |
 
 ### Movement - Generic (fallback)
 
-| Sound ID               | Description                          | Variations | Status |
-|-------------------------|--------------------------------------|------------|--------|
-| `player_footstep`       | Generic footsteps                    | 5          | DONE   |
-| `player_jump`           | Jump launch                          | 4          | DONE   |
-| `player_land`           | Landing impact                       | 1          | DONE   |
-| `player_dodge`          | Dodge/roll swish                     | 2-3        | LATER  |
+| Sound ID          | Description       | Variations | Status |
+| ----------------- | ----------------- | ---------- | ------ |
+| `player_footstep` | Generic footsteps | 5          | DONE   |
+| `player_jump`     | Jump launch       | 4          | DONE   |
+| `player_land`     | Landing impact    | 1          | DONE   |
+| `player_dodge`    | Dodge/roll swish  | 2-3        | LATER  |
 
 ### Combat - Knight
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `knight_attack_swing`       | Heavy sword whoosh                   | 1-4        | DONE   |
-| `knight_attack_hit`         | Sword impact on target               | 3-4        | TODO   |
-| `knight_attack_grunt`       | Effort grunt on swing                | 3-4        | TODO   |
-| `knight_hit_react`          | Pain grunt on damage taken           | 3-4        | TODO   |
-| `knight_death`              | Death scream/collapse                | 2-3        | TODO   |
-| `knight_stun`               | Stunned daze                         | 1-2        | LATER  |
-| `knight_shield_block`       | Shield block metallic clang          | 2-3        | LATER  |
-| `knight_sword_draw`         | Unsheathe sword                      | 1-2        | LATER  |
+| Sound ID              | Description                 | Variations | Status |
+| --------------------- | --------------------------- | ---------- | ------ |
+| `knight_attack_swing` | Heavy sword whoosh          | 1-4        | DONE   |
+| `knight_attack_hit`   | Sword impact on target      | 3-4        | TODO   |
+| `knight_attack_grunt` | Effort grunt on swing       | 3-4        | TODO   |
+| `knight_hit_react`    | Pain grunt on damage taken  | 3-4        | TODO   |
+| `knight_death`        | Death scream/collapse       | 2-3        | TODO   |
+| `knight_stun`         | Stunned daze                | 1-2        | LATER  |
+| `knight_shield_block` | Shield block metallic clang | 2-3        | LATER  |
+| `knight_sword_draw`   | Unsheathe sword             | 1-2        | LATER  |
 
 ### Combat - Rogue
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `rogue_attack_swing`        | Quick dagger swoosh                  | 1-4        | DONE   |
-| `rogue_attack_hit`          | Dagger stab/slice impact             | 3-4        | TODO   |
-| `rogue_attack_grunt`        | Fast effort grunt on combo           | 3-4        | TODO   |
-| `rogue_hit_react`           | Pain grunt on damage taken           | 3-4        | TODO   |
-| `rogue_death`               | Death sound                          | 2-3        | TODO   |
-| `rogue_stun`                | Stunned                              | 1-2        | LATER  |
-| `rogue_dagger_draw`         | Unsheathe daggers (light metallic)   | 1-2        | LATER  |
+| Sound ID             | Description                        | Variations | Status |
+| -------------------- | ---------------------------------- | ---------- | ------ |
+| `rogue_attack_swing` | Quick dagger swoosh                | 1-4        | DONE   |
+| `rogue_attack_hit`   | Dagger stab/slice impact           | 3-4        | TODO   |
+| `rogue_attack_grunt` | Fast effort grunt on combo         | 3-4        | TODO   |
+| `rogue_hit_react`    | Pain grunt on damage taken         | 3-4        | TODO   |
+| `rogue_death`        | Death sound                        | 2-3        | TODO   |
+| `rogue_stun`         | Stunned                            | 1-2        | LATER  |
+| `rogue_dagger_draw`  | Unsheathe daggers (light metallic) | 1-2        | LATER  |
 
 ### Combat - Generic (fallback if no class-specific)
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `player_attack_swing`       | Generic weapon swing                 | 5          | DONE   |
-| `player_attack_hit`         | Generic impact on hit                | 3-4        | TODO   |
-| `player_attack_grunt`       | Generic effort grunt                 | 3-4        | TODO   |
-| `player_hit_react`          | Generic pain grunt                   | 3-4        | TODO   |
-| `player_death`              | Generic death                        | 2-3        | TODO   |
+| Sound ID              | Description           | Variations | Status |
+| --------------------- | --------------------- | ---------- | ------ |
+| `player_attack_swing` | Generic weapon swing  | 5          | DONE   |
+| `player_attack_hit`   | Generic impact on hit | 3-4        | TODO   |
+| `player_attack_grunt` | Generic effort grunt  | 3-4        | TODO   |
+| `player_hit_react`    | Generic pain grunt    | 3-4        | TODO   |
+| `player_death`        | Generic death         | 2-3        | TODO   |
 
 ### Game Events
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `game_start`                | Match beginning (horn/bell)          | 1          | TODO   |
-| `game_end`                  | Match over (fanfare or defeat)       | 2          | TODO   |
-| `player_spawn`              | Spawn/teleport in                    | 1          | DONE   |
-| `player_kill`               | Kill confirmation                    | 1-2        | TODO   |
-| `score_point`               | Point scored                         | 1          | LATER  |
+| Sound ID       | Description                    | Variations | Status |
+| -------------- | ------------------------------ | ---------- | ------ |
+| `game_start`   | Match beginning (horn/bell)    | 1          | TODO   |
+| `game_end`     | Match over (fanfare or defeat) | 2          | TODO   |
+| `player_spawn` | Spawn/teleport in              | 1          | DONE   |
+| `player_kill`  | Kill confirmation              | 1-2        | TODO   |
+| `score_point`  | Point scored                   | 1          | LATER  |
 
 ### UI
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `ui_click`                  | Button click                         | 1          | DONE   |
-| `ui_hover`                  | Button hover                         | 1          | TODO   |
-| `ui_back`                   | Back/cancel                          | 1          | TODO   |
-| `ui_error`                  | Error feedback                       | 1          | TODO   |
-| `ui_notification`           | Notification popup                   | 1          | DONE   |
-| `ui_lobby_join`             | Player joins lobby                   | 1          | DONE   |
-| `ui_lobby_leave`            | Player leaves lobby                  | 1          | DONE   |
-| `ui_countdown`              | Countdown tick (3, 2, 1)             | 1          | DONE   |
-| `ui_ready`                  | Ready confirmation                   | 1          | TODO   |
+| Sound ID          | Description              | Variations | Status |
+| ----------------- | ------------------------ | ---------- | ------ |
+| `ui_click`        | Button click             | 1          | DONE   |
+| `ui_hover`        | Button hover             | 1          | TODO   |
+| `ui_back`         | Back/cancel              | 1          | TODO   |
+| `ui_error`        | Error feedback           | 1          | TODO   |
+| `ui_notification` | Notification popup       | 1          | DONE   |
+| `ui_lobby_join`   | Player joins lobby       | 1          | DONE   |
+| `ui_lobby_leave`  | Player leaves lobby      | 1          | DONE   |
+| `ui_countdown`    | Countdown tick (3, 2, 1) | 1          | DONE   |
+| `ui_ready`        | Ready confirmation       | 1          | TODO   |
 
 ### Ambient / Music
 
-| Sound ID                    | Description                          | Variations | Status |
-|-----------------------------|--------------------------------------|------------|--------|
-| `amb_forest`                | Forest ambience loop                 | 1          | DONE   |
-| `amb_arena`                 | Arena ambience (crowd, wind)         | 1          | TODO   |
-| `music_menu`                | Menu/lobby background music          | 1          | TODO   |
-| `music_battle`              | In-game battle music                 | 1          | TODO   |
-| `music_victory`             | Victory screen music                 | 1          | TODO   |
-| `music_defeat`              | Defeat screen music                  | 1          | TODO   |
+| Sound ID        | Description                  | Variations | Status |
+| --------------- | ---------------------------- | ---------- | ------ |
+| `amb_forest`    | Forest ambience loop         | 1          | DONE   |
+| `amb_arena`     | Arena ambience (crowd, wind) | 1          | TODO   |
+| `music_menu`    | Menu/lobby background music  | 1          | TODO   |
+| `music_battle`  | In-game battle music         | 1          | TODO   |
+| `music_victory` | Victory screen music         | 1          | TODO   |
+| `music_defeat`  | Defeat screen music          | 1          | TODO   |
 
 ---
 
