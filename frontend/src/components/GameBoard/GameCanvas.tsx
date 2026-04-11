@@ -183,10 +183,10 @@ function setupSpectatorCamera(
 	engine: Engine,
 ): { cleanup: () => void; getOrtho: () => number } {
 	const cleanups: (() => void)[] = [];
-	const INITIAL_ORTHO = 55;
+	const INITIAL_ORTHO = 18;
 	let ortho = INITIAL_ORTHO;
-	const MIN_ORTHO = 15;
-	const MAX_ORTHO = 80;
+	const MIN_ORTHO = 10;
+	const MAX_ORTHO = 30;
 
 	const applyOrtho = () => {
 		const a = engine.getRenderWidth() / engine.getRenderHeight();
