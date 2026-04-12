@@ -140,7 +140,6 @@ export interface ExportNotification {
 	created_at: string;
 }
 
-
 // ==================== API ERROR TYPES ====================
 
 export interface ApiError {

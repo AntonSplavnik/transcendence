@@ -338,7 +338,6 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 
 			{showDataPrivacy && <DataPrivacyModal onClose={() => setShowDataPrivacy(false)} />}
 
-
 			{showReauthModal && (
 				<ReauthModal
 					onSuccess={handleReauthSuccess}
