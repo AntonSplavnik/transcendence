@@ -171,8 +171,10 @@ pub struct Game {
     pub player1_id: i32,
     pub player2_id: i32,
     pub winner_id: i32,
-    pub score_p1: i32,
-    pub score_p2: i32,
+    pub kills_p1: i32,
+    pub kills_p2: i32,
+    pub damage_p1: i32,
+    pub damage_p2: i32,
     pub played_at: DateTime<Utc>,
     pub mode: String,
 }
@@ -182,16 +184,20 @@ impl NewGame {
         player1_id: i32,
         player2_id: i32,
         winner_id: i32,
-        score_p1: i32,
-        score_p2: i32,
-        mode: String,
+        kills_p1: i32,
+        kills_p2: i32,
+        damage_p1: i32,
+        damage_p2: i32,
+    mode: String,
     ) -> Self {
         NewGame {
             player1_id,
             player2_id,
             winner_id,
-            score_p1,
-            score_p2,
+            kills_p1,
+            kills_p2,
+            damage_p1,
+            damage_p2,
             played_at: chrono::Utc::now(),
             mode,
         }
@@ -216,6 +222,10 @@ pub struct UserStats {
     pub best_win_streak: i32,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+    pub kills: i32,
+    pub deaths: i32,
+    pub damage_dealt: f32,
+    pub damage_taken: f32,
 }
 
 impl UserStats {
@@ -231,6 +241,10 @@ impl UserStats {
             best_win_streak: 0,
             created_at: now,
             updated_at: now,
+            kills: 0,
+            deaths: 0,
+            damage_dealt: 0.0,
+            damage_taken: 0.0,
         }
     }
 
@@ -256,13 +270,24 @@ impl UserStats {
 
     /// Apply a game result: update counters, calculate XP, recalculate level.
     /// Returns the XP gained and whether a level-up occurred.
-    pub fn record_game(&mut self, won: bool) -> (i32, bool) {
+    pub fn record_game(
+        &mut self,
+        won: bool,
+        kills: i32,
+        deaths: i32,
+        damage_dealt: f32,
+        damage_taken: f32,
+    ) -> (i32, bool) {
         use crate::gamification::xp;
 
         let previous_level = self.level;
 
         // Update game counters
         self.games_played += 1;
+        self.kills += kills;
+        self.deaths += deaths;
+        self.damage_dealt += damage_dealt;
+        self.damage_taken += damage_taken;
         if won {
             self.games_won += 1;
             self.current_win_streak += 1;

@@ -61,6 +61,10 @@ pub struct StatsResponse {
     pub games_played: i32,
     pub games_won: i32,
     pub games_lost: i32,
+    pub kills: i32,
+    pub deaths: i32,
+    pub damage_dealt: f32,
+    pub damage_taken: f32,
     pub win_rate: f32,
     pub current_win_streak: i32,
     pub best_win_streak: i32,
@@ -78,6 +82,10 @@ impl From<UserStats> for StatsResponse {
             games_played: stats.games_played,
             games_won: stats.games_won,
             games_lost: stats.games_lost(),
+            kills: stats.kills,
+            deaths: stats.deaths,
+            damage_dealt: stats.damage_dealt,
+            damage_taken: stats.damage_taken,
             win_rate: stats.win_rate(),
             current_win_streak: stats.current_win_streak,
             best_win_streak: stats.best_win_streak,
@@ -125,7 +133,8 @@ async fn record_game(
                 .unwrap_or_else(|| UserStats::new(user_id));
 
             // Apply game result
-            let (mut xp_gained, leveled_up) = stats.record_game(input.won);
+            // This endpoint tracks only win/loss; combat totals are handled by match-end ingestion.
+            let (mut xp_gained, leveled_up) = stats.record_game(input.won, 0, 0, 0.0, 0.0);
 
             // Upsert stats
             diesel::replace_into(dsl::user_stats)
@@ -167,7 +176,7 @@ async fn record_game(
             tier: unlock.tier.as_str().to_string(),
             xp_reward: unlock.xp_reward,
         };
-        if let Err(err) = nm.send(&db, user_id, payload).await {
+        if let Err(err) = nm.send(user_id, payload).await {
             tracing::warn!(
                 user_id,
                 achievement = %unlock.achievement_code,
@@ -187,7 +196,7 @@ async fn record_game(
 #[endpoint]
 async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
     let user_id = depot.user_id();
-    get_or_create_stats(user_id, db).await
+    get_stats(user_id, db).await
 }
 
 /// Get a user's stats by ID
@@ -197,10 +206,10 @@ async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> 
     if user_id == 0 {
         return Err(diesel::result::Error::NotFound.into());
     }
-    get_or_create_stats(user_id, db).await
+    get_stats(user_id, db).await
 }
 
-async fn get_or_create_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
+async fn get_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
     let stats = db
         .transaction_write(move |conn| {
             use crate::schema::user_stats::dsl;

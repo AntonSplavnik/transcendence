@@ -11,7 +11,7 @@ diesel::table! {
         silver_threshold -> Integer,
         gold_threshold -> Integer,
         base_xp_reward -> Integer,
-        created_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
     }
 }
 
@@ -32,15 +32,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    games (id) {
-        id -> Integer,
-        player1_id -> Integer,
-        player2_id -> Integer,
-        winner_id -> Integer,
-        score_p1 -> Integer,
-        score_p2 -> Integer,
-        played_at -> TimestamptzSqlite,
-        mode -> Text,
     friend_requests (id) {
         id -> Integer,
         sender_id -> Integer,
@@ -48,6 +39,21 @@ diesel::table! {
         status -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
+    games (id) {
+        id -> Integer,
+        player1_id -> Integer,
+        player2_id -> Integer,
+        winner_id -> Integer,
+        kills_p1 -> Integer,
+        kills_p2 -> Integer,
+        damage_p1 -> Integer,
+        damage_p2 -> Integer,
+        played_at -> TimestamptzSqlite,
+        mode -> Text,
     }
 }
 
@@ -98,9 +104,9 @@ diesel::table! {
         user_id -> Integer,
         achievement_id -> Integer,
         current_progress -> Integer,
-        bronze_unlocked_at -> Nullable<Timestamp>,
-        silver_unlocked_at -> Nullable<Timestamp>,
-        gold_unlocked_at -> Nullable<Timestamp>,
+        bronze_unlocked_at -> Nullable<TimestamptzSqlite>,
+        silver_unlocked_at -> Nullable<TimestamptzSqlite>,
+        gold_unlocked_at -> Nullable<TimestamptzSqlite>,
     }
 }
 
@@ -115,6 +121,10 @@ diesel::table! {
         best_win_streak -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
+        kills -> Integer,
+        deaths -> Integer,
+        damage_dealt -> Float,
+        damage_taken -> Float,
     }
 }
 
@@ -150,8 +160,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     achievements,
     avatars_large,
     avatars_small,
-    games,
     friend_requests,
+    games,
     notifications,
     sessions,
     tos_versions,
