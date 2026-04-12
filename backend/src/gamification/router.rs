@@ -358,7 +358,7 @@ async fn get_recent_achievements(depot: &mut Depot, db: Db) -> JsonResult<Vec<Re
                     achievement_name: ach.name.clone(),
                     achievement_code: ach.code.clone(),
                     tier,
-                    unlocked_at: at.and_utc().to_rfc3339(),
+                    unlocked_at: at.to_rfc3339(),
                 });
             }
         }

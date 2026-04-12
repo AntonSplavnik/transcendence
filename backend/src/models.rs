@@ -15,7 +15,7 @@ use crate::{
     models::{cbor_blob::CborBlob, nickname::Nickname},
     notifications::NotificationPayload,
 };
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_autoincrement_new_struct::{NewInsertable, apply};
 use salvo::oapi::ToSchema;
@@ -135,12 +135,12 @@ pub struct Achievement {
     pub silver_threshold: i32,
     pub gold_threshold: i32,
     pub base_xp_reward: i32,
-    created_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
 }
 
 impl Achievement {
     pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.and_utc()
+        self.created_at
     }
 }
 
@@ -154,9 +154,9 @@ pub struct UserAchievement {
     pub user_id: i32,
     pub achievement_id: i32,
     pub current_progress: i32,
-    pub bronze_unlocked_at: Option<NaiveDateTime>,
-    pub silver_unlocked_at: Option<NaiveDateTime>,
-    pub gold_unlocked_at: Option<NaiveDateTime>,
+    pub bronze_unlocked_at: Option<DateTime<Utc>>,
+    pub silver_unlocked_at: Option<DateTime<Utc>>,
+    pub gold_unlocked_at: Option<DateTime<Utc>>,
 }
 
 // Games

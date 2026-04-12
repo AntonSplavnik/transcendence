@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::Serialize;
 
@@ -68,7 +68,7 @@ pub fn check_achievements(
 
     let all_achievements = ach_dsl::achievements.load::<Achievement>(conn)?;
     let mut unlocks = Vec::new();
-    let now = chrono::Utc::now().naive_utc();
+    let now = Utc::now();
 
     for achievement in &all_achievements {
         let Some(current_value) = stat_value_for_code(&achievement.code, stats) else {
@@ -151,9 +151,9 @@ fn upsert_user_achievement(
     user_id: i32,
     achievement_id: i32,
     current_progress: i32,
-    bronze_unlocked_at: Option<NaiveDateTime>,
-    silver_unlocked_at: Option<NaiveDateTime>,
-    gold_unlocked_at: Option<NaiveDateTime>,
+    bronze_unlocked_at: Option<DateTime<Utc>>,
+    silver_unlocked_at: Option<DateTime<Utc>>,
+    gold_unlocked_at: Option<DateTime<Utc>>,
     exists: bool,
 ) -> Result<(), diesel::result::Error> {
     use crate::schema::user_achievements::dsl;

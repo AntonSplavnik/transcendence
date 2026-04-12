@@ -53,7 +53,11 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
     }
 
     let notification_manager = NotificationManager::new(database.clone());
-    let game_manager = GameManager::new(Arc::clone(&stream_manager), database.clone());
+    let game_manager = GameManager::new(
+        Arc::clone(&stream_manager),
+        database.clone(),
+        notification_manager.clone(),
+    );
 
     Router::new()
         .hoop(affix_state::inject(database))

@@ -55,6 +55,7 @@ pub fn record_match_end_stats(
 /// Called by server-side game logic at the end of a match.
 /// Never exposed as an HTTP endpoint.
 /// Inserts the game record and updates both players' stats atomically.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn record_game_result(
     conn: &mut DbConn,
     player1_id: i32,
