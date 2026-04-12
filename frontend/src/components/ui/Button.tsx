@@ -25,7 +25,7 @@ const variantStyles = {
 	danger: 'bg-danger hover:bg-danger/90 text-white shadow-[0_4px_0_#8a1520] hover:shadow-[0_4px_0_#8a1520,0_0_12px_rgba(200,32,48,0.25)] active:shadow-[0_0px_0_#8a1520]',
 	ghost: 'bg-transparent hover:bg-stone-800 text-stone-300 hover:text-stone-100',
 	success:
-		'bg-emerald-600 hover:bg-emerald-500 text-white border-b-4 border-b-emerald-900 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)]',
+		'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_4px_0_#14532d,0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_0_#14532d,0_0_20px_rgba(16,185,129,0.35)] active:shadow-[0_0px_0_#14532d,0_0_12px_rgba(16,185,129,0.2)]',
 };
 
 export default function Button({
