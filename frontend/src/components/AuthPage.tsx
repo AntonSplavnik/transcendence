@@ -18,9 +18,9 @@ export default function AuthPage({
 	onBack: () => void;
 	onAuthSuccess: () => void;
 }) {
-	useDocumentTitle('Sign In');
 	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
+	useDocumentTitle(isLogin ? 'Sign In' : 'Register');
 	const [isLoading, setIsLoading] = useState(false);
 	const [email, setEmail] = useState('');
 	const [username, setUsername] = useState('');

@@ -20,14 +20,13 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 			<h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-300">
 				Choose Your Champion
 			</h2>
-			<div className="flex gap-3" role="radiogroup" aria-label="Character selection">
+			<div className="flex gap-3" role="group" aria-label="Character selection">
 				{characters.map(([id, cfg]) => (
 					<button
 						key={id}
 						type="button"
 						aria-label={`Select ${cfg.label}`}
-						role="radio"
-						aria-checked={value === id}
+						aria-pressed={value === id}
 						className={`
 							flex-1 flex flex-col items-center gap-1.5 rounded-lg p-2 transition-all duration-200 cursor-pointer border-2 bg-stone-900/60
 							${

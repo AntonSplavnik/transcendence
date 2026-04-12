@@ -58,13 +58,13 @@ export default function FriendsDrawer() {
 				ref={toggleButtonRef}
 				onClick={toggleDrawer}
 				className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary hover:bg-primary-hover text-primary-text shadow-lg flex items-center justify-center transition-colors"
-				aria-label={isOpen ? 'Close friends panel' : 'Open friends panel'}
+				aria-label={`${isOpen ? 'Close friends panel' : 'Open friends panel'}${incoming.length > 0 ? `, ${incoming.length} pending friend ${incoming.length === 1 ? 'request' : 'requests'}` : ''}`}
 				aria-expanded={isOpen}
 			>
 				{incoming.length > 0 && (
 					<span
 						className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold"
-						aria-label={`${incoming.length} pending friend ${incoming.length === 1 ? 'request' : 'requests'}`}
+						aria-hidden="true"
 					>
 						{incoming.length > 9 ? '9+' : incoming.length}
 					</span>

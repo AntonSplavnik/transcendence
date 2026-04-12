@@ -365,5 +365,11 @@ export default function GameCanvas({
 		};
 	}, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	return <canvas ref={canvasRef} style={{ width: '100%', height: '100vh', display: 'block' }} />;
+	return (
+		<canvas
+			ref={canvasRef}
+			aria-label="Real-time 3D multiplayer arena game — requires visual interaction"
+			style={{ width: '100%', height: '100vh', display: 'block' }}
+		/>
+	);
 }

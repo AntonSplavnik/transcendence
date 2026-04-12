@@ -25,7 +25,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 			<span className="text-xs text-stone-350 uppercase tracking-widest">Champions</span>
 			<div
 				className="grid grid-cols-3 gap-3 content-start"
-				role="radiogroup"
+				role="group"
 				aria-label="Champion selection"
 			>
 				{characters.map(([id, cfg]) => {
@@ -36,8 +36,7 @@ export default function ChampionGrid({ value, onChange }: ChampionGridProps) {
 							key={id}
 							type="button"
 							aria-label={locked ? `${cfg.label} (locked)` : `Select ${cfg.label}`}
-							role="radio"
-							aria-checked={selected}
+							aria-pressed={selected}
 							disabled={locked}
 							onClick={() => {
 								if (!locked) onChange(id);

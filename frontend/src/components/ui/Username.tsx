@@ -59,6 +59,8 @@ function UsernameContextMenu({
 	onClose,
 }: ContextMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
+	const previousFocusRef = useRef<HTMLElement | null>(null);
+	const closedByTabRef = useRef(false);
 
 	// Position the menu above the anchor by default, flip below if not enough space
 	const spaceAbove = anchorRect.top;
@@ -66,12 +68,21 @@ function UsernameContextMenu({
 	const top = spaceAbove > menuHeight ? anchorRect.top - menuHeight : anchorRect.bottom + 4;
 	const left = anchorRect.left;
 
-	// Focus the first enabled menu item on mount
+	// Capture previous focus on mount, restore on unmount (unless closed by Tab)
 	useEffect(() => {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement) previousFocusRef.current = active;
+
 		const first = menuRef.current?.querySelector<HTMLElement>(
 			'[role="menuitem"]:not([disabled])',
 		);
 		first?.focus();
+
+		return () => {
+			if (!closedByTabRef.current) {
+				previousFocusRef.current?.focus();
+			}
+		};
 	}, []);
 
 	useEffect(() => {
@@ -86,9 +97,9 @@ function UsernameContextMenu({
 				onClose();
 				return;
 			}
-			// Tab closes the menu per ARIA menu pattern (does not traverse items)
+			// Tab closes the menu and lets focus proceed naturally to the next element.
 			if (e.key === 'Tab') {
-				e.preventDefault();
+				closedByTabRef.current = true;
 				onClose();
 				return;
 			}
@@ -271,10 +282,7 @@ export default function Username({
 					anchorRect={anchorRect}
 					isFriend={isFriend}
 					onShowProfile={onShowProfile}
-					onClose={() => {
-						setMenuOpen(false);
-						buttonRef.current?.focus();
-					}}
+					onClose={() => setMenuOpen(false)}
 				/>
 			)}
 		</span>
