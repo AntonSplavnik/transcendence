@@ -68,4 +68,3 @@ async fn get_user_stats_unknown_user_is_404() {
 
     assert_eq!(resp.status_code, Some(salvo::http::StatusCode::NOT_FOUND));
 }
-

@@ -1,9 +1,6 @@
 pub mod router;
 
-use crate::{
-    models::UserStats,
-    prelude::*,
-};
+use crate::{models::UserStats, prelude::*};
 
 #[derive(Debug, Clone)]
 pub struct MatchPlayerResult {
