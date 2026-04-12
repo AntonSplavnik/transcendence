@@ -134,8 +134,12 @@ public:
 
 		for (const auto& p : pp->players) {
 			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());
-			if (entity != entt::null)
-				stats.playerStats.try_emplace(entity);
+			if (entity != entt::null) {
+				auto& ps = stats.playerStats[entity];
+				ps.playerID       = p.id;
+				ps.name            = p.name;
+				ps.characterClass  = p.characterClass;
+			}
 		}
 	}
 
@@ -161,11 +165,6 @@ public:
 			});
 			m_over = true;
 		}
-	}
-
-	void onPlayerRemove(entt::entity entity,
-					    Components::MatchStatsComponent& stats) override {
-		stats.playerStats.erase(entity);
 	}
 
 	void tick([[maybe_unused]] float dt,
@@ -211,8 +210,12 @@ public:
 
 		for (const auto& p : pp->players) {
 			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());
-			if (entity != entt::null)
-				stats.playerStats.try_emplace(entity);
+			if (entity != entt::null) {
+				auto& ps = stats.playerStats[entity];
+				ps.playerID       = p.id;
+				ps.name            = p.name;
+				ps.characterClass  = p.characterClass;
+			}
 		}
 	}
 
@@ -249,12 +252,11 @@ public:
 	}
 
 	void onPlayerRemove(entt::entity entity,
-					    Components::MatchStatsComponent& stats) override {
+					    [[maybe_unused]] Components::MatchStatsComponent& stats) override {
 		std::erase_if(m_respawnQueue, [entity](const RespawnTimer& t) {
 			return t.entity == entity;
 		});
 		m_killCounts.erase(entity);
-		stats.playerStats.erase(entity);
 	}
 
 	void tick(float dt,

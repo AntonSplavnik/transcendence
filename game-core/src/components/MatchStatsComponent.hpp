@@ -1,6 +1,8 @@
 #pragma once
 
 #include <unordered_map>
+#include <string>
+#include "../GameTypes.hpp"
 #include "../../entt/entt.hpp"
 
 namespace ArenaGame {
@@ -8,6 +10,11 @@ namespace Components {
 	struct MatchStatsComponent {
 
 		struct PlayerStats {
+			// Identity snapshot — captured at match start, survives entity destruction.
+			PlayerID    playerID       = 0;
+			std::string name;
+			std::string characterClass;
+
 			int   kills       = 0;
 			int   deaths      = 0;
 			float damageDealt = 0.0f;
