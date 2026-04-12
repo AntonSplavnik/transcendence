@@ -11,8 +11,10 @@ use ulid::Ulid;
 use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::GameClientMessage;
+use super::messages::{GameClientMessage, GameServerMessage};
+use crate::db::Database as _;
 use crate::models::nickname::Nickname;
+use crate::prelude::Db;
 use crate::stream::{StreamManager, StreamType};
 
 #[derive(Debug, Error, strum::IntoStaticStr)]
@@ -68,13 +70,15 @@ impl GameManagerState {
 pub struct GameManager {
     state: Arc<Mutex<GameManagerState>>,
     sm: Arc<StreamManager>,
+    db: Db,
 }
 
 impl GameManager {
-    pub fn new(sm: Arc<StreamManager>) -> Self {
+    pub fn new(sm: Arc<StreamManager>, db: Db) -> Self {
         Self {
             state: Arc::new(Mutex::new(GameManagerState::new())),
             sm,
+            db,
         }
     }
 
@@ -537,6 +541,7 @@ impl GameManager {
         let lobby_weak = Arc::downgrade(&lobby_arc);
         let game_for_loop = Arc::clone(&game);
         let gm_cleanup = self.clone();
+        let db_for_match_end = self.db.clone();
         // Capture the Tokio runtime handle before entering the std::thread,
         // where Handle::current() would panic (no reactor running).
         let rt = tokio::runtime::Handle::current();
@@ -549,7 +554,51 @@ impl GameManager {
                 // cancels all handle tokens, stopping every receive task cleanly.
                 let gs = game_streams;
                 game_for_loop.update_loop(
-                    |msg| gs.broadcast(&msg),
+                    |msg| {
+                        if let GameServerMessage::MatchEnd { players } = msg.as_ref() {
+                            let db = db_for_match_end.clone();
+                            let match_players = players
+                                .iter()
+                                .filter_map(|p| {
+                                    i32::try_from(p.player_id)
+                                        .ok()
+                                        .map(|player_id| crate::games::MatchPlayerResult {
+                                            player_id,
+                                            placement: p.placement,
+                                            kills: p.kills,
+                                            deaths: p.deaths,
+                                            damage_dealt: p.damage_dealt,
+                                            damage_taken: p.damage_taken,
+                                        })
+                                })
+                                .collect::<Vec<_>>();
+
+                            if match_players.len() != players.len() {
+                                warn!(
+                                    lobby_id = %lobby_id,
+                                    total = players.len(),
+                                    valid = match_players.len(),
+                                    "skipping out-of-range player ids while recording match-end stats"
+                                );
+                            }
+
+                            if !match_players.is_empty() {
+                                rt.spawn(async move {
+                                    let res = db
+                                        .transaction_write(move |conn| {
+                                            crate::games::record_match_end_stats(conn, match_players)
+                                        })
+                                        .await;
+
+                                    if let Err(e) = res {
+                                        warn!(error = %e, "failed to persist match-end gamification stats");
+                                    }
+                                });
+                            }
+                        }
+
+                        gs.broadcast(&msg)
+                    },
                     |player_id, msg| gs.send(player_id.cast_signed(), &msg),
                 );
 

@@ -1,5 +1,5 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 2df0cf8..cfee43a 100644
+index c9cb52d..5a8ae98 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
 @@ -1,32 +1,32 @@
@@ -39,7 +39,7 @@ index 2df0cf8..cfee43a 100644
  diesel::table! {
      games (id) {
          id -> Integer,
-@@ -34,86 +34,86 @@ diesel::table! {
+@@ -34,68 +34,68 @@ diesel::table! {
          player2_id -> Integer,
          winner_id -> Integer,
          kills_p1 -> Integer,
@@ -113,10 +113,13 @@ index 2df0cf8..cfee43a 100644
 -        updated_at -> Timestamp,
 +        created_at -> TimestamptzSqlite,
 +        updated_at -> TimestamptzSqlite,
+         kills -> Integer,
+         deaths -> Integer,
+         damage_dealt -> Float,
+         damage_taken -> Float,
      }
  }
- 
- diesel::table! {
+@@ -104,20 +104,20 @@ diesel::table! {
      users (id) {
          id -> Integer,
          email -> Text,
