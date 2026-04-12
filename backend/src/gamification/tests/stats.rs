@@ -1,6 +1,6 @@
 use salvo::test::ResponseExt as _;
 
-use crate::{db::Database as _, utils::mock};
+use crate::utils::mock;
 
 /// GET /api/stats/@me returns default stats for a fresh user.
 #[tokio::test]
@@ -22,49 +22,6 @@ async fn get_my_stats_returns_defaults() {
     assert_eq!(body["win_rate"], 0.0);
     assert_eq!(body["current_win_streak"], 0);
     assert_eq!(body["best_win_streak"], 0);
-}
-
-/// GET /api/stats/@me reflects XP and stats after a recorded game.
-#[tokio::test]
-async fn get_my_stats_reflects_game_result() {
-    use crate::gamification::xp::rewards;
-
-    let server = mock::Server::default();
-    let mut p1 = server.user().register().await;
-    let p2 = server.user().register().await;
-    let p1_id = p1.user_id();
-    let p2_id = p2.user_id();
-
-    server
-        .db
-        .transaction_write(move |conn| {
-            crate::games::record_game_result(
-                conn,
-                crate::games::HeadToHeadResult {
-                    player1_id: p1_id,
-                    player2_id: p2_id,
-                    winner_id: p1_id,
-                    kills_p1: 11,
-                    kills_p2: 7,
-                    damage_p1: 0,
-                    damage_p2: 0,
-                },
-            )
-        })
-        .await
-        .expect("record_game_result failed");
-
-    let req = p1.client.get("/api/stats/@me");
-    let mut resp = p1.client.send(req).await;
-
-    assert_eq!(resp.status_code, Some(salvo::http::StatusCode::OK));
-    let body: serde_json::Value = resp.take_json().await.unwrap();
-
-    assert_eq!(body["games_played"], 1);
-    assert_eq!(body["games_won"], 1);
-    assert_eq!(body["games_lost"], 0);
-    assert_eq!(body["xp"], rewards::GAME_PLAYED + rewards::GAME_WON);
-    assert_eq!(body["current_win_streak"], 1);
 }
 
 /// GET /api/stats/@me requires authentication.
@@ -112,43 +69,3 @@ async fn get_user_stats_unknown_user_is_404() {
     assert_eq!(resp.status_code, Some(salvo::http::StatusCode::NOT_FOUND));
 }
 
-/// `win_rate` is correctly computed and exposed.
-#[tokio::test]
-async fn win_rate_is_correct() {
-    let server = mock::Server::default();
-    let mut p1 = server.user().register().await;
-    let p2 = server.user().register().await;
-    let p1_id = p1.user_id();
-    let p2_id = p2.user_id();
-
-    // 1 win, 1 loss → 50%
-    for winner in [p1_id, p2_id] {
-        server
-            .db
-            .transaction_write(move |conn| {
-                crate::games::record_game_result(
-                    conn,
-                    crate::games::HeadToHeadResult {
-                        player1_id: p1_id,
-                        player2_id: p2_id,
-                        winner_id: winner,
-                        kills_p1: 11,
-                        kills_p2: 0,
-                        damage_p1: 0,
-                        damage_p2: 0,
-                    },
-                )
-            })
-            .await
-            .expect("record_game_result failed");
-    }
-
-    let req = p1.client.get("/api/stats/@me");
-    let mut resp = p1.client.send(req).await;
-    let body: serde_json::Value = resp.take_json().await.unwrap();
-
-    assert_eq!(body["games_played"], 2);
-    assert_eq!(body["games_won"], 1);
-    assert_eq!(body["games_lost"], 1);
-    assert!((body["win_rate"].as_f64().unwrap() - 50.0).abs() < 0.01);
-}

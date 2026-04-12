@@ -1,5 +1,5 @@
 //! Read-only game history endpoints.
-//! Writing to `games` is only done via `games::record_game_result`.
+//! Writing to `games` is handled by match-end server logic.
 
 use chrono::{DateTime, Utc};
 
