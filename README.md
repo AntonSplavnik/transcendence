@@ -26,16 +26,22 @@ _This project has been created as part of the 42 curriculum by kwurster, asplavn
 ## Description
 
 ft_transcendence is a full-stack, real-time multiplayer web game built entirely in the browser. Players register, pick a character, and fight opponents in a 3D arena rendered with Babylon.js. All gameplay events are streamed over WebTransport (HTTP/3), giving the server authoritative control with minimal latency.
-Our final game is called Hit 'em good.
+Our game is called **Hit 'em good** — a character-based arena fighter supporting 2–8 players with multiple game modes.
 
 **Key features:**
 
+- **3D arena fighter** with 2 playable character classes (Knight and Rogue), combo attack chains, abilities, and stamina mechanics — rendered in Babylon.js with isometric camera
+- **Server-authoritative game engine** written in C++ (entt ECS), compiled into the Rust backend via CXX FFI, running at 60 Hz on a dedicated thread
+- **2–8 player multiplayer** over WebTransport (HTTP/3) with lobby system, character selection, and ready-up countdown
+- **Two game modes**: Deathmatch (kill-limit, respawning) and Last Standing (elimination, no respawns)
+- **Spectator mode** allowing users to watch ongoing matches in real time
 - Secure registration and login with Argon2id password hashing
 - Optional TOTP two-factor authentication with recovery codes
 - Full session management: view all active sessions, revoke them remotely, and change passwords — all MFA-protected
+- Friends system with real-time online status tracking
 - Profile system with custom avatars (AVIF format, client-side conversion)
-- Real-time communication layer over WebTransport (HTTP/3) for game events and notifications and chat
-- 3D fighting game with Babylon.js rendering (in active development on feature branch)
+- Real-time notification system with WebTransport delivery and offline persistence
+- Spatial audio engine with per-character sound events
 - Privacy Policy and Terms of Service pages
 - Complete HTTPS everywhere via Salvo + Rustls
 
@@ -53,14 +59,13 @@ Our final game is called Hit 'em good.
 **kwurster** designed and built the entire Rust backend: auth system, 2FA, Diesel ORM with SQLite migrations, rate limiting, the WebTransport `stream_manager`, notification infrastructure, and the full test suite. He also wrote the CI/CD pipeline for the backend and the frontend WebTransport codec (`CompressedCborCodec.ts`).
 His responsibilities as the Tech Lead included setting the overall technical direction, defining the architecture of the backend, and ensuring security best practices were followed throughout, such as using proper CI/CD pipelines, secure password hashing, and robust session management.
 
-**asplavnic** defined the game vision and mechanics as product owner. He developed the complete game: server-side validation, the Babylon.js scene, the entity system, and the full fighting game logic.
+**asplavnic** defined the game vision and mechanics as product owner. He developed the complete game: the C++ ECS game engine (entt), the Babylon.js 3D scene with character animations and weapon swing trails, combat mechanics (attack chains, abilities, stamina), two game modes (Deathmatch and Last Standing), and the a lot of the frontend game client (lobby UI, HUD).
 As a Product Owner, he was responsible for defining the user experience for this game-project, and ensuring the final product met the initial vision.
 
-**lmeubrin** architected the frontend: React Router setup, `AuthContext`, route guards, JWT refresh (both proactive timer-based and reactive Axios interceptor), 2FA frontend modals, the session management page, and the landing page (`LandingPage.tsx` + `LandingScene.tsx`). She also built the design system (11 UI components) and the frontend CI/CD pipeline. She built the Privacy Policy and Terms of Service pages.
+**lmeubrin** architected the frontend: React Router setup, `AuthContext`, route guards, JWT refresh (both proactive timer-based and reactive Axios interceptor), 2FA frontend modals, the session management page, and the landing page (`LandingPage.tsx` + `LandingScene.tsx`). She built the design system (17+ UI components including game-specific components like `CharacterSelector`, `CharacterPicker`, `PlayerAvatarRow`, `ChampionGrid`, and `CharacterStats` and the game end screen), the frontend CI/CD pipeline, the Privacy Policy and Terms of Service pages, and the spectator mode.
 Her Project Manager role involved coordinating the team, setting impulses for meetings and strategy, and ensuring that the team stayed on track.
 
-**drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He also worked on the sound system.
-He designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, and trigger-table-driven playback), including local/remote/game-event sound behavior, anti-spam cooldown tuning, and combat-focused sound design/mix balancing for clearer gameplay feedback.
+**drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He built the friends frontend (`FriendsDrawer`, `AddFriendForm`), designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, and trigger-table-driven playback), including local/remote/game-event sound behavior, anti-spam cooldown tuning, and combat-focused sound design/mix balancing for clearer gameplay feedback. He also contributed audio integration for the 3D engine and the frontend game client.
 As a developer with a full-stack role, he worked closely with all parts of the project.
 
 ---
@@ -72,7 +77,7 @@ The team used GitHub for all collaboration:
 - **Issues and pull requests** for task tracking and code review — every feature went through a PR with at least one review before merge and issues were used extensively.
 - **Slack** as the primary communication channel for daily coordination and sharing documents.
 
-Work was distributed by area of ownership: kwurster held the backend, lmeubrin held the frontend architecture and design, asplavnic drove game direction and is building the game branch, and drongier covered avatar/profile and helped out where needed and did the deployment infrastructure.
+Work was distributed by area of ownership: kwurster held the backend (auth, sessions, WebTransport, game server integration), lmeubrin held the frontend architecture and design system, asplavnic drove game direction and built the game engine and 3D client, and drongier covered avatar/profile, friends frontend, audio, and deployment infrastructure.
 
 ---
 
@@ -104,38 +109,42 @@ cp backend/.env.example backend/.env
 
 ### TLS certificates
 
-TODO: update this section with instructions for generating a local TLS certificate using `mkcert` or `openssl`.
+`make setup` automatically generates a self-signed TLS certificate in `backend/certs/` using openssl if one does not already exist. If `certutil` (from `libnss3-tools`) is available, the certificate is also registered in the user's NSS database so Chrome and Firefox trust it without warnings.
+
+To verify the current certificate status:
+
+```sh
+make check-cert
+```
 
 ### Running
 
-TODO: Section is outdated dues to Makefile changes. Update with new commands from Makefile.
-Also include Docker instructions once implemented.
-**Development** (backend + frontend separately, with hot reload):
+All commands are run from the repository root via the Makefile.
+
+**Docker (recommended):**
 
 ```sh
-# Terminal 1 — backend
-cd backend && cargo run
-
-# Terminal 2 — frontend (proxies API to https://127.0.0.1:8443)
-cd frontend && npm install && npm run dev
+make          # Build and start all containers (foreground)
+make dev      # Docker in background + local Vite hot reload + Chrome dev instance
+make lean     # Sequential Docker build for space-constrained machines
 ```
 
-Access the app at `https://localhost:5173` (Vite dev server) or the backend directly at `https://127.0.0.1:8443`.
+`make` (alias for `make all`) builds the frontend and backend in a multi-stage Docker image and starts the application via `docker compose`. `make dev` starts Docker in the background, then runs the Vite dev server locally with hot reload — ideal for frontend development.
 
-**Shortcut** (both in one command, from `frontend/`):
+**Local build (without Docker):**
 
 ```sh
-cd frontend && npm run all
+make build    # npm ci + npm run build + cargo build
 ```
 
-**Production build** (frontend served as static files from the backend):
+**Opening Chrome with WebTransport support:**
 
 ```sh
-cd frontend && npm run build
-cd backend && cargo run
+make chrome-dev                                    # Opens https://localhost:8443
+make chrome-dev CHROME_URL=http://localhost:5173    # Opens the Vite dev server
 ```
 
-The Rust binary serves the compiled `dist/` folder as well as all API routes.
+This launches a separate Chrome instance with `--webtransport-developer-mode` enabled and the self-signed certificate SPKI pinned (required for WebTransport over self-signed TLS).
 
 **Backend tests:**
 
@@ -143,14 +152,33 @@ The Rust binary serves the compiled `dist/` folder as well as all API routes.
 cd backend && cargo test
 ```
 
-**Clean:**
+Frontend tests:
 
 ```sh
-cd frontend && rm -rf node_modules dist
-cd backend && cargo clean
+cd frontend && npm run test
 ```
 
-> **Note:** Docker deployment is planned but not yet implemented. See [docs/todo.md](docs/todo.md).
+
+All pre push hooks:
+
+```sh
+make prek
+```
+
+
+**Docker management:**
+
+```sh
+make docker-down    # Stop containers
+make docker-clean   # Stop containers + remove volumes and images
+make reset-db       # Reset database volumes
+```
+
+**Clean everything:**
+
+```sh
+make clean    # Remove frontend/dist, node_modules, cargo artifacts, Docker volumes and images
+```
 
 ---
 
@@ -160,7 +188,7 @@ cd backend && cargo clean
 
 | Technology | Role | Why |
 |------------|------|-----|
-| React 18 | UI framework | Component model, large ecosystem, composable with 3D canvas |
+| React 19 | UI framework | Component model, large ecosystem, composable with 3D canvas |
 | Vite + SWC | Build tool | Instant hot reload; SWC compiler is written in Rust |
 | TypeScript | Language | Static types catch errors early, essential for complex auth + game state |
 | Tailwind CSS | Styling | Utility-first, custom theme (stone + gold palette), no CSS file context-switching |
@@ -186,6 +214,8 @@ For full frontend documentation including the design system and component refere
 | TOTP (totp-rs) | Two-factor auth | RFC 6238 TOTP; secrets encrypted at rest with AES |
 | quick_cache | In-memory cache | LRU cache for small avatars (1000 entries, ~4 MB) |
 | CBOR | Serialisation | Compact binary format for WebTransport messages (`CompressedCborCodec`) |
+| C++ 20 game engine (entt) | Game logic | ECS-based game engine compiled into Rust via CXX FFI bridge; handles physics, combat, and game modes at 60 Hz |
+| DashMap / parking_lot | Concurrency | Lock-free concurrent hash maps for connection tracking; efficient mutexes for lobby state |
 
 For full backend authentication documentation, see [docs/backend-auth.md](docs/backend-auth.md).
 For the avatar system, see [docs/avatar-backend.md](docs/avatar-backend.md).
@@ -216,6 +246,11 @@ SQLite was chosen because:
 | `totp_secret_enc` | TEXT nullable | AES-encrypted TOTP secret |
 | `totp_confirmed_at` | DATETIME nullable | Timestamp of successful 2FA enrollment |
 | `created_at` | DATETIME | |
+| `tos_accepted_at` | DATETIME nullable | Set when user accepts the current Terms of Service |
+| `email_confirmed_at` | DATETIME nullable | Set when user confirms their email address |
+| `email_confirmation_token_hash` | BLOB nullable | BLAKE3 hash of the email-confirmation token |
+| `email_confirmation_token_expires_at` | DATETIME nullable | Expiry of the confirmation token |
+| `email_confirmation_token_email` | TEXT nullable | Email address the confirmation was sent to |
 
 ### `sessions`
 
@@ -285,6 +320,26 @@ SQLite was chosen because:
 | `confirm_token` | BLOB nullable | 32-byte email confirmation token; NULL after confirmed |
 | `expires_at` | DATETIME | 30 minutes from initiation |
 
+### `friend_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `sender_id` | INTEGER FK | References `users(id)` ON DELETE CASCADE |
+| `receiver_id` | INTEGER FK | References `users(id)` ON DELETE CASCADE; CHECK `sender_id != receiver_id` |
+| `status` | INTEGER | 0 = pending, 1 = accepted; CHECK IN (0, 1) |
+| `created_at` | DATETIME | |
+| `updated_at` | DATETIME | |
+
+Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_id, receiver_id))` prevents duplicate requests between the same two users.
+
+### `tos_versions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT PK | Version identifier (e.g. `"v1"`) |
+| `created_at` | DATETIME | Defaults to `CURRENT_TIMESTAMP` |
+
 ### Relationships summary
 
 - One user has many sessions (cascade delete).
@@ -292,6 +347,8 @@ SQLite was chosen because:
 - One user has at most one large avatar and one small avatar (cascade delete).
 - One user has many notifications (cascade delete).
 - One user has at most one pending deletion request and one pending export request (cascade delete).
+- One user can send and receive many friend requests (cascade delete both sides).
+- `tos_versions` is a standalone lookup table (no FK to users).
 - Sessions reference users; avatars and notifications are user-scoped.
 
 ---
@@ -330,28 +387,57 @@ SQLite was chosen because:
 | Profile editing | drongier | `EditUserModal` for changing nickname and description. |
 | User description | drongier (frontend) | Free-text bio field on user profile. |
 
-### Real-time & Game
+### Real-time & Networking
 
 | Feature | By | Description |
 |---------|-----|-------------|
-| WebTransport connection | kwurster | HTTP/3 persistent connection. `stream_manager` in backend manages per-session bidirectional streams. |
+| WebTransport connection | kwurster | HTTP/3 persistent connection with two-step auth. `stream_manager` manages per-user bidirectional streams with automatic displacement on multi-tab login. |
 | CBOR codec | kwurster | `CompressedCborCodec.ts` on the frontend encodes/decodes binary messages with zstd compression. |
-| Notifications | kwurster | Server push of `Notification` enum values over WebTransport. Initial `ServerHello` on connect. |
-| Babylon.js scene | asplavnic | 3D rendering with scene setup, lighting, camera controls. |
-| Entity system | asplavnic | Component-based entity model for characters and game objects. |
-| Fighting game logic | asplavnic |  character-based combat with server-side validation. |
+| Notifications | kwurster | 5 notification types covering friend CRUD. Real-time delivery via WebTransport; offline persistence in DB with at-least-once delivery on reconnect. |
+| Notification UI | drongier (audio), lmeubrin (toast) | `NotificationToast` with stacking, slide-out dismiss, sound effects, and click-through to relevant UI. |
+| Stream groups | kwurster | `StreamGroup` broadcast model for lobby and game streams. Fire-and-forget with backpressure cancellation — slow clients are dropped, not buffered. |
+
+### Game Engine & Gameplay
+
+| Feature | By | Description |
+|---------|-----|-------------|
+| C++ ECS game engine | asplavnic | entt-based Entity Component System compiled into Rust via CXX FFI. 6 systems (CharacterController, Physics, Collision, Combat, GameMode, Stamina) run in 4 phases per tick. |
+| 60 Hz server-authoritative loop | kwurster (hosting), asplavnic (engine) | Game runs on dedicated OS thread (not tokio task) at 16.67 ms per tick. Server holds authoritative state; clients receive read-only snapshots. |
+| Character classes | asplavnic | 2 playable classes (Knight and Rogue) with distinct stats, attack chains (2–3 stages), 2 unique abilities each, and stamina pools. |
+| Combat system | asplavnic | Attack chains with timing windows, abilities with cooldowns and cast durations, stamina costs, critical hits, knockback. All validated server-side. |
+| Game modes | asplavnic | Deathmatch (kill-limit with respawns) and Last Standing (elimination, no respawns). Win conditions, player ranking, and match-end stats per mode. |
+| Lobby system | kwurster (backend), asplavnic (frontend) | Create/join/leave lobbies, character selection, ready-up with countdown (3 s all-ready / 10 s full / 60 s default), public/private visibility, game mode selection. |
+| Spectator mode | lmeubrin | Users can spectate ongoing matches via `spectateLobby()` API. Spectators receive game snapshots on a uni-stream (no input allowed). Count displayed in lobby. |
+
+### 3D Rendering
+
+| Feature | By | Description |
+|---------|-----|-------------|
+| Babylon.js scene | asplavnic | Isometric orthographic camera, Forest arena environment loaded from glTF, KayKit Adventurers asset pack. |
+| Character rendering | asplavnic (animations), lmeubrin (UI components) | glTF character models with bone-attached equipment (weapons, shields), animation state machines with crossfading, weapon swing trails with vertex color alpha. |
+| In-game HUD | asplavnic | Babylon.js GUI overlay: health bar, stamina bar, ability cooldown bars (local player); world-space projected enemy health bars above each character. |
+| Game-end leaderboard | asplavnic | Modal with placement, kills, deaths, damage dealt/taken per player. Auto-return to lobby after countdown. |
+
+### Friends & Social
+
+| Feature | By | Description |
+|---------|-----|-------------|
+| Friends system | kwurster (backend), drongier (frontend) | Full CRUD: send, accept, reject, cancel, and remove friend requests. Backend in `backend/src/friends/` with comprehensive test suite. |
+| Online status | kwurster (backend), drongier (frontend) | Real-time presence via `StreamManager::is_connected()`. Green/gray dot indicator in friends drawer and public profiles. |
+| Public profiles | drongier (modal) | `PublicProfileModal` showing avatar, nickname, online status, bio, and member-since date. Triggered from friends list. |
+| Friends drawer | drongier | `FriendsDrawer` with sections for friends list, incoming requests (with counter badge), and pending outgoing requests. |
 
 ### UI/UX
 
 | Feature | By | Description |
 |---------|-----|-------------|
-| Design system | lmeubrin | 11 reusable components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`). Stone/gold/dungeon theme. |
+| Design system | lmeubrin | 17 reusable components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`). Stone/gold/dungeon theme. |
 | Landing page | lmeubrin | `LandingPage.tsx` with animated `LandingScene.tsx`. Entry point before auth. |
 | Route guards | lmeubrin | `ProtectedRoute` / `PublicRoute` wrap all routes; unauthenticated users redirect to `/auth`, authenticated users redirect to `/home`. |
 | Error banner | lmeubrin | Fixed-position auto-dismiss banner for cross-page error messages (stored in `localStorage` between redirects). |
 | Privacy Policy | asplavnic | Accessible from footer; covers data collection, cookies, and user rights. |
 | Terms of Service | asplavnic | Accessible from footer; covers acceptable use and account rules. |
-| Sound system | drongier | Sounds for ingame elements such as footsteps. |
+| Sound system | drongier | Spatial audio engine with `AudioEngineV2` bus routing (`master/sfx/music/ambient/ui`), preloaded `SoundBank`, trigger tables for local/remote/game events, anti-spam cooldown, and persistent audio settings. |
 | WCAG 2.1 AA accessibility | lmeubrin/drongier | Full keyboard navigation (Dropdown arrow keys, Modal focus trap), skip link, reduced-motion support, ARIA landmark regions, descriptive labels on all interactive elements. The 3D game canvas carries a descriptive text alternative under WCAG SC 1.1.1 (sensory experience exemption). |
 
 ---
@@ -364,23 +450,28 @@ SQLite was chosen because:
 |---|--------|------|--------|--------|
 | 1 | Frontend + backend frameworks (React + Salvo) | Web Major | 2 | Done |
 | 2 | Real-time features via WebTransport HTTP/3 | Web Major | 2 | Done |
-| 3 | Advanced 3D graphics — Babylon.js | Gaming Major | 2 | In progress |
-| 4 | Complete web-based game (1v1 fighter) | Gaming Major | 2 | In progress |
-| 5 | Remote players | Gaming Major | 2 | Planned |
-| 6 | User interaction — chat, friends, profiles | Web Major | 2 | Planned |
+| 3 | Advanced 3D graphics — Babylon.js | Gaming Major | 2 | Done |
+| 4 | Complete web-based game (arena fighter) | Gaming Major | 2 | Done |
+| 5 | Remote players | Gaming Major | 2 | Done |
+| 6 | User interaction — chat, friends, profiles | Web Major | 2 | In progress |
 | 7 | ORM — Diesel + SQLite | Web Minor | 1 | Done |
 | 8 | Two-Factor Authentication (TOTP) | User Mgmt Minor | 1 | Done |
-| 9 | File upload/management — avatar system | Web Minor | 1 | Done |
-| 10 | Custom: Session Management | Modules of choice Minor | 1 | Done |
+| 9 | Custom: Session Management | Modules of choice Minor | 1 | Done |
+| 10 | Custom: Audio System | Modules of choice Minor | 1 | Done |
 | 11 | Accessibility compliance (WCAG 2.1 AA) | Accessibility Major | 2 | Done |
-| | **Confirmed (modules 1, 2, 7, 8, 9, 10, 11)** | | **10** | |
-| | **When modules 3–6 complete** | | **18** | Exceeds 14-point target |
+| 12 | Multiplayer 3+ players | Gaming Major | 2 | Done |
+| 13 | Spectator mode | Gaming Minor | 1 | Done |
+| 14 | Custom design system | Web Minor | 1 | Done |
+| 15 | Standard user management | User Mgmt Major | 2 | Done |
+| 16 | Game customization options | Gaming Minor | 1 | Done |
+| 17 | Notification system | Web Minor | 1 | Done |
+| | **Total (excluding module 6)** | | **24** | Exceeds 14-point target |
 
 ---
 
 ### Module 1 — Frontend and backend frameworks
 
-_Web Major (2 pts) — by lmeubrin (frontend) and kwurster (backend)_
+_Web Major (2 pts) — by all (lmeubrin (frontend) and kwurster (backend) and asplavnic (game front and backend) and drongier (frontend and backend))_
 
 The subject allows replacing the default vanilla JS frontend and the default backend with framework-based alternatives. We use **React** (with Vite, TypeScript, and Tailwind CSS) on the frontend and **Salvo** (a Rust async web framework) on the backend.
 
@@ -394,7 +485,7 @@ The subject allows replacing the default vanilla JS frontend and the default bac
 
 ### Module 2 — Real-time features via WebTransport HTTP/3
 
-_Web Major (2 pts) — by kwurster (backend) and asplavnic (game frontend)_
+_Web Major (2 pts) — by kwurster (backend, notification frontend) and asplavnic (game frontend) and drongier (friends frontend) and lmeubrin (game frontend)_
 
 WebTransport (HTTP/3) replaces conventional WebSocket for all real-time game and notification traffic. Unlike WebSockets, WebTransport supports multiple independent bidirectional streams within one connection, does not have head-of-line blocking, and runs over QUIC.
 
@@ -406,55 +497,58 @@ WebTransport (HTTP/3) replaces conventional WebSocket for all real-time game and
 
 ### Module 3 — Advanced 3D graphics with Babylon.js
 
-_Gaming Major (2 pts) — by asplavnic_
+_Gaming Major (2 pts) — by asplavnic (scene, animations, weapon trails), lmeubrin (character rendering UI), drongier (audio integration, minor fixes)_
 
 The game arena is rendered in 3D using **Babylon.js**, a full-featured browser game engine built on WebGL. Babylon handles the scene graph, lighting, camera, mesh loading, physics, and the render loop — allowing us to build a visually rich arena without writing raw WebGL.
 
 **Why Babylon.js over Three.js:** Babylon.js is purpose-built for games (built-in physics, animation system, collision detection, asset manager) rather than general 3D visualisation. It also has strong TypeScript support.
 
-**Implementation:** The Babylon scene is wrapped in a React component that uses `useRef` for the `<canvas>` element and `useEffect` for engine lifecycle. Per-frame updates stay inside Babylon's `requestAnimationFrame` loop to avoid triggering React re-renders on every frame. Scene, camera, lights, and entities are managed entirely within the Babylon context. (Game branch — pending merge.)
+**Implementation:** The Babylon scene is wrapped in a React component (`GameCanvas.tsx`) that uses `useRef` for the `<canvas>` element and `useEffect` for engine lifecycle. The camera uses an isometric orthographic projection (35.264° elevation, 45° Y-rotation) for a fixed overhead view. Character models are loaded from the KayKit Adventurers glTF pack with bone-attached equipment (swords, shields, daggers) and crossfaded animation state machines. Weapon swing trails use vertex color alpha blending for visual feedback during attacks. The Forest arena is loaded as a full glTF scene. Per-frame updates stay inside Babylon's render loop to avoid triggering React re-renders — high-frequency game snapshots (60 Hz) are stored in refs, not React state.
 
 ---
 
-### Module 4 — Complete web-based game (fighter)
+### Module 4 — Complete web-based game (arena fighter)
 
-TODO: update this section with the final game design and mechanics once the game branch is merged.
+_Gaming Major (2 pts) — by mostly asplavnic (game engine + frontend) and kwurster (backend integration) (with contributions from lmeubrin and drongier)_
 
-_Gaming Major (2 pts) — by asplavnic (game) and kwurster (WebTransport backend)_
-
-The core deliverable is a fully playable 1v1 or more character-based fighting game running in the browser. Players pick a character, enter a match, and fight in real time. The server holds authoritative game state.
+The core deliverable is a fully playable character-based arena fighting game running in the browser. Players pick a character, enter a match, and fight in real time. The server holds authoritative game state via a C++ game engine (entt ECS) compiled into the Rust backend through CXX FFI.
 
 **Why a fighting game:** A fighting game is a natural fit for WebTransport's low-latency bidirectional streams. Client sends inputs; server validates, updates state, and broadcasts to all players in the match. This cleanly demonstrates the real-time module.
 
-**Implementation:** Character selection, match lobby, combat logic, hit detection, and win conditions in the game folder. Server-side validation ensures clients cannot cheat by sending fraudulent state.
+**Implementation:** The game engine runs 6 ECS systems across 4 phases per tick at 60 Hz on a dedicated OS thread: CharacterController (input), Physics + Collision (fixed update), Combat (attack chains, abilities, damage), GameMode + Stamina (late update). Two playable classes (Knight and Rogue) each have unique stat profiles, 2–3 stage attack combos, two abilities with cooldowns and cast durations, and stamina pools. Two game modes are available: Deathmatch (kill-limit with respawns after 5 s) and Last Standing (elimination — last alive wins). The frontend provides a full lobby system with character selection, ready-up countdown, an in-game HUD (health/stamina/cooldown bars), and a game-end leaderboard showing placement, kills, deaths, and damage stats.
 
 ---
 
 ### Module 5 — Remote players
 
-_Gaming Major (2 pts) — by asplavnic and kwurster
+_Gaming Major (2 pts) — by kwurster (backend) and asplavnic (game backend and frontend)_
 
-Both players connect from separate browsers and play over the network in real time, with the server acting as the authoritative relay and game state manager.
+Players connect from separate browsers on separate computers and play over the network in real time, with the server acting as the authoritative relay and game state manager.
 
-**Implementation:** Requires Module 4. The `stream_manager` already supports multiple concurrent WebTransport sessions. Match sessions are identified server-side; inputs from both players are processed each tick, and the updated game state is broadcast to both connections. (Planned — requires game branch merge.)
+**Implementation:** Each player establishes a WebTransport connection and joins a lobby via REST API. On game start, the server opens a bidirectional game stream per player. The client sends `GameClientMessage` (input state) at any rate; the server applies inputs immediately and broadcasts `GameServerMessage` (snapshots + network events) to all connected players at 60 Hz. Disconnection is handled via `on_disconnect` hooks — the stream cancellation is tracked and a background cleanup task prevents ghost players. The `StreamGroup` broadcast model ensures one slow client does not stall others (backpressure cancellation).
 
 ---
 
 ### Module 6 — User interaction (chat, friends, profiles)
 
-Todo: update
+_Web Major (2 pts) — in progress_
 
-_Web Major (2 pts) — planned_
+A social layer alongside the game: user profile pages, a friends system (add/remove), and direct messaging.
 
-A social layer alongside the game: user profile pages, a friends system (add/remove/block), direct messaging, and in-game match invitations.
+**Status:** Friends system and profile viewing are fully implemented. **Chat is not yet implemented** — this is the remaining requirement before this module can be claimed.
 
-**Implementation:** Planned. Will use existing user infrastructure (auth, avatars, WebTransport notifications). Profile pages will display avatar, nickname, description, and match history. Direct messages and presence updates will travel over the existing WebTransport connection.
+**What is done:**
+- **Friends system** (kwurster backend, drongier frontend): Full CRUD — send, accept, reject, cancel, remove. Real-time online status via WebTransport connection presence. `FriendsDrawer` with incoming/outgoing request sections.
+- **Profile system** (drongier): `PublicProfileModal` displays avatar, nickname, online status, bio, and join date. Triggered from friends list.
+
+**What is missing:**
+- A basic chat system (send/receive messages between users).
 
 ---
 
 ### Module 7 — ORM with Diesel and SQLite
 
-_Web Minor (1 pt) — by kwurster_
+_Web Minor (1 pt) — by kwurster with drongier (avatar DB integration)_
 
 All database access goes through **Diesel**, a compile-time type-checked ORM for Rust. Diesel's schema macro generates Rust types from the SQL schema; query builder calls that do not type-check fail at compile time, not at runtime.
 
@@ -472,26 +566,7 @@ Users can optionally enable TOTP-based 2FA. Once enabled, every login and sessio
 
 ---
 
-### Module 9 — File upload and management (avatar system)
-
-Todo: check if it succeeds this task truly and fully:
-Minor: File upload and management system.
-◦ Support multiple file types (images, documents, etc.).
-◦ Client-side and server-side validation (type, size, format).
-◦ Secure file storage with proper access control.
-◦ File preview functionality where applicable.
-◦ Progress indicators for uploads.
-◦ Ability to delete uploaded files.
-
-_Web Minor (1 pt) — by drongier (full-stack)_
-
-Users can upload a custom avatar. The system stores images in two sizes (450x450 for profile views, 200x200 for lists and game UI) in AVIF format. Client-side conversion and cropping means the backend never runs image processing code — eliminating an entire class of vulnerabilities (ImageMagick-style exploits).
-
-**Implementation:** The frontend upload flow crops the source image to a square, resizes to both dimensions, converts to AVIF, strips the alpha channel, and sends both blobs to `POST /api/avatar`. The backend validates AVIF magic bytes, exact dimensions, size limits, no transparency, and no animation, then stores in `avatars_large` and `avatars_small`. Small avatars are cached in a 1000-entry LRU cache. Responses carry `ETag` headers for browser-level cache validation. Default avatars are embedded in the Rust binary via `include_bytes!`.
-
----
-
-### Module 10 — Custom Minor: Session Management
+### Module 9 — Custom Minor: Session Management
 
 _Modules of choice Minor (1 pt) — by lmeubrin (frontend) and kwurster (backend)_
 
@@ -500,6 +575,18 @@ In a competitive gaming platform, account security matters. This module gives us
 **Justification:** Session management is a recognised OWASP best practice (OWASP ASVS Session Management). It directly addresses unauthorized access threats — a compromised password is much less damaging if the victim can spot and kill the rogue session immediately. It also aligns with GDPR's principle of data subject control. No existing ft_transcendence module covers this.
 
 **Implementation:** Password-gated access to session data (password is kept in a hidden ref to avoid re-prompting for each action). Three distinct revocation modes: deauth selected sessions, deauth all others, hard-delete records. All destructive operations additionally require the MFA code when 2FA is active. The frontend minimises user friction by not clearing the MFA field between operations so the user can reuse a valid TOTP code within its 30-second window. The backend enforces rolling (7-day) and absolute (30-day) reauth policies.
+
+---
+
+### Module 10 — Custom Minor: Audio System
+
+_Modules of choice Minor (1 pt) — by drongier_
+
+In a competitive multiplayer fighting game, audio is not cosmetic: it is core gameplay feedback. This module introduces a dedicated sound system that covers local responsiveness, remote synchronization, and 3D spatial perception. Players hear immediate feedback for their own actions, positional cues for opponents, and consistent mix behavior across UI, menu, and in-game contexts.
+
+**Justification:** Real time game audio design follows established middleware principles (FMOD/Wwise): event-driven playback, sound banks, mixer buses, and separation between gameplay state and audio rendering. This module addresses practical gameplay risks (audio spam, repetitive fatigue, desynced feedback) while improving accessibility and game readability. No standard module in ft_transcendence provides this end-to-end architecture.
+
+**Implementation:** The frontend uses a shared Babylon `AudioEngineV2` stack with routed buses (`master`, `sfx`, `music`, `music_ingame`, `ambient`, `ui`), a preloaded `SoundBank`, and declarative trigger tables for local input, remote snapshot deltas, and server events. Audio settings are persisted in local storage with validation and legacy migration support. Local jump/attack spam was mitigated by moving critical triggers away from raw key presses to animation/gameplay events, ensuring one-shot playback at the right moment. The backend integration relies on authoritative game events and stream delivery so every client receives consistent combat/audio outcomes while preserving immediate local feedback where needed.
 
 ---
 
@@ -524,17 +611,78 @@ This has been tested manually by just tabbing through the interface and using a 
 
 **Known Lighthouse flags (accepted exemptions)**
 
-**Placeholder text contrast** — `placeholder-stone-500` (#706058) renders at 3.0:1 on stone-900 backgrounds. Lighthouse flags this via axe-core's `color-contrast` rule. Under **WCAG 2.1 SC 1.4.3**, placeholder text qualifies as an _"inactive user interface component"_ and is explicitly exempt from the 4.5:1 contrast requirement. WCAG 2.2 added a clarifying note confirming this interpretation. The lower contrast is intentional: placeholder should be visually distinct from actual user input (`text-stone-100`, 13:1 contrast), so users can tell the difference at a glance between empty and filled fields.
+**Placeholder text contrast** — `placeholder-stone-500` (#706058) renders at 3.0:1 on stone-909 backgrounds. Lighthouse flags this via axe-core's `color-contrast` rule. Under **WCAG 2.1 SC 1.4.3**, placeholder text qualifies as an _"inactive user interface component"_ and is explicitly exempt from the 4.5:1 contrast requirement. WCAG 2.2 added a clarifying note confirming this interpretation. The lower contrast is intentional: placeholder should be visually distinct from actual user input (`text-stone-100`, 13:1 contrast), so users can tell the difference at a glance between empty and filled fields.
 
-### Module 12 — Custom Minor: Audio System
+---
 
-_Modules of choice Minor (1 pt) — by drongier_
+### Module 12 — Multiplayer 3+ players
 
-In a competitive multiplayer fighting game, audio is not cosmetic: it is core gameplay feedback. This module introduces a dedicated sound system that covers local responsiveness, remote synchronization, and 3D spatial perception. Players hear immediate feedback for their own actions, positional cues for opponents, and consistent mix behavior across UI, menu, and in-game contexts.
+_Gaming Major (2 pts) — by kwurster (backend) and asplavnic (game engine)_
 
-**Justification:** Real time game audio design follows established middleware principles (FMOD/Wwise): event-driven playback, sound banks, mixer buses, and separation between gameplay state and audio rendering. This module addresses practical gameplay risks (audio spam, repetitive fatigue, desynced feedback) while improving accessibility and game readability. No standard module in ft_transcendence provides this end-to-end architecture.
+The game supports 2–8 simultaneous players in a single match, extending beyond the standard 1v1 format into free-for-all arenas.
 
-**Implementation:** The frontend uses a shared Babylon `AudioEngineV2` stack with routed buses (`master`, `sfx`, `music`, `music_ingame`, `ambient`, `ui`), a preloaded `SoundBank`, and declarative trigger tables for local input, remote snapshot deltas, and server events. Audio settings are persisted in local storage with validation and legacy migration support. Local jump/attack spam was mitigated by moving critical triggers away from raw key presses to animation/gameplay events, ensuring one-shot playback at the right moment. The backend integration relies on authoritative game events and stream delivery so every client receives consistent combat/audio outcomes while preserving immediate local feedback where needed.
+**Implementation:** The C++ game engine defines `min_players() = 2` and `max_players() = 8`. The lobby system enforces these bounds on join. Player spawn positions are calculated in an evenly-spaced circle pattern (`SpawnPositions` helper) to ensure fair starting positions regardless of player count. The 60 Hz game loop processes inputs from all connected players each tick, and the `StreamGroup` broadcasts the authoritative `GameStateSnapshot` (containing all `CharacterSnapshot` entries) to every player and spectator simultaneously. Both game modes (Deathmatch and Last Standing) track per-player kills, deaths, and ranking across the full participant set.
+
+---
+
+### Module 13 — Spectator mode
+
+_Gaming Minor (1 pt) — by lmeubrin_
+
+Users can watch ongoing matches without participating. Spectators see the full game state in real time but cannot send input or affect gameplay.
+
+**Implementation:** A dedicated `POST /api/game/lobby/{id}/spectate` endpoint joins a user as a spectator (distinct from a player). Spectators receive game state via a uni-directional stream (server → client only); the `GameContext` detects spectator status and gates `sendInput()`. The `InGameGuard` route protection prevents spectators from navigating to `/game` — they remain on the lobby view with a "Game in progress" badge. Spectator count is displayed in the lobby UI. Spectators can leave via the standard `POST /api/game/lobby/{id}/leave` endpoint.
+
+---
+
+### Module 14 — Custom design system
+
+_Web Minor (1 pt) — by lmeubrin with drongier
+
+A unified visual design system with 17+ reusable components, a custom colour palette, consistent typography, and iconography — giving the application a cohesive dungeon-game aesthetic rather than a generic bootstrap look.
+
+**Justification:** The subject requires "a proper color palette, typography, and icons (minimum: 10 reusable components)." Our system exceeds this with 17+ exported components.
+
+**Implementation:** All components are exported from `frontend/src/components/ui/index.ts`: `Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`, `Dropdown` (with `DropdownItem`, `DropdownSeparator`), `ModelPreview`, `CharacterPicker`, `PlayerAvatarRow`, `ChampionGrid`, `CharacterStats`, and `CharacterSelector`. The colour palette is derived from the KayKit dungeon texture (`stone-*` neutrals, `gold-*` primary, semantic colours for danger/success/warning/info, `accent-*` for game elements). Three font families: Fredoka (display headings), Nunito Sans (body text), JetBrains Mono (code). Icons via Lucide React. All interactive elements carry ARIA labels for accessibility.
+
+---
+
+### Module 15 — Standard user management and authentication
+
+_User Management Major (2 pts) — by drongier (profile, avatar, friends frontend), kwurster (friends backend, online status)_
+
+Beyond the mandatory sign-up and login, this module provides a complete user management layer: editable profiles, avatars, a friends system with online status, and profile viewing.
+
+**Implementation:**
+- **Profile editing:** `EditUserModal` allows users to change their nickname and description.
+- **Avatar upload:** Client-side image conversion to AVIF at two sizes (450x450, 200x200). Backend validates format, dimensions, size limits. Default AVIF avatar embedded in binary via `include_bytes!`. Small avatars LRU-cached in memory (1000 entries). HTTP `ETag` caching.
+- **Friends system:** Full CRUD in `backend/src/friends/` — send, accept, reject, cancel, remove. Frontend `FriendsDrawer` shows friends list, incoming requests (with counter badge), and pending outgoing requests. Comprehensive backend test suite.
+- **Online status:** `StreamManager::is_connected(user_id)` checks whether the user has an active WebTransport connection. Frontend displays green (online) or gray (offline) dot indicator in friends drawer and `PublicProfileModal`.
+- **Profile page:** `PublicProfileModal` displays avatar, nickname, online/offline status, bio, and "member since" date for any user. Accessible from the friends list.
+
+---
+
+### Module 16 — Game customization options
+
+_Gaming Minor (1 pt) — by asplavnic (game engine, modes) and kwurster (lobby settings backend)_
+
+Players and hosts can customise their gameplay experience through character selection, game mode choice, and lobby settings.
+
+**Implementation:**
+- **Abilities and attacks:** Two playable classes (Knight and Rogue) with fundamentally different playstyles. Each has a multi-stage attack combo (Knight: 3 stages, Rogue: 2 stages), two unique abilities with cooldowns and cast durations, and distinct stat profiles (attack, defense, speed, health on a 1–10 scale). Stamina pools and costs differ per class.
+- **Game modes as themes:** Deathmatch (kill-limit with 5 s respawn — aggressive, fast-paced) and Last Standing (elimination, no respawns — cautious, high-stakes) provide fundamentally different gameplay experiences with distinct win conditions, respawn logic, and ranking strategies.
+- **Customisable game settings:** The lobby host can set the lobby name, toggle public/private visibility, and select the game mode via `PATCH /api/game/lobby/{id}/settings`. Each player independently selects their character class.
+- **Default options:** Knight is the default character class. Lobby defaults to public. Game mode must be explicitly chosen by the host (the UI prevents readying without a mode selected) as a design choice.
+
+---
+
+### Module 17 — Notification system
+
+_Web Minor (1 pt) — by kwurster (backend) and lmeubrin (frontend toast UI)_
+
+A real-time notification system that pushes events to users over WebTransport, with offline persistence for missed notifications and a toast UI for visual feedback.
+
+**Implementation:** The backend defines 5 notification types in `NotificationPayload`: `FriendRequestReceived`, `FriendRequestAccepted`, `FriendRequestRejected`, `FriendRequestCancelled`, and `FriendRemoved` — covering all friend-related creation, update, and deletion actions. If the user has a live WebTransport stream, the notification is delivered immediately (zero DB latency). If the user is offline, it is persisted to the `notifications` table (CBOR-encoded) and drained on reconnect with at-least-once delivery. The frontend `NotificationToast` component supports stacking (up to 2 individual cards, then visual stack), slide-out dismiss animation, sound effects via `useUIAudio()`, and click-through actions (e.g., opening the friends drawer). The `NotificationContext` handles stream registration, async display-text resolution (resolves user IDs to nicknames), and FIFO queue ordering.
 
 ---
 
@@ -547,10 +695,12 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 - Auth system: registration, login, two-token model (JWT + session token), BLAKE3 hashing, Argon2id passwords
 - Session management backend: all endpoints, rolling/absolute reauth policy, deauth vs delete semantics
 - Two-factor authentication backend: TOTP enrollment, encrypted secret storage, recovery code hashing
-- Diesel ORM integration: schema, models, all six migration files
+- Diesel ORM integration: schema, models, migration files
 - Rate limiting: IP-based and user-based quota hoops on all public and authenticated routes
-- WebTransport backend: `/api/wt` endpoint, `stream_manager`, per-user stream lifecycle
-- Notification system: `notifications` table, CBOR-encoded `Notification` enum, `ServerHello`
+- WebTransport backend: `/api/wt` endpoint, `stream_manager`, per-user stream lifecycle, `StreamGroup` broadcast model
+- Game server backend integration: CXX FFI bridge to C++ engine, `GameManager` singleton, lobby management (create/join/leave/ready/settings), 60 Hz game loop hosting on dedicated OS thread, disconnect handling
+- Friends backend: full CRUD endpoints (send/accept/reject/cancel/remove/list), online status via `StreamManager::is_connected()`, comprehensive test suite
+- Notification system: `notifications` table, CBOR-encoded `NotificationPayload` enum (5 friend event types + `ServerHello`), real-time delivery + offline persistence
 - Frontend WebTransport: codec `CompressedCborCodec.ts` (CBOR + zstd) and Stream manager
 - Backend CI/CD pipeline
 - GDPR backend: account deletion (pseudo-anonymization), data export, three-phase token flow, email confirmation endpoints, 56 integration tests
@@ -561,11 +711,13 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 - Product ownership: game design, mechanic definitions, feature prioritisation
 - Privacy Policy page (PR #105): content covering data collection, cookies, user rights
 - Terms of Service page (PR #105): acceptable use policy, account rules
-- Game branch (not yet merged):
-  - Babylon.js scene setup: lighting, camera, mesh management
-  - Entity system: component-based architecture for characters and game objects
-  - Server-side game validation
-  - Full 1v1 fighting game logic: character selection, combat, win conditions
+- C++ game engine (entt ECS): 6 systems across 4 phases — CharacterController, Physics, Collision, Combat, GameMode, Stamina
+- Game modes: Deathmatch (kill-limit, respawns) and Last Standing (elimination)
+- Combat system: attack chains (2–3 stages per class), 2 abilities per class, stamina pools, critical hits, knockback
+- Character presets: Knight and Rogue with distinct stat profiles
+- Babylon.js 3D scene: isometric camera, Forest arena, character animations, weapon swing trails, bone-attached equipment
+- Frontend game client: lobby UI with character selection and ready-up, in-game HUD (health/stamina/cooldown bars, enemy health bars)
+- CXX FFI bridge interface: `GameHandle` methods for start, update, add/remove player, input, snapshot, and network events
 
 ### lmeubrin
 
@@ -576,7 +728,9 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 - Two-factor authentication frontend: `TwoFactorAuthModal`, `TwoFactorLoginModal`, `ReauthModal`
 - Session management page: full UI over all session management backend endpoints
 - Landing page: `LandingPage.tsx` and animated `LandingScene.tsx`
-- Design system: 11 UI components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`), stone/gold/dungeon theme, full Tailwind custom config
+- Design system: 17+ UI components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`, `ModelPreview`, `CharacterPicker`, `PlayerAvatarRow`, `ChampionGrid`, `CharacterStats`, `CharacterSelector`), stone/gold/dungeon theme, full Tailwind custom config
+- Character rendering UI components: `CharacterSelector`, `CharacterPicker`, `PlayerAvatarRow`, `ChampionGrid`, `CharacterStats`
+- Spectator mode: `spectateLobby()` API integration, `InGameGuard` route protection, spectator detection in `GameContext`
 - Error system: `storeError` / `retrieveStoredError` pattern, `ErrorBanner` component
 - GDPR frontend: Privacy & Data modal with account deletion and data export flows, nickname confirmation for deletion, WCAG-compliant step-based UI
 - Frontend CI/CD pipeline
@@ -589,10 +743,11 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
   - Frontend: image crop/resize/AVIF conversion, upload flow, avatar display components
 - Profile editing: `EditUserModal` for nickname and description changes
 - User description field: backend migration + frontend display/edit
+- Friends frontend: `FriendsDrawer` (friends list, incoming/outgoing request sections with counter badges), `AddFriendForm`, online status display (green/gray dot), `PublicProfileModal`
 - WCAG 2.1 AA accessibility compliance while working on the frontend
-- Sound system (in progress, not yet merged)
-- Audio architecture: designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, trigger-table-driven playback for local/remote/game events).
-- Sound design: tuned combat/movement feedback, cooldown anti-spam behavior, and overall mix balance for clearer, more readable gameplay audio.
+- Audio architecture: designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, trigger-table-driven playback for local/remote/game events)
+- Sound design: tuned combat/movement feedback, cooldown anti-spam behavior, and overall mix balance for clearer, more readable gameplay audio
+- 3D engine contributions: audio integration for the game engine, minor 3D engine fixes
 
 ---
 
@@ -621,7 +776,11 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 | Backend auth | [docs/backend-auth.md](docs/backend-auth.md) | Full auth architecture, token model, endpoints, threat model |
 | Avatar backend | [docs/avatar-backend.md](docs/avatar-backend.md) | Avatar system architecture, validation rules, caching strategy |
 | Frontend | [docs/frontend.md](docs/frontend.md) | Frontend stack, design system, auth flow, JWT refresh |
-| Audio system | [docs/audio_system.md](docs/audio_system.md) | Audio architecture, bus routing, triggers, and sound system behavior |
+| Game | [docs/game.md](docs/game.md) | Game architecture, engine design, lobby system, and gameplay mechanics |
+| Audio engine | [docs/audio_engine.md](docs/audio_system.md) | Audio architecture, bus routing, triggers, and sound system behavior |
+| Friends | [docs/friends.md](docs/friends.md) | Friends system design and API contract |
+| Spectator mode | [docs/spectator-mode.md](docs/spectator-mode.md) | Spectator system design, API, and stream architecture |
+| Streaming architecture | [docs/streaming-architecture.md](docs/streaming-architecture.md) | WebTransport stream types, connection lifecycle, broadcast model |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
 | TODO | [docs/todo.md](docs/todo.md) | What still needs to be done before evaluation |
