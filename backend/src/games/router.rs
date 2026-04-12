@@ -3,7 +3,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::{models::Game, prelude::*};
+use crate::prelude::*;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
@@ -22,7 +22,9 @@ pub fn router(path: &str) -> Router {
         )
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
+#[diesel(table_name = crate::schema::games)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct GameResponse {
     pub id: i32,
     pub player1_id: i32,
@@ -33,22 +35,6 @@ pub struct GameResponse {
     pub damage_p1: i32,
     pub damage_p2: i32,
     pub played_at: DateTime<Utc>,
-}
-
-impl From<Game> for GameResponse {
-    fn from(g: Game) -> Self {
-        Self {
-            id: g.id,
-            player1_id: g.player1_id,
-            player2_id: g.player2_id,
-            winner_id: g.winner_id,
-            kills_p1: g.kills_p1,
-            kills_p2: g.kills_p2,
-            damage_p1: g.damage_p1,
-            damage_p2: g.damage_p2,
-            played_at: g.played_at,
-        }
-    }
 }
 
 /// Get the last 20 games for the current user
@@ -88,9 +74,10 @@ async fn get_recent_games(user_id: i32, db: Db) -> JsonResult<Vec<GameResponse>>
                 .filter(dsl::player1_id.eq(user_id).or(dsl::player2_id.eq(user_id)))
                 .order(dsl::played_at.desc())
                 .limit(20)
-                .load::<Game>(conn)
+                .select(GameResponse::as_select())
+                .load::<GameResponse>(conn)
         })
         .await?;
 
-    json_ok(games.into_iter().map(GameResponse::from).collect())
+    json_ok(games)
 }

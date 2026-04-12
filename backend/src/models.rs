@@ -145,7 +145,7 @@ impl Achievement {
 }
 
 #[derive(
-    Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Debug, Clone,
+    Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Deserialize, Debug, Clone,
 )]
 #[diesel(table_name = crate::schema::user_achievements)]
 #[diesel(belongs_to(User))]
@@ -161,53 +161,11 @@ pub struct UserAchievement {
     pub gold_unlocked_at: Option<DateTime<Utc>>,
 }
 
-// Games
-// ============================================================================
-
-#[apply(NewInsertable!)]
-#[derive(Queryable, Selectable, Debug, Clone)]
-#[diesel(table_name = crate::schema::games)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct Game {
-    pub id: i32,
-    pub player1_id: i32,
-    pub player2_id: i32,
-    pub winner_id: i32,
-    pub kills_p1: i32,
-    pub kills_p2: i32,
-    pub damage_p1: i32,
-    pub damage_p2: i32,
-    pub played_at: DateTime<Utc>,
-}
-
-impl NewGame {
-    pub fn new(
-        player1_id: i32,
-        player2_id: i32,
-        winner_id: i32,
-        kills_p1: i32,
-        kills_p2: i32,
-        damage_p1: i32,
-        damage_p2: i32,
-    ) -> Self {
-        Self {
-            player1_id,
-            player2_id,
-            winner_id,
-            kills_p1,
-            kills_p2,
-            damage_p1,
-            damage_p2,
-            played_at: chrono::Utc::now(),
-        }
-    }
-}
-
 // ============================================================================
 // User Stats (XP/Level System)
 // ============================================================================
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Debug, Clone)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Debug, Clone, ToSchema, Serialize, Deserialize)]
 #[diesel(table_name = crate::schema::user_stats)]
 #[diesel(belongs_to(User))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -219,8 +177,8 @@ pub struct UserStats {
     pub games_won: i32,
     pub current_win_streak: i32,
     pub best_win_streak: i32,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub kills: i32,
     pub deaths: i32,
     pub damage_dealt: f32,
