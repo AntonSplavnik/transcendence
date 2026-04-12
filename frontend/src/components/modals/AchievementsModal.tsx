@@ -97,18 +97,23 @@ function AchievementCard({ a }: { a: AchievementWithProgress }) {
 export default function AchievementsModal({ onClose }: AchievementsModalProps) {
 	const { achievements, loading } = useAchievements();
 
-	const categories = achievements
-		? [...new Set(achievements.map((a) => a.category))]
-		: [];
+	const categories = achievements ? [...new Set(achievements.map((a) => a.category))] : [];
 
 	return (
-		<Modal maxWidth="xl" title="Achievements" icon={<Trophy className="w-6 h-6 text-warning" />} onClose={onClose}>
+		<Modal
+			maxWidth="xl"
+			title="Achievements"
+			icon={<Trophy className="w-6 h-6 text-warning" />}
+			onClose={onClose}
+		>
 			{loading ? (
 				<div className="flex justify-center py-8">
 					<LoadingSpinner size="md" />
 				</div>
 			) : !achievements || achievements.length === 0 ? (
-				<p className="text-stone-400 text-sm text-center py-8">No achievements available.</p>
+				<p className="text-stone-400 text-sm text-center py-8">
+					No achievements available.
+				</p>
 			) : (
 				<div className="space-y-6">
 					{categories.map((category) => (

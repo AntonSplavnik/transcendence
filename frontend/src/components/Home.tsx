@@ -293,14 +293,12 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 						<div className="flex items-center gap-2">
 							<Trophy className="w-5 h-5 text-warning" aria-hidden="true" />
 							<h2 className="text-xl font-bold text-stone-50">
-								Level{' '}
-								<span className="text-warning">{stats?.level ?? '—'}</span>
+								Level <span className="text-warning">{stats?.level ?? '—'}</span>
 							</h2>
 						</div>
 						{stats && (
 							<span className="text-sm text-stone-400 font-mono">
-								{stats.xp_in_level}{' '}
-								<span className="text-stone-500">/</span>{' '}
+								{stats.xp_in_level} <span className="text-stone-500">/</span>{' '}
 								{stats.xp_to_next} XP
 							</span>
 						)}
@@ -326,11 +324,15 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 						<div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
 							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
 								<p className="text-xs text-stone-400 mb-0.5">Games</p>
-								<p className="text-lg font-bold text-stone-100 font-mono">{stats.games_played}</p>
+								<p className="text-lg font-bold text-stone-100 font-mono">
+									{stats.games_played}
+								</p>
 							</div>
 							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
 								<p className="text-xs text-stone-400 mb-0.5">Wins</p>
-								<p className="text-lg font-bold text-stone-100 font-mono">{stats.games_won}</p>
+								<p className="text-lg font-bold text-stone-100 font-mono">
+									{stats.games_won}
+								</p>
 							</div>
 							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
 								<p className="text-xs text-stone-400 mb-0.5">Win Rate</p>
@@ -343,7 +345,9 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 									<Flame className="w-3 h-3 text-warning" aria-hidden="true" />
 									Best Streak
 								</p>
-								<p className="text-lg font-bold text-warning font-mono">{stats.best_win_streak}</p>
+								<p className="text-lg font-bold text-warning font-mono">
+									{stats.best_win_streak}
+								</p>
 							</div>
 						</div>
 					)}
@@ -370,38 +374,41 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 							View All →
 						</button>
 					</div>
-					{achievements ? (() => {
-						const unlockedTiers = achievements.reduce(
-							(sum, a) =>
-								sum +
-								(a.bronze_unlocked ? 1 : 0) +
-								(a.silver_unlocked ? 1 : 0) +
-								(a.gold_unlocked ? 1 : 0),
-							0,
-						);
-						const totalTiers = achievements.length * 3;
-						const pct = totalTiers > 0 ? Math.round((unlockedTiers / totalTiers) * 100) : 0;
-						return (
-							<>
-								<p className="text-sm text-stone-400 mb-2">
-									{unlockedTiers} / {totalTiers} tiers unlocked
-								</p>
-								<div
-									className="h-2 bg-stone-700 rounded-full overflow-hidden"
-									role="progressbar"
-									aria-valuenow={pct}
-									aria-valuemin={0}
-									aria-valuemax={100}
-									aria-label={`Achievements: ${pct}%`}
-								>
+					{achievements ? (
+						(() => {
+							const unlockedTiers = achievements.reduce(
+								(sum, a) =>
+									sum +
+									(a.bronze_unlocked ? 1 : 0) +
+									(a.silver_unlocked ? 1 : 0) +
+									(a.gold_unlocked ? 1 : 0),
+								0,
+							);
+							const totalTiers = achievements.length * 3;
+							const pct =
+								totalTiers > 0 ? Math.round((unlockedTiers / totalTiers) * 100) : 0;
+							return (
+								<>
+									<p className="text-sm text-stone-400 mb-2">
+										{unlockedTiers} / {totalTiers} tiers unlocked
+									</p>
 									<div
-										className="h-full bg-gold rounded-full transition-all duration-500"
-										style={{ width: `${pct}%` }}
-									/>
-								</div>
-							</>
-						);
-					})() : (
+										className="h-2 bg-stone-700 rounded-full overflow-hidden"
+										role="progressbar"
+										aria-valuenow={pct}
+										aria-valuemin={0}
+										aria-valuemax={100}
+										aria-label={`Achievements: ${pct}%`}
+									>
+										<div
+											className="h-full bg-gold rounded-full transition-all duration-500"
+											style={{ width: `${pct}%` }}
+										/>
+									</div>
+								</>
+							);
+						})()
+					) : (
 						<div className="h-2 bg-stone-700 rounded-full" />
 					)}
 				</Card>
@@ -427,9 +434,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 				/>
 			)}
 
-			{showAchievements && (
-				<AchievementsModal onClose={() => setShowAchievements(false)} />
-			)}
+			{showAchievements && <AchievementsModal onClose={() => setShowAchievements(false)} />}
 
 			{showEmailConfirmation && (
 				<EmailConfirmationModal
