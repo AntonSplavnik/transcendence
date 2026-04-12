@@ -120,6 +120,10 @@ diesel::table! {
         best_win_streak -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
+        kills -> Integer,
+        deaths -> Integer,
+        damage_dealt -> Float,
+        damage_taken -> Float,
     }
 }
 
