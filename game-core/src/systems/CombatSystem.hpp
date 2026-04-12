@@ -367,6 +367,10 @@ inline void CombatSystem::processDamage() {
 				controller->setState(CharacterState::Dead);
 				controller->canMove = false;
 			}
+			if (auto* physics = m_registry->try_get<Components::PhysicsBody>(hit.victim)) {
+				physics->velocity.x = 0.0f;
+				physics->velocity.z = 0.0f;
+			}
 		}
 	}
 }

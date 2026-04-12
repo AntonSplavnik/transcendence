@@ -4,6 +4,7 @@
 #include "../components/Transform.hpp"
 #include "../components/PhysicsBody.hpp"
 #include "../components/Collider.hpp"
+#include "../components/Health.hpp"
 #include "../GameTypes.hpp"
 #include "../../entt/entt.hpp"
 
@@ -63,7 +64,18 @@ private:
 inline void PhysicsSystem::fixedUpdate(float fixedDeltaTime) {
 	auto view = m_registry->view<Components::Transform, Components::PhysicsBody, Components::Collider>();
 
-	view.each([&](Components::Transform& transform, Components::PhysicsBody& physics, Components::Collider& collider) {
+	view.each([&](entt::entity entity, Components::Transform& transform, Components::PhysicsBody& physics, Components::Collider& collider) {
+		// Dead entities: gravity + vertical fall only (no horizontal drift)
+		if (auto* health = m_registry->try_get<Components::Health>(entity); health && !health->isAlive()) {
+			physics.velocity.x = 0.0f;
+			physics.velocity.z = 0.0f;
+			applyGravity(physics, fixedDeltaTime);
+			integrateVelocity(transform, physics, fixedDeltaTime);
+			enforceArenaBounds(transform, collider);
+			checkGroundCollision(transform, physics);
+			return;
+		}
+
 		applyGravity(physics, fixedDeltaTime);
 		integrateVelocity(transform, physics, fixedDeltaTime);
 		enforceArenaBounds(transform, collider);
