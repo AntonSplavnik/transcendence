@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <random>
 
 namespace ArenaGame {
 
@@ -24,21 +25,24 @@ namespace ArenaGame {
 // =============================================================================
 
 struct SpawnPositions {
+	static constexpr size_t NUM_SPOTS = 5;
+	static constexpr float SPOTS[NUM_SPOTS][2] = {
+		{  12.0f,  -3.0f },
+		{  -4.0f,  -3.0f },
+		{ -12.0f,  11.0f },
+		{  -4.0f,  18.0f },
+		{   7.7f,  18.7f },
+	};
+
 	std::vector<Vector3D> positions;
 	size_t nextIndex = 0;
+	std::mt19937 rng{std::random_device{}()};
 
-	void initialize(int numPlayers) {
-		const float radius = GameConfig::ARENA_WIDTH * 0.35f;
-		const float angleStep = 2.0f * 3.14159265359f / static_cast<float>(numPlayers);
+	void initialize([[maybe_unused]] int numPlayers) {
 		positions.clear();
-		positions.reserve(static_cast<size_t>(numPlayers));
-		for (int i = 0; i < numPlayers; ++i) {
-			float angle = static_cast<float>(i) * angleStep;
-			positions.push_back(Vector3D(
-				radius * std::cos(angle),
-				GameConfig::GROUND_Y,
-				radius * std::sin(angle)
-			));
+		positions.reserve(NUM_SPOTS);
+		for (size_t i = 0; i < NUM_SPOTS; ++i) {
+			positions.push_back(Vector3D(SPOTS[i][0], GameConfig::GROUND_Y, SPOTS[i][1]));
 		}
 		nextIndex = 0;
 	}
@@ -48,6 +52,12 @@ struct SpawnPositions {
 		Vector3D pos = positions[nextIndex];
 		nextIndex = (nextIndex + 1) % positions.size();
 		return pos;
+	}
+
+	Vector3D random() {
+		if (positions.empty()) return Vector3D(0.0f, GameConfig::GROUND_Y, 0.0f);
+		std::uniform_int_distribution<size_t> dist(0, positions.size() - 1);
+		return positions[dist(rng)];
 	}
 };
 
@@ -236,7 +246,7 @@ public:
 		// Respawn players whose timer expired
 		std::erase_if(m_respawnQueue, [&](const RespawnTimer& t) {
 			if (t.remaining > 0.0f) return false;
-			ctx.spawner.respawnPlayer(t.entity, m_spawns.next());
+			ctx.spawner.respawnPlayer(t.entity, m_spawns.random());
 			return true;
 		});
 	}

@@ -247,7 +247,7 @@ SQLite was chosen because:
 | Column | Type | Notes |
 |--------|------|-------|
 | `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
-| `data` | BLOB | AVIF image at 450x450 px, max 20 KB |
+| `data` | BLOB | AVIF image at 450x450 px, max 30 KB |
 | `updated_at` | TIMESTAMP | |
 
 ### `avatars_small`
@@ -255,7 +255,7 @@ SQLite was chosen because:
 | Column | Type | Notes |
 |--------|------|-------|
 | `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
-| `data` | BLOB | AVIF image at 200x200 px, max 8 KB; LRU-cached in memory |
+| `data` | BLOB | AVIF image at 200x200 px, max 12 KB; LRU-cached in memory |
 | `updated_at` | TIMESTAMP | |
 
 ### `notifications`
@@ -412,7 +412,7 @@ The core deliverable is a fully playable 1v1 or more character-based fighting ga
 
 ### Module 5 — Remote players
 
-_Gaming Major (2 pts) — by asplavnic and kwurster 
+_Gaming Major (2 pts) — by asplavnic and kwurster
 
 Both players connect from separate browsers and play over the network in real time, with the server acting as the authoritative relay and game state manager.
 
@@ -580,17 +580,17 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 
 | Resource | URL | Purpose |
 |----------|-----|---------|
-| Salvo documentation | https://salvo.rs/book | Rust web framework reference |
-| Diesel ORM guide | https://diesel.rs/guides | ORM patterns and migration workflow |
-| Babylon.js documentation | https://doc.babylonjs.com | 3D engine API reference |
-| WebTransport API (MDN) | https://developer.mozilla.org/en-US/docs/Web/API/WebTransport | Browser WebTransport API |
-| WebTransport spec (W3C) | https://www.w3.org/TR/webtransport/ | Protocol specification |
-| OWASP Session Management | https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html | Security guidance for session design |
-| Argon2 RFC | https://datatracker.ietf.org/doc/rfc9106/ | Password hashing specification |
-| TOTP RFC 6238 | https://datatracker.ietf.org/doc/html/rfc6238 | Time-based OTP specification |
-| AVIF spec | https://aomediacodec.github.io/av1-avif/ | Image format used for avatars |
-| WCAG 2.1 specification | https://www.w3.org/TR/WCAG21/ | Web Content Accessibility Guidelines |
-| ARIA authoring practices | https://www.w3.org/WAI/ARIA/apg/ | ARIA patterns for menus, dialogs, widgets |
+| Salvo documentation | <https://salvo.rs/book> | Rust web framework reference |
+| Diesel ORM guide | <https://diesel.rs/guides> | ORM patterns and migration workflow |
+| Babylon.js documentation | <https://doc.babylonjs.com> | 3D engine API reference |
+| WebTransport API (MDN) | <https://developer.mozilla.org/en-US/docs/Web/API/WebTransport> | Browser WebTransport API |
+| WebTransport spec (W3C) | <https://www.w3.org/TR/webtransport/> | Protocol specification |
+| OWASP Session Management | <https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html> | Security guidance for session design |
+| Argon2 RFC | <https://datatracker.ietf.org/doc/rfc9106/> | Password hashing specification |
+| TOTP RFC 6238 | <https://datatracker.ietf.org/doc/html/rfc6238> | Time-based OTP specification |
+| AVIF spec | <https://aomediacodec.github.io/av1-avif/> | Image format used for avatars |
+| WCAG 2.1 specification | <https://www.w3.org/TR/WCAG21/> | Web Content Accessibility Guidelines |
+| ARIA authoring practices | <https://www.w3.org/WAI/ARIA/apg/> | ARIA patterns for menus, dialogs, widgets |
 
 ### Internal documentation
 

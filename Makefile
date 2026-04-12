@@ -164,6 +164,58 @@ chrome-dev:
 			"http://localhost:8025" >/dev/null 2>&1 & \
 	fi
 
+chrome-dev-alt:
+	@echo "🌐 Launching Chrome dev instance via spki flag (WebTransport enabled)..."; \
+	SPKI_FLAG=""; \
+	SPKI=$$(openssl x509 -in backend/certs/cert.pem -noout -pubkey 2>/dev/null \
+		| openssl pkey -pubin -outform der 2>/dev/null \
+		| openssl dgst -sha256 -binary 2>/dev/null \
+		| base64); \
+	SPKI_FLAG="--ignore-certificate-errors-spki-list=$$SPKI"; \
+	if [ "$$(uname)" = "Darwin" ]; then \
+		if ! open -Ra "Google Chrome" >/dev/null 2>&1; then \
+			echo "⚠️  Google Chrome not found. Install it and try again."; \
+			exit 1; \
+		fi; \
+		open -na "Google Chrome" --args \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			$$SPKI_FLAG \
+			"$(CHROME_URL)" \
+			"http://localhost:8025" >/dev/null 2>&1 & \
+	else \
+		CHROME_BIN=""; \
+		for bin in google-chrome google-chrome-stable chromium chromium-browser; do \
+			if command -v $$bin >/dev/null 2>&1; then \
+				CHROME_BIN=$$bin; break; \
+			fi; \
+		done; \
+		if [ -z "$$CHROME_BIN" ]; then \
+			echo "⚠️  No Chrome/Chromium binary found in PATH."; \
+			exit 1; \
+		fi; \
+		$$CHROME_BIN \
+			--user-data-dir="/tmp/chrome-dev-wt" \
+			--webtransport-developer-mode \
+			$$SPKI_FLAG \
+			--no-first-run \
+			--no-default-browser-check \
+			--disable-default-apps \
+			--disable-popup-blocking \
+			--disable-translate \
+			--disable-sync \
+			--password-store=basic \
+			"$(CHROME_URL)" \
+			"http://localhost:8025" >/dev/null 2>&1 & \
+	fi
+
 # ── Database management ───────────────────────────────────────
 
 reset-db:

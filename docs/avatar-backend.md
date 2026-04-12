@@ -9,11 +9,11 @@ Scope:
 
 The avatar system stores user profile images in two sizes:
 
-1. **Large avatar** (450x450 pixels, max 20KB)
+1. **Large avatar** (450x450 pixels, max 30KB)
    - Used for profile pages and detailed views
    - Stored in `avatars_large` table
 
-2. **Small avatar** (200x200 pixels, max 8KB)
+2. **Small avatar** (200x200 pixels, max 12KB)
    - Used for lists, chat, game UI
    - Stored in `avatars_small` table
    - Cached in memory for fast retrieval
@@ -51,8 +51,8 @@ Database schema:
 All uploaded images must pass:
 
 1. **File size limits**
-   - Large: max 20KB
-   - Small: max 8KB
+   - Large: max 30KB
+   - Small: max 12KB
 
 2. **Exact dimensions**
    - Large: exactly 450x450 pixels

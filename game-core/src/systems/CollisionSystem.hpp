@@ -8,6 +8,8 @@
 #include "../GameTypes.hpp"
 #include "../../entt/entt.hpp"
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace ArenaGame {
 
@@ -51,11 +53,31 @@ public:
 private:
 	Config m_config;
 
+	struct HorizontalProjection {
+		Vector3D center;
+		float radius;
+		Vector3D halfExtents;
+		bool isBox;
+	};
+
 	// Collision detection helpers
+	HorizontalProjection getHorizontalProjection(const Components::Transform& transform, const Components::Collider& collider) const;
 	bool checkCollision(
 		const Components::Transform& transformA, const Components::Collider& colliderA,
 		const Components::Transform& transformB, const Components::Collider& colliderB
 	) const;
+
+	bool intersectsCircleCircle(const HorizontalProjection& a, const HorizontalProjection& b) const;
+	bool intersectsBoxBox(const HorizontalProjection& a, const HorizontalProjection& b) const;
+	bool intersectsCircleBox(const HorizontalProjection& circle, const HorizontalProjection& box) const;
+
+	Vector3D computeSeparationVector(
+		const Components::Transform& transformA, const Components::Collider& colliderA,
+		const Components::Transform& transformB, const Components::Collider& colliderB
+	) const;
+	Vector3D computeCircleCircleSeparation(const HorizontalProjection& a, const HorizontalProjection& b) const;
+	Vector3D computeBoxBoxSeparation(const HorizontalProjection& a, const HorizontalProjection& b) const;
+	Vector3D computeCircleBoxSeparation(const HorizontalProjection& circle, const HorizontalProjection& box) const;
 
 	void resolveCollision(
 		Components::Transform& transformA, const Components::Collider& colliderA,
@@ -133,12 +155,22 @@ inline bool CollisionSystem::checkCollision(
 	const Components::Transform& transformA, const Components::Collider& colliderA,
 	const Components::Transform& transformB, const Components::Collider& colliderB
 ) const {
-	// Get collision cylinders
-	Cylinder cylA = colliderA.getCylinder(transformA.position);
-	Cylinder cylB = colliderB.getCylinder(transformB.position);
+	auto projectionA = getHorizontalProjection(transformA, colliderA);
+	auto projectionB = getHorizontalProjection(transformB, colliderB);
 
-	// Check horizontal collision (XZ plane) using cylinder intersection
-	return cylA.intersects(cylB);
+	if (projectionA.isBox && projectionB.isBox) {
+		return intersectsBoxBox(projectionA, projectionB);
+	}
+
+	if (!projectionA.isBox && !projectionB.isBox) {
+		return intersectsCircleCircle(projectionA, projectionB);
+	}
+
+	if (!projectionA.isBox) {
+		return intersectsCircleBox(projectionA, projectionB);
+	}
+
+	return intersectsCircleBox(projectionB, projectionA);
 }
 
 inline void CollisionSystem::resolveCollision(
@@ -146,51 +178,183 @@ inline void CollisionSystem::resolveCollision(
 	Components::Transform& transformB, const Components::Collider& colliderB,
 	const Components::PhysicsBody* physicsA, const Components::PhysicsBody* physicsB
 ) {
-	Vector3D posA = transformA.position;
-	Vector3D posB = transformB.position;
+	Vector3D separation = computeSeparationVector(transformA, colliderA, transformB, colliderB);
+	if (separation.lengthSquared() == 0.0f) {
+		return;
+	}
 
-	// Calculate horizontal separation vector (ignore Y)
-	Vector3D separation(posB.x - posA.x, 0.0f, posB.z - posA.z);
+	bool aIsStatic = physicsA && physicsA->isKinematic;
+	bool bIsStatic = physicsB && physicsB->isKinematic;
+	Vector3D pushVector = separation * m_config.pushStrength;
+
+	if (aIsStatic && bIsStatic) {
+		return;
+	}
+
+	if (aIsStatic) {
+		transformB.position = transformB.position - (pushVector * 2.0f);
+	} else if (bIsStatic) {
+		transformA.position += pushVector * 2.0f;
+	} else {
+		transformA.position += pushVector;
+		transformB.position = transformB.position - pushVector;
+	}
+}
+
+inline CollisionSystem::HorizontalProjection CollisionSystem::getHorizontalProjection(
+	const Components::Transform& transform, const Components::Collider& collider
+) const {
+	HorizontalProjection projection;
+	projection.center = transform.position + collider.offset;
+	projection.isBox = collider.shape == Components::Collider::Shape::Box;
+	projection.radius = projection.isBox ? 0.0f : collider.radius;
+	projection.halfExtents = projection.isBox
+		? Vector3D(collider.halfExtents.x, 0.0f, collider.halfExtents.z)
+		: Vector3D(collider.radius, 0.0f, collider.radius);
+	return projection;
+}
+
+inline bool CollisionSystem::intersectsCircleCircle(const HorizontalProjection& a, const HorizontalProjection& b) const {
+	float dx = a.center.x - b.center.x;
+	float dz = a.center.z - b.center.z;
+	float radiusSum = a.radius + b.radius;
+	return (dx * dx + dz * dz) < (radiusSum * radiusSum);
+}
+
+inline bool CollisionSystem::intersectsBoxBox(const HorizontalProjection& a, const HorizontalProjection& b) const {
+	float aMinX = a.center.x - a.halfExtents.x;
+	float aMaxX = a.center.x + a.halfExtents.x;
+	float aMinZ = a.center.z - a.halfExtents.z;
+	float aMaxZ = a.center.z + a.halfExtents.z;
+
+	float bMinX = b.center.x - b.halfExtents.x;
+	float bMaxX = b.center.x + b.halfExtents.x;
+	float bMinZ = b.center.z - b.halfExtents.z;
+	float bMaxZ = b.center.z + b.halfExtents.z;
+
+	return (aMinX < bMaxX && aMaxX > bMinX) && (aMinZ < bMaxZ && aMaxZ > bMinZ);
+}
+
+inline bool CollisionSystem::intersectsCircleBox(const HorizontalProjection& circle, const HorizontalProjection& box) const {
+	float minX = box.center.x - box.halfExtents.x;
+	float maxX = box.center.x + box.halfExtents.x;
+	float minZ = box.center.z - box.halfExtents.z;
+	float maxZ = box.center.z + box.halfExtents.z;
+
+	float closestX = std::clamp(circle.center.x, minX, maxX);
+	float closestZ = std::clamp(circle.center.z, minZ, maxZ);
+	float dx = circle.center.x - closestX;
+	float dz = circle.center.z - closestZ;
+
+	return (dx * dx + dz * dz) < (circle.radius * circle.radius);
+}
+
+inline Vector3D CollisionSystem::computeSeparationVector(
+	const Components::Transform& transformA, const Components::Collider& colliderA,
+	const Components::Transform& transformB, const Components::Collider& colliderB
+) const {
+	auto projectionA = getHorizontalProjection(transformA, colliderA);
+	auto projectionB = getHorizontalProjection(transformB, colliderB);
+
+	if (projectionA.isBox && projectionB.isBox) {
+		return computeBoxBoxSeparation(projectionA, projectionB);
+	}
+
+	if (!projectionA.isBox && !projectionB.isBox) {
+		return computeCircleCircleSeparation(projectionA, projectionB);
+	}
+
+	if (!projectionA.isBox) {
+		return computeCircleBoxSeparation(projectionA, projectionB);
+	}
+
+	return computeCircleBoxSeparation(projectionB, projectionA) * -1.0f;
+}
+
+inline Vector3D CollisionSystem::computeCircleCircleSeparation(const HorizontalProjection& a, const HorizontalProjection& b) const {
+	Vector3D separation(a.center.x - b.center.x, 0.0f, a.center.z - b.center.z);
 	float distance = separation.length();
+	float requiredDistance = a.radius + b.radius;
 
-	// If entities are overlapping
 	if (distance < m_config.minSeparation) {
-		// Avoid division by zero - push apart in arbitrary direction
 		separation = Vector3D(1.0f, 0.0f, 0.0f);
 		distance = 1.0f;
 	}
 
-	// Calculate required separation
-	float requiredDistance = colliderA.radius + colliderB.radius;
-
-	// Only resolve if overlapping
-	if (distance < requiredDistance) {
-		Vector3D pushDirection = separation.normalized();
-		float overlap = requiredDistance - distance;
-
-		// Determine push ratios based on whether entities are static
-		bool aIsStatic = physicsA && physicsA->isKinematic;
-		bool bIsStatic = physicsB && physicsB->isKinematic;
-
-		Vector3D pushVector = pushDirection * (overlap * m_config.pushStrength);
-
-		if (aIsStatic && !bIsStatic) {
-			// Only push B
-			posB = posB + (pushVector * 2.0f);
-		} else if (!aIsStatic && bIsStatic) {
-			// Only push A
-			posA = posA - (pushVector * 2.0f);
-		} else if (!aIsStatic && !bIsStatic) {
-			// Push both (50/50 split)
-			posA = posA - pushVector;
-			posB = posB + pushVector;
-		}
-		// If both static, don't push
-
-		// Update positions
-		transformA.position = posA;
-		transformB.position = posB;
+	if (distance >= requiredDistance) {
+		return Vector3D(0.0f, 0.0f, 0.0f);
 	}
+
+	return separation.normalized() * (requiredDistance - distance);
+}
+
+inline Vector3D CollisionSystem::computeBoxBoxSeparation(const HorizontalProjection& a, const HorizontalProjection& b) const {
+	float aMinX = a.center.x - a.halfExtents.x;
+	float aMaxX = a.center.x + a.halfExtents.x;
+	float aMinZ = a.center.z - a.halfExtents.z;
+	float aMaxZ = a.center.z + a.halfExtents.z;
+
+	float bMinX = b.center.x - b.halfExtents.x;
+	float bMaxX = b.center.x + b.halfExtents.x;
+	float bMinZ = b.center.z - b.halfExtents.z;
+	float bMaxZ = b.center.z + b.halfExtents.z;
+
+	float overlapX = std::min(aMaxX, bMaxX) - std::max(aMinX, bMinX);
+	float overlapZ = std::min(aMaxZ, bMaxZ) - std::max(aMinZ, bMinZ);
+
+	if (overlapX <= 0.0f || overlapZ <= 0.0f) {
+		return Vector3D(0.0f, 0.0f, 0.0f);
+	}
+
+	if (overlapX < overlapZ) {
+		float direction = (a.center.x < b.center.x) ? -1.0f : 1.0f;
+		return Vector3D(direction * overlapX, 0.0f, 0.0f);
+	}
+
+	float direction = (a.center.z < b.center.z) ? -1.0f : 1.0f;
+	return Vector3D(0.0f, 0.0f, direction * overlapZ);
+}
+
+inline Vector3D CollisionSystem::computeCircleBoxSeparation(const HorizontalProjection& circle, const HorizontalProjection& box) const {
+	float minX = box.center.x - box.halfExtents.x;
+	float maxX = box.center.x + box.halfExtents.x;
+	float minZ = box.center.z - box.halfExtents.z;
+	float maxZ = box.center.z + box.halfExtents.z;
+
+	float closestX = std::clamp(circle.center.x, minX, maxX);
+	float closestZ = std::clamp(circle.center.z, minZ, maxZ);
+	float dx = circle.center.x - closestX;
+	float dz = circle.center.z - closestZ;
+	float distanceSquared = dx * dx + dz * dz;
+
+	if (distanceSquared > 0.0f) {
+		float distance = std::sqrt(distanceSquared);
+		if (distance >= circle.radius) {
+			return Vector3D(0.0f, 0.0f, 0.0f);
+		}
+
+		Vector3D direction(dx / distance, 0.0f, dz / distance);
+		return direction * (circle.radius - distance);
+	}
+
+	float leftPush = (circle.center.x - minX) + circle.radius;
+	float rightPush = (maxX - circle.center.x) + circle.radius;
+	float downPush = (circle.center.z - minZ) + circle.radius;
+	float upPush = (maxZ - circle.center.z) + circle.radius;
+
+	if (leftPush <= rightPush && leftPush <= downPush && leftPush <= upPush) {
+		return Vector3D(-leftPush, 0.0f, 0.0f);
+	}
+
+	if (rightPush <= downPush && rightPush <= upPush) {
+		return Vector3D(rightPush, 0.0f, 0.0f);
+	}
+
+	if (downPush <= upPush) {
+		return Vector3D(0.0f, 0.0f, -downPush);
+	}
+
+	return Vector3D(0.0f, 0.0f, upPush);
 }
 
 } // namespace ArenaGame
