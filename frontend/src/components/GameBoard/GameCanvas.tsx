@@ -223,7 +223,9 @@ function setupSpectatorCamera(
 	cleanups.push(() => window.removeEventListener('resize', onResize));
 
 	return {
-		cleanup: () => { for (const fn of cleanups) fn(); },
+		cleanup: () => {
+			for (const fn of cleanups) fn();
+		},
 		getOrtho: () => ortho,
 	};
 }
@@ -396,12 +398,17 @@ export default function GameCanvas({
 					const dx = input.movementDirection.x;
 					const dz = input.movementDirection.z;
 					if (dx !== 0 || dz !== 0) {
-						const panSpeed = (input.isSprinting ? 1.2 : 0.5) * (spectator.getOrtho() / 30);
+						const panSpeed =
+							(input.isSprinting ? 1.2 : 0.5) * (spectator.getOrtho() / 30);
 						camera.position.x += dx * panSpeed;
 						camera.position.z += dz * panSpeed;
 						camera.setTarget(
 							camera.position.subtract(
-								new BABYLON.Vector3(ISO_CAM_OFFSET.x, ISO_CAM_OFFSET.y, ISO_CAM_OFFSET.z),
+								new BABYLON.Vector3(
+									ISO_CAM_OFFSET.x,
+									ISO_CAM_OFFSET.y,
+									ISO_CAM_OFFSET.z,
+								),
 							),
 						);
 					}
