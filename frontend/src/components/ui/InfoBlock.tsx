@@ -23,11 +23,11 @@ export default function InfoBlock({
         ${className}
       `}
 		>
-			<p className="text-xs text-stone-400 mb-1">{label}</p>
+			<p className="text-xs text-stone-300 mb-1">{label}</p>
 			<p className={`text-sm text-stone-100 break-words ${mono ? 'font-mono' : ''}`}>
 				{value}
 			</p>
-			{sublabel && <p className="text-xs text-stone-400 mt-1.5">{sublabel}</p>}
+			{sublabel && <p className="text-xs text-stone-300 mt-1.5">{sublabel}</p>}
 		</div>
 	);
 }

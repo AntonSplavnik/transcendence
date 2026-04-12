@@ -226,85 +226,88 @@ export default function AppRoutes() {
 			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			{user && !isGame && <FriendsDrawer />}
-			{/* Key on tos_accepted_at so the entire route tree remounts after
-			   ToS acceptance. Components that failed to fetch data (403
-			   TosNotAccepted) hold stale error state — a remount gives them
-			   a fresh start without requiring a full page reload. */}
-			<Routes key={user?.tos_accepted_at ?? 'pending'}>
-				<Route
-					path="/landing"
-					element={
-						<PublicRoute>
-							<LandingPage onLogin={() => navigate('/auth')} />
-						</PublicRoute>
-					}
-				/>
-				<Route
-					path="/auth"
-					element={
-						<PublicRoute>
-							<AuthPage
-								onBack={() => navigate('/landing')}
-								onAuthSuccess={handleAuthSuccess}
-							/>
-						</PublicRoute>
-					}
-				/>
-				<Route
-					path="/home"
-					element={
-						<ProtectedRoute>
-							<InGameGuard>
-								<Home
-									onLogout={handleLogout}
-									onSessions={() => navigate('/sessions')}
+			<div id="main-content" tabIndex={-1} className="flex-grow flex flex-col">
+				{user && !isGame && <FriendsDrawer />}
+				{/* Key on tos_accepted_at so the entire route tree remounts after
+				   ToS acceptance. Components that failed to fetch data (403
+				   TosNotAccepted) hold stale error state — a remount gives them
+				   a fresh start without requiring a full page reload. */}
+				<Routes key={user?.tos_accepted_at ?? 'pending'}>
+					<Route
+						path="/landing"
+						element={
+							<PublicRoute>
+								<LandingPage onLogin={() => navigate('/auth')} />
+							</PublicRoute>
+						}
+					/>
+					<Route
+						path="/auth"
+						element={
+							<PublicRoute>
+								<AuthPage
+									onBack={() => navigate('/landing')}
+									onAuthSuccess={handleAuthSuccess}
 								/>
-							</InGameGuard>
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/lobby"
-					element={
-						<ProtectedRoute>
-							<InGameGuard>
-								<LobbyPage />
-							</InGameGuard>
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/sessions"
-					element={
-						<ProtectedRoute>
-							<InGameGuard>
-								<SessionManagement
-									onBack={() => navigate('/home')}
-									onLogout={handleLogout}
-								/>
-							</InGameGuard>
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/game"
-					element={
-						<ProtectedRoute>
-							<GameBoard />
-						</ProtectedRoute>
-					}
-				/>
-
-				<Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
-				<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
-
-				<Route path="*" element={<Navigate to="/landing" replace />} />
-			</Routes>
+							</PublicRoute>
+						}
+					/>
+					<Route
+						path="/home"
+						element={
+							<ProtectedRoute>
+								<InGameGuard>
+									<Home
+										onLogout={handleLogout}
+										onSessions={() => navigate('/sessions')}
+									/>
+								</InGameGuard>
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/lobby"
+						element={
+							<ProtectedRoute>
+								<InGameGuard>
+									<LobbyPage />
+								</InGameGuard>
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/sessions"
+						element={
+							<ProtectedRoute>
+								<InGameGuard>
+									<SessionManagement
+										onBack={() => navigate('/home')}
+										onLogout={handleLogout}
+									/>
+								</InGameGuard>
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/game"
+						element={
+							<ProtectedRoute>
+								<GameBoard />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path="/privacy"
+						element={<PrivacyPolicy onBack={() => navigate(-1)} />}
+					/>
+					<Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
+					<Route path="*" element={<Navigate to="/landing" replace />} />
+				</Routes>
+			</div>
 			{!hideFooter && (
 				<footer
 					role="contentinfo"
-					className="relative z-10 py-1 text-center text-xs text-stone-500"
+					className="relative z-10 py-1 text-center text-xs text-stone-350"
 				>
 					<Link
 						to="/privacy"

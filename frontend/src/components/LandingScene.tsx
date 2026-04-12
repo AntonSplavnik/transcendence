@@ -134,6 +134,8 @@ export default function LandingScene() {
 			{/* FOREGROUND LAYER - 3D Canvas with models */}
 			<canvas
 				ref={canvasRef}
+				tabIndex={-1}
+				aria-hidden="true"
 				style={{
 					position: 'absolute',
 					top: 0,

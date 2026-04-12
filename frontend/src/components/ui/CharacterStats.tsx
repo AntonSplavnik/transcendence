@@ -53,7 +53,7 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 					{cfg.label}
 				</h2>
 				<p
-					className="uppercase tracking-widest mt-1 text-stone-400"
+					className="uppercase tracking-widest mt-1 text-stone-300"
 					style={{ fontSize: '13px' }}
 				>
 					{cfg.characterClass}
@@ -67,7 +67,7 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 				{STAT_BARS.map(({ key, label, gradient }) => (
 					<div key={key}>
 						<div
-							className="uppercase text-stone-500"
+							className="uppercase text-stone-350"
 							style={{ fontSize: '12px', marginBottom: '5px' }}
 						>
 							{label}
@@ -95,7 +95,7 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 			{/* Weapons */}
 			<div>
 				<div
-					className="uppercase text-stone-500 block"
+					className="uppercase text-stone-350 block"
 					style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}
 				>
 					Equipment
@@ -112,13 +112,13 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 			{/* Playstyle */}
 			<div>
 				<div
-					className="uppercase text-stone-500 block"
+					className="uppercase text-stone-350 block"
 					style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}
 				>
 					Playstyle
 				</div>
 				<p
-					className="text-stone-400"
+					className="text-stone-300"
 					style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}
 				>
 					{cfg.description}

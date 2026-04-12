@@ -5,6 +5,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { useUIAudio } from '@/audio/AudioProvider';
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import type { LobbySettings } from '../contexts/LobbyContext';
 import { useLobby } from '../contexts/LobbyContext';
 import type { CharacterChoice } from '../components/ui';
@@ -105,6 +106,7 @@ function SettingsForm({ settings, onSave, onCancel }: SettingsFormProps) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LobbyPage() {
+	useDocumentTitle('Lobby');
 	const { lobbyState, setReady, setCharacter, updateSettings, leave } = useLobby();
 	const { user } = useAuth();
 	const audio = useUIAudio();
@@ -316,6 +318,11 @@ export default function LobbyPage() {
 										until game starts
 									</span>
 								</div>
+								{secondsLeft !== null && secondsLeft <= 10 && secondsLeft > 0 && (
+									<span className="sr-only" role="alert">
+										Game starting in {secondsLeft} seconds
+									</span>
+								)}
 							</div>
 						) : players.size > 0 ? (
 							<PlayerAvatarRow players={players} hostId={hostId} />

@@ -21,11 +21,7 @@ export default function Layout({ children, variant = 'default', className = '' }
         ${variantStyles[variant]} ${className}
       `}
 		>
-			{variant === 'default' ? (
-				<div className="flex-grow flex flex-col">{children}</div>
-			) : (
-				children
-			)}
+			{children}
 		</div>
 	);
 }

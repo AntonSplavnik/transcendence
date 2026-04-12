@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import EditUserModal from './modals/EditUserModal';
@@ -42,6 +43,7 @@ interface HomeProps {
 }
 
 export default function Home({ onLogout, onSessions }: HomeProps) {
+	useDocumentTitle('Home');
 	const { user, session, isEmailConfirmed } = useAuth();
 	const { lobbyState } = useLobby();
 	const [show2FASettings, setShow2FASettings] = useState(false);
@@ -104,7 +106,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 						<h1>Player Dashboard</h1>
 						<p className="text-stone-300">Welcome back, {user.nickname}.</p>
 						{description && (
-							<p className="text-stone-400 text-sm italic">{description}</p>
+							<p className="text-stone-350 text-sm italic">{description}</p>
 						)}
 					</div>
 				</div>
@@ -114,7 +116,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					trigger={
 						<span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-100 transition-colors border border-stone-600">
 							<UserIcon className="w-5 h-5" aria-hidden="true" />
-							<span className="hidden sm:inline">{user.nickname}</span>
+							<span className="sr-only sm:not-sr-only">{user.nickname}</span>
 							<ChevronDown className="w-4 h-4" aria-hidden="true" />
 						</span>
 					}
@@ -122,7 +124,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					{/* User info header */}
 					<div className="px-4 py-3 border-b border-stone-700">
 						<p className="text-sm font-medium text-stone-100">{user.nickname}</p>
-						<p className="text-xs text-stone-400 truncate">{user.email}</p>
+						<p className="text-xs text-stone-300 truncate">{user.email}</p>
 					</div>
 
 					<DropdownItem
@@ -206,7 +208,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 							<p className="text-stone-200 text-sm font-medium mb-1">
 								{lobbyState.settings.name}
 							</p>
-							<p className="text-stone-400 text-xs mb-3">
+							<p className="text-stone-300 text-xs mb-3">
 								You're already in a lobby.
 							</p>
 							<Link to="/lobby">
@@ -250,14 +252,14 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 							<h2 className="text-xl font-bold mb-2 text-stone-50">User Stats</h2>
 							<div className="space-y-2 text-sm">
 								<p className="text-stone-300">
-									<span className="text-stone-400">Email:</span> {user.email}
+									<span className="text-stone-300">Email:</span> {user.email}
 								</p>
 								<p className="text-stone-300">
-									<span className="text-stone-400">Member since:</span>{' '}
+									<span className="text-stone-300">Member since:</span>{' '}
 									{new Date(user.created_at).toLocaleDateString()}
 								</p>
 								<p className="text-stone-300">
-									<span className="text-stone-400">2FA:</span>{' '}
+									<span className="text-stone-300">2FA:</span>{' '}
 									{user.totp_enabled ? (
 										<Badge variant="success" dot>
 											Enabled
@@ -281,7 +283,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 
 				<Card>
 					<h2 className="text-xl font-bold mb-2 text-stone-50">Recent History</h2>
-					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-400 text-sm italic">
+					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-350 text-sm italic">
 						No recent battles recorded.
 					</div>
 				</Card>

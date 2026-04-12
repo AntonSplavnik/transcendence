@@ -59,6 +59,8 @@ function UsernameContextMenu({
 	onClose,
 }: ContextMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
+	const previousFocusRef = useRef<HTMLElement | null>(null);
+	const closedByTabRef = useRef(false);
 
 	// Position the menu above the anchor by default, flip below if not enough space
 	const spaceAbove = anchorRect.top;
@@ -66,20 +68,68 @@ function UsernameContextMenu({
 	const top = spaceAbove > menuHeight ? anchorRect.top - menuHeight : anchorRect.bottom + 4;
 	const left = anchorRect.left;
 
+	// Capture previous focus on mount, restore on unmount (unless closed by Tab)
+	useEffect(() => {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement) previousFocusRef.current = active;
+
+		const first = menuRef.current?.querySelector<HTMLElement>(
+			'[role="menuitem"]:not([disabled])',
+		);
+		first?.focus();
+
+		return () => {
+			if (!closedByTabRef.current) {
+				previousFocusRef.current?.focus();
+			}
+		};
+	}, []);
+
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
 			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
 				onClose();
 			}
 		}
-		function handleEscape(e: KeyboardEvent) {
-			if (e.key === 'Escape') onClose();
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				e.stopImmediatePropagation();
+				onClose();
+				return;
+			}
+			// Tab closes the menu and lets focus proceed naturally to the next element.
+			if (e.key === 'Tab') {
+				closedByTabRef.current = true;
+				onClose();
+				return;
+			}
+			if (
+				e.key === 'ArrowDown' ||
+				e.key === 'ArrowUp' ||
+				e.key === 'Home' ||
+				e.key === 'End'
+			) {
+				e.preventDefault();
+				const items = Array.from(
+					menuRef.current?.querySelectorAll<HTMLElement>(
+						'[role="menuitem"]:not([disabled])',
+					) ?? [],
+				);
+				if (items.length === 0) return;
+				const current = items.indexOf(document.activeElement as HTMLElement);
+				let next: number;
+				if (e.key === 'ArrowDown') next = current < items.length - 1 ? current + 1 : 0;
+				else if (e.key === 'ArrowUp') next = current > 0 ? current - 1 : items.length - 1;
+				else if (e.key === 'Home') next = 0;
+				else next = items.length - 1;
+				items[next]?.focus();
+			}
 		}
 		document.addEventListener('mousedown', handleClickOutside);
-		document.addEventListener('keydown', handleEscape);
+		document.addEventListener('keydown', handleKeyDown, { capture: true });
 		return () => {
 			document.removeEventListener('mousedown', handleClickOutside);
-			document.removeEventListener('keydown', handleEscape);
+			document.removeEventListener('keydown', handleKeyDown, { capture: true });
 		};
 	}, [onClose]);
 
@@ -106,7 +156,7 @@ function UsernameContextMenu({
 						onShowProfile();
 						onClose();
 					}}
-					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
+					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 focus-visible:bg-stone-700 outline-none transition-colors"
 				>
 					Show Profile
 				</button>
@@ -115,7 +165,7 @@ function UsernameContextMenu({
 					role="menuitem"
 					disabled
 					aria-disabled="true"
-					className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+					className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				>
 					Show Profile
 				</button>
@@ -123,7 +173,7 @@ function UsernameContextMenu({
 			{/* Message (stub P2) */}
 			<button
 				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				disabled
 				aria-disabled="true"
 			>
@@ -136,7 +186,7 @@ function UsernameContextMenu({
 			<button
 				role="menuitem"
 				onClick={handleCopyUsername}
-				className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 transition-colors"
+				className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 focus-visible:bg-stone-700 outline-none transition-colors"
 			>
 				Copy Username
 			</button>
@@ -147,7 +197,7 @@ function UsernameContextMenu({
 			{!isFriend && (
 				<button
 					role="menuitem"
-					className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+					className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 					disabled
 					aria-disabled="true"
 				>
@@ -157,7 +207,7 @@ function UsernameContextMenu({
 			{/* Invite to Game (stub) */}
 			<button
 				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 				disabled
 				aria-disabled="true"
 			>
@@ -171,7 +221,7 @@ function UsernameContextMenu({
 				role="menuitem"
 				disabled
 				aria-disabled="true"
-				className="w-full text-left px-3 py-1.5 text-stone-400 cursor-not-allowed opacity-60"
+				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
 			>
 				Block
 			</button>
@@ -196,7 +246,7 @@ export default function Username({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 
 	if (isSelf) {
-		return <span className="text-stone-400">You</span>;
+		return <span className="text-stone-300">You</span>;
 	}
 
 	const color = colored ? getUserColor(userId) : 'text-stone-100';
@@ -217,7 +267,7 @@ export default function Username({
 			<button
 				ref={buttonRef}
 				type="button"
-				className={`${color} hover:underline cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit`}
+				className={`${color} hover:underline cursor-pointer bg-transparent border-0 px-0.5 py-px rounded-sm font-inherit text-inherit`}
 				onClick={handleClick}
 				aria-label={`Options for ${nickname}`}
 				aria-haspopup="menu"
