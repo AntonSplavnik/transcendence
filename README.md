@@ -453,19 +453,19 @@ Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_
 | 3 | Advanced 3D graphics — Babylon.js | Gaming Major | 2 | Done |
 | 4 | Complete web-based game (arena fighter) | Gaming Major | 2 | Done |
 | 5 | Remote players | Gaming Major | 2 | Done |
-| 6 | User interaction — chat, friends, profiles | Web Major | 2 | In progress |
-| 7 | ORM — Diesel + SQLite | Web Minor | 1 | Done |
-| 8 | Two-Factor Authentication (TOTP) | User Mgmt Minor | 1 | Done |
-| 9 | Custom: Session Management | Modules of choice Minor | 1 | Done |
-| 10 | Custom: Audio System | Modules of choice Minor | 1 | Done |
-| 11 | Accessibility compliance (WCAG 2.1 AA) | Accessibility Major | 2 | Done |
-| 12 | Multiplayer 3+ players | Gaming Major | 2 | Done |
-| 13 | Spectator mode | Gaming Minor | 1 | Done |
-| 14 | Custom design system | Web Minor | 1 | Done |
-| 15 | Standard user management | User Mgmt Major | 2 | Done |
-| 16 | Game customization options | Gaming Minor | 1 | Done |
-| 17 | Notification system | Web Minor | 1 | Done |
-| | **Total (excluding module 6)** | | **24** | Exceeds 14-point target |
+| 6 | ORM — Diesel + SQLite | Web Minor | 1 | Done |
+| 7 | Two-Factor Authentication (TOTP) | User Mgmt Minor | 1 | Done |
+| 8 | Custom: Session Management | Modules of choice Minor | 1 | Done |
+| 9 | Custom: Audio System | Modules of choice Minor | 1 | Done |
+| 10 | Accessibility compliance (WCAG 2.1 AA) | Accessibility Major | 2 | Done |
+| 11 | Multiplayer 3+ players | Gaming Major | 2 | Done |
+| 12 | Spectator mode | Gaming Minor | 1 | Done |
+| 13 | Custom design system | Web Minor | 1 | Done |
+| 14 | Standard user management | User Mgmt Major | 2 | Done |
+| 15 | Game customization options | Gaming Minor | 1 | Done |
+| 16 | Notification system | Web Minor | 1 | Done |
+| 17 | User interaction — chat, friends, profiles | Web Major | 2 | In progress |
+| | **Total (excluding module 17)** | | **24** | Exceeds 14-point target |
 
 ---
 
@@ -529,24 +529,7 @@ Players connect from separate browsers on separate computers and play over the n
 
 ---
 
-### Module 6 — User interaction (chat, friends, profiles)
-
-_Web Major (2 pts) — in progress_
-
-A social layer alongside the game: user profile pages, a friends system (add/remove), and direct messaging.
-
-**Status:** Friends system and profile viewing are fully implemented. **Chat is not yet implemented** — this is the remaining requirement before this module can be claimed.
-
-**What is done:**
-- **Friends system** (kwurster backend, drongier frontend): Full CRUD — send, accept, reject, cancel, remove. Real-time online status via WebTransport connection presence. `FriendsDrawer` with incoming/outgoing request sections.
-- **Profile system** (drongier): `PublicProfileModal` displays avatar, nickname, online status, bio, and join date. Triggered from friends list.
-
-**What is missing:**
-- A basic chat system (send/receive messages between users).
-
----
-
-### Module 7 — ORM with Diesel and SQLite
+### Module 6 — ORM with Diesel and SQLite
 
 _Web Minor (1 pt) — by kwurster with drongier (avatar DB integration)_
 
@@ -556,7 +539,7 @@ All database access goes through **Diesel**, a compile-time type-checked ORM for
 
 ---
 
-### Module 8 — Two-Factor Authentication (TOTP)
+### Module 7 — Two-Factor Authentication (TOTP)
 
 _User Management Minor (1 pt) — by kwurster (backend) and lmeubrin (frontend)_
 
@@ -566,7 +549,7 @@ Users can optionally enable TOTP-based 2FA. Once enabled, every login and sessio
 
 ---
 
-### Module 9 — Custom Minor: Session Management
+### Module 8 — Custom Minor: Session Management
 
 _Modules of choice Minor (1 pt) — by lmeubrin (frontend) and kwurster (backend)_
 
@@ -578,7 +561,7 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ---
 
-### Module 10 — Custom Minor: Audio System
+### Module 9 — Custom Minor: Audio System
 
 _Modules of choice Minor (1 pt) — by drongier_
 
@@ -590,7 +573,7 @@ In a competitive multiplayer fighting game, audio is not cosmetic: it is core ga
 
 ---
 
-### Module 11 — Complete Accessibility Compliance (WCAG 2.1 AA)
+### Module 10 — Complete Accessibility Compliance (WCAG 2.1 AA)
 
 _Accessibility and Internationalization Major (2 pts) — by lmeubrin_
 
@@ -615,7 +598,7 @@ This has been tested manually by just tabbing through the interface and using a 
 
 ---
 
-### Module 12 — Multiplayer 3+ players
+### Module 11 — Multiplayer 3+ players
 
 _Gaming Major (2 pts) — by kwurster (backend) and asplavnic (game engine)_
 
@@ -625,7 +608,7 @@ The game supports 2–8 simultaneous players in a single match, extending beyond
 
 ---
 
-### Module 13 — Spectator mode
+### Module 12 — Spectator mode
 
 _Gaming Minor (1 pt) — by lmeubrin_
 
@@ -635,7 +618,7 @@ Users can watch ongoing matches without participating. Spectators see the full g
 
 ---
 
-### Module 14 — Custom design system
+### Module 13 — Custom design system
 
 _Web Minor (1 pt) — by lmeubrin with drongier
 
@@ -647,7 +630,7 @@ A unified visual design system with 17+ reusable components, a custom colour pal
 
 ---
 
-### Module 15 — Standard user management and authentication
+### Module 14 — Standard user management and authentication
 
 _User Management Major (2 pts) — by drongier (profile, avatar, friends frontend), kwurster (friends backend, online status)_
 
@@ -662,7 +645,7 @@ Beyond the mandatory sign-up and login, this module provides a complete user man
 
 ---
 
-### Module 16 — Game customization options
+### Module 15 — Game customization options
 
 _Gaming Minor (1 pt) — by asplavnic (game engine, modes) and kwurster (lobby settings backend)_
 
@@ -676,13 +659,30 @@ Players and hosts can customise their gameplay experience through character sele
 
 ---
 
-### Module 17 — Notification system
+### Module 16 — Notification system
 
 _Web Minor (1 pt) — by kwurster (backend) and lmeubrin (frontend toast UI)_
 
 A real-time notification system that pushes events to users over WebTransport, with offline persistence for missed notifications and a toast UI for visual feedback.
 
 **Implementation:** The backend defines 5 notification types in `NotificationPayload`: `FriendRequestReceived`, `FriendRequestAccepted`, `FriendRequestRejected`, `FriendRequestCancelled`, and `FriendRemoved` — covering all friend-related creation, update, and deletion actions. If the user has a live WebTransport stream, the notification is delivered immediately (zero DB latency). If the user is offline, it is persisted to the `notifications` table (CBOR-encoded) and drained on reconnect with at-least-once delivery. The frontend `NotificationToast` component supports stacking (up to 2 individual cards, then visual stack), slide-out dismiss animation, sound effects via `useUIAudio()`, and click-through actions (e.g., opening the friends drawer). The `NotificationContext` handles stream registration, async display-text resolution (resolves user IDs to nicknames), and FIFO queue ordering.
+
+---
+
+### Module 17 — User interaction (chat, friends, profiles)
+
+_Web Major (2 pts) — in progress_
+
+A social layer alongside the game: user profile pages, a friends system (add/remove), and direct messaging.
+
+**Status:** Friends system and profile viewing are fully implemented. **Chat is not yet implemented** — this is the remaining requirement before this module can be claimed.
+
+**What is done:**
+- **Friends system** (kwurster backend, drongier frontend): Full CRUD — send, accept, reject, cancel, remove. Real-time online status via WebTransport connection presence. `FriendsDrawer` with incoming/outgoing request sections.
+- **Profile system** (drongier): `PublicProfileModal` displays avatar, nickname, online status, bio, and join date. Triggered from friends list.
+
+**What is missing:**
+- A basic chat system (send/receive messages between users).
 
 ---
 
