@@ -73,8 +73,8 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		return;
 	}
 
-	// Sprint gating: require stamina and not exhausted.
-	if (controller.input.isSprinting && !stamina.isExhausted()) {
+	// Sprint gating: require movement input, stamina, and not exhausted.
+	if (controller.input.isSprinting && controller.hasMovementInput() && !stamina.isExhausted()) {
 		float frameCost = stamina.sprintCostPerSec * deltaTime;
 		if (stamina.canAfford(frameCost)) {
 			stamina.consume(frameCost);
