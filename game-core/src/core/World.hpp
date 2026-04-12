@@ -26,13 +26,14 @@
 
 #include "../ISpawner.hpp"
 #include "../CharacterClassLookup.hpp"
+#include "EntityFactory.hpp"
+#include "MapLoader.hpp"
 
 #include "../../entt/entt.hpp"
 #include <memory>
 #include <vector>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace ArenaGame {
 
@@ -41,8 +42,7 @@ namespace ArenaGame {
 // =============================================================================
 // - Uses entt::registry for entity storage (packed arrays, cache-friendly)
 // - Maintains PlayerID ↔ entt::entity bidirectional mapping for FFI compatibility
-//
-// - Built-in entity pooling and recycling
+// - Delegates entity creation to EntityFactory
 //
 // Usage:
 //   World world;
@@ -61,14 +61,11 @@ public:
 	void initialize();
 	void shutdown();
 
-	// Update phases (identical to World.hpp)
-	void earlyUpdate(float deltaTime);   // Phase 1: Input processing
-	void fixedUpdate(float fixedDeltaTime);  // Phase 2: Physics & Collision
-	void update(float deltaTime);        // Phase 3: Game logic, Combat
-	void lateUpdate(float deltaTime);    // Phase 4: Post-processing
-
-	// Game manager entity
-	entt::entity createGameManager();
+	// Update phases
+	void earlyUpdate(float deltaTime);       // Phase 1: Input processing
+	void fixedUpdate(float fixedDeltaTime);   // Phase 2: Physics & Collision
+	void update(float deltaTime);             // Phase 3: Game logic, Combat
+	void lateUpdate(float deltaTime);         // Phase 4: Post-processing
 
 	// Set game mode
 	void setGameMode(GameModeType mode);
@@ -79,7 +76,7 @@ public:
 	// Move all queued network events out of the ECS component (one registry lookup).
 	std::vector<NetEvents::NetworkEvent> takeNetworkEvents();
 
-	// Entity management
+	// Entity management (delegates to EntityFactory)
 	entt::entity createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
 	entt::entity createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer);
 	entt::entity createProjectile(const Vector3D& pos, const Vector3D& velocity);
@@ -89,7 +86,7 @@ public:
 	bool destroyEntity(entt::entity entity);
 	void clearEntities();
 
-	// Convenience methods for player management
+	// Player management
 	bool addPlayer(PlayerID id, const std::string& name, const std::string& characterClass);
 	entt::entity createPlayer(PlayerID id, const std::string& name,
 							  const std::string& characterClass,
@@ -109,6 +106,9 @@ public:
 	entt::registry& getRegistry() { return m_registry; }
 	const entt::registry& getRegistry() const { return m_registry; }
 
+	// Factory access (for MapLoader and other external producers)
+	EntityFactory& getFactory() { return m_factory; }
+
 	// System access
 	CharacterControllerSystem* getCharacterControllerSystem() { return m_characterControllerSystem; }
 	PhysicsSystem* getPhysicsSystem() { return m_physicsSystem; }
@@ -120,6 +120,9 @@ private:
 	// EnTT registry (core data structure)
 	entt::registry m_registry;
 
+	// Entity factory (must be declared after m_registry for initialization order)
+	EntityFactory m_factory;
+
 	// System management
 	SystemManager m_systemManager;
 
@@ -130,7 +133,7 @@ private:
 	CombatSystem* m_combatSystem;
 	GameModeSystem* m_gameModeSystem;
 
-	// Game manager enitty
+	// Game manager entity
 	entt::entity m_gameManager;
 
 	// PlayerID ↔ entt::entity bidirectional mapping
@@ -146,9 +149,9 @@ private:
 // Implementation
 // =============================================================================
 
-
 inline World::World()
-	: m_characterControllerSystem(nullptr)
+	: m_factory(m_registry)
+	, m_characterControllerSystem(nullptr)
 	, m_physicsSystem(nullptr)
 	, m_collisionSystem(nullptr)
 	, m_combatSystem(nullptr)
@@ -169,7 +172,11 @@ inline void World::initialize() {
 	auto gameModeSystem = std::make_unique<GameModeSystem>();
 	auto staminaSystem = std::make_unique<StaminaSystem>();
 
-	m_gameManager = createGameManager();
+	m_gameManager = m_factory.createGameManager();
+
+	// Load map colliders from JSON (path relative to backend/ working directory)
+	MapLoader mapLoader(m_factory);
+	mapLoader.loadFromFile(GameConfig::MAP_COLLIDERS_PATH);
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
@@ -238,22 +245,6 @@ inline void World::lateUpdate(float deltaTime) {
 	m_systemManager.lateUpdate(deltaTime);
 }
 
-// GameManager enity
-inline entt::entity World::createGameManager() {
-	auto gameManager = m_registry.create();
-	if (gameManager == entt::null) {
-		return entt::null;
-	}
-	m_registry.emplace<GameManagerTag>(gameManager);
-	m_registry.emplace<Components::GameModeComponent>(gameManager);
-	m_registry.emplace<Components::MatchStatsComponent>(gameManager);
-	m_registry.emplace<Components::InternalEventsComponent>(gameManager);
-	m_registry.emplace<Components::NetworkEventsComponent>(gameManager);
-	m_registry.emplace<Components::PendingPlayersComponent>(gameManager);
-
-	return gameManager;
-}
-
 // Set Game mode
 inline void World::setGameMode(GameModeType mode) {
 	auto* gm = m_registry.try_get<Components::GameModeComponent>(m_gameManager);
@@ -289,82 +280,26 @@ inline std::vector<NetEvents::NetworkEvent> World::takeNetworkEvents() {
 	return std::exchange(ne->events, {});  // move out, leave component empty
 }
 
-// General entity
+// Entity management — delegates to EntityFactory
 inline entt::entity World::createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	m_registry.emplace<ActorTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, pos);
-	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createFromPreset(preset.movement));
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createFromPreset(preset.collider, layer));
-	m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset.health));
-	m_registry.emplace<Components::Stamina>(entity, Components::Stamina::createFromPreset(preset.stamina));
-	m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset.combat));
-
-	return entity;
+	return m_factory.createActor(pos, preset, layer);
 }
 inline entt::entity World::createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-	auto bot = createActor(pos, preset, layer);
-	if(bot == entt::null) return entt::null;
-
-	m_registry.emplace<BotTag>(bot);
-	return bot;
+	return m_factory.createBot(pos, preset, layer);
 }
-inline entt::entity World::createProjectile(const Vector3D& spawnPos, const Vector3D& velocity) {
-
-	entt::entity entity = m_registry.create();;
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	// Initialize as projectile
-	auto physics = Components::PhysicsBody::createProjectile();
-	physics.velocity = velocity;
-
-	m_registry.emplace<ProjectileTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, spawnPos);
-	m_registry.emplace<Components::PhysicsBody>(entity, physics);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createProjectile());
-
-	return entity;
+inline entt::entity World::createProjectile(const Vector3D& pos, const Vector3D& velocity) {
+	return m_factory.createProjectile(pos, velocity);
 }
-inline entt::entity World::createWall(const Vector3D& position, const Vector3D& halfExtents) {
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	// Initialize as wall
-	m_registry.emplace<WallTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, position);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createWall(halfExtents));
-	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createStatic());
-
-	return entity;
+inline entt::entity World::createWall(const Vector3D& pos, const Vector3D& halfExtents) {
+	return m_factory.createWall(pos, halfExtents);
 }
-inline entt::entity World::createTrigger(const Vector3D& position, float radius) {
-
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	// Initialize as trigger
-	m_registry.emplace<TriggerTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, position);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createTrigger(radius));
-
-	return entity;
+inline entt::entity World::createTrigger(const Vector3D& pos, float radius) {
+	return m_factory.createTrigger(pos, radius);
 }
+
 inline bool World::destroyEntity(entt::entity entity) {
-
 	// Destroy entity (automatically removes all components)
 	m_registry.destroy(entity);
-
 	return true;
 }
 inline void World::clearEntities() {
@@ -396,7 +331,7 @@ inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
 	}
 
 	const CharacterPreset& preset = presetFromClass(characterClass);
-	entt::entity entity = createActor(pos, preset, Components::CollisionLayer::Player);
+	entt::entity entity = m_factory.createActor(pos, preset, Components::CollisionLayer::Player);
 
 	m_registry.emplace<PlayerTag>(entity);
 	m_registry.emplace<Components::PlayerInfo>(entity, id, name, characterClass);
@@ -412,7 +347,6 @@ inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
 inline bool World::removePlayer(PlayerID id) {
 
 	entt::entity entity = getEntityByPlayerID(id);
-
 
 	if (entity == entt::null) {
 		return false;

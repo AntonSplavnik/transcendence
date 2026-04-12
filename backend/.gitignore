@@ -1,6 +1,5 @@
 /target
 /migration/target
-/data
 
 # Local environment (may contain secrets)
 .env
