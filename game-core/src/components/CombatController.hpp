@@ -83,8 +83,15 @@ struct CombatController {
 	// ── Queries ──────────────────────────────────────────────────────────────
 
 	// Returns the stage that fires on the next attack input.
+	// Bounds-safe: clamps chainStage to valid range; returns a static
+	// default if the chain is empty (prevents out-of-bounds access).
 	const AttackStage& currentStage() const {
-		return attackChain[static_cast<size_t>(chainStage)];
+		if (attackChain.empty()) {
+			static const AttackStage fallback{};
+			return fallback;
+		}
+		size_t idx = static_cast<size_t>(std::max(0, chainStage));
+		return attackChain[std::min(idx, attackChain.size() - 1)];
 	}
 
 	bool isAbility1Casting() const { return skill1CastTimer > 0.0f; }

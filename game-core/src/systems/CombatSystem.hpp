@@ -240,9 +240,10 @@ inline void CombatSystem::processInputAttacks() {
 		CombatController::BufferedAction toFire = comcon.bufferedAction;
 		comcon.bufferedAction = CombatController::BufferedAction::None;
 
-		// Discard buffered action if stamina is insufficient
+		// Discard buffered attack if chain is empty or stamina is insufficient
 		if (toFire == CombatController::BufferedAction::Attack
-				&& !stamina.canAfford(comcon.currentStage().staminaCost))
+				&& (comcon.attackChain.empty()
+					|| !stamina.canAfford(comcon.currentStage().staminaCost)))
 			toFire = CombatController::BufferedAction::None;
 		if (toFire == CombatController::BufferedAction::Skill1
 				&& !stamina.canAfford(comcon.ability1.staminaCost))
