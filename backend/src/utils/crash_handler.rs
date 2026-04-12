@@ -63,8 +63,7 @@ extern "C" fn handler(sig: libc::c_int, _info: *mut libc::siginfo_t, _ctx: *mut 
 #[cfg(unix)]
 fn write_backtrace() {
     type BacktraceFn = unsafe extern "C" fn(*mut *mut libc::c_void, libc::c_int) -> libc::c_int;
-    type SymbolsFdFn =
-        unsafe extern "C" fn(*const *mut libc::c_void, libc::c_int, libc::c_int);
+    type SymbolsFdFn = unsafe extern "C" fn(*const *mut libc::c_void, libc::c_int, libc::c_int);
 
     // Try to resolve the glibc backtrace functions at runtime.
     let (bt, bt_fd) = unsafe {
