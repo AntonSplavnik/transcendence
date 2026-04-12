@@ -73,10 +73,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'knight_jump',
-		variations: [
-			'/sounds/sfx/mouvement/jump_05.wav',
-			'/sounds/sfx/mouvement/jump_06.wav',
-		],
+		variations: ['/sounds/sfx/mouvement/jump_05.wav', '/sounds/sfx/mouvement/jump_06.wav'],
 		volume: { min: 0.3, max: 0.5 },
 		pitch: { min: 0.85, max: 0.95 },
 		bus: 'sfx',
@@ -124,10 +121,7 @@ export const SOUND_DEFINITIONS: SoundDefinition[] = [
 	},
 	{
 		id: 'rogue_jump',
-		variations: [
-			'/sounds/sfx/mouvement/jump_03.wav',
-			'/sounds/sfx/mouvement/jump_04.wav',
-		],
+		variations: ['/sounds/sfx/mouvement/jump_03.wav', '/sounds/sfx/mouvement/jump_04.wav'],
 		volume: { min: 0.25, max: 0.4 },
 		pitch: { min: 1.0, max: 1.15 },
 		bus: 'sfx',
