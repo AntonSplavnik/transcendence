@@ -101,6 +101,9 @@ impl Game {
         const TICK_DURATION: Duration = Duration::from_micros(1_000_000 / 60); // ~60 Hz (16_667 µs)
 
         info!("Game loop started (mode: {:?})", self.mode);
+        // TODO: min_players is currently hardcoded to 2 for all modes.
+        // This is not true for all game modes (e.g. WaveSurvival could allow solo play).
+        let min_players = self.min_players() as usize;
         self.lock().start(self.mode);
 
         loop {
@@ -109,7 +112,7 @@ impl Game {
             let (snapshot, events) = {
                 let mut handle = self.lock();
 
-                if !handle.is_running() || handle.get_player_count() == 0 {
+                if !handle.is_running() || handle.get_player_count() < min_players {
                     info!("Game loop stopped");
                     break;
                 }
