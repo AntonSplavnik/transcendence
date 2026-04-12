@@ -17,6 +17,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    friend_requests (id) {
+        id -> Integer,
+        sender_id -> Integer,
+        receiver_id -> Integer,
+        status -> Integer,
+        created_at -> TimestamptzSqlite,
+        updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     notifications (id) {
         id -> Integer,
         user_id -> Integer,
@@ -41,6 +52,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    tos_versions (key) {
+        key -> Text,
+        created_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     two_fa_recovery_codes (id) {
         id -> Integer,
         user_id -> Integer,
@@ -61,6 +79,11 @@ diesel::table! {
         password_hash -> Text,
         created_at -> TimestamptzSqlite,
         description -> Text,
+        tos_accepted_at -> Nullable<TimestamptzSqlite>,
+        email_confirmed_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_hash -> Nullable<Binary>,
+        email_confirmation_token_expires_at -> Nullable<TimestamptzSqlite>,
+        email_confirmation_token_email -> Nullable<Text>,
     }
 }
 
@@ -73,8 +96,10 @@ diesel::joinable!(two_fa_recovery_codes -> users (user_id));
 diesel::allow_tables_to_appear_in_same_query!(
     avatars_large,
     avatars_small,
+    friend_requests,
     notifications,
     sessions,
+    tos_versions,
     two_fa_recovery_codes,
     users,
 );

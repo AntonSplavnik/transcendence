@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, userEvent } from '../../helpers/render';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ErrorBanner, { AUTO_DISMISS_MS } from '../../../src/components/ui/ErrorBanner';
 import { createMockStoredError } from '../../fixtures/errors';
+import { render, screen, userEvent } from '../../helpers/render';
 
 describe('ErrorBanner', () => {
 	const mockOnDismiss = vi.fn();
@@ -16,17 +16,13 @@ describe('ErrorBanner', () => {
 	});
 
 	const renderBanner = (error = createMockStoredError()) => {
-		return render(
-			<ErrorBanner error={error} onDismiss={mockOnDismiss} />,
-			{ withAuth: false }
-		);
+		return render(<ErrorBanner error={error} onDismiss={mockOnDismiss} />, { withAuth: false });
 	};
 
 	it('renders nothing when error is null', () => {
-		const { container } = render(
-			<ErrorBanner error={null} onDismiss={mockOnDismiss} />,
-			{ withAuth: false }
-		);
+		const { container } = render(<ErrorBanner error={null} onDismiss={mockOnDismiss} />, {
+			withAuth: false,
+		});
 
 		expect(container.firstChild).toBeNull();
 	});
@@ -52,10 +48,9 @@ describe('ErrorBanner', () => {
 		vi.useRealTimers(); // Need real timers for userEvent
 		const user = userEvent.setup();
 
-		render(
-			<ErrorBanner error={createMockStoredError()} onDismiss={mockOnDismiss} />,
-			{ withAuth: false }
-		);
+		render(<ErrorBanner error={createMockStoredError()} onDismiss={mockOnDismiss} />, {
+			withAuth: false,
+		});
 
 		await user.click(screen.getByRole('button', { name: 'Dismiss notification' }));
 
@@ -83,10 +78,9 @@ describe('ErrorBanner', () => {
 		const error1 = createMockStoredError({ message: 'Error 1' });
 		const error2 = createMockStoredError({ message: 'Error 2' });
 
-		const { rerender } = render(
-			<ErrorBanner error={error1} onDismiss={mockOnDismiss} />,
-			{ withAuth: false }
-		);
+		const { rerender } = render(<ErrorBanner error={error1} onDismiss={mockOnDismiss} />, {
+			withAuth: false,
+		});
 
 		const half = AUTO_DISMISS_MS / 2;
 
@@ -131,7 +125,7 @@ describe('ErrorBanner', () => {
 		renderBanner();
 
 		const banner = screen.getByText('An error occurred').closest('.fixed');
-		expect(banner).toHaveClass('z-50');
+		expect(banner).toHaveClass('z-[60]');
 	});
 
 	it('includes error icon', () => {
@@ -143,10 +137,7 @@ describe('ErrorBanner', () => {
 	});
 
 	it('does not start timer when error is null', () => {
-		render(
-			<ErrorBanner error={null} onDismiss={mockOnDismiss} />,
-			{ withAuth: false }
-		);
+		render(<ErrorBanner error={null} onDismiss={mockOnDismiss} />, { withAuth: false });
 
 		vi.advanceTimersByTime(AUTO_DISMISS_MS);
 

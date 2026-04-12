@@ -1,5 +1,3 @@
-import type { Vector3D } from './types';
-
 // ── Character state enum (mirrors backend) ──────────────────────────
 
 export const CharacterState = {
@@ -46,14 +44,8 @@ export const AnimationNames = {
 
 // ── Input ───────────────────────────────────────────────────────────
 
-export interface InputState {
-	movementDirection: Vector3D;
-	isAttacking: boolean;
-	isJumping: boolean;
-	isSprinting: boolean;
-	isUsingAbility1: boolean;
-	isUsingAbility2: boolean;
-}
+// InputState is defined in game/types.ts (single source of truth)
+export type { InputState } from './types';
 
 /**
  * Precomputed isometric directions (camera rotated 45deg around Y).
@@ -61,20 +53,20 @@ export interface InputState {
  */
 const S = 0.7071;
 export const ISO_DIRECTIONS: Record<number, [number, number]> = {
-	0: [0, 0],     // no input
-	8: [-S, S],    // W
-	2: [S, -S],    // S
-	4: [-S, -S],   // A
-	1: [S, S],     // D
-	9: [0, 1],     // W+D
-	12: [-1, 0],   // W+A
-	3: [1, 0],     // S+D
-	6: [0, -1],    // S+A
-	10: [0, 0],    // W+S (cancel)
-	5: [0, 0],     // A+D (cancel)
-	15: [0, 0],    // all (cancel)
-	14: [-S, -S],  // W+A+S
-	13: [-S, S],   // W+A+D
-	11: [S, S],    // W+S+D
-	7: [S, -S],    // A+S+D
+	0: [0, 0], // no input
+	8: [-S, S], // W
+	2: [S, -S], // S
+	4: [-S, -S], // A
+	1: [S, S], // D
+	9: [0, 1], // W+D
+	12: [-1, 0], // W+A
+	3: [1, 0], // S+D
+	6: [0, -1], // S+A
+	10: [0, 0], // W+S (cancel)
+	5: [0, 0], // A+D (cancel)
+	15: [0, 0], // all (cancel)
+	14: [-S, -S], // W+A+S
+	13: [-S, S], // W+A+D
+	11: [S, S], // W+S+D
+	7: [S, -S], // A+S+D
 };

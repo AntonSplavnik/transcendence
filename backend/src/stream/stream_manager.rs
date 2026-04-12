@@ -48,14 +48,13 @@
 //!
 //! ## Stream requests and framing
 //!
-//! Server-side components call [`StreamManager::request_stream`] (or
-//! [`StreamManager::request_custom_stream`]) to open a fresh bidirectional stream
-//! on the user's WebTransport session, or [`StreamManager::request_uni_stream`]
-//! (or [`StreamManager::request_custom_uni_stream`]) for a server → client
-//! send-only stream.
+//! Server-side components call [`StreamManager::request_stream`] to open a fresh
+//! bidirectional stream on the user's WebTransport session, or
+//! [`StreamManager::request_uni_stream`] for a server → client send-only stream.
+//! Both return a [`StreamSink`](super::StreamSink) for the send side.
 //!
 //! The server always sends a first CBOR message describing the [`StreamType`] of
-//! that stream. The returned `Sender`/`Receiver` then carry typed CBOR messages
+//! that stream. The returned `StreamSink`/`Receiver` then carry typed CBOR messages
 //! (optionally compressed by the codec).
 //!
 //! ## Liveness detection (current state)
@@ -88,25 +87,28 @@ use futures::SinkExt as _;
 use salvo::http::Method;
 use salvo::proto::quic::BidiStream;
 use salvo::routing::MethodFilter;
-use serde::de::DeserializeOwned;
+use std::num::NonZeroUsize;
+
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::AbortHandle;
 use tokio_util::codec::{FramedRead, FramedWrite};
 use tokio_util::sync::CancellationToken;
 
-use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use super::CtrlMessage;
 use super::StreamType;
-use crate::models::blob::FixedBlob;
+use super::compress_cbor_codec::{CodecBufferParams, CompressedCborDecoder, CompressedCborEncoder};
 use crate::models::Session;
+use crate::models::blob::FixedBlob;
 use crate::prelude::*;
 use crate::utils::adaptive_buffer::BufferParams;
 
 pub fn router(path: impl Into<String>) -> Router {
     Router::with_path(path)
         .requires_user_login()
+        .requires_tos_accepted()
         .oapi_tag("stream")
         .push(
             Router::with_path("bind")
@@ -116,7 +118,7 @@ pub fn router(path: impl Into<String>) -> Router {
 }
 
 /// Because the connect request doesnt have cookies attached,
-/// auth using Router.requires_user_login() is not possible here.
+/// auth using `Router.requires_user_login()` is not possible here.
 pub fn webtransport_router(path: impl Into<String>) -> Router {
     Router::with_path(path)
         .hoop(crate::utils::logger::Logger)
@@ -140,53 +142,10 @@ type WtSend = salvo::webtransport::stream::SendStream<h3_quinn::SendStream<Bytes
 /// Receive half of a WebTransport bidirectional stream (raw, unframed).
 type WtRecv = salvo::webtransport::stream::RecvStream<h3_quinn::RecvStream, Bytes>;
 
-/// A sink for sending typed messages to a client.
-///
-/// Use with [`futures::SinkExt`] to send messages:
-/// ```ignore
-/// use futures::SinkExt;
-/// sender.send(MyMessage { ... }).await?;
-/// ```
+/// Internal framed sender type. Used by `frame_stream`, `frame_uni_stream`,
+/// and `open_ctrl_stream`. Public callers receive [`StreamSink`](super::StreamSink)
+/// from [`StreamManager::request_stream`] / [`StreamManager::request_uni_stream`].
 pub type Sender<S, BP = CodecBufferParams> = FramedWrite<WtSend, CompressedCborEncoder<S, BP>>;
-
-/// A sharable (by clone) and comparable Sender for stream messages.
-///
-/// This is a thin wrapper around `mpsc::Sender` that spawns a task to forward messages to the actual `Sender`.
-#[derive(Clone)]
-pub struct SharedSender<T>(pub mpsc::Sender<T>);
-
-impl<T: Serialize + Send + 'static> SharedSender<T> {
-    /// When creating Shared Managers, you want to use SharedSender instead of Sender.
-    pub fn new<BP: Send + BufferParams + 'static>(sender: Sender<T, BP>) -> SharedSender<T> {
-        let (tx, mut rx) = mpsc::channel(32);
-        tokio::spawn(async move {
-            let mut sender = sender;
-            while let Some(payload) = rx.recv().await {
-                if let Err(err) = sender.send(payload).await {
-                    tracing::debug!(error = %err, "failed to send message to client, closing stream");
-                    break;
-                }
-            }
-        });
-        Self(tx)
-    }
-}
-
-impl<T> Deref for SharedSender<T> {
-    type Target = mpsc::Sender<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> PartialEq for SharedSender<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.same_channel(&other.0)
-    }
-}
-
-impl<T> Eq for SharedSender<T> {}
 
 /// A stream for receiving typed messages from a client.
 ///
@@ -376,8 +335,7 @@ impl StreamManager {
     pub fn is_connected(&self, user_id: i32) -> bool {
         self.connections
             .get(&user_id)
-            .map(|conn| !conn.tx.is_closed())
-            .unwrap_or(false)
+            .is_some_and(|conn| !conn.tx.is_closed())
     }
 
     pub fn shutdown(&self) {
@@ -392,7 +350,7 @@ impl StreamManager {
             .and_modify(|c| c.refresh_auth(Arc::downgrade(self), session));
     }
 
-    fn register_pending<'a>(&'a self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'a>) {
+    fn register_pending(&self) -> (oneshot::Receiver<Session>, PendingConnectionGuard<'_>) {
         let connection_id = self.connection_id_counter.fetch_add(1, Ordering::Relaxed);
         let key = PendingConnectionKey::new(connection_id);
         let (tx, rx) = oneshot::channel();
@@ -418,10 +376,9 @@ impl StreamManager {
         if let Some(old) = self.connections.insert(
             session.user_id,
             ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
-        ) {
-            if let Err(e) = old.tx.try_send(ConnectionCommand::Displace) {
-                tracing::debug!(error = %e, "failed to send command");
-            }
+        ) && let Err(e) = old.tx.try_send(ConnectionCommand::Displace)
+        {
+            tracing::debug!(error = %e, "failed to send command");
         }
         tracing::debug!(
             session.user_id,
@@ -524,15 +481,14 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
-            Ok(Err(_)) | Err(_) => {
-                self.unregister(user_id, Some(connection_id), None);
-                Err(StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: "handler unresponsive or crashed".into(),
-                })
-            }
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
+            self.unregister(user_id, Some(connection_id), None);
+            Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler unresponsive or crashed".into(),
+            })
         }
     }
 
@@ -576,46 +532,31 @@ impl StreamManager {
         }
 
         // Wait for response with timeout - if timeout or error, connection is dead
-        match tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
-            Ok(Ok(result)) => result.map(|stream| (stream, connection_id, token)),
-            Ok(Err(_)) | Err(_) => {
-                self.unregister(user_id, Some(connection_id), None);
-                Err(StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: "handler unresponsive or crashed".into(),
-                })
-            }
+        if let Ok(Ok(result)) = tokio::time::timeout(STREAM_TIMEOUT, response_rx).await {
+            result.map(|stream| (stream, connection_id, token))
+        } else {
+            self.unregister(user_id, Some(connection_id), None);
+            Err(StreamManagerError::ConnectionClosed {
+                user_id,
+                reason: "handler unresponsive or crashed".into(),
+            })
         }
     }
 
-    /// Request a new bidirectional stream for typed message passing.
+    /// Request a new bidirectional stream, returning a [`StreamSink`] + [`Receiver`].
     ///
-    /// This is the primary API for server-side components to communicate with clients.
-    /// The returned stream halves use CBOR serialization with optional Zstd compression,
-    /// using default codec parameters.
+    /// The send side is wrapped in a [`StreamSink`] with a bounded mpsc buffer and
+    /// structured cancellation via [`CancelHandle`](super::CancelHandle).
     ///
-    /// # Type Parameters
+    /// Standalone callers (not using `StreamRoom`) should use
+    /// [`spawn_receive_loop`](super::spawn_receive_loop) rather than consuming the
+    /// `Receiver` manually — it handles decode errors and cancellation correctly.
     ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `R`: The type to receive (must implement [`DeserializeOwned`])
+    /// # Arguments
     ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use futures::{SinkExt, StreamExt};
-    ///
-    /// let (mut send, mut recv) = manager
-    ///     .request_stream::<ServerMsg, ClientMsg>(user_id)
-    ///     .await?;
-    ///
-    /// // Send a message
-    /// send.send(ServerMsg::Welcome { user_id }).await?;
-    ///
-    /// // Receive a message
-    /// if let Some(msg) = recv.next().await {
-    ///     handle_message(msg?);
-    /// }
-    /// ```
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
     ///
     /// # Errors
     ///
@@ -625,79 +566,45 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S>, Receiver<R>, CancellationToken)>
+        buffer: NonZeroUsize,
+    ) -> Result<(super::StreamSink<S>, Receiver<R>)>
     where
-        S: Serialize,
-        R: DeserializeOwned,
-    {
-        self.request_custom_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(
-            user_id, r#type,
-        )
-        .await
-    }
-
-    /// Request a new bidirectional stream with custom codec parameters.
-    ///
-    /// This is an advanced API for cases where you need to customize the codec
-    /// buffer behavior or maximum frame size. For most use cases, prefer
-    /// [`request_stream`](Self::request_stream) which uses sensible defaults.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `R`: The type to receive (must implement [`DeserializeOwned`])
-    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
-    /// - `MAX_FRAME`: Maximum allowed receive frame size in bytes
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_custom_stream<S, R, BP, const MAX_FRAME: usize>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, Receiver<R, MAX_FRAME>, CancellationToken)>
-    where
-        S: Serialize,
-        R: DeserializeOwned,
-        BP: BufferParams,
+        S: Serialize + Send + 'static,
+        R: DeserializeOwned + Send + 'static,
     {
         let ((send, recv), connection_id, token) = self.request_unframed_stream(user_id).await?;
 
-        frame_stream::<S, R, BP, MAX_FRAME>(send, recv, r#type)
-            .await
-            .map(|(sender, receiver)| (sender, receiver, token))
-            .map_err(|e| {
-                self.unregister(user_id, Some(connection_id), None);
-                StreamManagerError::ConnectionClosed {
-                    user_id,
-                    reason: format!("failed to frame stream: {e}"),
-                }
-            })
+        let (sender, receiver) =
+            frame_stream::<S, R, CodecBufferParams, MAX_STREAM_FRAME_SIZE>(send, recv, r#type)
+                .await
+                .map_err(|e| {
+                    self.unregister(user_id, Some(connection_id), None);
+                    StreamManagerError::ConnectionClosed {
+                        user_id,
+                        reason: format!("failed to frame stream: {e}"),
+                    }
+                })?;
+
+        let child_token = token.child_token();
+        let sink = super::StreamSink::new(sender, child_token, buffer);
+
+        Ok((sink, receiver))
     }
 
-    /// Request a new uni-directional (server → client) stream for typed message passing.
+    /// Request a new uni-directional (server → client) stream, returning a [`StreamSink`].
     ///
-    /// Unlike [`request_stream`](Self::request_stream), this opens a send-only stream.
-    /// The client cannot send data back on this stream. Use this for server-initiated
-    /// push scenarios such as notifications or state updates.
+    /// The sender is wrapped in a [`StreamSink`] with a bounded mpsc buffer and
+    /// structured cancellation. Use this for server-initiated push scenarios such
+    /// as notifications or state updates.
     ///
-    /// # Type Parameters
+    /// # Arguments
     ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use futures::SinkExt;
-    ///
-    /// let mut send = manager
-    ///     .request_uni_stream::<Notification>(user_id, StreamType::Notifications)
-    ///     .await?;
-    ///
-    /// send.send(Notification::NewMessage { from: 42 }).await?;
-    /// ```
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
+    ///   `NonZeroUsize` enforces at the type level that zero-capacity channels
+    ///   (rendezvous) cannot be created — they would cause immediate backpressure
+    ///   cancellation on every broadcast.
     ///
     /// # Errors
     ///
@@ -707,50 +614,59 @@ impl StreamManager {
         &self,
         user_id: i32,
         r#type: StreamType,
-    ) -> Result<(Sender<S>, CancellationToken)>
+        buffer: NonZeroUsize,
+    ) -> Result<super::StreamSink<S>>
     where
-        S: Serialize,
-    {
-        self.request_custom_uni_stream::<S, CodecBufferParams>(user_id, r#type)
-            .await
-    }
-
-    /// Request a new uni-directional stream with custom codec parameters.
-    ///
-    /// This is an advanced API for cases where you need to customize the codec
-    /// buffer behavior. For most use cases, prefer
-    /// [`request_uni_stream`](Self::request_uni_stream) which uses sensible defaults.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `S`: The type to send (must implement [`Serialize`])
-    /// - `BP`: Buffer parameters for the encoder (implements [`BufferParams`])
-    ///
-    /// # Errors
-    ///
-    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
-    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
-    pub async fn request_custom_uni_stream<S, BP>(
-        &self,
-        user_id: i32,
-        r#type: StreamType,
-    ) -> Result<(Sender<S, BP>, CancellationToken)>
-    where
-        S: Serialize,
-        BP: BufferParams,
+        S: Serialize + Send + 'static,
     {
         let (send, connection_id, token) = self.request_unframed_uni_stream(user_id).await?;
 
-        frame_uni_stream::<S, BP>(send, r#type)
+        let sender = frame_uni_stream::<S, CodecBufferParams>(send, r#type)
             .await
-            .map(|sender| (sender, token))
             .map_err(|e| {
                 self.unregister(user_id, Some(connection_id), None);
                 StreamManagerError::ConnectionClosed {
                     user_id,
                     reason: format!("failed to frame uni stream: {e}"),
                 }
-            })
+            })?;
+
+        let child_token = token.child_token();
+        let sink = super::StreamSink::new(sender, child_token, buffer);
+
+        Ok(sink)
+    }
+
+    /// Open a typed protocol stream via [`StreamProtocol`](super::StreamProtocol).
+    ///
+    /// Convenience method that uses the protocol's `stream_type()` and type
+    /// parameters to open a correctly-typed bidirectional stream.
+    ///
+    /// # Arguments
+    ///
+    /// - `buffer`: mpsc channel capacity in **messages** (not bytes). Determines how
+    ///   many messages can be queued before backpressure. Use
+    ///   [`DEFAULT_SINK_BUFFER`](super::DEFAULT_SINK_BUFFER) (32) for most cases.
+    ///   `NonZeroUsize` enforces at the type level that zero-capacity channels
+    ///   (rendezvous) cannot be created — they would cause immediate backpressure
+    ///   cancellation on every broadcast.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamManagerError::UserNotConnected`]: No active session for this user
+    /// - [`StreamManagerError::ConnectionClosed`]: Connection died (auto-cleaned up)
+    pub async fn open_protocol<P: super::StreamProtocol>(
+        &self,
+        user_id: i32,
+        protocol: P,
+        buffer: NonZeroUsize,
+    ) -> Result<(super::StreamSink<P::Send>, Receiver<P::Recv>)>
+    where
+        P::Send: Send + 'static,
+        P::Recv: Send + 'static,
+    {
+        self.request_stream(user_id, protocol.stream_type(), buffer)
+            .await
     }
 
     /// Force-disconnect a user's WebTransport connection.
@@ -778,7 +694,7 @@ where
     sender
         .send(&r#type)
         .await
-        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+        .with_context(|| format!("failed to send stream type: {type:?}"))?;
     let sender = sender.map_encoder(|_| CompressedCborEncoder::new());
     let receiver = FramedRead::new(rx, CompressedCborDecoder::new());
 
@@ -798,7 +714,7 @@ where
     sender
         .send(&r#type)
         .await
-        .with_context(|| format!("failed to send stream type: {:?}", r#type))?;
+        .with_context(|| format!("failed to send stream type: {type:?}"))?;
     Ok(sender.map_encoder(|_| CompressedCborEncoder::new()))
 }
 
@@ -870,7 +786,7 @@ pub async fn connect_stream(
     // cmd_tx.  Those commands can only be fulfilled by the cmd_rx loop below.
     // Running both in the same select! avoids the deadlock that would occur if
     // on_connect were awaited *before* entering the loop.
-    let on_connect_fut = super::on_connect(user_session.user_id, &db, &*streams, depot);
+    let on_connect_fut = super::on_connect(user_session.user_id, &db, &streams, depot);
     tokio::pin!(on_connect_fut);
     let mut on_connect_done = false;
 
@@ -907,7 +823,7 @@ pub async fn connect_stream(
                                 tracing::warn!(user_session.user_id, connection_id, error = %e, "Stream open failed");
                                 Err(StreamManagerError::ConnectionClosed {
                                     user_id: user_session.user_id,
-                                    reason: format!("stream open failed: {}", e),
+                                    reason: format!("stream open failed: {e}"),
                                 })
                             }
                         };
@@ -920,7 +836,7 @@ pub async fn connect_stream(
                                 tracing::warn!(user_session.user_id, connection_id, error = %e, "Uni stream open failed");
                                 Err(StreamManagerError::ConnectionClosed {
                                     user_id: user_session.user_id,
-                                    reason: format!("uni stream open failed: {}", e),
+                                    reason: format!("uni stream open failed: {e}"),
                                 })
                             }
                         };

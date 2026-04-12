@@ -3,7 +3,7 @@ use ulid::Ulid;
 
 use crate::models::blob::FixedBlob;
 
-/// Ulid NewType providing ToSql and FromSql impls, stored as 16-byte BLOB
+/// Ulid `NewType` providing `ToSql` and `FromSql` impls, stored as 16-byte BLOB
 ///
 /// # Usage
 ///
@@ -24,6 +24,6 @@ impl From<Ulid> for SqlUlid {
 impl From<SqlUlid> for Ulid {
     #[inline]
     fn from(value: SqlUlid) -> Self {
-        value.0 .0.into()
+        value.0.0.into()
     }
 }

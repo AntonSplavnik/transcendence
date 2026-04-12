@@ -2,7 +2,6 @@
 
 #include "System.hpp"
 #include "../components/Transform.hpp"
-#include <cstdio>
 #include "../components/PhysicsBody.hpp"
 #include "../components/Health.hpp"
 #include "../components/Stamina.hpp"
@@ -22,7 +21,6 @@
 #include "../../entt/entt.hpp"
 #include <queue>
 #include <variant>
-#include <cstdio>
 #include <cstdlib>
 
 namespace ArenaGame {
@@ -259,24 +257,15 @@ inline void CombatSystem::processInputAttacks() {
 
 		// Priority: Skill2 > Skill1 > Attack
 		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(comcon.ability2.staminaCost)) {
-			fprintf(stderr, "[COMBAT] ABILITY2 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), static_cast<double>(comcon.skill2CooldownTimer));
 			triggerSkill(comcon, charcon, comcon.ability2,
 			             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
 
 		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(comcon.ability1.staminaCost)) {
-			fprintf(stderr, "[COMBAT] ABILITY1 entity=%u  cd=%.2f\n",
-				static_cast<unsigned>(entity), static_cast<double>(comcon.skill1CooldownTimer));
 			triggerSkill(comcon, charcon, comcon.ability1,
 			             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
 
 		} else if (wantsAttack && comcon.canPerformAttack() && stamina.canAfford(comcon.currentStage().staminaCost)) {
 			const AttackStage& stage = comcon.currentStage();
-			fprintf(stderr, "[COMBAT] ATTACK  entity=%u  chain_stage=%d  range=%.1f  dmg_mul=%.2f  base_dmg=%.1f\n",
-				static_cast<unsigned>(entity), comcon.chainStage,
-				static_cast<double>(stage.range), static_cast<double>(stage.damageMultiplier),
-				static_cast<double>(comcon.baseDamage));
-
 			uint8_t stageNum = static_cast<uint8_t>(comcon.chainStage);
 			comcon.startAttack();
 			comcon.hitPending = true;
@@ -303,9 +292,6 @@ inline void CombatSystem::hitAllInRange(SkillContext& ctx, float range, float dm
 		if (dist > range) return;
 
 		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
-		fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
-			static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
-			static_cast<double>(dist), static_cast<double>(dmg));
 		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
 	});
 }
@@ -328,9 +314,6 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 		if (forward.dot(toTarget) < cosAngle) return;
 
 		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
-		fprintf(stderr, "[COMBAT] HIT_QUEUED  attacker=%u  target=%u  dist=%.2f  raw_dmg=%.2f\n",
-			static_cast<unsigned>(ctx.attackerEntity), static_cast<unsigned>(target),
-			static_cast<double>(dist), static_cast<double>(dmg));
 		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
 	});
 }
@@ -362,14 +345,6 @@ inline void CombatSystem::processDamage() {
 		float hpAfter      = health->current;
 		float actualDamage = hpBefore - hpAfter;
 
-		fprintf(stderr, "[COMBAT] attacker=%u  victim=%u  raw=%.2f  dealt=%.2f  hp: %.1f -> %.1f / %.1f%s\n",
-			static_cast<unsigned>(hit.attacker),
-			static_cast<unsigned>(hit.victim),
-			static_cast<double>(hit.damage),
-			static_cast<double>(actualDamage),
-			static_cast<double>(hpBefore), static_cast<double>(hpAfter), static_cast<double>(health->maximum),
-			health->isAlive() ? "" : "  DEAD");
-
 		if (trackStats) {
 			auto& aStats = stats->playerStats.try_emplace(hit.attacker).first->second;
 			auto& vStats = stats->playerStats.try_emplace(hit.victim).first->second;
@@ -384,9 +359,6 @@ inline void CombatSystem::processDamage() {
 				vStats.deaths++;
 				if (ie) ie->events.push_back(Events::DeathEvent{ hit.attacker, hit.victim });
 				if (ne) ne->events.push_back(NetEvents::DeathEvent{ getPlayerID(hit.attacker), getPlayerID(hit.victim) });
-				fprintf(stderr, "[COMBAT] KILL  killer=%u  victim=%u\n",
-					static_cast<unsigned>(hit.attacker),
-					static_cast<unsigned>(hit.victim));
 			}
 		}
 
@@ -414,8 +386,6 @@ inline bool CombatSystem::tryCancelSwingByMovement(
 		controller.canMove = true;
 		controller.restoreMovementState();
 	}
-	fprintf(stderr, "[COMBAT] swing cancelled by movement  entity=%u\n",
-		static_cast<unsigned>(entity));
 	return true;
 }
 
@@ -437,7 +407,6 @@ inline void CombatSystem::handleSwingEnd(
 				stamina->consume(stage.staminaCost);
 			hitInArc(ctx, stage.range, stage.damageMultiplier, stage.attackAngle);
 			combat.advanceChain();
-			fprintf(stderr, "[COMBAT] deferred_hit applied  next_chain_stage=%d\n", combat.chainStage);
 		}
 		combat.hitPending = false;
 	}

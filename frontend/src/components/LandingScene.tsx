@@ -64,7 +64,7 @@ export default function LandingScene() {
 					mesh.position.x = 3;
 				});
 			} catch (error) {
-				console.error('Failed to load models:', error);
+				console.warn('Failed to load models:', error);
 			}
 		})();
 

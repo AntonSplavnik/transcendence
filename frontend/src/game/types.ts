@@ -52,18 +52,59 @@ export type GameServerMessage =
 	| { type: 'PlayerLeft'; player_id: number }
 	| { type: 'Death'; killer: number; victim: number }
 	| { type: 'Damage'; attacker: number; victim: number; damage: number }
-	| { type: 'Spawn'; player_id: number; position: Vector3D; name: string; character_class: string }
+	| {
+			type: 'Spawn';
+			player_id: number;
+			position: Vector3D;
+			name: string;
+			character_class: string;
+	  }
 	| { type: 'StateChange'; player_id: number; state: number }
 	| { type: 'AttackStarted'; player_id: number; chain_stage: number }
 	| { type: 'SkillUsed'; player_id: number; skill_slot: number }
 	| { type: 'MatchEnd'; players: PlayerMatchStats[] }
 	| { type: 'Error'; message: string };
 
+// Game events sent by the server for audio/VFX triggers
+export const AudioEventType = {
+	Jump: 1,
+	Land: 2,
+	Hit: 3,
+	Death: 4,
+	Dodge: 5,
+} as const;
+
+export interface AudioEvent {
+	event_type: number;
+	player_id: number;
+	position: Vector3D;
+	param1: number;
+}
+
 /** Subset of GameServerMessage that represents in-game events (not snapshots or meta). */
 export type GameEvent = Extract<
 	GameServerMessage,
-	{ type: 'Death' | 'Damage' | 'Spawn' | 'StateChange' | 'AttackStarted' | 'SkillUsed' | 'MatchEnd' }
+	{
+		type:
+			| 'Death'
+			| 'Damage'
+			| 'Spawn'
+			| 'StateChange'
+			| 'AttackStarted'
+			| 'SkillUsed'
+			| 'MatchEnd';
+	}
 >;
+
+export interface InputState {
+	movementDirection: Vector3D;
+	isAttacking: boolean;
+	isJumping: boolean;
+	isSprinting: boolean;
+	isGrounded: boolean;
+	isUsingAbility1: boolean;
+	isUsingAbility2: boolean;
+}
 
 export type GameClientMessage =
 	| {

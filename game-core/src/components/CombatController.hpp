@@ -4,7 +4,6 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
-#include <cstdio>
 
 namespace ArenaGame {
 namespace Components {
@@ -108,9 +107,6 @@ struct CombatController {
 
 	// Begin the current stage's swing.
 	void startAttack() {
-		fprintf(stderr, "[CHAIN] startAttack  stage=%d/%d  duration=%.2f  range=%.1f  window=%.2f\n",
-			chainStage, static_cast<int>(attackChain.size()) - 1,
-			static_cast<double>(currentStage().duration), static_cast<double>(currentStage().range), static_cast<double>(currentStage().chainWindow));
 		isAttacking = true;
 		swingTimer  = 0.0f;
 		chainTimer  = 0.0f;  // player acted in time — reset window clock
@@ -123,12 +119,8 @@ struct CombatController {
 		const bool lastStage = (chainStage + 1 >= static_cast<int>(attackChain.size()));
 		const bool chainEnds = lastStage || attackChain[static_cast<size_t>(chainStage)].chainWindow <= 0.0f;
 
-		int prevStage = chainStage;
 		chainStage = chainEnds ? 0 : chainStage + 1;
 		chainTimer = 0.0f;
-
-		fprintf(stderr, "[CHAIN] advanceChain  %d -> %d  %s\n",
-			prevStage, chainStage, chainEnds ? "(chain reset)" : "(chain continues)");
 	}
 
 	void disableAttacks()   { canAttack = false; }

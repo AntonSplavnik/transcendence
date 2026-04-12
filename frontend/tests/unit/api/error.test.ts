@@ -68,13 +68,13 @@ describe('error utilities', () => {
 			expect(getErrorMessage(error)).toBe('Invalid email or password.');
 		});
 
-		it('returns error name when no detail or brief', () => {
+		it('returns unknown brief as-is when no mapped message exists', () => {
 			const error = createMockAxiosError(400, {
 				name: 'ValidationError',
 				brief: 'UnknownBrief',
 				detail: undefined,
 			});
-			expect(getErrorMessage(error)).toBe('Authentication error: UnknownBrief');
+			expect(getErrorMessage(error)).toBe('UnknownBrief');
 		});
 
 		it('returns network error message when no response', () => {
@@ -230,7 +230,7 @@ describe('error utilities', () => {
 		it('returns null and clears invalid JSON', () => {
 			localStorage.setItem('auth_error', 'invalid json');
 
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 			expect(retrieveStoredError()).toBeNull();
 			expect(localStorage.getItem('auth_error')).toBeNull();
 			expect(consoleSpy).toHaveBeenCalled();

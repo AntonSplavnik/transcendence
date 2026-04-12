@@ -6,8 +6,8 @@ use salvo::oapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 #[cfg(not(test))]
 use crate::ON_SHUTDOWN;
 use crate::{
-    game::GameManager, notifications::NotificationManager, prelude::*, stream::StreamManager,
-    utils::NickCache,
+    email::Mailer, game::GameManager, notifications::NotificationManager, prelude::*,
+    stream::StreamManager, tos::CurrentTosTimestamp, utils::NickCache,
 };
 
 pub mod users;
@@ -15,8 +15,11 @@ pub mod users;
 #[cfg(debug_assertions)]
 const OPENAPI_JSON: &str = "/api-doc/openapi.json";
 
-pub fn rest_api(database: Db) -> Router {
+pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer) -> Router {
     let api_routes = Router::with_path("api")
+        .hoop(affix_state::inject(NickCache::new(
+            crate::utils::NICK_CACHE_TTI,
+        )))
         .hoop(crate::auth::device_id_inserter_hoop)
         .hoop(crate::utils::logger::Logger)
         .hoop(Timeout::new(std::time::Duration::from_secs(30)))
@@ -25,8 +28,14 @@ pub fn rest_api(database: Db) -> Router {
             crate::auth::user_router("user"),
             users::router("users"),
             crate::avatar::router("avatar"),
-            crate::stream::router("stream"),
+            crate::friends::router("friends"),
             crate::game::router("game"),
+            crate::stream::router("stream"),
+            Router::with_path("tos")
+                .oapi_tag("tos")
+                .ip_rate_limit(&RateLimit::per_minute(30))
+                .get(crate::tos::current_tos),
+            crate::email::confirm::router("email"),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());
@@ -41,26 +50,37 @@ pub fn rest_api(database: Db) -> Router {
         });
     }
 
-    let nick_cache = NickCache::new(crate::utils::NICK_CACHE_TTI);
+    let notification_manager = NotificationManager::new(database.clone());
+    let game_manager = GameManager::new(Arc::clone(&stream_manager));
 
     Router::new()
         .hoop(affix_state::inject(database))
-        .hoop(affix_state::inject(stream_manager.clone()))
-        .hoop(affix_state::inject(NotificationManager::new()))
-        .hoop(affix_state::inject(GameManager::new(stream_manager)))
-        .hoop(affix_state::inject(nick_cache))
+        .hoop(affix_state::inject(tos_timestamp))
+        .hoop(affix_state::inject(mailer))
+        .hoop(affix_state::inject(stream_manager))
+        .hoop(affix_state::inject(notification_manager))
+        .hoop(affix_state::inject(game_manager))
         .push(api_routes)
         .push(crate::stream::webtransport_router("api/stream/connect"))
 }
 
-pub fn root(database: Db) -> Router {
-    let api_routes = rest_api(database);
+#[cfg_attr(test, allow(dead_code))]
+pub fn root(
+    database: Db,
+    tos_timestamp: CurrentTosTimestamp,
+    mailer: Mailer,
+    https_port: u16,
+) -> Router {
+    let api_routes = rest_api(database, tos_timestamp, mailer);
     #[cfg(debug_assertions)]
     let doc = openapi_doc(&api_routes);
-    let router = Router::new().push(api_routes).push(
-        Router::with_path("{*path}")
-            .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html")),
-    );
+    let router = Router::new()
+        .push(api_routes.hoop(ForceHttps::new().https_port(https_port)))
+        .push(
+            Router::with_path("{*path}")
+                .get(StaticDir::new(&crate::config::get().serve_dir).defaults("index.html"))
+                .hoop(ForceHttps::new().https_port(https_port)),
+        );
 
     #[cfg(debug_assertions)]
     let router = router
@@ -102,5 +122,5 @@ fn openapi_doc(to_document: &Router) -> OpenApi {
                 Short-lived (a few minutes) and rotated on each refresh."),
             )),
         )
-        .merge_router(&to_document)
+        .merge_router(to_document)
 }

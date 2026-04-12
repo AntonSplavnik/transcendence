@@ -1,16 +1,16 @@
 use std::{borrow::Cow, sync::LazyLock};
 
-use argon2::password_hash::{self, rand_core::OsRng, SaltString};
+use argon2::password_hash::{self, SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use cookie::Cookie;
 
 use crate::auth::session_token::{SessionToken, SessionTokenHashTruncated};
-use crate::auth::{jwt_encoding_key, JwtClaims};
+use crate::auth::{JwtClaims, jwt_encoding_key};
 use crate::models::{Session, User};
 use crate::prelude::*;
 
-use super::two_factor;
 use super::SESSION_ACCESS_EXPIRY;
+use super::two_factor;
 
 pub fn prune_excess_sessions(
     conn: &mut DbConn,
@@ -26,6 +26,8 @@ pub fn prune_excess_sessions(
         .select(id)
         .load(conn)?;
 
+    #[allow(clippy::cast_possible_truncation)]
+    // MAX_SESSIONS_PER_USER is a small config constant (e.g. 10-20)
     let max_to_keep = super::MAX_SESSIONS_PER_USER as usize;
 
     // Ensure we never delete the explicitly kept session, and adjust how many
@@ -56,7 +58,7 @@ pub fn device_id_cookie(depot: &Depot) -> Cookie<'static> {
         .secure(true)
         .same_site(cookie::SameSite::Lax)
         .max_age(cookie::time::Duration::seconds(
-            crate::auth::SESSION_COOKIE_MAX_AGE.as_secs() as i64,
+            crate::auth::SESSION_COOKIE_MAX_AGE.as_secs().cast_signed(),
         ))
         .build()
 }
@@ -68,7 +70,7 @@ pub fn session_cookie(token: SessionToken) -> Cookie<'static> {
         .secure(true)
         .same_site(cookie::SameSite::Lax)
         .max_age(cookie::time::Duration::seconds(
-            super::SESSION_COOKIE_MAX_AGE.as_secs() as i64,
+            super::SESSION_COOKIE_MAX_AGE.as_secs().cast_signed(),
         ))
         .build()
 }
@@ -80,18 +82,28 @@ pub fn jwt_cookie(token: impl Into<Cow<'static, str>>) -> Cookie<'static> {
         .secure(true)
         .same_site(cookie::SameSite::Lax)
         .max_age(cookie::time::Duration::seconds(
-            SESSION_ACCESS_EXPIRY.as_secs() as i64,
+            SESSION_ACCESS_EXPIRY.as_secs().cast_signed(),
         ))
         .build()
 }
 
-pub fn jwt_create(session: &Session, jti: SessionTokenHashTruncated) -> AppResult<String> {
+pub fn jwt_create(
+    session: &Session,
+    jti: SessionTokenHashTruncated,
+    tos_accepted_at: Option<chrono::DateTime<chrono::Utc>>,
+) -> AppResult<String> {
+    // JWT standard uses usize for exp/iat; timestamps are positive Unix seconds (after epoch)
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let exp = session.access_expiry().timestamp() as usize;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let iat = session.refreshed_at.timestamp() as usize;
     let claim = JwtClaims {
         sub: session.user_id,
         sid: session.id,
         jti,
-        exp: session.access_expiry().timestamp() as usize,
-        iat: session.refreshed_at.timestamp() as usize,
+        exp,
+        iat,
+        tos: tos_accepted_at.map(|ts| ts.timestamp()),
     };
     Ok(jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
@@ -141,14 +153,11 @@ pub fn get_user_by_credentials(email: &str, password: &str, conn: &mut DbConn) -
 }
 
 pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
-    let device = req
-        .header::<&str>("User-Agent")
-        .map(|ua| {
-            woothee::parser::Parser::new()
-                .parse(ua)
-                .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
-        })
-        .flatten();
+    let device = req.header::<&str>("User-Agent").and_then(|ua| {
+        woothee::parser::Parser::new()
+            .parse(ua)
+            .map(|info| format!("{} on {} ({})", info.name, info.os, info.category))
+    });
     let ip = req
         .remote_addr()
         .to_owned()
@@ -158,19 +167,17 @@ pub fn get_device_and_ip(req: &Request) -> (Option<String>, Option<String>) {
 }
 
 static RANDOM_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
-    hash_password("dummy password")
-        .expect("Failed to generate dummy password hash")
-        .to_string()
+    hash_password("dummy password").expect("Failed to generate dummy password hash")
 });
 
-static ARGON2: LazyLock<Argon2<'static>> = LazyLock::new(|| Argon2::default());
+static ARGON2: LazyLock<Argon2<'static>> = LazyLock::new(Argon2::default);
 
 /// Constant-time password verification
 pub fn verify_password(
     password: &str,
     password_hash: Option<&str>,
 ) -> Result<(), password_hash::Error> {
-    let hash = PasswordHash::new(&password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
+    let hash = PasswordHash::new(password_hash.unwrap_or(&RANDOM_PASSWORD_HASH))?;
     let res = ARGON2.verify_password(password.as_bytes(), &hash);
     match password_hash {
         Some(_) => res,

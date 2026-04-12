@@ -4,3 +4,4 @@ node_modules/
 game_server
 *__pycache__
 compile_commands.json
+.vscode

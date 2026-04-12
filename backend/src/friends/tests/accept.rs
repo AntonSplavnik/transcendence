@@ -1,0 +1,218 @@
+use crate::friends::types::FriendRequestResponse;
+use crate::models::FriendRequestStatus;
+use crate::utils::mock;
+use salvo::http::StatusCode;
+use salvo::test::ResponseExt;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Bypass HTTP to insert `count` accepted friendships directly into the DB.
+/// Creates `count` registered users (HTTP) to satisfy FK constraints.
+async fn fill_friend_list(server: &mock::Server, user_id: i32, count: usize) {
+    use crate::db::Database as _;
+
+    let mut other_ids = Vec::with_capacity(count);
+    for _ in 0..count {
+        other_ids.push(server.user().register().await.user_id());
+    }
+
+    server
+        .db
+        .transaction_write(move |conn| {
+            use crate::schema::friend_requests::dsl as fr;
+            use diesel::prelude::*;
+
+            let now = chrono::Utc::now();
+            for other_id in other_ids {
+                diesel::insert_into(fr::friend_requests)
+                    .values((
+                        fr::sender_id.eq(other_id),
+                        fr::receiver_id.eq(user_id),
+                        fr::status.eq(FriendRequestStatus::Accepted),
+                        fr::created_at.eq(now),
+                        fr::updated_at.eq(now),
+                    ))
+                    .execute(conn)?;
+            }
+            Ok(())
+        })
+        .await
+        .expect("fill_friend_list should not fail");
+}
+
+// ── Ergonomic helpers on mock::User ──────────────────────────────────────────
+
+impl mock::User<mock::Registered> {
+    /// POST /api/friends/accept/{id} — asserts 200, returns parsed response.
+    pub async fn accept_friend_request(&mut self, request_id: i32) -> FriendRequestResponse {
+        let mut res = self.try_accept_friend_request(request_id).await;
+        assert_eq!(
+            res.status_code,
+            Some(StatusCode::OK),
+            "accept_friend_request should succeed: {self}"
+        );
+        res.take_json().await.unwrap()
+    }
+
+    /// POST /api/friends/accept/{id} — returns raw response without asserting.
+    pub async fn try_accept_friend_request(&mut self, request_id: i32) -> salvo::Response {
+        let req = self
+            .client
+            .post(format!("/api/friends/accept/{request_id}"));
+        self.client.send(req).await
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn accept_request_succeeds() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let mut bob = server.user().register().await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    let res = bob.accept_friend_request(req.id).await;
+
+    assert_eq!(res.status, FriendRequestStatus::Accepted);
+    assert_eq!(res.id, req.id);
+    assert_eq!(res.sender.id, alice.user_id());
+    assert_eq!(res.receiver.id, bob.user_id());
+}
+
+#[tokio::test]
+async fn accept_request_unauthenticated_unauthorized() {
+    let server = mock::Server::default();
+    let user = server.user().register().await;
+    user.assert_requires_auth(|c| c.post("/api/friends/accept/1"))
+        .await;
+}
+
+#[tokio::test]
+async fn accept_request_not_found_rejected() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+
+    let res = alice.try_accept_friend_request(999_999).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::NOT_FOUND),
+        "accepting non-existent request must return 404"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_by_sender_forbidden() {
+    // The sender of a request cannot accept their own request.
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let bob = server.user().register().await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    let res = alice.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::FORBIDDEN),
+        "sender must not be allowed to accept their own request"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_by_third_party_forbidden() {
+    // A user unrelated to the request cannot accept it.
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let bob = server.user().register().await;
+    let mut charlie = server.user().register().await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    let res = charlie.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::FORBIDDEN),
+        "third party must not be allowed to accept the request"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_already_accepted_conflict() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let mut bob = server.user().register().await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    bob.accept_friend_request(req.id).await;
+
+    // Try to accept again.
+    let res = bob.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::CONFLICT),
+        "accepting an already-accepted request must return 409"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_receiver_list_full_rejected() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+
+    // Fill alice's friend list to MAX_FRIENDS via direct DB inserts.
+    fill_friend_list(&server, alice.user_id(), 100).await;
+
+    let mut last = server.user().register().await;
+    let req = last.send_friend_request_to(alice.user_id()).await;
+    let res = alice.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "receiver with a full friend list (100) must get 400"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_sender_list_full_rejected() {
+    // Alice has 100 friends and sends a new request to Bob.
+    // Bob tries to accept — must fail because Alice's list is full.
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let mut bob = server.user().register().await;
+
+    fill_friend_list(&server, alice.user_id(), 100).await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    let res = bob.try_accept_friend_request(req.id).await;
+
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "sender with a full friend list (100) must get 400 when receiver tries to accept"
+    );
+}
+
+#[tokio::test]
+async fn accept_request_friendship_appears_in_list() {
+    let server = mock::Server::default();
+    let mut alice = server.user().register().await;
+    let mut bob = server.user().register().await;
+
+    let req = alice.send_friend_request_to(bob.user_id()).await;
+    bob.accept_friend_request(req.id).await;
+
+    let alice_friends = alice.get_friends().await;
+    let bob_friends = bob.get_friends().await;
+
+    assert!(
+        alice_friends.iter().any(|f| f.id == bob.user_id()),
+        "bob must appear in alice's friend list after accepting"
+    );
+    assert!(
+        bob_friends.iter().any(|f| f.id == alice.user_id()),
+        "alice must appear in bob's friend list after accepting"
+    );
+}

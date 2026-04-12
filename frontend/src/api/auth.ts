@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { AuthResponse, Session } from './types';
+import type { AuthResponse, Session, TosInfo } from './types';
 
 /**
  * Login with email and password
@@ -32,11 +32,13 @@ export async function register(
 	nickname: string,
 	email: string,
 	password: string,
+	tos: boolean,
 ): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/register', {
 		nickname,
 		email,
 		password,
+		tos,
 	});
 	return response.data;
 }
@@ -59,12 +61,21 @@ export async function refreshJWT(): Promise<Session> {
 	return response.data;
 }
 
+/** Accept the current Terms of Service and receive a fresh JWT. */
+export async function acceptTos(): Promise<Session> {
+	const response = await apiClient.post<Session>('/auth/session-management/accept-tos');
+	return response.data;
+}
+
+/** Fetch the current ToS version timestamp from the server (unauthenticated). */
+export async function getTosTimestamp(): Promise<TosInfo> {
+	const response = await apiClient.get<TosInfo>('/tos');
+	return response.data;
+}
+
 /**
- * Reauthenticate by providing password again
- * Used when session requires reauth (e.g., after 7 days of inactivity or 30 days since last password entry)
- * @param password - User password
- * @param mfa_code - Optional 2FA code (required if 2FA is enabled)
- * @returns User session info on successful reauth
+ * Reauthenticate by providing password again.
+ * Used when session requires reauth (e.g., after prolonged inactivity).
  */
 export async function reauth(password: string, mfa_code?: string): Promise<AuthResponse> {
 	const response = await apiClient.post<AuthResponse>('/auth/session-management/reauth', {

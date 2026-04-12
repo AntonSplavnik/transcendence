@@ -57,10 +57,10 @@ pub enum CountdownState {
 
 impl CountdownState {
     fn abort(&mut self) {
-        if let CountdownState::Running { task, .. } = self {
+        if let Self::Running { task, .. } = self {
             task.abort();
         }
-        *self = CountdownState::Idle;
+        *self = Self::Idle;
     }
 }
 
@@ -85,6 +85,7 @@ pub struct LobbyPlayerInfo {
     pub character_class: CharacterClass,
 }
 
+#[allow(clippy::struct_field_names)]
 pub struct Lobby {
     pub id: Ulid,
     settings: LobbySettings,
@@ -195,9 +196,9 @@ impl Lobby {
                 .iter()
                 .map(|(&user_id, state)| LobbyPlayerInfo {
                     user_id,
-                    nickname: state.nickname.clone(),
+                    nickname: state.nickname,
                     ready: state.ready,
-                    character_class: state.character_class.clone(),
+                    character_class: state.character_class,
                 })
                 .collect(),
             game_active: self.game_active,
@@ -233,7 +234,7 @@ impl Lobby {
             user_id,
             PlayerState {
                 ready: false,
-                nickname: nickname.clone(),
+                nickname,
                 character_class: CharacterClass::default(),
             },
         );
@@ -250,10 +251,10 @@ impl Lobby {
         self.lobby_streams.destroy_handle(user_id);
         self.game_streams.destroy_handle(user_id);
 
-        if self.game_active {
-            if let Some(game) = &self.game {
-                game.on_disconnect(user_id as u32);
-            }
+        if self.game_active
+            && let Some(game) = &self.game
+        {
+            game.on_disconnect(user_id.cast_unsigned());
         }
 
         self.lobby_streams
@@ -502,7 +503,7 @@ impl Lobby {
     pub fn player_data(&self) -> impl Iterator<Item = (i32, Nickname, CharacterClass)> + '_ {
         self.players
             .iter()
-            .map(|(&uid, state)| (uid, state.nickname.clone(), state.character_class.clone()))
+            .map(|(&uid, state)| (uid, state.nickname, state.character_class))
     }
 
     /// Returns the spectator user IDs.
