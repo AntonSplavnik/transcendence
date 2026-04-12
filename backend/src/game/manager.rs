@@ -320,8 +320,7 @@ impl GameManager {
                     // when our local Arc goes out of scope.
                     let still_active = {
                         let lobby = lobby_arc.lock();
-                        lobby.is_game_active()
-                            && Arc::ptr_eq(lobby.game_streams(), &game_streams)
+                        lobby.is_game_active() && Arc::ptr_eq(lobby.game_streams(), &game_streams)
                     };
 
                     if still_active {
