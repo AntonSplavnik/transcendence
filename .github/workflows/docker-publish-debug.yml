@@ -37,12 +37,11 @@ jobs:
         env:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
 
-      - name: Build and push dev Docker image
+      - name: Build and push debug Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          build-args: CARGO_PROFILE=dev
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:debug
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:debug-sha-${{ steps.sha.outputs.short }}
