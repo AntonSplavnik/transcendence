@@ -20,6 +20,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { joinLobby } from '../api/lobby';
 import { getNickname } from '../api/userResolver';
 import { useUIAudio } from '../audio/AudioProvider';
 import type { NotificationPayload, UniHandlerFactory, WireNotification } from '../stream/types';
@@ -102,6 +103,10 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
 			const name = await getNickname(payload.FriendRemoved.user_id);
 			return `${name} removed you from their friends`;
 		}
+		if ('GameInviteReceived' in payload) {
+			const name = await getNickname(payload.GameInviteReceived.sender_id);
+			return `${name} invited you to a game`;
+		}
 	}
 
 	return String(payload);
@@ -125,6 +130,14 @@ function getClickAction(payload: NotificationPayload): (() => void) | null {
 	if (typeof payload === 'object') {
 		if ('FriendRequestReceived' in payload || 'FriendRequestAccepted' in payload) {
 			return () => window.dispatchEvent(new CustomEvent('open-friends-drawer'));
+		}
+		if ('GameInviteReceived' in payload) {
+			const lobbyId = payload.GameInviteReceived.lobby_id;
+			return () => {
+				joinLobby(lobbyId).catch((err) => {
+					console.warn('[Notifications] failed to join lobby from invite:', err);
+				});
+			};
 		}
 	}
 	return null;
