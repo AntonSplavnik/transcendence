@@ -70,3 +70,8 @@ export async function updateLobbySettings(
 ): Promise<void> {
 	await apiClient.patch(`/game/lobby/${id}/settings`, patch);
 }
+
+/** Invite a friend to the caller's lobby. */
+export async function inviteToLobby(lobbyId: string, targetUserId: number): Promise<void> {
+	await apiClient.post(`/game/lobby/${lobbyId}/invite/${targetUserId}`);
+}

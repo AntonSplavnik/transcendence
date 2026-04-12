@@ -124,7 +124,8 @@ export type NotificationPayload =
 	| { FriendRequestAccepted: { request_id: number; friend_id: number } }
 	| { FriendRequestRejected: { request_id: number } }
 	| { FriendRequestCancelled: { request_id: number } }
-	| { FriendRemoved: { user_id: number } };
+	| { FriendRemoved: { user_id: number } }
+	| { GameInviteReceived: { sender_id: number; lobby_id: string } };
 
 /**
  * A single notification as transmitted on the wire.
