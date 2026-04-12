@@ -1,6 +1,7 @@
 import {
 	Flame,
 	ChevronDown,
+	Fingerprint,
 	LogOut,
 	Mail,
 	Monitor,
@@ -23,6 +24,7 @@ import AchievementsModal from './modals/AchievementsModal';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
+import DataPrivacyModal from './modals/DataPrivacyModal';
 import EditUserModal from './modals/EditUserModal';
 import EmailConfirmationModal from './modals/EmailConfirmationModal';
 import JoinByCodeModal from './modals/JoinByCodeModal';
@@ -59,6 +61,7 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 	const [showLobbyList, setShowLobbyList] = useState(false);
 	const [showCreateLobby, setShowCreateLobby] = useState(false);
 	const [showJoinByCode, setShowJoinByCode] = useState(false);
+	const [showDataPrivacy, setShowDataPrivacy] = useState(false);
 	const pendingActionRef = useRef<(() => void) | null>(null);
 	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
@@ -183,6 +186,13 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 						}
 					>
 						Email Confirmation
+					</DropdownItem>
+
+					<DropdownItem
+						icon={<Fingerprint className="w-4 h-4" />}
+						onClick={() => setShowDataPrivacy(true)}
+					>
+						Privacy & Data
 					</DropdownItem>
 
 					<DropdownSeparator />
@@ -454,6 +464,8 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 			{showLobbyList && <LobbyListModal onClose={() => setShowLobbyList(false)} />}
 			{showCreateLobby && <CreateLobbyModal onClose={() => setShowCreateLobby(false)} />}
 			{showJoinByCode && <JoinByCodeModal onClose={() => setShowJoinByCode(false)} />}
+
+			{showDataPrivacy && <DataPrivacyModal onClose={() => setShowDataPrivacy(false)} />}
 
 			{showReauthModal && (
 				<ReauthModal

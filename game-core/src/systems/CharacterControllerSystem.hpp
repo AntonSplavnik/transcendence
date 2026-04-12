@@ -68,8 +68,15 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	Components::Stamina& stamina,
 	float deltaTime
 ) {
-	// Skip if movement is disabled or dead
-	if (!controller.canMove || controller.isDead()) {
+	// Dead players must not move — zero velocity and bail out
+	if (controller.isDead()) {
+		physics.velocity.x = 0.0f;
+		physics.velocity.z = 0.0f;
+		return;
+	}
+
+	// Skip if movement is disabled (stunned, casting, etc.)
+	if (!controller.canMove) {
 		return;
 	}
 
@@ -174,9 +181,8 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		}
 	}
 
-	// Handle stunned/dead states (set by combat system)
-	if (controller.isStunned() || controller.isDead()) {
-		// Disable movement when stunned or dead
+	// Handle stunned state (set by combat system)
+	if (controller.isStunned()) {
 		physics.velocity.x = 0.0f;
 		physics.velocity.z = 0.0f;
 	}
