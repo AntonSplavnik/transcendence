@@ -6,19 +6,19 @@ describe('ChampionGrid', () => {
 	it('renders a button for each character', () => {
 		render(<ChampionGrid value={null} onChange={() => {}} />, { withAuth: false });
 
-		expect(screen.getByRole('radio', { name: /select knight/i })).toBeInTheDocument();
-		expect(screen.getByRole('radio', { name: /select rogue/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /select knight/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /select rogue/i })).toBeInTheDocument();
 	});
 
-	it('marks the selected character as checked', () => {
+	it('marks the selected character as pressed', () => {
 		render(<ChampionGrid value="Knight" onChange={() => {}} />, { withAuth: false });
 
-		expect(screen.getByRole('radio', { name: /select knight/i })).toHaveAttribute(
-			'aria-checked',
+		expect(screen.getByRole('button', { name: /select knight/i })).toHaveAttribute(
+			'aria-pressed',
 			'true'
 		);
-		expect(screen.getByRole('radio', { name: /select rogue/i })).toHaveAttribute(
-			'aria-checked',
+		expect(screen.getByRole('button', { name: /select rogue/i })).toHaveAttribute(
+			'aria-pressed',
 			'false'
 		);
 	});
@@ -28,7 +28,7 @@ describe('ChampionGrid', () => {
 		const user = userEvent.setup();
 		render(<ChampionGrid value="Knight" onChange={onChange} />, { withAuth: false });
 
-		await user.click(screen.getByRole('radio', { name: /select rogue/i }));
+		await user.click(screen.getByRole('button', { name: /select rogue/i }));
 
 		expect(onChange).toHaveBeenCalledOnce();
 		expect(onChange).toHaveBeenCalledWith('Rogue');
@@ -37,14 +37,14 @@ describe('ChampionGrid', () => {
 	it('applies gold border class to selected character', () => {
 		render(<ChampionGrid value="Rogue" onChange={() => {}} />, { withAuth: false });
 
-		const rogueBtn = screen.getByRole('radio', { name: /select rogue/i });
+		const rogueBtn = screen.getByRole('button', { name: /select rogue/i });
 		expect(rogueBtn).toHaveClass('border-gold-400');
 	});
 
 	it('applies dimmed class to unselected character', () => {
 		render(<ChampionGrid value="Knight" onChange={() => {}} />, { withAuth: false });
 
-		const rogueBtn = screen.getByRole('radio', { name: /select rogue/i });
+		const rogueBtn = screen.getByRole('button', { name: /select rogue/i });
 		expect(rogueBtn).toHaveClass('opacity-50');
 	});
 });
