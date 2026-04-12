@@ -3,7 +3,7 @@
 use crate::models::{Achievement, UserAchievement, UserStats};
 use crate::prelude::*;
 
-use super::achievements::{AchievementTier, AchievementUnlock};
+use super::achievements::AchievementTier;
 use super::xp;
 
 pub fn router(path: &str) -> Router {
@@ -81,23 +81,6 @@ impl From<UserStats> for StatsResponse {
             best_win_streak: stats.best_win_streak,
         }
     }
-}
-
-// ============================================================================
-// record-game
-// ============================================================================
-
-#[derive(Debug, Deserialize, ToSchema)]
-struct RecordGameInput {
-    won: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RecordGameResponse {
-    pub xp_gained: i32,
-    pub leveled_up: bool,
-    pub stats: StatsResponse,
-    pub achievement_unlocks: Vec<AchievementUnlock>,
 }
 
 // ============================================================================
