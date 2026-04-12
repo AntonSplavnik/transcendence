@@ -373,10 +373,12 @@ impl StreamManager {
         // try_send is used because register() is not async; the command is
         // buffered and the old handler will process it before seeing the
         // channel close (None).
+        #[allow(clippy::unit_cmp)]
         if let Some(old) = self.connections.insert(
             session.user_id,
             ConnectionEntry::new(Arc::downgrade(self), session, connection_id, tx),
-        ) && let Err(e) = old.tx.try_send(ConnectionCommand::Displace)
+        ) && old.disconnect_token.cancel() == ()
+            && let Err(e) = old.tx.try_send(ConnectionCommand::Displace)
         {
             tracing::debug!(error = %e, "failed to send command");
         }
@@ -855,7 +857,7 @@ pub async fn connect_stream(
                             connection_id,
                             "Connection displaced by newer session"
                         );
-                        tokio::time::sleep(Duration::from_millis(50)).await; // Give the message a moment to be processed by the client
+                        tokio::time::sleep(Duration::from_millis(1000)).await; // Give the message a moment to be processed by the client
                         break;
                     }
                 }
