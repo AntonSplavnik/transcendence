@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
-import { Shield, Copy, Check } from 'lucide-react';
-import { Button, Modal, Input, Alert, InfoBlock, Badge } from '../ui';
-import * as userApi from '../../api/user';
+import { Check, Copy, Shield } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { getErrorMessage } from '../../api/error';
-import { validateTotpOnly, validateMfaCode } from '../../utils/validation';
-import { useAuth } from '../../contexts/AuthContext';
 import type { User } from '../../api/types';
+import * as userApi from '../../api/user';
+import { useAuth } from '../../contexts/AuthContext';
+import { validateMfaCode, validateTotpOnly } from '../../utils/validation';
+import { Alert, Badge, Button, InfoBlock, Input, Modal } from '../ui';
 
 interface TwoFactorModalProps {
 	user: User;

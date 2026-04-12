@@ -1,12 +1,12 @@
 import apiClient from './client';
 import type {
 	AuthResponse,
-	Session,
-	TwoFactorStartResponse,
-	TwoFactorConfirmResponse,
-	PasswordMfaPayload,
-	SessionManagementPayload,
 	ChangePasswordPayload,
+	PasswordMfaPayload,
+	Session,
+	SessionManagementPayload,
+	TwoFactorConfirmResponse,
+	TwoFactorStartResponse,
 } from './types';
 
 // ==================== USER INFO ====================

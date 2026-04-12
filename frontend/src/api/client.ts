@@ -1,5 +1,5 @@
+import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axios from 'axios';
-import type { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { refreshJWT } from './auth';
 import { getErrorBrief, getErrorMessage, storeError } from './error';
 

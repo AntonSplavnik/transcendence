@@ -2,7 +2,7 @@
 name = "transcendence-backend"
 version = "0.1.1"
 edition = "2024"
-rust-version = "1.94"
+rust-version = "1.92"
 readme = "./README.md"
 
 [lints.clippy]
@@ -69,8 +69,9 @@ blake3 = "1.8"
 diesel-autoincrement-new-struct = "0.1"
 # config library
 figment = { version = "0.10", features = ["env", "toml"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
-# embed files into the compiled binary
+jsonwebtoken = { version = "10", features = [
+	"rust_crypto",
+] } # embed files into the compiled binary
 rust-embed = "8"
 # web api backend framework
 salvo = { version = "0.89", features = [
@@ -195,11 +196,23 @@ rustls = { version = "0.23", default-features = false, features = [
 [dev-dependencies]
 tokio-test = "0.4"
 
+[dependencies.cxx]
+version = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
+
 # ---------------------------------------------------------------------------
 # Always compile CPU-intensive dependencies with optimizations, even in
 # debug / test builds.  This makes argon2 hashing ~20–40× faster and avoids
 # blocking the tokio runtime during tests.
 # ---------------------------------------------------------------------------
+[profile.release]
+opt-level = 3
+lto = "thin"      # cross-language LTO with Clang — inlines across Rust/C++ boundary
+codegen-units = 1 # single CGU; not implied by thin LTO, must be set explicitly
+strip = "symbols" # smaller binary; requires Rust 1.77+
+
 [profile.dev.package.argon2]
 opt-level = 3
 [profile.dev.package.blake3]

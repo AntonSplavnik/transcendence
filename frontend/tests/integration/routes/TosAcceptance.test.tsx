@@ -205,7 +205,7 @@ describe('ToS acceptance flow', () => {
 			// The inline accept button should be visible
 			expect(screen.getByText('I Accept')).toBeInTheDocument();
 
-			// Click accept on the terms pageat weird, TosGate is ON TOP of the Realtime StatusOverlays and the ErrorBanner? so it blurrs these too... maybe errorBanner should be on top of that? or was it intentional that TosGate in on top of all these?
+			// Click accept on the terms page
 			await user.click(screen.getByText('I Accept'));
 
 			// Should navigate to /home
