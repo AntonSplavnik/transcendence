@@ -49,7 +49,6 @@ export interface PlayerMatchStats {
 // Using discriminated union with 'type' field (matches Rust #[serde(tag = "type")])
 export type GameServerMessage =
 	| ({ type: 'Snapshot' } & GameStateSnapshot)
-	| { type: 'PlayerJoined'; player_id: number; name: string; character_class: string }
 	| { type: 'PlayerLeft'; player_id: number }
 	| { type: 'Death'; killer: number; victim: number }
 	| { type: 'Damage'; attacker: number; victim: number; damage: number }
