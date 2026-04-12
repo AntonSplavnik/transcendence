@@ -57,6 +57,13 @@ namespace ArenaGame {
 
 		void setSpawner(ISpawner* spawner) { m_spawner = spawner; }
 
+		void notifyPlayerRemove(entt::entity entity) {
+			if (!m_mode) return;
+			auto* stats = m_registry->try_get<Components::MatchStatsComponent>(m_gameManager);
+			if (!stats) return;
+			m_mode->onPlayerRemove(entity, *stats);
+		}
+
 	private:
 		void endMatch(Components::GameModeComponent& gm,
 					  const Components::MatchStatsComponent& stats);

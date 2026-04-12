@@ -97,6 +97,11 @@ public:
 					  Components::GameModeComponent& gm,
 					  Components::MatchStatsComponent& stats) = 0;
 
+	// Called when a player entity is about to be destroyed (disconnect / removal).
+	// Override to purge any maps or queues that hold this entity.
+	virtual void onPlayerRemove([[maybe_unused]] entt::entity entity,
+								[[maybe_unused]] Components::MatchStatsComponent& stats) {}
+
 	// Returns true once the mode has determined a winner or loss condition.
 	virtual bool isOver() const = 0;
 
@@ -156,6 +161,11 @@ public:
 			});
 			m_over = true;
 		}
+	}
+
+	void onPlayerRemove(entt::entity entity,
+					    Components::MatchStatsComponent& stats) override {
+		stats.playerStats.erase(entity);
 	}
 
 	void tick([[maybe_unused]] float dt,
@@ -236,6 +246,15 @@ public:
 
 		for (int i = 0; i < static_cast<int>(ranked.size()); i++)
 			stats.playerStats[ranked[static_cast<size_t>(i)].first].placement = i + 1;
+	}
+
+	void onPlayerRemove(entt::entity entity,
+					    Components::MatchStatsComponent& stats) override {
+		std::erase_if(m_respawnQueue, [entity](const RespawnTimer& t) {
+			return t.entity == entity;
+		});
+		m_killCounts.erase(entity);
+		stats.playerStats.erase(entity);
 	}
 
 	void tick(float dt,

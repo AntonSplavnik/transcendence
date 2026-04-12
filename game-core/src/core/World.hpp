@@ -352,6 +352,9 @@ inline bool World::removePlayer(PlayerID id) {
 		return false;
 	}
 
+	// Notify game mode before destruction so it can purge stale entity refs
+	if (m_gameModeSystem) m_gameModeSystem->notifyPlayerRemove(entity);
+
 	// Unregister PlayerID mapping
 	unregisterPlayerIDMapping(entity);
 
@@ -361,7 +364,7 @@ inline bool World::removePlayer(PlayerID id) {
 }
 inline void World::respawnPlayer(entt::entity player, const Vector3D& pos) {
 	auto* health = m_registry.try_get<Components::Health>(player);
-	if (!health->isDead) return;
+	if (!health || !health->isDead) return;
 	auto* physicsBody = m_registry.try_get<Components::PhysicsBody>(player);
 	auto* transform   = m_registry.try_get<Components::Transform>(player);
 
