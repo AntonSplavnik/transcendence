@@ -1,6 +1,15 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    account_deletion_requests (user_id) {
+        user_id -> Integer,
+        token -> Binary,
+        confirm_token -> Nullable<Binary>,
+        expires_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
     achievements (id) {
         id -> Integer,
         code -> Text,
@@ -12,15 +21,6 @@ diesel::table! {
         gold_threshold -> Integer,
         base_xp_reward -> Integer,
         created_at -> TimestamptzSqlite,
-    }
-}
-
-diesel::table! {
-    account_deletion_requests (user_id) {
-        user_id -> Integer,
-        token -> Binary,
-        confirm_token -> Nullable<Binary>,
-        expires_at -> TimestamptzSqlite,
     }
 }
 
@@ -57,20 +57,6 @@ diesel::table! {
         status -> Integer,
         created_at -> TimestamptzSqlite,
         updated_at -> TimestamptzSqlite,
-    }
-}
-
-diesel::table! {
-    games (id) {
-        id -> Integer,
-        player1_id -> Integer,
-        player2_id -> Integer,
-        winner_id -> Integer,
-        kills_p1 -> Integer,
-        kills_p2 -> Integer,
-        damage_p1 -> Integer,
-        damage_p2 -> Integer,
-        played_at -> TimestamptzSqlite,
     }
 }
 
@@ -176,13 +162,12 @@ diesel::joinable!(user_achievements -> users (user_id));
 diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    achievements,
     account_deletion_requests,
+    achievements,
     avatars_large,
     avatars_small,
     data_export_requests,
     friend_requests,
-    games,
     notifications,
     sessions,
     tos_versions,
