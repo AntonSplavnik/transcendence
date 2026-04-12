@@ -6,7 +6,7 @@ import { AnimatedCharacter, loadCharacter } from './AnimatedCharacter';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from './characterConfigs';
 import type { CharacterConfig } from './characterConfigs';
 import { AnimationStateMachine, AnimPhase, JumpState } from './AnimationStateMachine';
-import { AnimationNames } from './constants';
+import { AnimationNames, CharacterState } from './constants';
 
 declare const BABYLON: typeof BabylonType;
 
@@ -18,6 +18,8 @@ export class CharacterManager {
 	public localJumpState: JumpState = JumpState.GROUNDED;
 	public localIsDead: boolean = false;
 	public localIsGrounded: boolean = true;
+	// Server-authoritative character state, driven by CharacterSnapshot.state.
+	public localState: CharacterState = CharacterState.Idle;
 	public position: Vector3 = new BABYLON.Vector3(0, 1, 0);
 	public readonly localPlayerID: number;
 
@@ -64,11 +66,17 @@ export class CharacterManager {
 	// ── Local player ────────────────────────────────────────────────────
 
 	async initLocalPlayer(config: CharacterConfig): Promise<void> {
-		this.localCharacter = new AnimatedCharacter(this.scene);
-		await loadCharacter(this.localCharacter, config);
+		// Assign this.localCharacter only after the character is fully loaded.
+		// The render loop calls GameClient.updateLocalAnimation every frame and
+		// immediately tries to play the idle animation — if localCharacter were
+		// set before loadCharacter resolved, it would warn "Idle_A not found"
+		// against an empty animations map for every frame of the load window.
+		const char = new AnimatedCharacter(this.scene);
+		await loadCharacter(char, config);
 		this.characterConfigMap.set(this.localPlayerID, config);
-		this.localCharacter.initTrail(config);
-		this.localCharacter.setPosition(this.position);
+		char.initTrail(config);
+		char.setPosition(this.position);
+		this.localCharacter = char;
 	}
 
 	playLocalSpawn(): void {

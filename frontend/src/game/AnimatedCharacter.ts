@@ -87,7 +87,9 @@ export class AnimatedCharacter {
 		});
 	}
 
-	get animationName(): string { return this.currentAnimationName; }
+	get animationName(): string {
+		return this.currentAnimationName;
+	}
 
 	playAnimation(name: string, loop: boolean = true, speedRatio: number = 1.0): void {
 		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;
@@ -111,7 +113,12 @@ export class AnimatedCharacter {
 	 * Both animations play simultaneously while weights interpolate
 	 * over `blendDuration` seconds.
 	 */
-	crossFadeTo(name: string, loop: boolean, speedRatio: number = 1.0, blendDuration: number = 0.12): void {
+	crossFadeTo(
+		name: string,
+		loop: boolean,
+		speedRatio: number = 1.0,
+		blendDuration: number = 0.12,
+	): void {
 		if (this.currentAnimationName === name && this.currentAnimation?.isPlaying) return;
 		const anim = this.animations.get(name);
 		if (!anim) {
@@ -172,7 +179,7 @@ export class AnimatedCharacter {
 		const { base, tip, maxWidth, tailOpacity, tipOpacity } = config.trailColor;
 		this.trail = new SwingTrail(this.scene, {
 			baseColor: new Color3(base[0] / 255, base[1] / 255, base[2] / 255),
-			tipColor:  new Color3(tip[0]  / 255, tip[1]  / 255, tip[2]  / 255),
+			tipColor: new Color3(tip[0] / 255, tip[1] / 255, tip[2] / 255),
 			maxWidth,
 			tailOpacity,
 			tipOpacity,

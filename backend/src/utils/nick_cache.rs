@@ -22,7 +22,7 @@ pub trait NicknameCache: Sync + Send + Clone {
             .expect("Caller must ensure user exists")
     }
 
-    /// By default this will only return entries where try_get succeeds.
+    /// By default this will only return entries where `try_get` succeeds.
     fn get_many<I>(&self, user_ids: I, conn: &mut DbConn) -> SmallVec<[(i32, Nickname); 6]>
     where
         I: IntoIterator<Item = i32>,
@@ -33,7 +33,7 @@ pub trait NicknameCache: Sync + Send + Clone {
             .collect()
     }
 
-    /// By default this will only return entries where try_get succeeds.
+    /// By default this will only return entries where `try_get` succeeds.
     /// Always returns Ok.
     fn try_get_many<I>(
         &self,

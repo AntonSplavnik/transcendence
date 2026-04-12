@@ -5,8 +5,35 @@ use thiserror::Error;
 
 use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
+use crate::email::{EmailConfirmationError, EmailError};
 use crate::game::GameError;
 use crate::stream::StreamApiError;
+
+#[derive(Error, Debug, strum::IntoStaticStr)]
+pub enum FriendError {
+    #[error("cannot send friend request to yourself")]
+    SelfRequest,
+    #[error("friend request already exists")]
+    DuplicateRequest,
+    #[error("already friends with this user")]
+    AlreadyFriends,
+    #[error("friend request not found")]
+    RequestNotFound,
+    #[error("friend request is no longer pending")]
+    RequestNotPending,
+    #[error("not authorized to perform this action")]
+    NotAuthorized,
+    #[error("user not found")]
+    UserNotFound,
+    #[error("not friends with this user")]
+    NotFriends,
+    #[error("too many pending friend requests")]
+    TooManyPending,
+    #[error("friend list is full")]
+    FriendListFull,
+    #[error("invalid parameter: {0}")]
+    InvalidParam(String),
+}
 
 #[derive(Error, Debug)]
 #[error(transparent)]
@@ -21,6 +48,9 @@ pub enum ApiError {
     Auth(#[from] AuthError),
     TwoFa(#[from] TwoFactorError),
     Avatar(#[from] AvatarValidationError),
+    Friend(#[from] FriendError),
+    Email(#[from] EmailError),
+    EmailConfirmation(#[from] EmailConfirmationError),
     Game(#[from] GameError),
 }
 
@@ -35,7 +65,7 @@ impl Scribe for ApiError {
                 match err {
                     // Wrong password -> 401 Unauthorized
                     Error::Password => {
-                        return ApiError::Auth(AuthError::InvalidCredentials).render(res);
+                        return Self::Auth(AuthError::InvalidCredentials).render(res);
                     }
                     // Other hashing errors are internal
                     err => {
@@ -59,16 +89,16 @@ impl Scribe for ApiError {
                             DatabaseErrorKind::UniqueViolation => {
                                 let field = message
                                     .strip_prefix("UNIQUE constraint failed: ")
-                                    .and_then(|s| s.split('.').last())
+                                    .and_then(|s| s.split('.').next_back())
                                     .unwrap_or("Value");
-                                StatusError::conflict().brief(format!("{} already exists", field))
+                                StatusError::conflict().brief(format!("{field} already exists"))
                             }
                             // Foreign key violation -> 400 Bad Request
                             DatabaseErrorKind::ForeignKeyViolation => StatusError::bad_request()
                                 .brief("Referenced resource does not exist"),
                             // Check constraint violation -> 400 Bad Request
                             DatabaseErrorKind::CheckViolation => StatusError::bad_request()
-                                .brief(format!("Constraint violation: {}", message)),
+                                .brief(format!("Constraint violation: {message}")),
                             // Not null violation -> 400 Bad Request
                             DatabaseErrorKind::NotNullViolation => {
                                 StatusError::bad_request().brief("A required field is missing")
@@ -125,25 +155,56 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
-            Self::Game(err) => {
-                use crate::game::GameError;
-                // Derive a static variant-name string for the HTTP `brief` field so
-                // clients can pattern-match on machine-readable codes (same pattern
-                // as AuthError / TwoFactorError above).
-                let code: &'static str = (&err).into();
+            Self::Email(err) => {
+                tracing::error!(error = ?err, "email send failed");
+                StatusError::internal_server_error()
+            }
+            Self::EmailConfirmation(err) => {
+                let variant: &'static str = (&err).into();
                 match err {
-                    GameError::Stream(e) => {
-                        tracing::error!(error = %e, "game stream error");
-                        StatusError::internal_server_error()
+                    EmailConfirmationError::UnconfirmedEmail => {
+                        StatusError::forbidden().brief(variant)
                     }
-                    GameError::NotHost => StatusError::forbidden().brief(code),
-                    GameError::LobbyNotFound => StatusError::not_found().brief(code),
+                    EmailConfirmationError::AlreadyConfirmed => {
+                        StatusError::conflict().brief(variant)
+                    }
+                    EmailConfirmationError::InvalidToken => {
+                        StatusError::bad_request().brief(variant)
+                    }
+                }
+            }
+            Self::Game(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
                     GameError::AlreadyInLobby
                     | GameError::LobbyFull
-                    | GameError::SettingsLocked => StatusError::conflict().brief(code),
-                    GameError::NotInLobby | GameError::NotAPlayer | GameError::LobbyMismatch => {
-                        StatusError::bad_request().brief(code)
+                    | GameError::SettingsLocked
+                    | GameError::LobbyMismatch => StatusError::bad_request().brief(variant),
+                    GameError::NotInLobby | GameError::LobbyNotFound | GameError::NotAPlayer => {
+                        StatusError::not_found().brief(variant)
                     }
+                    GameError::NotHost => StatusError::forbidden().brief(variant),
+                    GameError::Stream(err) => {
+                        tracing::error!(error = ?err, "game stream error");
+                        StatusError::internal_server_error()
+                    }
+                }
+            }
+            Self::Friend(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    FriendError::SelfRequest
+                    | FriendError::DuplicateRequest
+                    | FriendError::AlreadyFriends
+                    | FriendError::TooManyPending
+                    | FriendError::FriendListFull
+                    | FriendError::InvalidParam(_) => StatusError::bad_request().brief(variant),
+                    FriendError::RequestNotFound | FriendError::NotFriends => {
+                        StatusError::not_found().brief(variant)
+                    }
+                    FriendError::RequestNotPending => StatusError::conflict().brief(variant),
+                    FriendError::NotAuthorized => StatusError::forbidden().brief(variant),
+                    FriendError::UserNotFound => StatusError::not_found().brief(variant),
                 }
             }
         };
@@ -157,6 +218,7 @@ impl EndpointOutRegister for ApiError {
         let responses = [
             (StatusCode::BAD_REQUEST, "Bad request or validation error"),
             (StatusCode::NOT_FOUND, "Resource not found"),
+            (StatusCode::FORBIDDEN, "Forbidden"),
             (StatusCode::CONFLICT, "Resource already exists"),
             (StatusCode::UNAUTHORIZED, "Unauthorized"),
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),

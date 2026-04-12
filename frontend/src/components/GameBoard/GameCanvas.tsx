@@ -8,6 +8,7 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { ISO_CAM_OFFSET, ISO_ORTHO_SIZE, ISO_DIRECTIONS } from '@/game/constants';
 import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
+import type { GameAudioHandle } from '@/audio/AudioProvider';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -64,7 +65,9 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 
 				// Extended ground plane to hide backdrop past terrain edges
 				const bgGround = BABYLON.MeshBuilder.CreateGround(
-					'bg-ground', { width: 1000, height: 1000 }, scene,
+					'bg-ground',
+					{ width: 1000, height: 1000 },
+					scene,
 				);
 				bgGround.position.y = -0.01;
 				const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
@@ -83,14 +86,18 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 				wallMat.specularColor = BABYLON.Color3.Black();
 
 				const wallDefs = [
-					['wall-n', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2,  WALL_POS ],
-					['wall-s', WALL_SPAN, WALL_H, WALL_T,      0,        WALL_H / 2, -WALL_POS ],
-					['wall-e', WALL_T,    WALL_H, WALL_SPAN,   WALL_POS, WALL_H / 2,  0        ],
-					['wall-w', WALL_T,    WALL_H, WALL_SPAN,  -WALL_POS, WALL_H / 2,  0        ],
+					['wall-n', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, WALL_POS],
+					['wall-s', WALL_SPAN, WALL_H, WALL_T, 0, WALL_H / 2, -WALL_POS],
+					['wall-e', WALL_T, WALL_H, WALL_SPAN, WALL_POS, WALL_H / 2, 0],
+					['wall-w', WALL_T, WALL_H, WALL_SPAN, -WALL_POS, WALL_H / 2, 0],
 				] as const;
 
 				for (const [name, w, h, d, x, y, z] of wallDefs) {
-					const wall = BABYLON.MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
+					const wall = BABYLON.MeshBuilder.CreateBox(
+						name,
+						{ width: w, height: h, depth: d },
+						scene,
+					);
 					wall.position.set(x, y, z);
 					wall.material = wallMat;
 				}
@@ -116,6 +123,7 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 		isAttacking: false,
 		isJumping: false,
 		isSprinting: false,
+		isGrounded: false,
 		isUsingAbility1: false,
 		isUsingAbility2: false,
 	};
@@ -239,6 +247,7 @@ interface Props {
 	characterConfig?: CharacterConfig;
 	/** When true, skips local player model and adds pan/zoom camera controls. */
 	isSpectator?: boolean;
+	gameAudio?: GameAudioHandle;
 }
 
 export default function GameCanvas({
@@ -249,6 +258,7 @@ export default function GameCanvas({
 	localPlayerId,
 	characterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
 	isSpectator = false,
+	gameAudio,
 }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -287,7 +297,13 @@ export default function GameCanvas({
 
 			// Game client (handles remote character rendering for both players & spectators)
 			const gameClient = new GameClient(
-				scene, localPlayerId, camera, characterConfig, characterClassesRef,
+				scene,
+				localPlayerId,
+				camera,
+				characterConfig,
+				characterClassesRef,
+				gameAudio?.engine,
+				gameAudio?.soundBank,
 			);
 			gameClientInstance = gameClient;
 
@@ -414,6 +430,8 @@ export default function GameCanvas({
 			if (!disposed) {
 				engine.hideLoadingUI();
 				if (!isSpectator) gameClient.playSpawnAnimation();
+				gameAudio?.playSceneAmbient('amb_forest');
+				gameAudio?.playMusicPlaylist();
 			}
 
 			// Resize handler (spectators handle resize inside setupSpectatorCamera)
@@ -432,6 +450,8 @@ export default function GameCanvas({
 
 		return () => {
 			disposed = true;
+			gameAudio?.stopSceneAmbient();
+			gameAudio?.stopMusicPlaylist();
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);

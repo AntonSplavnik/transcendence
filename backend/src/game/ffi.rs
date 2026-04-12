@@ -118,12 +118,17 @@ mod bridge {
 
         fn create_bridge() -> UniquePtr<GameBridge>;
         fn start(self: Pin<&mut GameBridge>, mode: GameModeType);
-        fn stop(self: Pin<&mut GameBridge>);
+        // fn stop(self: Pin<&mut GameBridge>);
         fn update(self: Pin<&mut GameBridge>);
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
 
-        fn add_player(self: Pin<&mut GameBridge>, id: u32, name: &str, character_class: &str) -> bool;
+        fn add_player(
+            self: Pin<&mut GameBridge>,
+            id: u32,
+            name: &str,
+            character_class: &str,
+        ) -> bool;
         fn remove_player(self: Pin<&mut GameBridge>, id: u32) -> bool;
         fn set_player_input(self: Pin<&mut GameBridge>, id: u32, input: &PlayerInput);
 
@@ -172,7 +177,7 @@ impl From<GameMode> for bridge::GameModeType {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema)]
 pub enum CharacterClass {
     #[default]
     Knight,
@@ -182,8 +187,8 @@ pub enum CharacterClass {
 impl CharacterClass {
     pub fn as_str(&self) -> &str {
         match self {
-            CharacterClass::Knight => "knight",
-            CharacterClass::Rogue => "rogue",
+            Self::Knight => "knight",
+            Self::Rogue => "rogue",
         }
     }
 }
@@ -191,8 +196,8 @@ impl CharacterClass {
 impl From<&str> for CharacterClass {
     fn from(s: &str) -> Self {
         match s {
-            "rogue" => CharacterClass::Rogue,
-            _ => CharacterClass::Knight,
+            "rogue" => Self::Rogue,
+            _ => Self::Knight,
         }
     }
 }
@@ -349,9 +354,9 @@ impl GameHandle {
         self.game.pin_mut().start(mode.into());
     }
 
-    pub fn stop(&mut self) {
-        self.game.pin_mut().stop();
-    }
+    // pub fn stop(&mut self) {
+    //     self.game.pin_mut().stop();
+    // }
 
     pub fn update(&mut self) {
         self.game.pin_mut().update();
@@ -366,13 +371,16 @@ impl GameHandle {
     }
 
     pub fn add_player(&mut self, player_id: u32, name: &str, character_class: &str) -> bool {
-        self.game.pin_mut().add_player(player_id, name, character_class)
+        self.game
+            .pin_mut()
+            .add_player(player_id, name, character_class)
     }
 
     pub fn remove_player(&mut self, player_id: u32) -> bool {
         self.game.pin_mut().remove_player(player_id)
     }
 
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     pub fn set_input(
         &mut self,
         player_id: u32,
@@ -438,7 +446,7 @@ impl GameHandle {
                             y: e.position.y,
                             z: e.position.z,
                         },
-                        character_class: e.character_class.to_string(),
+                        character_class: e.character_class,
                     }
                 }
                 bridge::NetworkEventType::StateChange => {
@@ -469,11 +477,17 @@ impl GameHandle {
                 }
                 bridge::NetworkEventType::AttackStarted => {
                     let e = queue.get_attack_started_at(i);
-                    NetworkEvent::AttackStarted { player_id: e.player_id, chain_stage: e.chain_stage }
+                    NetworkEvent::AttackStarted {
+                        player_id: e.player_id,
+                        chain_stage: e.chain_stage,
+                    }
                 }
                 bridge::NetworkEventType::SkillUsed => {
                     let e = queue.get_skill_used_at(i);
-                    NetworkEvent::SkillUsed { player_id: e.player_id, skill_slot: e.skill_slot }
+                    NetworkEvent::SkillUsed {
+                        player_id: e.player_id,
+                        skill_slot: e.skill_slot,
+                    }
                 }
                 _ => unreachable!(),
             })
@@ -481,11 +495,13 @@ impl GameHandle {
     }
 
     /// Minimum number of players required to start a game.
+    #[allow(clippy::unused_self)]
     pub fn min_players(&self) -> u32 {
         2
     }
 
     /// Maximum number of players allowed in a game.
+    #[allow(clippy::unused_self)]
     pub fn max_players(&self) -> u32 {
         8
     }

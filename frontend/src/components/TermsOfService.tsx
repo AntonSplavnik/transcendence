@@ -1,11 +1,35 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ScrollText } from 'lucide-react';
-import { Card } from './ui';
+import { useAuth } from '../contexts/AuthContext';
+import { Button, Card } from './ui';
 
 interface TermsOfServiceProps {
 	onBack: () => void;
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
+	const { user, hasAcceptedTos, tosLoaded, acceptTos } = useAuth();
+	const navigate = useNavigate();
+	const [accepting, setAccepting] = useState(false);
+	const [acceptError, setAcceptError] = useState<string | null>(null);
+
+	const handleAcceptTos = async () => {
+		setAccepting(true);
+		setAcceptError(null);
+		try {
+			await acceptTos();
+			navigate('/home', { replace: true });
+		} catch {
+			setAcceptError('Failed to accept Terms of Service. Please try again.');
+			setAccepting(false);
+		}
+	};
+
+	// Show the sticky accept bar for logged-in users who haven't accepted yet.
+	// Gated on `tosLoaded` so the button doesn't appear before we know whether
+	// acceptance is needed (see AuthContext for how tosLoaded is derived).
+	const showAcceptButton = user && tosLoaded && !hasAcceptedTos;
 	return (
 		<main className="p-6 max-w-4xl mx-auto w-full">
 			<div className="flex items-center gap-4 mb-8">
@@ -329,6 +353,27 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 					</p>
 				</Card>
 			</div>
+
+			{showAcceptButton && (
+				<div className="sticky bottom-0 bg-stone-900/95 backdrop-blur border-t border-stone-700 p-4 mt-8">
+					<div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+						<p className="text-stone-300 text-sm">
+							Please read and accept the Terms of Service to continue.
+						</p>
+						<Button
+							onClick={handleAcceptTos}
+							loading={accepting}
+							loadingText="Accepting..."
+							className="shrink-0"
+						>
+							I Accept
+						</Button>
+					</div>
+					{acceptError && (
+						<p className="text-red-400 text-sm mt-2 text-center">{acceptError}</p>
+					)}
+				</div>
+			)}
 		</main>
 	);
 }

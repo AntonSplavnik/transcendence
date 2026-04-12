@@ -48,7 +48,7 @@ async fn access_denied_after_logout() {
 #[tokio::test]
 async fn logout_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.post("/api/user/logout"))
         .await;
 }

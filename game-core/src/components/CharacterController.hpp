@@ -40,8 +40,9 @@ struct CharacterController {
 	float airControlFactor;     // How much control player has while airborne (0.0-1.0)
 
 	// Movement smoothing (for better feel)
-	float acceleration;         // How fast to reach target speed
-	float deceleration;         // How fast to slow down
+	float acceleration;         // How fast to reach target speed (m/s²)
+	float deceleration;         // How fast to slow down (m/s²)
+	float rotationSpeed;        // Max angular speed when turning to face look dir (rad/s)
 
 	// State machine (optional - can be used by CharacterSystem)
 	CharacterState state;
@@ -62,6 +63,7 @@ struct CharacterController {
 		, airControlFactor(0.3f)
 		, acceleration(100.0f)
 		, deceleration(100.0f)
+		, rotationSpeed(12.0f)
 		, state(CharacterState::Idle)
 	{}
 
@@ -149,6 +151,7 @@ struct CharacterController {
 		cc.airControlFactor = preset.airControlFactor;
 		cc.acceleration     = preset.acceleration;
 		cc.deceleration     = preset.deceleration;
+		cc.rotationSpeed    = preset.rotationSpeed;
 		return cc;
 	}
 	static CharacterController createDefault() {

@@ -7,6 +7,7 @@ import { useLobby } from '../contexts/LobbyContext';
 import { formatGameMode } from '../stream/types';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
+import { useGameAudio } from '@/audio/AudioProvider';
 import GameCanvas from './GameBoard/GameCanvas';
 import GameEndModal from './modals/GameEndModal';
 import { Badge } from './ui';
@@ -23,9 +24,11 @@ import { Badge } from './ui';
  * "Spectating" overlay.
  */
 export default function GameBoard() {
-	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } = useGame();
+	const { gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame } =
+		useGame();
 	const { lobbyState } = useLobby();
 	const { user } = useAuth();
+	const gameAudio = useGameAudio();
 
 	if (gameState.status === 'idle' || !user) {
 		return <Navigate to="/home" replace />;
@@ -50,6 +53,7 @@ export default function GameBoard() {
 				localPlayerId={user.id}
 				characterConfig={characterConfig}
 				isSpectator={isSpectator}
+				gameAudio={gameAudio}
 			/>
 			{isSpectator && (
 				<div className="absolute top-4 right-4 z-10">

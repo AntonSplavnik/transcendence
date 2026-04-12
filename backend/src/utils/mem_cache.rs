@@ -158,7 +158,7 @@ pub struct LruMemCache<K, V> {
     /// Inner LRU map protected by a mutex for thread safety.
     ///
     /// Uses ahash for fast hashing.
-    /// Mutex is used instead of RwLock because write access is needed for reads to update LRU order.
+    /// Mutex is used instead of `RwLock` because write access is needed for reads to update LRU order.
     inner: Arc<Mutex<LruMap<K, V, ByLength, ahash::RandomState>>>,
 }
 
@@ -193,7 +193,7 @@ where
     /// Returns None if the key is not found.
     /// The returned reference is protected by a mutex guard.
     #[inline]
-    pub fn get_ref<'key>(&'_ self, key: &'key K) -> Option<MappedMutexGuard<'_, V>> {
+    pub fn get_ref(&'_ self, key: &K) -> Option<MappedMutexGuard<'_, V>> {
         MutexGuard::try_map(self.inner.lock(), |lru| lru.get(key)).ok()
     }
 
@@ -297,7 +297,7 @@ where
     /// inserting it if it does not exist.
     ///
     /// The returned reference is protected by a mutex guard.
-    /// If creating the value to insert is cheap, use 'get_*_or_insert' instead.
+    /// If creating the value to insert is cheap, use `get_*_or_insert` instead.
     /// Only returns Err if the value creation fails.
     #[inline]
     pub fn get_mut_or_insert_with<E>(
@@ -324,7 +324,7 @@ where
     /// Gets a cloned value in the cache by key,
     /// inserting it if it does not exist.
     ///
-    /// If creating the value to insert is cheap, use 'get_clone_or_insert' instead.
+    /// If creating the value to insert is cheap, use `get_clone_or_insert` instead.
     /// Only returns Err if the value creation fails.
     #[inline]
     pub fn get_or_insert_with<E>(&self, key: K, get: impl FnOnce() -> Result<V, E>) -> Result<V, E>

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use diesel::OptionalExtension;
 
+use crate::auth::AuthError;
 use crate::auth::hoops::set_session;
 use crate::auth::session_token::{SessionToken, SessionTokenHash};
 use crate::auth::user::{SessionInfo, UserSessionInfo};
-use crate::auth::AuthError;
 use crate::models::nickname::Nickname;
 use crate::models::{NewSession, NewUser, Session, User};
 use crate::prelude::*;
@@ -35,18 +35,26 @@ pub fn router(path: &str) -> Router {
                     .hoop(session_hoop)
                     .user_rate_limit(&RateLimit::per_5_minutes(10))
                     .post(refresh_jwt),
+            )
+            .push(
+                Router::with_path("accept-tos")
+                    .hoop(session_hoop)
+                    .user_rate_limit(&RateLimit::per_15_minutes(5))
+                    .post(accept_tos),
             ),
     ])
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct RegisterInput {
+pub struct RegisterInput {
     #[validate(email(message = "Must be a valid email address."))]
     pub email: String,
     #[validate(custom(function = "crate::validate::password"))]
     pub password: String,
     #[validate(custom(function = "crate::validate::nickname"))]
     pub nickname: Nickname,
+    /// Must be `true` to accept the Terms of Service.
+    pub tos: bool,
 }
 
 /// Register a new User and create a new Session
@@ -62,9 +70,20 @@ async fn register(
         email,
         password,
         nickname,
+        tos: _,
     } = {
         let input = json.into_inner();
         input.validate()?;
+        if !input.tos {
+            let mut errors = validator::ValidationErrors::new();
+            errors.add(
+                "tos",
+                validator::ValidationError::new("accepted").with_message(
+                    std::borrow::Cow::Borrowed("Terms of Service must be accepted"),
+                ),
+            );
+            return Err(ApiError::Validation(errors));
+        }
         input
     };
     let new_user = NewUser::new(email, nickname, util::hash_password(&password)?);
@@ -95,14 +114,14 @@ async fn register(
         })
         .await??;
 
-    let jwt = util::jwt_create(&session, token_truncated)?;
+    let jwt = util::jwt_create(&session, token_truncated, user.tos_accepted_at)?;
     depot.nickname_cache().add(user.id, user.nickname);
     set_auth_cookies(res, token, jwt);
     json_ok(UserSessionInfo::new(user, session))
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub(crate) struct LoginInput {
+pub struct LoginInput {
     pub email: String,
     pub password: String,
     #[serde(default)]
@@ -111,7 +130,7 @@ pub(crate) struct LoginInput {
 
 /// Login a User and create a new Session
 ///
-/// We will try to find a session to reauth for the user with the matching device_id.
+/// We will try to find a session to reauth for the user with the matching `device_id`.
 /// Otherwise, a new session will be created.
 #[endpoint]
 async fn login(
@@ -171,7 +190,7 @@ async fn login(
         })
         .await??;
 
-    let jwt = util::jwt_create(&session, token_truncated)?;
+    let jwt = util::jwt_create(&session, token_truncated, user.tos_accepted_at)?;
     set_auth_cookies(res, token, jwt);
     json_ok(UserSessionInfo::new(user, session))
 }
@@ -206,16 +225,16 @@ async fn reauth(
     let session = session.clone();
     let streams = depot.stream_manager().clone();
 
-    let session = db
+    let (session, tos_accepted_at) = db
         .write(move |conn| {
-            util::check_password_and_mfa_if_enabled(
+            let user = util::check_password_and_mfa_if_enabled(
                 session.user_id,
                 &password,
                 mfa_code.as_deref(),
                 conn,
             )?;
 
-            rotate_session::<true>(
+            let rotated = rotate_session::<true>(
                 conn,
                 &streams,
                 &session,
@@ -223,11 +242,12 @@ async fn reauth(
                 device_name_value,
                 ip_address_value,
                 token_hash_value,
-            )
+            )?;
+            Ok::<_, ApiError>((rotated, user.tos_accepted_at))
         })
         .await??;
 
-    let jwt = util::jwt_create(&session, token_truncated)?;
+    let jwt = util::jwt_create(&session, token_truncated, tos_accepted_at)?;
     set_auth_cookies(res, token, jwt);
     let user_session = db
         .read(move |conn| UserSessionInfo::from_session(conn, session))
@@ -255,9 +275,15 @@ async fn refresh_jwt(
     let session = session.clone();
     let streams = depot.stream_manager().clone();
 
-    let session = db
+    let (session, tos_accepted_at) = db
         .write(move |conn| {
-            rotate_session::<false>(
+            use crate::schema::users::dsl as users_dsl;
+            let tos: Option<chrono::DateTime<chrono::Utc>> = users_dsl::users
+                .filter(users_dsl::id.eq(session.user_id))
+                .select(users_dsl::tos_accepted_at)
+                .first(conn)?;
+
+            let rotated = rotate_session::<false>(
                 conn,
                 &streams,
                 &session,
@@ -265,11 +291,60 @@ async fn refresh_jwt(
                 device_name_value,
                 ip_address_value,
                 token_hash_value,
-            )
+            )?;
+            Ok::<_, ApiError>((rotated, tos))
         })
         .await??;
 
-    let jwt = util::jwt_create(&session, token_truncated)?;
+    let jwt = util::jwt_create(&session, token_truncated, tos_accepted_at)?;
+    set_auth_cookies(res, token, jwt);
+    json_ok(session.into())
+}
+
+/// Accept the current Terms of Service and issue a fresh JWT.
+///
+/// Behaves like `refresh_jwt` but also sets `tos_accepted_at` on the user.
+#[endpoint(
+    security(("session" = []))
+)]
+async fn accept_tos(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    db: Db,
+) -> JsonResult<SessionInfo> {
+    let session = depot.session();
+    let (device_name_value, ip_address_value) = util::get_device_and_ip(req);
+    let device_id_value = depot.device_id().to_owned();
+    let token = SessionToken::generate();
+    let token_hash_value = token.to_hash();
+    let token_truncated = token_hash_value.to_truncated();
+    let session = session.clone();
+    let streams = depot.stream_manager().clone();
+
+    let (session, tos_accepted_at) = db
+        .write(move |conn| {
+            use crate::schema::users::dsl as users_dsl;
+
+            let now = chrono::Utc::now();
+            diesel::update(users_dsl::users.find(session.user_id))
+                .set(users_dsl::tos_accepted_at.eq(Some(now)))
+                .execute(conn)?;
+
+            let rotated = rotate_session::<false>(
+                conn,
+                &streams,
+                &session,
+                &device_id_value,
+                device_name_value,
+                ip_address_value,
+                token_hash_value,
+            )?;
+            Ok::<_, ApiError>((rotated, Some(now)))
+        })
+        .await??;
+
+    let jwt = util::jwt_create(&session, token_truncated, tos_accepted_at)?;
     set_auth_cookies(res, token, jwt);
     json_ok(session.into())
 }
@@ -340,11 +415,12 @@ fn create_session(
 }
 
 pub(super) async fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
-    req: &mut Request,
+    req: &Request,
     depot: &mut Depot,
     res: &mut Response,
     db: Db,
 ) -> Result<(), ApiError> {
+    use crate::schema::sessions::dsl::*;
     let session_token = SessionToken::try_from(
         req.cookie(super::SESSION_COOKIE_NAME)
             .ok_or(AuthError::MissingSessionCookie)?
@@ -352,7 +428,6 @@ pub(super) async fn session_hoop_inner<const NO_PENDING_REAUTH: bool>(
     )
     .map_err(|_| AuthError::InvalidSessionToken)?;
 
-    use crate::schema::sessions::dsl::*;
     let token_hash_value = session_token.to_hash();
     let session: Session = db
         .read(move |conn| sessions.filter(token_hash.eq(token_hash_value)).first(conn))

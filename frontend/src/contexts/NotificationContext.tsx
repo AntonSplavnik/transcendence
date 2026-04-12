@@ -20,7 +20,8 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-
+import { getNickname } from '../api/userResolver';
+import { useUIAudio } from '../audio/AudioProvider';
 import type { NotificationPayload, UniHandlerFactory, WireNotification } from '../stream/types';
 import { useStream } from './StreamContext';
 
@@ -82,12 +83,26 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 async function resolveDisplayText(payload: NotificationPayload): Promise<string> {
 	if (payload === 'ServerHello') return 'Connected to server';
 
-	// Future variants that carry user IDs would resolve nicknames here:
-	// import { getNickname } from '../api/userResolver';
-	// if (typeof payload === 'object' && 'FriendRequest' in payload) {
-	//     const name = await getNickname(payload.FriendRequest.sender_id);
-	//     return `Friend request from ${name}`;
-	// }
+	if (typeof payload === 'object') {
+		if ('FriendRequestReceived' in payload) {
+			const name = await getNickname(payload.FriendRequestReceived.sender_id);
+			return `Friend request from ${name}`;
+		}
+		if ('FriendRequestAccepted' in payload) {
+			const name = await getNickname(payload.FriendRequestAccepted.friend_id);
+			return `${name} accepted your friend request`;
+		}
+		if ('FriendRequestRejected' in payload) {
+			return 'Your friend request was declined';
+		}
+		if ('FriendRequestCancelled' in payload) {
+			return 'A friend request was cancelled';
+		}
+		if ('FriendRemoved' in payload) {
+			const name = await getNickname(payload.FriendRemoved.user_id);
+			return `${name} removed you from their friends`;
+		}
+	}
 
 	return String(payload);
 }
@@ -106,8 +121,12 @@ async function resolveDisplayText(payload: NotificationPayload): Promise<string>
  * }
  * ```
  */
-function getClickAction(_payload: NotificationPayload): (() => void) | null {
-	// Extend here per payload type.
+function getClickAction(payload: NotificationPayload): (() => void) | null {
+	if (typeof payload === 'object') {
+		if ('FriendRequestReceived' in payload || 'FriendRequestAccepted' in payload) {
+			return () => window.dispatchEvent(new CustomEvent('open-friends-drawer'));
+		}
+	}
 	return null;
 }
 
@@ -134,6 +153,7 @@ async function prepareToast(notification: WireNotification): Promise<ToastNotifi
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
 	const { connectionManager } = useStream();
+	const audio = useUIAudio();
 
 	const [notifications, setNotifications] = useState<WireNotification[]>([]);
 	const [activeToasts, setActiveToasts] = useState<ToastNotification[]>([]);
@@ -141,6 +161,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	const dismissToast = useCallback((id: string) => {
 		setActiveToasts((prev) => prev.filter((t) => t.id !== id));
 	}, []);
+
+	// Play notification SFX whenever a new toast appears.
+	// Comparing length is robust: it fires only on growth (not on dismiss),
+	// and the 300 ms cooldown on `ui_notif` naturally absorbs bursts.
+	const prevToastCountRef = useRef(0);
+	useEffect(() => {
+		if (activeToasts.length > prevToastCountRef.current) {
+			audio.playSound('ui_notif');
+		}
+		prevToastCountRef.current = activeToasts.length;
+	}, [activeToasts.length, audio]);
 
 	// ─── Preparation queue ───────────────────────────────────────────────
 	//

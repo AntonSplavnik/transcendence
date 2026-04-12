@@ -254,7 +254,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 								msg.character_class,
 							);
 							characterClassesRef.current.set(msg.player_id, msg.character_class);
-							dispatch({ type: 'PLAYER_JOINED', player_id: msg.player_id, name: msg.name });
+							dispatch({
+								type: 'PLAYER_JOINED',
+								player_id: msg.player_id,
+								name: msg.name,
+							});
 						}
 						eventsRef.current.push(msg);
 						return;
@@ -368,7 +372,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<GameContext.Provider value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame }}>
+		<GameContext.Provider
+			value={{ gameState, snapshotRef, characterClassesRef, eventsRef, sendInput, leaveGame }}
+		>
 			{children}
 		</GameContext.Provider>
 	);

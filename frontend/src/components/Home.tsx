@@ -1,12 +1,24 @@
-import { ChevronDown, LogOut, Monitor, Pen, Shield, User as UserIcon, Users } from 'lucide-react';
+import {
+	ChevronDown,
+	LogOut,
+	Mail,
+	Monitor,
+	Pen,
+	Shield,
+	User as UserIcon,
+	Users,
+	Volume2,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
+import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import EditUserModal from './modals/EditUserModal';
+import EmailConfirmationModal from './modals/EmailConfirmationModal';
 import JoinByCodeModal from './modals/JoinByCodeModal';
 import LobbyListModal from './modals/LobbyListModal';
 import ReauthModal from './modals/ReauthModal';
@@ -30,10 +42,12 @@ interface HomeProps {
 }
 
 export default function Home({ onLogout, onSessions }: HomeProps) {
-	const { user, session } = useAuth();
+	const { user, session, isEmailConfirmed } = useAuth();
 	const { lobbyState } = useLobby();
 	const [show2FASettings, setShow2FASettings] = useState(false);
 	const [showEditProfile, setShowEditProfile] = useState(false);
+	const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+	const [showAudioSettings, setShowAudioSettings] = useState(false);
 	const [showReauthModal, setShowReauthModal] = useState(false);
 	const [showLobbyList, setShowLobbyList] = useState(false);
 	const [showCreateLobby, setShowCreateLobby] = useState(false);
@@ -119,6 +133,13 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					</DropdownItem>
 
 					<DropdownItem
+						icon={<Volume2 className="w-4 h-4" />}
+						onClick={() => setShowAudioSettings(true)}
+					>
+						Audio Settings
+					</DropdownItem>
+
+					<DropdownItem
 						icon={<Shield className="w-4 h-4" />}
 						onClick={() => setShow2FASettings(true)}
 						suffix={
@@ -134,6 +155,24 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 
 					<DropdownItem icon={<Monitor className="w-4 h-4" />} onClick={onSessions}>
 						Manage Sessions
+					</DropdownItem>
+
+					<DropdownItem
+						icon={<Mail className="w-4 h-4" />}
+						onClick={() => setShowEmailConfirmation(true)}
+						suffix={
+							isEmailConfirmed ? (
+								<Badge variant="success" size="sm">
+									Confirmed
+								</Badge>
+							) : (
+								<Badge variant="warning" size="sm">
+									Unconfirmed
+								</Badge>
+							)
+						}
+					>
+						Email Confirmation
 					</DropdownItem>
 
 					<DropdownSeparator />
@@ -266,6 +305,18 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					onAvatarChanged={(smallUrl, largeUrl) => setAvatarUrls(smallUrl, largeUrl)}
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
+			)}
+
+			{showEmailConfirmation && (
+				<EmailConfirmationModal
+					user={user}
+					onClose={() => setShowEmailConfirmation(false)}
+				/>
+			)}
+
+			{/* Audio settings Modal */}
+			{showAudioSettings && (
+				<AudioSettingsModal onClose={() => setShowAudioSettings(false)} />
 			)}
 
 			{/* Lobby modals */}

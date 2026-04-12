@@ -45,6 +45,6 @@ describe('ChampionGrid', () => {
 		render(<ChampionGrid value="Knight" onChange={() => {}} />, { withAuth: false });
 
 		const rogueBtn = screen.getByRole('button', { name: /select rogue/i });
-		expect(rogueBtn).toHaveClass('opacity-60');
+		expect(rogueBtn).toHaveClass('opacity-50');
 	});
 });

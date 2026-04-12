@@ -68,7 +68,11 @@ export default function ModelPreview({
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
-		const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, alpha: transparent });
+		const engine = new Engine(canvas, true, {
+			preserveDrawingBuffer: true,
+			stencil: true,
+			alpha: transparent,
+		});
 		const scene = new Scene(engine);
 
 		scene.clearColor = transparent ? new Color4(0, 0, 0, 0) : hexToColor4(bgColor);
@@ -102,7 +106,11 @@ export default function ModelPreview({
 			loadCharacter(char, previewConfig).then(() => {
 				char.rootNode.scaling.setAll(0.6);
 				char.rootNode.rotation.y = initialRotationY;
-				char.playAnimation(characterConfig.idleAnimation.name, true, characterConfig.idleAnimation.speed ?? 1.0);
+				char.playAnimation(
+					characterConfig.idleAnimation.name,
+					true,
+					characterConfig.idleAnimation.speed ?? 1.0,
+				);
 				rootNode = char.rootNode;
 			});
 		} else {
@@ -173,7 +181,17 @@ export default function ModelPreview({
 			scene.dispose();
 			engine.dispose();
 		};
-	}, [modelUrl, characterConfig, bgColor, rotationSpeed, draggable, transparent, cameraPosition, cameraTarget]);
+	}, [
+		modelUrl,
+		characterConfig,
+		bgColor,
+		rotationSpeed,
+		draggable,
+		transparent,
+		cameraPosition,
+		cameraTarget,
+		initialRotationY,
+	]);
 
 	return (
 		<canvas

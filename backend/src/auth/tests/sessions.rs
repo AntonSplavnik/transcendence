@@ -1,6 +1,6 @@
+use crate::auth::SessionInfo;
 use crate::auth::router::PasswordInput;
 use crate::auth::user::SessionsInput;
-use crate::auth::SessionInfo;
 use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
@@ -10,7 +10,7 @@ use super::two_factor::{ensure_totp_key, generate_totp_code};
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
 impl mock::User<mock::Registered> {
-    /// `POST /api/user/sessions` (all_sessions) — list all sessions, asserting success.
+    /// `POST /api/user/sessions` (`all_sessions`) — list all sessions, asserting success.
     pub async fn all_sessions(&mut self) -> Vec<SessionInfo> {
         let mut res = self.try_all_sessions().await;
         assert_eq!(
@@ -154,7 +154,7 @@ async fn all_sessions_wrong_password_rejected() {
 #[tokio::test]
 async fn all_sessions_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.post("/api/user/sessions").json(&PasswordInput {
             password: "irrelevant".to_string(),
@@ -252,7 +252,7 @@ async fn logout_sessions_wrong_password_rejected() {
     let body = SessionsInput {
         password: "wrong-password".to_string(),
         mfa_code: None,
-        session_ids: [1].into_iter().collect(),
+        session_ids: std::iter::once(1).collect(),
     };
     let req = user.client.post("/api/user/logout-sessions").json(&body);
     let res = user.client.send(req).await;
@@ -267,12 +267,12 @@ async fn logout_sessions_wrong_password_rejected() {
 #[tokio::test]
 async fn logout_sessions_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.post("/api/user/logout-sessions").json(&SessionsInput {
             password: "irrelevant".to_string(),
             mfa_code: None,
-            session_ids: [1].into_iter().collect(),
+            session_ids: std::iter::once(1).collect(),
         })
     })
     .await;
@@ -367,7 +367,7 @@ async fn logout_other_sessions_wrong_password_rejected() {
 #[tokio::test]
 async fn logout_other_sessions_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.post("/api/user/logout-other-sessions")
             .json(&PasswordInput {
@@ -459,7 +459,7 @@ async fn delete_sessions_wrong_password_rejected() {
     let body = SessionsInput {
         password: "wrong-password".to_string(),
         mfa_code: None,
-        session_ids: [1].into_iter().collect(),
+        session_ids: std::iter::once(1).collect(),
     };
     let req = user.client.delete("/api/user/sessions").json(&body);
     let res = user.client.send(req).await;
@@ -474,12 +474,12 @@ async fn delete_sessions_wrong_password_rejected() {
 #[tokio::test]
 async fn delete_sessions_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.delete("/api/user/sessions").json(&SessionsInput {
             password: "irrelevant".to_string(),
             mfa_code: None,
-            session_ids: [1].into_iter().collect(),
+            session_ids: std::iter::once(1).collect(),
         })
     })
     .await;

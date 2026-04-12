@@ -68,7 +68,7 @@ impl LogConfig {
         let subscriber = tracing_subscriber::fmt()
             .with_env_filter(
                 tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or(tracing_subscriber::EnvFilter::new(&self.filter_level)),
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&self.filter_level)),
             )
             .with_ansi(self.with_ansi)
             .with_writer(non_blocking);
@@ -98,10 +98,9 @@ impl LogConfig {
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi)
                     .pretty();
-                let with_location = base_internal
-                    .clone()
-                    .with_source_location(is_debug && self.with_source_location);
-                let without_location = base_external.clone().with_source_location(false);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
+                let without_location = base_external.with_source_location(false);
                 subscriber
                     .pretty()
                     .event_format(SelectiveLocationFormat::new(
@@ -128,10 +127,9 @@ impl LogConfig {
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi)
                     .compact();
-                let with_location = base_internal
-                    .clone()
-                    .with_source_location(is_debug && self.with_source_location);
-                let without_location = base_external.clone().with_source_location(false);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
+                let without_location = base_external.with_source_location(false);
                 subscriber
                     .compact()
                     .event_format(SelectiveLocationFormat::new(
@@ -156,10 +154,9 @@ impl LogConfig {
                     .with_thread_ids(display_thread_ids)
                     .with_thread_names(display_thread_names)
                     .with_ansi(self.with_ansi);
-                let with_location = base_internal
-                    .clone()
-                    .with_source_location(is_debug && self.with_source_location);
-                let without_location = base_external.clone().with_source_location(false);
+                let with_location =
+                    base_internal.with_source_location(is_debug && self.with_source_location);
+                let without_location = base_external.with_source_location(false);
                 subscriber
                     .event_format(SelectiveLocationFormat::new(
                         with_location,
