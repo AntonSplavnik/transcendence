@@ -200,7 +200,7 @@ async fn get_my_stats(depot: &mut Depot, db: Db) -> JsonResult<StatsResponse> {
 }
 
 /// Get a user's stats by ID
-#[endpoint]
+#[endpoint(parameters(("user_id" = i32, Path, description = "User ID")))]
 async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> {
     let user_id: i32 = req.param("user_id").unwrap_or(0);
     if user_id == 0 {

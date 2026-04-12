@@ -45,7 +45,7 @@ async fn get_my_games(depot: &mut Depot, db: Db) -> JsonResult<Vec<GameResponse>
 }
 
 /// Get the last 20 games for a given user (public)
-#[endpoint]
+#[endpoint(parameters(("user_id" = i32, Path, description = "User ID")))]
 async fn get_user_games(req: &mut Request, db: Db) -> JsonResult<Vec<GameResponse>> {
     let user_id: i32 = req.param("user_id").unwrap_or(0);
     if user_id == 0 {
