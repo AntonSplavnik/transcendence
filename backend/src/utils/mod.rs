@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 pub mod adaptive_buffer;
+pub mod crash_handler;
 pub mod limiter;
 pub mod logger;
 #[allow(dead_code)]

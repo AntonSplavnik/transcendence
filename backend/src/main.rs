@@ -39,6 +39,10 @@ use crate::{db::Database as _, email::Mailer};
 pub static ON_SHUTDOWN: Notify = Notify::const_new();
 
 fn main() -> std::process::ExitCode {
+    // Install SIGSEGV/SIGABRT/SIGBUS handler FIRST — before any threads are
+    // spawned — so that C++ segfaults print a backtrace instead of dying silently.
+    crate::utils::crash_handler::install();
+
     use std::sync::atomic::{AtomicUsize, Ordering};
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()

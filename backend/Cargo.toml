@@ -192,6 +192,8 @@ lettre = { version = "0.11", default-features = false, features = [
 rustls = { version = "0.23", default-features = false, features = [
 	"aws_lc_rs",
 ] }
+# signal handler for SIGSEGV crash diagnostics
+libc = "0.2"
 
 [features]
 # Enable these features to run the test suite with mock users that have 2FA
@@ -220,7 +222,8 @@ cxx-build = "1.0"
 opt-level = 3
 lto = "thin"      # cross-language LTO with Clang — inlines across Rust/C++ boundary
 codegen-units = 1 # single CGU; not implied by thin LTO, must be set explicitly
-strip = "symbols" # smaller binary; requires Rust 1.77+
+strip = false     # keep symbols for SIGSEGV backtrace diagnostics (was "symbols")
+debug  = 1        # line-tables-only — enables readable backtraces with ~10 MB cost
 
 [profile.dev.package.argon2]
 opt-level = 3
