@@ -10,6 +10,18 @@ use crate::game::GameError;
 use crate::stream::StreamApiError;
 
 #[derive(Error, Debug, strum::IntoStaticStr)]
+pub enum GdprError {
+    #[error("invalid or missing token")]
+    InvalidToken,
+    #[error("token has expired")]
+    TokenExpired,
+    #[error("email confirmation is still pending")]
+    EmailConfirmationPending,
+    #[error("account is already deleted")]
+    AlreadyDeleted,
+}
+
+#[derive(Error, Debug, strum::IntoStaticStr)]
 pub enum FriendError {
     #[error("cannot send friend request to yourself")]
     SelfRequest,
@@ -51,6 +63,7 @@ pub enum ApiError {
     Friend(#[from] FriendError),
     Email(#[from] EmailError),
     EmailConfirmation(#[from] EmailConfirmationError),
+    Gdpr(#[from] GdprError),
     Game(#[from] GameError),
 }
 
@@ -155,9 +168,27 @@ impl Scribe for ApiError {
                 }
                 _ => StatusError::bad_request().brief(err.to_string()),
             },
-            Self::Email(err) => {
-                tracing::error!(error = ?err, "email send failed");
-                StatusError::internal_server_error()
+            Self::Email(err) => match err {
+                EmailError::UnconfirmedEmail => {
+                    StatusError::forbidden().brief("email is not confirmed")
+                }
+                EmailError::Timeout => {
+                    tracing::error!("email send timed out");
+                    StatusError::internal_server_error().brief("email delivery timed out")
+                }
+                err => {
+                    tracing::error!(error = ?err, "email send failed");
+                    StatusError::internal_server_error()
+                }
+            },
+            Self::Gdpr(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    GdprError::InvalidToken => StatusError::bad_request().brief(variant),
+                    GdprError::TokenExpired => StatusError::gone().brief(variant),
+                    GdprError::EmailConfirmationPending => StatusError::forbidden().brief(variant),
+                    GdprError::AlreadyDeleted => StatusError::conflict().brief(variant),
+                }
             }
             Self::EmailConfirmation(err) => {
                 let variant: &'static str = (&err).into();
@@ -221,6 +252,7 @@ impl EndpointOutRegister for ApiError {
             (StatusCode::FORBIDDEN, "Forbidden"),
             (StatusCode::CONFLICT, "Resource already exists"),
             (StatusCode::UNAUTHORIZED, "Unauthorized"),
+            (StatusCode::GONE, "Resource expired"),
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
         ];
 

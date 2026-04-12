@@ -94,11 +94,11 @@ export default function LobbyOverlay() {
 							{settings.name}
 						</p>
 						<p
-							className={`text-xs mt-0.5 leading-tight ${hasCountdown ? 'text-gold-400' : allReady ? 'text-success-light' : 'text-stone-400'}`}
+							className={`text-xs mt-0.5 leading-tight ${hasCountdown ? 'text-gold-400' : allReady ? 'text-success-light' : 'text-stone-300'}`}
 						>
 							{statusText}
 						</p>
-						<p className="text-[10px] text-stone-500 mt-1 leading-tight">
+						<p className="text-[10px] text-stone-350 mt-1 leading-tight">
 							{formatGameMode(settings.gamemode)}
 						</p>
 					</div>

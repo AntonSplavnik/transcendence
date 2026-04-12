@@ -121,7 +121,7 @@ export default function LobbyListModal({ onClose }: LobbyListModalProps) {
 											</span>
 										</div>
 									</div>
-									<p className="text-xs text-stone-500 mt-0.5">
+									<p className="text-xs text-stone-350 mt-0.5">
 										{formatGameMode(lobby.settings.gamemode)}
 									</p>
 								</button>

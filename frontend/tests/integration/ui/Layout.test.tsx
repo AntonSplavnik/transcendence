@@ -101,7 +101,7 @@ describe('Layout', () => {
 		expect(layoutRoot).toHaveClass('selection:bg-gold-400/30');
 	});
 
-	it('has nested flex-grow container for children', () => {
+	it('renders children directly inside the root container', () => {
 		render(
 			<Layout>
 				<span data-testid="content">Content</span>
@@ -109,9 +109,11 @@ describe('Layout', () => {
 			{ withAuth: false }
 		);
 
-		const innerContainer = screen.getByTestId('content').closest('.flex-grow');
-		expect(innerContainer).toBeInTheDocument();
-		expect(innerContainer).toHaveClass('flex');
-		expect(innerContainer).toHaveClass('flex-col');
+		// Layout renders children directly in the root div (flex-grow is provided by
+		// the caller, e.g. the <main> wrapper in AppRoutes)
+		const root = screen.getByTestId('content').closest('.bg-stone-900');
+		expect(root).toBeInTheDocument();
+		expect(root).toHaveClass('flex');
+		expect(root).toHaveClass('flex-col');
 	});
 });

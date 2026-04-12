@@ -23,19 +23,26 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 						userId={user.id}
 						size="large"
 						className="w-24 h-24 rounded-lg"
-						aria-label={`${user.nickname}'s avatar`}
+						alt={`${user.nickname}'s avatar`}
 					/>
 					<div className="space-y-2">
-						{user.online ? (
-							<Badge variant="success" dot>
-								<span aria-live="polite">Online</span>
-							</Badge>
-						) : (
-							<Badge variant="neutral" dot>
-								<span aria-live="polite">Offline</span>
-							</Badge>
-						)}
-						<p className="text-xs text-stone-400">
+						{/* Visual badge hidden from SR — the live region below handles announcements */}
+						<span aria-hidden="true">
+							{user.online ? (
+								<Badge variant="success" dot>
+									Online
+								</Badge>
+							) : (
+								<Badge variant="neutral" dot>
+									Offline
+								</Badge>
+							)}
+						</span>
+						{/* Single persistent live region — always in DOM, text content changes */}
+						<span aria-live="polite" className="sr-only">
+							{user.online ? 'Online' : 'Offline'}
+						</span>
+						<p className="text-xs text-stone-300">
 							Member since {new Date(user.created_at).toLocaleDateString()}
 						</p>
 					</div>
@@ -54,7 +61,7 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 				{/* Recent history */}
 				<Card variant="inset">
 					<h3 className="text-sm font-semibold text-stone-300 mb-2">Recent History</h3>
-					<div className="text-center text-stone-500 text-sm italic py-2">
+					<div className="text-center text-stone-350 text-sm italic py-2">
 						No recent battles recorded.
 					</div>
 				</Card>

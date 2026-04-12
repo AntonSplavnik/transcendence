@@ -50,14 +50,18 @@ export default function TosModal() {
 				To continue using the platform, please review and accept our updated Terms of
 				Service.
 			</p>
-			<p className="text-stone-400 text-sm mt-3">
+			<p className="text-stone-300 text-sm mt-3">
 				You can read the full terms on the{' '}
 				<Link to="/terms" className="text-gold-400 hover:underline">
 					Terms of Service page
 				</Link>
 				.
 			</p>
-			{error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+			{error && (
+				<p className="text-red-400 text-sm mt-3" role="alert">
+					{error}
+				</p>
+			)}
 		</Modal>
 	);
 }

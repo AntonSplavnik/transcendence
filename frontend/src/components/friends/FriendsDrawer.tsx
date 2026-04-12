@@ -26,12 +26,24 @@ export default function FriendsDrawer() {
 		handleRemove,
 	} = useFriends();
 
+	const toggleButtonRef = useRef<HTMLButtonElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
+	// Tracks whether the drawer was previously open to avoid stealing focus on first render
+	const wasOpenRef = useRef(false);
 
-	// Focus close button when drawer opens, escape key closes drawer
+	// Focus close button when drawer opens; return focus to toggle when it closes.
+	useEffect(() => {
+		if (isOpen) {
+			wasOpenRef.current = true;
+			closeButtonRef.current?.focus();
+		} else if (wasOpenRef.current) {
+			wasOpenRef.current = false;
+			toggleButtonRef.current?.focus();
+		}
+	}, [isOpen]);
+
 	useEffect(() => {
 		if (!isOpen) return;
-		closeButtonRef.current?.focus();
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') toggleDrawer();
 		};
@@ -43,14 +55,17 @@ export default function FriendsDrawer() {
 		<>
 			{/* Toggle Button */}
 			<button
+				ref={toggleButtonRef}
 				onClick={toggleDrawer}
 				className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-primary hover:bg-primary-hover text-primary-text shadow-lg flex items-center justify-center transition-colors"
-				title="Friends"
-				aria-label={isOpen ? 'Close friends panel' : 'Open friends panel'}
+				aria-label={`${isOpen ? 'Close friends panel' : 'Open friends panel'}${incoming.length > 0 ? `, ${incoming.length} pending friend ${incoming.length === 1 ? 'request' : 'requests'}` : ''}`}
 				aria-expanded={isOpen}
 			>
 				{incoming.length > 0 && (
-					<span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+					<span
+						className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold"
+						aria-hidden="true"
+					>
 						{incoming.length > 9 ? '9+' : incoming.length}
 					</span>
 				)}
@@ -92,7 +107,13 @@ export default function FriendsDrawer() {
 					)}
 
 					{loading ? (
-						<p className="text-stone-400 text-sm text-center py-4">Loading...</p>
+						<p
+							role="status"
+							aria-live="polite"
+							className="text-stone-300 text-sm text-center py-4"
+						>
+							Loading...
+						</p>
 					) : (
 						<>
 							{/* Incoming Requests */}
@@ -122,7 +143,7 @@ export default function FriendsDrawer() {
 												<button
 													onClick={() => handleAccept(req.id)}
 													disabled={actionInProgress !== null}
-													className="text-stone-500 hover:text-green-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+													className="text-stone-400 hover:text-green-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Accept"
 													aria-label={`Accept friend request from ${req.sender.nickname}`}
 												>
@@ -131,7 +152,7 @@ export default function FriendsDrawer() {
 												<button
 													onClick={() => handleReject(req.id)}
 													disabled={actionInProgress !== null}
-													className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+													className="text-stone-400 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Reject"
 													aria-label={`Reject friend request from ${req.sender.nickname}`}
 												>
@@ -148,7 +169,7 @@ export default function FriendsDrawer() {
 								<section>
 									<h3 className="text-xs font-semibold text-stone-300 uppercase tracking-wide mb-1">
 										Pending Requests
-										<span className="ml-1.5 text-stone-500 font-normal normal-case tracking-normal">
+										<span className="ml-1.5 text-stone-350 font-normal normal-case tracking-normal">
 											({outgoing.length})
 										</span>
 									</h3>
@@ -171,7 +192,7 @@ export default function FriendsDrawer() {
 												<button
 													onClick={() => handleCancel(req.id)}
 													disabled={actionInProgress !== null}
-													className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+													className="text-stone-400 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 													title="Cancel request"
 													aria-label={`Cancel friend request to ${req.receiver.nickname}`}
 												>
@@ -189,7 +210,7 @@ export default function FriendsDrawer() {
 									Friends ({friends.length})
 								</h3>
 								{friends.length === 0 ? (
-									<p className="text-stone-500 text-sm px-2 py-1">
+									<p className="text-stone-350 text-sm px-2 py-1">
 										No friends yet.
 									</p>
 								) : (
@@ -198,8 +219,12 @@ export default function FriendsDrawer() {
 											<li key={friend.id}>
 												<div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-700/50">
 													<Circle
+														aria-hidden="true"
 														className={`w-2.5 h-2.5 flex-shrink-0 ${friend.online ? 'fill-green-400 text-green-400' : 'fill-stone-400 text-stone-400'}`}
 													/>
+													<span aria-live="polite" className="sr-only">
+														{friend.online ? 'Online' : 'Offline'}
+													</span>
 													<span className="text-sm truncate flex-1">
 														<Username
 															userId={friend.id}
@@ -216,7 +241,7 @@ export default function FriendsDrawer() {
 													<button
 														onClick={() => handleRemove(friend.id)}
 														disabled={actionInProgress !== null}
-														className="text-stone-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+														className="text-stone-400 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
 														title="Remove friend"
 														aria-label={`Remove ${friend.nickname} from friends`}
 													>

@@ -462,9 +462,10 @@ async fn change_password_blocked_after_tos_bump() {
     let bumped = server_with_future_tos(&server);
     user.client = user.client.rebind(&bumped);
 
+    let mfa_code = user.mfa_code().await;
     let body = crate::auth::user::ChangePasswordInput {
         password: user.password.to_string(),
-        mfa_code: None,
+        mfa_code,
         new_password: "new_password_123".to_string(),
         keep_other_sessions_logged_in: false,
     };

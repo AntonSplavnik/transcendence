@@ -48,7 +48,7 @@ function bannerContent(state: ConnectionState): BannerContent {
 			return {
 				icon: <WifiOff size={14} />,
 				text: 'Realtime connection inactive',
-				bgClass: 'bg-stone-800 text-stone-400',
+				bgClass: 'bg-stone-800 text-stone-300',
 			};
 		case 'connecting':
 			return {
@@ -78,7 +78,7 @@ function bannerContent(state: ConnectionState): BannerContent {
 			return {
 				icon: <WifiOff size={14} />,
 				text: 'Connection status unavailable',
-				bgClass: 'bg-stone-800 text-stone-400',
+				bgClass: 'bg-stone-800 text-stone-300',
 			};
 	}
 }

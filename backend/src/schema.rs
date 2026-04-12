@@ -13,6 +13,12 @@ diesel::table! {
         base_xp_reward -> Integer,
         created_at -> TimestamptzSqlite,
     }
+    account_deletion_requests (user_id) {
+        user_id -> Integer,
+        token -> Binary,
+        confirm_token -> Nullable<Binary>,
+        expires_at -> TimestamptzSqlite,
+    }
 }
 
 diesel::table! {
@@ -28,6 +34,15 @@ diesel::table! {
         user_id -> Integer,
         data -> Binary,
         updated_at -> TimestamptzSqlite,
+    }
+}
+
+diesel::table! {
+    data_export_requests (user_id) {
+        user_id -> Integer,
+        token -> Binary,
+        confirm_token -> Nullable<Binary>,
+        expires_at -> TimestamptzSqlite,
     }
 }
 
@@ -146,8 +161,10 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(account_deletion_requests -> users (user_id));
 diesel::joinable!(avatars_large -> users (user_id));
 diesel::joinable!(avatars_small -> users (user_id));
+diesel::joinable!(data_export_requests -> users (user_id));
 diesel::joinable!(notifications -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(two_fa_recovery_codes -> users (user_id));
@@ -157,8 +174,10 @@ diesel::joinable!(user_stats -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     achievements,
+    account_deletion_requests,
     avatars_large,
     avatars_small,
+    data_export_requests,
     friend_requests,
     games,
     notifications,

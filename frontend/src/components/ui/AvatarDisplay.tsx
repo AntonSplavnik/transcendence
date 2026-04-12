@@ -51,7 +51,7 @@ export default function AvatarDisplay({
 	return (
 		<div className={`rounded-full overflow-hidden ${className}`}>
 			{loading ? (
-				<div className="bg-stone-700 animate-pulse w-full h-full" />
+				<div aria-hidden="true" className="bg-stone-700 animate-pulse w-full h-full" />
 			) : !displayUrl || error ? (
 				<div
 					role="img"

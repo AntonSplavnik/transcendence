@@ -17,10 +17,10 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 
 	return (
 		<section aria-label="Character selection" className="mb-4">
-			<h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
+			<h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-300">
 				Choose Your Champion
 			</h2>
-			<div className="flex gap-3">
+			<div className="flex gap-3" role="group" aria-label="Character selection">
 				{characters.map(([id, cfg]) => (
 					<button
 						key={id}
@@ -46,7 +46,7 @@ export default function CharacterPicker({ value, onChange }: CharacterPickerProp
 						</div>
 						<span
 							className={`text-sm font-semibold tracking-wide transition-colors duration-200 ${
-								value === id ? 'text-gold-400' : 'text-stone-400'
+								value === id ? 'text-gold-400' : 'text-stone-300'
 							}`}
 						>
 							{cfg.label}

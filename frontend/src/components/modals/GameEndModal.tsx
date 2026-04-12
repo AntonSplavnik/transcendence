@@ -67,13 +67,27 @@ export default function GameEndModal({ title, onLeave, stats, localPlayerId }: G
 						<caption className="sr-only">Match results leaderboard</caption>
 						<thead>
 							<tr className="bg-stone-800/60 text-stone-300 text-xs uppercase tracking-wider">
-								<th className="px-3 py-2 text-left">#</th>
-								<th className="px-3 py-2 text-left">Player</th>
-								<th className="px-3 py-2 text-left">Class</th>
-								<th className="px-3 py-2 text-right">Kills</th>
-								<th className="px-3 py-2 text-right">Deaths</th>
-								<th className="px-3 py-2 text-right">Dmg Dealt</th>
-								<th className="px-3 py-2 text-right">Dmg Taken</th>
+								<th scope="col" className="px-3 py-2 text-left">
+									#
+								</th>
+								<th scope="col" className="px-3 py-2 text-left">
+									Player
+								</th>
+								<th scope="col" className="px-3 py-2 text-left">
+									Class
+								</th>
+								<th scope="col" className="px-3 py-2 text-right">
+									Kills
+								</th>
+								<th scope="col" className="px-3 py-2 text-right">
+									Deaths
+								</th>
+								<th scope="col" className="px-3 py-2 text-right">
+									Dmg Dealt
+								</th>
+								<th scope="col" className="px-3 py-2 text-right">
+									Dmg Taken
+								</th>
 							</tr>
 						</thead>
 						<tbody>
