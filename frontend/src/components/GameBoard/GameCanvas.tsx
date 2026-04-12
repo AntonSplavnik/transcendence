@@ -8,6 +8,7 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import { ISO_CAM_OFFSET, ISO_ORTHO_SIZE, ISO_DIRECTIONS } from '@/game/constants';
 import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
+import { DebugColliders } from '@/game/debugColliders';
 
 declare const BABYLON: typeof BabylonType;
 declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Promise<void> } };
@@ -153,7 +154,7 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 
 // ── Inspector toggle ────────────────────────────────────────────────
 
-function setupInspector(scene: Scene): (event: KeyboardEvent) => void {
+function setupInspector(scene: Scene, debugColliders: DebugColliders): (event: KeyboardEvent) => void {
 	let inspectorLoaded = false;
 	return async (event: KeyboardEvent) => {
 		if (event.ctrlKey && event.shiftKey && event.key === 'I') {
@@ -171,6 +172,11 @@ function setupInspector(scene: Scene): (event: KeyboardEvent) => void {
 					globalRoot: document.body,
 				});
 			}
+		}
+		// Ctrl+Shift+C: toggle collision debug wireframes
+		if (event.ctrlKey && event.shiftKey && event.key === 'C') {
+			event.preventDefault();
+			debugColliders.toggle();
 		}
 	};
 }
@@ -219,6 +225,7 @@ export default function GameCanvas({
 		window.addEventListener('focus', onFocus);
 		let onKeydown: ((event: KeyboardEvent) => void) | null = null;
 		let onResize: (() => void) | null = null;
+		let debugCollidersInstance: DebugColliders | null = null;
 
 		(async () => {
 			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas);
@@ -232,8 +239,13 @@ export default function GameCanvas({
 			// Keep loading screen visible while map + character assets load
 			engine.displayLoadingUI();
 
+			// Debug colliders (Ctrl+Shift+C to toggle)
+			const debugColliders = new DebugColliders(scene);
+			debugCollidersInstance = debugColliders;
+			debugColliders.load().catch((e) => console.warn('[DebugColliders] failed to load:', e));
+
 			// Inspector toggle
-			onKeydown = setupInspector(scene);
+			onKeydown = setupInspector(scene, debugColliders);
 			window.addEventListener('keydown', onKeydown);
 
 			// Game client
@@ -338,6 +350,7 @@ export default function GameCanvas({
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
+			debugCollidersInstance?.dispose();
 			gameClientInstance?.dispose();
 			engineInstance?.stopRenderLoop();
 			sceneInstance?.dispose();
