@@ -1,11 +1,16 @@
+import type * as BabylonType from '@babylonjs/core';
 import type { Observer, Scene, Vector3 } from '@babylonjs/core';
 import type { AdvancedDynamicTexture, Rectangle } from '@babylonjs/gui';
 import { ENEMY_BAR_Y_OFFSET } from './constants';
 
+declare const BABYLON: typeof BabylonType & { GUI: typeof import('@babylonjs/gui') };
+
 export class GameHUD {
 	private gui: AdvancedDynamicTexture | null = null;
 	private scene: Scene;
-	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle }> = new Map();
+	private enemyBars: Map<number, { bg: Rectangle; fill: Rectangle; positioned: boolean }> =
+		new Map();
+	private localHealthBg: Rectangle | null = null;
 	private localHealthFill: Rectangle | null = null;
 	private localStaminaFill: Rectangle | null = null;
 	private cooldownBars: { attack: Rectangle; ability1: Rectangle; ability2: Rectangle };
@@ -13,7 +18,11 @@ export class GameHUD {
 	private enemyBarObserver: Observer<Scene> | null = null;
 	private localPlayerID: number;
 
-	constructor(scene: Scene, localPlayerID: number, getCharPosition: (playerId: number) => Vector3 | null) {
+	constructor(
+		scene: Scene,
+		localPlayerID: number,
+		getCharPosition: (playerId: number) => Vector3 | null,
+	) {
 		this.scene = scene;
 		this.localPlayerID = localPlayerID;
 		this.getCharPosition = getCharPosition;
@@ -22,15 +31,23 @@ export class GameHUD {
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
 		// Update enemy bar positions every frame by projecting world-space position.
-		// Bars start hidden (isVisible = false) and are revealed on the first
-		// successful positioning to avoid flashing at the screen centre while
-		// the remote character model is still loading.
+		// Bars start hidden and are revealed on the first successful positioning
+		// (tracked via `positioned` flag) to avoid flashing at the screen centre
+		// while the remote character model is still loading. After that, visibility
+		// is controlled solely by updateEnemyHealth() — the observer must not
+		// touch isVisible, or it will fight the dead-state hide.
 		this.enemyBarObserver = this.scene.onBeforeRenderObservable.add(() => {
 			for (const [playerID, bar] of this.enemyBars.entries()) {
 				const pos = this.getCharPosition(playerID);
 				if (!pos) continue;
-				bar.bg.moveToVector3(new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z), this.scene);
-				if (!bar.bg.isVisible) bar.bg.isVisible = true;
+				bar.bg.moveToVector3(
+					new BABYLON.Vector3(pos.x, pos.y + ENEMY_BAR_Y_OFFSET, pos.z),
+					this.scene,
+				);
+				if (!bar.positioned) {
+					bar.positioned = true;
+					bar.bg.isVisible = true;
+				}
 			}
 		});
 
@@ -46,6 +63,7 @@ export class GameHUD {
 		localBg.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
 		localBg.top = '-40px';
 		this.gui.addControl(localBg);
+		this.localHealthBg = localBg;
 
 		const localFill = new GUI.Rectangle('local-hp-fill');
 		localFill.width = '100%';
@@ -119,14 +137,17 @@ export class GameHUD {
 		};
 
 		this.cooldownBars = {
-			attack:   makeCdBar('attack',   '#e67e22'),
+			attack: makeCdBar('attack', '#e67e22'),
 			ability1: makeCdBar('ability1', '#3498db'),
 			ability2: makeCdBar('ability2', '#9b59b6'),
 		};
 	}
 
-	updateLocalHealth(pct: number): void {
-		if (this.localHealthFill) {
+	updateLocalHealth(pct: number, isDead: boolean): void {
+		if (this.localHealthBg) {
+			this.localHealthBg.isVisible = !isDead;
+		}
+		if (this.localHealthFill && !isDead) {
 			this.localHealthFill.width = `${(Math.max(0, Math.min(1, pct)) * 100).toFixed(1)}%`;
 		}
 	}
@@ -138,17 +159,15 @@ export class GameHUD {
 	}
 
 	updateCooldowns(attack: number, ability1: number, ability2: number): void {
-		this.cooldownBars.attack.width =
-			`${(Math.max(0, Math.min(1, attack)) * 100).toFixed(1)}%`;
-		this.cooldownBars.ability1.width =
-			`${(Math.max(0, Math.min(1, ability1)) * 100).toFixed(1)}%`;
-		this.cooldownBars.ability2.width =
-			`${(Math.max(0, Math.min(1, ability2)) * 100).toFixed(1)}%`;
+		this.cooldownBars.attack.width = `${(Math.max(0, Math.min(1, attack)) * 100).toFixed(1)}%`;
+		this.cooldownBars.ability1.width = `${(Math.max(0, Math.min(1, ability1)) * 100).toFixed(1)}%`;
+		this.cooldownBars.ability2.width = `${(Math.max(0, Math.min(1, ability2)) * 100).toFixed(1)}%`;
 	}
 
 	createEnemyBar(playerId: number): void {
 		if (playerId === this.localPlayerID) return;
 		if (this.enemyBars.has(playerId)) return;
+		if (!this.gui) return;
 		const GUI = BABYLON.GUI;
 
 		const bg = new GUI.Rectangle(`enemy-hp-bg-${playerId}`);
@@ -172,7 +191,7 @@ export class GameHUD {
 		fill.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
 		bg.addControl(fill);
 
-		this.enemyBars.set(playerId, { bg, fill });
+		this.enemyBars.set(playerId, { bg, fill, positioned: false });
 	}
 
 	removeEnemyBar(playerId: number): void {

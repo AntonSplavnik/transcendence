@@ -11,7 +11,7 @@ use ulid::Ulid;
 use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::{GameClientMessage, GameServerMessage};
+use super::messages::GameClientMessage;
 use crate::models::nickname::Nickname;
 use crate::stream::{StreamManager, StreamType};
 
@@ -338,7 +338,7 @@ impl GameManager {
             let gm = self.clone();
             let mut lobby = lobby_arc.lock();
             lobby.schedule_cleanup(&tokio::runtime::Handle::current(), move |lid| {
-                gm.destroy_lobby(lid)
+                gm.destroy_lobby(lid);
             });
         }
 
@@ -415,9 +415,9 @@ impl GameManager {
             .collect()
     }
 
-    pub fn user_lobby(&self, user_id: i32) -> Option<Ulid> {
-        self.state.lock().user_lobby.get(&user_id).copied()
-    }
+    // pub fn user_lobby(&self, user_id: i32) -> Option<Ulid> {
+    //     self.state.lock().user_lobby.get(&user_id).copied()
+    // }
 
     /// Called synchronously when the countdown finishes.
     /// Spawns an async task that opens all streams and starts the game.
@@ -491,7 +491,7 @@ impl GameManager {
                     StreamType::Game,
                     &self.sm,
                     move |user_id, msg| {
-                        let keep = game_ref.on_client_msg(user_id as u32, msg);
+                        let keep = game_ref.on_client_msg(user_id.cast_unsigned(), msg);
                         if !keep {
                             // Player sent Leave — remove from lobby
                             let _ = gm.leave(user_id, lobby_id);
@@ -531,7 +531,7 @@ impl GameManager {
         // Done after stream setup so the engine and streams are ready together.
         // The C++ engine signals player spawns via SpawnEvent, which carries name + character_class.
         for (uid, nick, character_class) in &players {
-            game.on_connect(*uid as u32, nick.as_ref(), character_class.clone());
+            game.on_connect(uid.cast_unsigned(), nick.as_ref(), *character_class);
         }
 
         let lobby_weak = Arc::downgrade(&lobby_arc);
@@ -550,7 +550,7 @@ impl GameManager {
                 let gs = game_streams;
                 game_for_loop.update_loop(
                     |msg| gs.broadcast(&msg),
-                    |player_id, msg| gs.send(player_id as i32, &msg),
+                    |player_id, msg| gs.send(player_id.cast_signed(), &msg),
                 );
 
                 // Game loop ended — clear state and schedule lobby cleanup if empty.

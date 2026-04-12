@@ -24,7 +24,8 @@ const variantStyles = {
 		'bg-stone-700 hover:bg-stone-600 text-stone-100 border-b-4 border-b-stone-900 active:border-b-0 active:translate-y-1',
 	danger: 'bg-danger hover:bg-danger/90 text-white border-b-4 border-b-danger-dark active:border-b-0 active:translate-y-1 hover:shadow-[0_0_12px_rgba(200,32,48,0.25)]',
 	ghost: 'bg-transparent hover:bg-stone-800 text-stone-300 hover:text-stone-100',
-	success: 'bg-emerald-600 hover:bg-emerald-500 text-white border-b-4 border-b-emerald-900 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)]',
+	success:
+		'bg-emerald-600 hover:bg-emerald-500 text-white border-b-4 border-b-emerald-900 active:border-b-0 active:translate-y-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)]',
 };
 
 export default function Button({

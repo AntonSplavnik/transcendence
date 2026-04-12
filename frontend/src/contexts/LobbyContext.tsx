@@ -46,6 +46,7 @@ import type {
 } from '../stream/types';
 import { parseLobbyMessage } from '../stream/types';
 import { useStream } from './StreamContext';
+import { useUIAudio } from '../audio/AudioProvider';
 
 export type { LobbySettings };
 
@@ -196,6 +197,7 @@ const LobbyContext = createContext<LobbyContextType | undefined>(undefined);
 export function LobbyProvider({ children }: { children: ReactNode }) {
 	const { connectionManager } = useStream();
 	const navigate = useNavigate();
+	const { playSound } = useUIAudio();
 
 	const [lobbyState, dispatch] = useReducer(lobbyReducer, { status: 'idle' });
 
@@ -204,6 +206,11 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		navigateRef.current = navigate;
 	}, [navigate]);
+
+	const playSoundRef = useRef(playSound);
+	useEffect(() => {
+		playSoundRef.current = playSound;
+	}, [playSound]);
 
 	const lobbyStateRef = useRef<LobbyState>(lobbyState);
 	useEffect(() => {
@@ -291,6 +298,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 					dispatch({ type: 'CLOSE' });
 					navigateRef.current('/home');
 					return;
+				}
+
+				if (typeof msg === 'object' && 'PlayerJoined' in msg) {
+					playSoundRef.current('ui_lobby_join');
+				} else if (typeof msg === 'object' && 'PlayerLeft' in msg) {
+					playSoundRef.current('ui_lobby_leave');
 				}
 
 				dispatch({ type: 'MESSAGE', msg });

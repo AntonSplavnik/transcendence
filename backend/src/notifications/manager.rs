@@ -1,13 +1,39 @@
-//! [`NotificationManager`] – send-or-store + stream lifecycle.
+//! [`NotificationManager`] – race-free notification delivery via [`UserStream`].
 //!
-//! See the [module-level docs](super) for the high-level design.
+//! # Design Overview
+//!
+//! [`NotificationManager`] is the sole authority for delivering notifications to
+//! connected users. It wraps a [`UserStream<NotificationProtocol>`] that handles
+//! all per-user stream lifecycle, locking, and cleanup.
+//!
+//! ## Delivery strategy
+//!
+//! ```text
+//! send(user_id, payload)
+//!   ├── user has a live stream? → send directly over WebTransport (zero DB round-trip)
+//!   │     └── send fails?       → fall back to DB (under per-user lock)
+//!   └── no stream               → persist to `notifications` table (under per-user lock)
+//! ```
+//!
+//! ## Race condition elimination
+//!
+//! The previous implementation had a check-then-act race between `send()` and
+//! `open_stream()`. `UserStream` eliminates this by serializing both operations
+//! on a per-user `tokio::Mutex`. The DB fallback in `send()` and the DB drain
+//! in `open_stream()` both run under the same lock — a notification cannot be
+//! written to the DB after `open_stream` has already drained it.
+//!
+//! ## At-least-once delivery
+//!
+//! `on_open` drains the DB backlog using `send_confirmed_batch`. Each message
+//! is deleted from the DB only after confirmed transport-level delivery. If the
+//! future is dropped mid-drain, undelivered messages remain in the DB for the
+//! next reconnect.
 
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use dashmap::DashMap;
 use diesel::prelude::*;
-use smallvec::SmallVec;
 use thiserror::Error;
 
 use super::NotificationPayload;
@@ -16,12 +42,15 @@ use crate::models::cbor_blob::CborBlob;
 use crate::models::{NewOfflineNotification, OfflineNotification};
 use crate::notifications::WireNotification;
 use crate::schema::notifications::{self};
-use crate::stream::{SharedSender, StreamManager, StreamManagerError, StreamType};
+use crate::stream::{
+    OpenError, StreamManager, StreamManagerError, StreamSink, StreamType, UserStream,
+    UserStreamProtocol,
+};
 
 /// Errors produced by [`NotificationManager`] operations.
 #[derive(Debug, Error)]
 pub enum NotificationError {
-    /// The underlying WebTransport stream is gone.
+    /// The underlying WebTransport stream is gone or the user is not connected.
     #[error(transparent)]
     Stream(#[from] StreamManagerError),
 
@@ -29,231 +58,300 @@ pub enum NotificationError {
     #[error(transparent)]
     Db(#[from] DbError),
 
-    /// Sending over an already-open stream failed (codec / transport error).
-    #[error("failed to send notification to user {user_id}: {reason}")]
-    Send { user_id: i32, reason: String },
+    /// The protocol rejected the open.
+    #[error("open stream failed: {0}")]
+    Open(#[from] NotificationOpenError),
+}
+
+/// Protocol implementation for the notification stream.
+///
+/// Handles DB drain on open and DB fallback on offline send.
+/// The `Db` handle is stored in the protocol because it's needed
+/// by the async trait hooks.
+pub(super) struct NotificationProtocol {
+    db: Db,
+}
+
+impl UserStreamProtocol for NotificationProtocol {
+    type Send = WireNotification;
+    /// Notifications have no per-user state — each stream is independent.
+    type State = ();
+    /// No context needed to open a notification stream.
+    type OpenContext = ();
+    /// Notification streams never reject on open (DB errors are propagated
+    /// as `NotificationError`, not as protocol rejection).
+    type OpenReject = NotificationOpenError;
+
+    fn stream_type(&self) -> StreamType {
+        StreamType::Notifications
+    }
+
+    fn init_state(&self, _user_id: i32, _context: &()) {}
+
+    /// Drain pending notifications from the DB over the new stream.
+    ///
+    /// Uses `send_confirmed_batch` for at-least-once delivery. Each message
+    /// is deleted from the DB only after confirmed transport-level delivery.
+    async fn on_open(
+        &self,
+        user_id: i32,
+        _state: &mut (),
+        _context: (),
+        sink: &StreamSink<WireNotification>,
+    ) -> Result<(), NotificationOpenError> {
+        let pending = load_from_db(&self.db, user_id)
+            .await
+            .map_err(NotificationOpenError::DbLoad)?;
+
+        if pending.is_empty() {
+            return Ok(());
+        }
+
+        tracing::debug!(
+            user_id,
+            count = pending.len(),
+            "draining stored notifications"
+        );
+
+        // Convert to wire format for the batch send.
+        let wire_msgs: Vec<WireNotification> = pending
+            .iter()
+            .map(|n| WireNotification {
+                payload: n.data.clone().into_inner(),
+                created_at: n.created_at,
+            })
+            .collect();
+
+        match sink.send_confirmed_batch(wire_msgs).await {
+            Ok(()) => {
+                // All sent — bulk delete from DB.
+                let ids: Vec<i32> = pending.iter().map(|n| n.id).collect();
+                if let Err(e) = bulk_delete_from_db(&self.db, &ids).await {
+                    tracing::warn!(
+                        user_id,
+                        count = ids.len(),
+                        error = %e,
+                        "failed to bulk-delete delivered notifications; may be re-delivered on reconnect"
+                    );
+                }
+            }
+            Err(e) => {
+                // Partial delivery — delete only the sent ones.
+                if e.sent > 0 {
+                    let sent_ids: Vec<i32> = pending[..e.sent].iter().map(|n| n.id).collect();
+                    if let Err(del_err) = bulk_delete_from_db(&self.db, &sent_ids).await {
+                        tracing::warn!(
+                            user_id,
+                            sent = e.sent,
+                            error = %del_err,
+                            "failed to delete partially-delivered notifications"
+                        );
+                    }
+                }
+                return Err(NotificationOpenError::BatchSend {
+                    sent: e.sent,
+                    source: e.source,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn on_close(&self, user_id: i32, _state: ()) {
+        tracing::debug!(user_id, "notification stream closed");
+    }
+}
+
+/// Notification open rejection.
+///
+/// Returned by [`NotificationProtocol::on_open`] when the DB drain or batch
+/// send fails during stream setup.
+#[derive(Debug, Error)]
+pub enum NotificationOpenError {
+    /// Failed to load pending notifications from the database during drain.
+    #[error("DB load failed: {0}")]
+    DbLoad(#[from] DbError),
+
+    /// Batch send of pending notifications partially or fully failed.
+    #[error("batch send failed after {sent} messages: {source}")]
+    BatchSend {
+        /// Number of messages successfully written to the transport.
+        sent: usize,
+        /// The underlying transport error.
+        source: anyhow::Error,
+    },
 }
 
 /// Notification delivery manager.
 ///
-/// Cheaply cloneable (`Arc`-backed). Injected into the Salvo router via
-/// `affix_state::inject` and retrieved from the depot with
-/// [`NotificationManagerDepotExt::notification_manager`](super::NotificationManagerDepotExt).
+/// Cheaply cloneable (`Arc`-backed `UserStream`). Injected into the Salvo
+/// router via `affix_state::inject`.
+///
+/// # Invariants
+///
+/// All invariants are enforced by the underlying [`UserStream`]:
+/// - At most one live stream per user.
+/// - Race-free send/open via per-user `tokio::Mutex`.
+/// - No ghost `DashMap` entries after disconnect.
 #[derive(Clone)]
 pub struct NotificationManager {
-    /// Active notification streams keyed by `user_id`.
-    streams: Arc<DashMap<i32, SharedSender<WireNotification>, ahash::RandomState>>,
+    user_stream: Arc<UserStream<NotificationProtocol>>,
+    db: Db,
 }
 
-#[allow(dead_code)]
 impl NotificationManager {
-    pub fn new() -> Self {
+    /// Create a new `NotificationManager`.
+    pub fn new(db: Db) -> Self {
+        let protocol = NotificationProtocol { db: db.clone() };
         Self {
-            streams: Arc::new(DashMap::default()),
+            user_stream: UserStream::new(protocol),
+            db,
         }
     }
 
     /// Send a notification to `user_id`.
     ///
-    /// * If the user has an open notification stream the payload is written
-    ///   directly to the wire.
-    /// * Otherwise the notification is stored to the database for later
-    ///   delivery.
+    /// If the user has a live stream, the payload is sent directly over
+    /// WebTransport (zero DB round-trip). If no stream exists, the payload
+    /// is persisted to the `notifications` table.
     ///
-    /// A broken stream is automatically cleaned up; in that case the payload
-    /// falls back to DB storage.
+    /// Uses [`with_live_or_else`](UserStream::with_live_or_else) for race-safe
+    /// coordination: the DB fallback runs under the same per-user lock that
+    /// `open_stream` holds during drain. A notification cannot be written to
+    /// the DB after `open_stream` has already drained it.
+    ///
+    /// # Errors
+    ///
+    /// - [`NotificationError::Db`] — the DB fallback write failed.
+    ///
+    /// # Cancel Safety
+    ///
+    /// Cancel-safe. See [`StreamSink::send`] for the online path.
+    /// The DB write is atomic (single INSERT).
     pub async fn send(
         &self,
-        db: &Db,
         user_id: i32,
         payload: NotificationPayload,
     ) -> Result<(), NotificationError> {
         let created_at = chrono::Utc::now();
-        // Fast path: try the open stream first.
-        let sender = {
-            self.streams
-                .get(&user_id)
-                .map(|sender_ref| sender_ref.value().clone())
-        };
+        let db = self.db.clone();
+        let db_offline = db.clone();
 
-        if let Some(sender) = sender {
-            match sender
-                .send(WireNotification {
-                    payload: payload.clone(),
-                    created_at,
-                })
-                .await
-            {
-                Ok(_) => return Ok(()),
-                Err(_) => {
-                    tracing::warn!(
-                        user_id,
-                        "notification stream channel closed, falling back to DB"
-                    );
-
-                    self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
-                }
-            }
-        }
-
-        // Slow path: persist to the database.
-        Self::store_to_db(db, user_id, payload, created_at).await?;
-        Ok(())
+        self.user_stream
+            .with_live_or_else_ctx(
+                user_id,
+                payload,
+                move |sink, _state, payload: NotificationPayload| {
+                    let sink = sink.clone();
+                    async move {
+                        let wire = WireNotification {
+                            payload: payload.clone(),
+                            created_at,
+                        };
+                        if sink.send(wire).await.is_ok() {
+                            Ok(())
+                        } else {
+                            // Channel closed — fall back to DB.
+                            tracing::warn!(
+                                user_id,
+                                "notification stream channel closed, falling back to DB"
+                            );
+                            store_to_db(&db, user_id, payload, created_at)
+                                .await
+                                .map_err(NotificationError::from)
+                        }
+                    }
+                },
+                |payload| async move {
+                    store_to_db(&db_offline, user_id, payload, created_at)
+                        .await
+                        .map_err(NotificationError::from)
+                },
+            )
+            .await
     }
 
     /// Open (or replace) a notification stream for `user_id`.
     ///
-    /// 1. Requests a uni-directional stream from the given [`StreamManager`].
-    /// 2. Drains all pending notifications from the DB (oldest → newest).
-    /// 3. Registers the stream so future [`send`](Self::send) calls use
-    ///    it directly.
+    /// Delegates to [`UserStream::open_stream`]. The protocol's `on_open`
+    /// drains the DB backlog using confirmed batch sends.
     ///
-    /// If the user already had an open stream it is silently replaced (the
-    /// old `Sender` is dropped, which closes the WebTransport stream on the
-    /// client side).
+    /// # Errors
+    ///
+    /// - [`NotificationError::Stream`] — could not open the WebTransport stream.
+    /// - [`NotificationError::Open`] — DB drain or batch send failed.
     pub async fn open_stream(
         &self,
-        db: &Db,
         streams: &StreamManager,
         user_id: i32,
     ) -> Result<(), NotificationError> {
-        let (sender, disconnect_token) = streams
-            .request_uni_stream(user_id, StreamType::Notifications)
-            .await?;
-
-        let sender = SharedSender::new(sender);
-
-        // Register (replaces any previous sender for this user).
-        // Inserting before draining the DB ensures that a parallel send() call
-        // that comes in while we're draining will write to the new stream
-        // instead of falling back to the DB, leaving the DB entry undelivered until the next reconnect.
-        // This might deliver new notifications before the backlog, but because every payload
-        // is tagged with the send timestamp, the client can sort them correctly.
-        self.streams.insert(user_id, sender.clone());
-
-        // Spawn a cleanup task: when the WebTransport connection is dropped,
-        // the disconnect_token is cancelled and we remove the stale sender.
-        {
-            let streams = self.streams.clone();
-            let sender_for_cleanup = sender.clone();
-            tokio::spawn(async move {
-                disconnect_token.cancelled().await;
-                streams.remove_if(&user_id, |_, v| v.eq(&sender_for_cleanup));
-                tracing::debug!(user_id, "notification stream cleaned up after disconnect");
-            });
-        }
-
-        // Drain the DB backlog.
-        let pending = match Self::drain_from_db(db, user_id).await {
-            Ok(pending) => pending,
-            Err(err) => {
-                // Clean up the sender we just registered if draining fails,
-                // to avoid leaving a stale sender in the manager.
-                self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
-                return Err(err.into());
-            }
-        };
-        if !pending.is_empty() {
-            tracing::debug!(
-                user_id,
-                count = pending.len(),
-                "draining stored notifications"
-            );
-            let mut res = None;
-            let mut unsent = SmallVec::<[OfflineNotification; 5]>::new();
-            for notification in pending {
-                if res.is_none() {
-                    match sender
-                        .send(WireNotification {
-                            payload: notification.data.clone().into_inner(),
-                            created_at: notification.created_at,
-                        })
-                        .await
-                        .map_err(|e| NotificationError::Send {
-                            user_id,
-                            reason: e.to_string(),
-                        }) {
-                        Ok(_) => continue,
-                        Err(err) => {
-                            res = Some(err);
-                            self.streams.remove_if(&user_id, |_, v| v.eq(&sender));
-                        }
-                    }
-                }
-                unsent.push(notification);
-            }
-            if !unsent.is_empty() {
-                Self::store_back_to_db(db, unsent).await?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Remove the notification stream for a user (e.g. on disconnect).
-    ///
-    /// This is a no-op if no stream was registered.
-    pub fn close_stream(&self, user_id: i32) {
-        self.streams.remove(&user_id);
-    }
-
-    /// Returns `true` if the user has an active notification stream.
-    pub fn has_stream(&self, user_id: i32) -> bool {
-        self.streams.contains_key(&user_id)
-    }
-
-    /// Insert a single notification into the `notifications` table.
-    async fn store_to_db(
-        db: &Db,
-        user_id: i32,
-        payload: NotificationPayload,
-        created_at: DateTime<Utc>,
-    ) -> Result<(), DbError> {
-        db.write(move |conn| {
-            let row = NewOfflineNotification {
-                user_id,
-                data: CborBlob::new(payload),
-                created_at,
-            };
-            diesel::insert_into(notifications::table)
-                .values(&row)
-                .execute(conn)
-        })
-        .await??;
-        Ok(())
-    }
-
-    async fn store_back_to_db(
-        db: &Db,
-        offline: SmallVec<[OfflineNotification; 5]>,
-    ) -> Result<(), DbError> {
-        db.write(move |conn| {
-            diesel::insert_into(notifications::table)
-                .values(&*offline)
-                .execute(conn)
-        })
-        .await??;
-        Ok(())
-    }
-
-    /// Load **and delete** all stored notifications for `user_id`, ordered
-    /// oldest-first.
-    ///
-    /// Runs inside a write transaction so no notification can slip through
-    /// between the SELECT and the DELETE.
-    async fn drain_from_db(db: &Db, user_id: i32) -> Result<Vec<OfflineNotification>, DbError> {
-        Ok(db
-            .transaction_write(move |conn| {
-                let rows: Vec<OfflineNotification> = notifications::table
-                    .filter(notifications::user_id.eq(user_id))
-                    .order(notifications::created_at.asc())
-                    .load(conn)?;
-
-                let to_delete = rows.iter().map(|row| row.id);
-                diesel::delete(notifications::table.filter(notifications::id.eq_any(to_delete)))
-                    .execute(conn)?;
-
-                Ok(rows)
+        self.user_stream
+            .open_stream(streams, user_id, ())
+            .await
+            .map_err(|e| match e {
+                OpenError::StreamOpen(e) => NotificationError::Stream(e),
+                OpenError::Rejected(e) => NotificationError::Open(e),
             })
-            .await?)
     }
+
+    /// Remove the notification stream for a user.
+    // Used by the WebTransport disconnect handler (not yet wired).
+    #[allow(dead_code)]
+    pub async fn close_stream(&self, user_id: i32) {
+        self.user_stream.close_stream(user_id).await;
+    }
+
+    /// Returns `true` if the user has an active, non-cancelled notification stream.
+    // Used by the WebTransport disconnect handler (not yet wired).
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn has_stream(&self, user_id: i32) -> bool {
+        self.user_stream.has_stream(user_id)
+    }
+}
+
+// ── DB helpers (module-level functions, not methods) ────────────────────
+
+/// Insert a single notification into the `notifications` table.
+async fn store_to_db(
+    db: &Db,
+    user_id: i32,
+    payload: NotificationPayload,
+    created_at: DateTime<Utc>,
+) -> Result<(), DbError> {
+    db.write(move |conn| {
+        let row = NewOfflineNotification {
+            user_id,
+            data: CborBlob::new(payload),
+            created_at,
+        };
+        diesel::insert_into(notifications::table)
+            .values(&row)
+            .execute(conn)
+    })
+    .await??;
+    Ok(())
+}
+
+/// Load all stored notifications for `user_id`, ordered oldest-first.
+async fn load_from_db(db: &Db, user_id: i32) -> Result<Vec<OfflineNotification>, DbError> {
+    Ok(db
+        .read(move |conn| {
+            notifications::table
+                .filter(notifications::user_id.eq(user_id))
+                .order(notifications::created_at.asc())
+                .load(conn)
+        })
+        .await??)
+}
+
+/// Bulk delete notifications by primary key.
+async fn bulk_delete_from_db(db: &Db, ids: &[i32]) -> Result<(), DbError> {
+    let ids = ids.to_vec();
+    db.write(move |conn| {
+        diesel::delete(notifications::table.filter(notifications::id.eq_any(&ids))).execute(conn)
+    })
+    .await??;
+    Ok(())
 }

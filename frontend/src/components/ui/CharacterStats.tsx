@@ -6,10 +6,26 @@ export interface CharacterStatsProps {
 }
 
 const STAT_BARS = [
-	{ key: 'attack' as const, label: 'Attack', gradient: 'linear-gradient(to right, #d97706, #f59e0b)' },
-	{ key: 'defense' as const, label: 'Defense', gradient: 'linear-gradient(to right, #3b82f6, #60a5fa)' },
-	{ key: 'speed' as const, label: 'Speed', gradient: 'linear-gradient(to right, #10b981, #34d399)' },
-	{ key: 'health' as const, label: 'Health', gradient: 'linear-gradient(to right, #ef4444, #f87171)' },
+	{
+		key: 'attack' as const,
+		label: 'Attack',
+		gradient: 'linear-gradient(to right, #d97706, #f59e0b)',
+	},
+	{
+		key: 'defense' as const,
+		label: 'Defense',
+		gradient: 'linear-gradient(to right, #3b82f6, #60a5fa)',
+	},
+	{
+		key: 'speed' as const,
+		label: 'Speed',
+		gradient: 'linear-gradient(to right, #10b981, #34d399)',
+	},
+	{
+		key: 'health' as const,
+		label: 'Health',
+		gradient: 'linear-gradient(to right, #ef4444, #f87171)',
+	},
 ];
 
 export default function CharacterStats({ character }: CharacterStatsProps) {
@@ -36,7 +52,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 				<h2 className="text-3xl font-black text-gold-400 uppercase tracking-wide leading-tight">
 					{cfg.label}
 				</h2>
-				<p className="uppercase tracking-widest mt-1 text-stone-400" style={{ fontSize: '13px' }}>
+				<p
+					className="uppercase tracking-widest mt-1 text-stone-400"
+					style={{ fontSize: '13px' }}
+				>
 					{cfg.characterClass}
 				</p>
 			</div>
@@ -47,7 +66,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 			<div className="flex flex-col" style={{ gap: '11px' }}>
 				{STAT_BARS.map(({ key, label, gradient }) => (
 					<div key={key}>
-						<div className="uppercase text-stone-500" style={{ fontSize: '12px', marginBottom: '5px' }}>
+						<div
+							className="uppercase text-stone-500"
+							style={{ fontSize: '12px', marginBottom: '5px' }}
+						>
 							{label}
 						</div>
 						<div
@@ -72,7 +94,10 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Weapons */}
 			<div>
-				<div className="uppercase text-stone-500 block" style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}>
+				<div
+					className="uppercase text-stone-500 block"
+					style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}
+				>
 					Equipment
 				</div>
 				<div className="flex flex-col gap-1.5">
@@ -86,10 +111,18 @@ export default function CharacterStats({ character }: CharacterStatsProps) {
 
 			{/* Playstyle */}
 			<div>
-				<div className="uppercase text-stone-500 block" style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}>
+				<div
+					className="uppercase text-stone-500 block"
+					style={{ fontSize: '11px', marginBottom: '6px', letterSpacing: '0.12em' }}
+				>
 					Playstyle
 				</div>
-				<p className="text-stone-400" style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}>{cfg.description}</p>
+				<p
+					className="text-stone-400"
+					style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}
+				>
+					{cfg.description}
+				</p>
 			</div>
 		</div>
 	);

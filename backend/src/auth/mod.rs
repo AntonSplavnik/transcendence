@@ -10,7 +10,7 @@ mod two_factor;
 mod user;
 mod util;
 
-pub use hoops::{device_id_inserter_hoop, AuthError, DepotAuthExt, RouterAuthExt};
+pub use hoops::{AuthError, DepotAuthExt, RouterAuthExt, device_id_inserter_hoop};
 pub use router::router;
 pub use two_factor::TwoFactorError;
 pub use user::router as user_router;
@@ -24,11 +24,11 @@ use crate::models::Session;
 
 pub const JWT_COOKIE_NAME: &str = "access_token";
 pub const SESSION_COOKIE_NAME: &str = "session_token";
-/// tied to session.last_authenticated_at
+/// tied to `session.last_authenticated_at`
 pub const SESSION_LOGIN_EXPIRY: Duration = Duration::from_hours(30 * 24);
-/// tied to session.refreshed_at
+/// tied to `session.refreshed_at`
 pub const SESSION_LOGIN_EXPIRY_ROLLING: Duration = Duration::from_hours(7 * 24);
-/// tied to session.refreshed_at
+/// tied to `session.refreshed_at`
 pub const SESSION_ACCESS_EXPIRY: Duration = Duration::from_mins(15);
 
 /// Maximum number of sessions to keep per user.
@@ -53,7 +53,7 @@ static JWT_DECODING_KEY: LazyLock<jsonwebtoken::DecodingKey> =
     LazyLock::new(|| jsonwebtoken::DecodingKey::from_secret(JWT_SECRET.as_slice()));
 
 static JWT_VALIDATION: LazyLock<jsonwebtoken::Validation> =
-    LazyLock::new(|| jsonwebtoken::Validation::default());
+    LazyLock::new(jsonwebtoken::Validation::default);
 
 fn jwt_encoding_key() -> &'static jsonwebtoken::EncodingKey {
     &JWT_ENCODING_KEY
@@ -74,6 +74,8 @@ struct JwtClaims {
     pub jti: session_token::SessionTokenHashTruncated,
     pub exp: usize,
     pub iat: usize,
+    /// `tos_accepted_at` as a unix timestamp, or `None` if never accepted.
+    pub tos: Option<i64>,
 }
 
 impl Session {

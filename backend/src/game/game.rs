@@ -8,12 +8,12 @@ use super::ffi::{CharacterClass, GameHandle, GameMode, NetworkEvent};
 use super::messages::{GameClientMessage, GameServerMessage};
 
 /// Thread-safe high-level wrapper around the C++ game engine.
-/// Owns a Mutex<GameHandle>, so it is Send + Sync via the mutex.
-/// Networking-agnostic; exposes on_connect / on_disconnect hooks.
+/// Owns a `Mutex<GameHandle>`, so it is Send + Sync via the mutex.
+/// Networking-agnostic; exposes `on_connect` / `on_disconnect` hooks.
 pub struct Game {
     handle: Mutex<GameHandle>,
     mode: GameMode,
-    /// Maps player_id → (name, character_class). Used to enrich Spawn events.
+    /// Maps `player_id` → (name, `character_class`). Used to enrich Spawn events.
     player_info: Mutex<HashMap<u32, (String, CharacterClass)>>,
 }
 
@@ -26,7 +26,7 @@ impl Game {
         }
     }
 
-    /// Provides exclusive access to the underlying GameHandle.
+    /// Provides exclusive access to the underlying `GameHandle`.
     pub fn lock(&self) -> MutexGuard<'_, GameHandle> {
         self.handle.lock()
     }
@@ -44,8 +44,10 @@ impl Game {
     pub fn on_connect(&self, player_id: u32, name: &str, character_class: CharacterClass) -> bool {
         self.player_info
             .lock()
-            .insert(player_id, (name.to_string(), character_class.clone()));
-        self.handle.lock().add_player(player_id, name, character_class.as_str())
+            .insert(player_id, (name.to_string(), character_class));
+        self.handle
+            .lock()
+            .add_player(player_id, name, character_class.as_str())
     }
 
     /// Called when a player disconnects from the game.
@@ -57,6 +59,7 @@ impl Game {
 
     /// Process an incoming client message for a given player.
     /// Returns `false` if the player wants to leave (caller should disconnect them).
+    #[allow(clippy::needless_pass_by_value)]
     pub fn on_client_msg(&self, player_id: u32, msg: GameClientMessage) -> bool {
         match msg {
             GameClientMessage::Input {
@@ -136,7 +139,9 @@ impl Game {
                         position,
                         character_class,
                     } => {
-                        let name = self.player_info.lock()
+                        let name = self
+                            .player_info
+                            .lock()
                             .get(&player_id)
                             .map(|(n, _)| n.clone())
                             .unwrap_or_default();
@@ -150,12 +155,20 @@ impl Game {
                     NetworkEvent::StateChange { player_id, state } => {
                         GameServerMessage::StateChange { player_id, state }
                     }
-                    NetworkEvent::AttackStarted { player_id, chain_stage } => {
-                        GameServerMessage::AttackStarted { player_id, chain_stage }
-                    }
-                    NetworkEvent::SkillUsed { player_id, skill_slot } => {
-                        GameServerMessage::SkillUsed { player_id, skill_slot }
-                    }
+                    NetworkEvent::AttackStarted {
+                        player_id,
+                        chain_stage,
+                    } => GameServerMessage::AttackStarted {
+                        player_id,
+                        chain_stage,
+                    },
+                    NetworkEvent::SkillUsed {
+                        player_id,
+                        skill_slot,
+                    } => GameServerMessage::SkillUsed {
+                        player_id,
+                        skill_slot,
+                    },
                     NetworkEvent::MatchEnd { players } => GameServerMessage::MatchEnd { players },
                 });
                 broadcast(msg);

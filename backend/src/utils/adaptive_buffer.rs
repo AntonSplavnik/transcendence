@@ -73,13 +73,13 @@ use std::ops::{Deref, DerefMut};
 pub trait BufferParams {
     /// Minimum capacity / initial allocation size.
     const MIN_CAPACITY: usize;
-    /// Shrink if capacity > max_seen * SHRINK_FACTOR.
+    /// Shrink if capacity > `max_seen` * `SHRINK_FACTOR`.
     const SHRINK_FACTOR: usize;
     /// How often to check for shrinking (in number of `finish()` calls).
     const SHRINK_CHECK_INTERVAL: usize;
 }
 
-/// Default buffer parameters: MIN_CAPACITY=256, SHRINK_FACTOR=3, SHRINK_CHECK_INTERVAL=64.
+/// Default buffer parameters: `MIN_CAPACITY=256`, `SHRINK_FACTOR=3`, `SHRINK_CHECK_INTERVAL=64`.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DefaultBufferParams;
 
@@ -277,7 +277,7 @@ mod tests {
     fn no_shrink_before_interval() {
         let mut buf = TestBuf::new();
         // Force a large allocation.
-        buf.as_mut_vec().extend(std::iter::repeat(0u8).take(1024));
+        buf.as_mut_vec().extend(std::iter::repeat_n(0u8, 1024));
         let big_cap = buf.capacity();
         // Finish only once — below SHRINK_CHECK_INTERVAL (4).
         buf.finish();
@@ -294,7 +294,7 @@ mod tests {
         // interval resets, subsequent small writes in window 2 will trigger
         // a shrink since capacity >> max_seen * SHRINK_FACTOR.
         for _ in 0..TestParams::SHRINK_CHECK_INTERVAL {
-            buf.as_mut_vec().extend(std::iter::repeat(0u8).take(4096));
+            buf.as_mut_vec().extend(std::iter::repeat_n(0u8, 4096));
             buf.finish();
         }
         // Window 1 completed: max_seen was 4096, capacity >= 4096.
@@ -327,7 +327,7 @@ mod tests {
     fn sustained_large_usage_prevents_shrink() {
         let mut buf = TestBuf::new();
         for _ in 0..TestParams::SHRINK_CHECK_INTERVAL * 2 {
-            buf.as_mut_vec().extend(std::iter::repeat(0u8).take(2048));
+            buf.as_mut_vec().extend(std::iter::repeat_n(0u8, 2048));
             buf.finish();
         }
         // Capacity should still be large enough for the sustained usage.
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn clone_resets_tracking_state() {
         let mut buf = TestBuf::new();
-        buf.as_mut_vec().extend(std::iter::repeat(0u8).take(100));
+        buf.as_mut_vec().extend(std::iter::repeat_n(0u8, 100));
         // Finish a few times to build up uses counter.
         for _ in 0..3 {
             buf.finish();

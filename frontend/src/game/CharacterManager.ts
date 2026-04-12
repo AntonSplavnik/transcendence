@@ -1,4 +1,5 @@
 import type { Scene, Vector3 } from '@babylonjs/core';
+import type * as BabylonType from '@babylonjs/core';
 import type { RefObject } from 'react';
 import type { Vector3D } from './types';
 import { AnimatedCharacter, loadCharacter } from './AnimatedCharacter';
@@ -6,6 +7,8 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from './characterConfigs';
 import type { CharacterConfig } from './characterConfigs';
 import { AnimationStateMachine, AnimPhase, JumpState } from './AnimationStateMachine';
 import { AnimationNames, CharacterState } from './constants';
+
+declare const BABYLON: typeof BabylonType;
 
 export class CharacterManager {
 	// ── Public fields ───────────────────────────────────────────────────
@@ -63,11 +66,17 @@ export class CharacterManager {
 	// ── Local player ────────────────────────────────────────────────────
 
 	async initLocalPlayer(config: CharacterConfig): Promise<void> {
-		this.localCharacter = new AnimatedCharacter(this.scene);
-		await loadCharacter(this.localCharacter, config);
+		// Assign this.localCharacter only after the character is fully loaded.
+		// The render loop calls GameClient.updateLocalAnimation every frame and
+		// immediately tries to play the idle animation — if localCharacter were
+		// set before loadCharacter resolved, it would warn "Idle_A not found"
+		// against an empty animations map for every frame of the load window.
+		const char = new AnimatedCharacter(this.scene);
+		await loadCharacter(char, config);
 		this.characterConfigMap.set(this.localPlayerID, config);
-		this.localCharacter.initTrail(config);
-		this.localCharacter.setPosition(this.position);
+		char.initTrail(config);
+		char.setPosition(this.position);
+		this.localCharacter = char;
 	}
 
 	playLocalSpawn(): void {

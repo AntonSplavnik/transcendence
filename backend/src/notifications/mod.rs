@@ -37,7 +37,7 @@ pub use manager::{NotificationError, NotificationManager};
 ///
 /// async fn my_handler(depot: &mut Depot) {
 ///     let nm = depot.notification_manager();
-///     nm.send(depot.db(), user_id, payload).await.unwrap();
+///     nm.send(user_id, payload).await.unwrap();
 /// }
 /// ```
 pub trait NotificationManagerDepotExt {
@@ -64,8 +64,16 @@ impl NotificationManagerDepotExt for salvo::Depot {
 pub enum NotificationPayload {
     /// Client successfully connected to the server's streaming infrastructure.
     ServerHello,
-    // example:
-    // FriendRequest { invitation_id: i32, sender_id: i32 },
+    /// A friend request was received.
+    FriendRequestReceived { request_id: i32, sender_id: i32 },
+    /// A friend request was accepted.
+    FriendRequestAccepted { request_id: i32, friend_id: i32 },
+    /// A friend request was rejected.
+    FriendRequestRejected { request_id: i32 },
+    /// A friend request was cancelled by the sender.
+    FriendRequestCancelled { request_id: i32 },
+    /// A friend was removed.
+    FriendRemoved { user_id: i32 },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

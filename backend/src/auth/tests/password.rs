@@ -170,7 +170,7 @@ async fn change_password_invalidates_other_sessions() {
 #[tokio::test]
 async fn change_password_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.post("/api/user/change-password")
             .json(&ChangePasswordInput {
