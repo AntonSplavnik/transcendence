@@ -246,6 +246,11 @@ SQLite was chosen because:
 | `totp_secret_enc` | TEXT nullable | AES-encrypted TOTP secret |
 | `totp_confirmed_at` | DATETIME nullable | Timestamp of successful 2FA enrollment |
 | `created_at` | DATETIME | |
+| `tos_accepted_at` | DATETIME nullable | Set when user accepts the current Terms of Service |
+| `email_confirmed_at` | DATETIME nullable | Set when user confirms their email address |
+| `email_confirmation_token_hash` | BLOB nullable | BLAKE3 hash of the email-confirmation token |
+| `email_confirmation_token_expires_at` | DATETIME nullable | Expiry of the confirmation token |
+| `email_confirmation_token_email` | TEXT nullable | Email address the confirmation was sent to |
 
 ### `sessions`
 
@@ -315,6 +320,26 @@ SQLite was chosen because:
 | `confirm_token` | BLOB nullable | 32-byte email confirmation token; NULL after confirmed |
 | `expires_at` | DATETIME | 30 minutes from initiation |
 
+### `friend_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `sender_id` | INTEGER FK | References `users(id)` ON DELETE CASCADE |
+| `receiver_id` | INTEGER FK | References `users(id)` ON DELETE CASCADE; CHECK `sender_id != receiver_id` |
+| `status` | INTEGER | 0 = pending, 1 = accepted; CHECK IN (0, 1) |
+| `created_at` | DATETIME | |
+| `updated_at` | DATETIME | |
+
+Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_id, receiver_id))` prevents duplicate requests between the same two users.
+
+### `tos_versions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT PK | Version identifier (e.g. `"v1"`) |
+| `created_at` | DATETIME | Defaults to `CURRENT_TIMESTAMP` |
+
 ### Relationships summary
 
 - One user has many sessions (cascade delete).
@@ -322,6 +347,8 @@ SQLite was chosen because:
 - One user has at most one large avatar and one small avatar (cascade delete).
 - One user has many notifications (cascade delete).
 - One user has at most one pending deletion request and one pending export request (cascade delete).
+- One user can send and receive many friend requests (cascade delete both sides).
+- `tos_versions` is a standalone lookup table (no FK to users).
 - Sessions reference users; avatars and notifications are user-scoped.
 
 ---
