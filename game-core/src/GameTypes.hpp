@@ -229,6 +229,9 @@ struct GameConfig {
 	static constexpr float FIXED_TIMESTEP        = 1.0f / TARGET_FPS;  // ~16.67ms
 	static constexpr int   MAX_PHYSICS_ITERATIONS = 5;                  // Prevent spiral of death
 
+	// Map data
+	static constexpr const char* MAP_COLLIDERS_PATH = "data/map_colliders.json";
+
 	// Network
 	static constexpr int   MAX_PLAYERS      = 8;
 	static constexpr float SNAPSHOT_RATE    = 60.0f;

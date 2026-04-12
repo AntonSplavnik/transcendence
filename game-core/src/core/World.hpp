@@ -176,7 +176,7 @@ inline void World::initialize() {
 
 	// Load map colliders from JSON (path relative to backend/ working directory)
 	MapLoader mapLoader(m_factory);
-	mapLoader.loadFromFile("data/map_colliders.json");
+	mapLoader.loadFromFile(GameConfig::MAP_COLLIDERS_PATH);
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
