@@ -1,10 +1,9 @@
 //! Provides gamification routes: stats, XP, levels, achievements
 
 use crate::models::{Achievement, UserAchievement, UserStats};
-use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
-use super::achievements::{self, AchievementTier, AchievementUnlock};
+use super::achievements::{AchievementTier, AchievementUnlock};
 use super::xp;
 
 pub fn router(path: &str) -> Router {

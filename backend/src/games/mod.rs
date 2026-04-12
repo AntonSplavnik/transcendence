@@ -1,5 +1,3 @@
-pub mod router;
-
 use crate::{models::UserStats, prelude::*};
 
 #[derive(Debug, Clone)]
@@ -48,5 +46,3 @@ pub fn record_match_end_stats(
 
     Ok(updated)
 }
-#[cfg(test)]
-mod tests;
