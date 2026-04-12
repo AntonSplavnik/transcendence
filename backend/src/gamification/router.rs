@@ -17,11 +17,6 @@ pub fn router(path: &str) -> Router {
                 .get(get_my_stats),
         )
         .push(
-            Router::with_path("record-game")
-                .user_rate_limit(&RateLimit::per_5_minutes(60))
-                .post(record_game),
-        )
-        .push(
             Router::with_path("achievements")
                 .oapi_tag("achievements")
                 .push(
@@ -104,84 +99,6 @@ pub struct RecordGameResponse {
     pub leveled_up: bool,
     pub stats: StatsResponse,
     pub achievement_unlocks: Vec<AchievementUnlock>,
-}
-
-/// Record a game result: updates stats, awards XP, recalculates level, checks achievements.
-/// Fires a notification for each newly unlocked achievement tier.
-#[endpoint]
-async fn record_game(
-    depot: &mut Depot,
-    db: Db,
-    json: JsonBody<RecordGameInput>,
-) -> JsonResult<RecordGameResponse> {
-    let user_id = depot.user_id();
-    let input = json.into_inner();
-
-    let (response, unlocks) = db
-        .transaction_write(move |conn| {
-            use crate::schema::user_stats::dsl;
-
-            // Get or create stats
-            let mut stats = dsl::user_stats
-                .filter(dsl::user_id.eq(user_id))
-                .first::<UserStats>(conn)
-                .optional()?
-                .unwrap_or_else(|| UserStats::new(user_id));
-
-            // Apply game result
-            // This endpoint tracks only win/loss; combat totals are handled by match-end ingestion.
-            let (mut xp_gained, leveled_up) = stats.record_game(input.won, 0, 0, 0.0, 0.0);
-
-            // Upsert stats
-            diesel::replace_into(dsl::user_stats)
-                .values(&stats)
-                .execute(conn)?;
-
-            // Check achievements
-            let unlocks = achievements::check_achievements(conn, user_id, &stats)?;
-
-            // Award achievement XP
-            let achievement_xp: i32 = unlocks.iter().map(|u| u.xp_reward).sum();
-            if achievement_xp > 0 {
-                xp_gained += achievement_xp;
-                stats.xp += achievement_xp;
-                stats.level = xp::level_from_xp(stats.xp);
-
-                diesel::update(dsl::user_stats.filter(dsl::user_id.eq(user_id)))
-                    .set((dsl::xp.eq(stats.xp), dsl::level.eq(stats.level)))
-                    .execute(conn)?;
-            }
-
-            let response = RecordGameResponse {
-                xp_gained,
-                leveled_up,
-                stats: StatsResponse::from(stats),
-                achievement_unlocks: unlocks.clone(),
-            };
-
-            Ok((response, unlocks))
-        })
-        .await?;
-
-    // Send a notification for each newly unlocked achievement tier.
-    // Failures are logged but never bubble up to the caller.
-    let nm = depot.notification_manager();
-    for unlock in &unlocks {
-        let payload = NotificationPayload::AchievementUnlocked {
-            achievement_name: unlock.achievement_name.clone(),
-            tier: unlock.tier.as_str().to_string(),
-            xp_reward: unlock.xp_reward,
-        };
-        if let Err(err) = nm.send(user_id, payload).await {
-            tracing::warn!(
-                user_id,
-                achievement = %unlock.achievement_code,
-                "failed to send achievement notification: {err}"
-            );
-        }
-    }
-
-    json_ok(response)
 }
 
 // ============================================================================
