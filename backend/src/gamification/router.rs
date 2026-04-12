@@ -133,7 +133,8 @@ async fn record_game(
                 .unwrap_or_else(|| UserStats::new(user_id));
 
             // Apply game result
-            let (mut xp_gained, leveled_up) = stats.record_game(input.won);
+            // Legacy endpoint does not provide combat totals; keep them unchanged.
+            let (mut xp_gained, leveled_up) = stats.record_game(input.won, 0, 0, 0.0, 0.0);
 
             // Upsert stats
             diesel::replace_into(dsl::user_stats)
@@ -175,7 +176,7 @@ async fn record_game(
             tier: unlock.tier.as_str().to_string(),
             xp_reward: unlock.xp_reward,
         };
-        if let Err(err) = nm.send(&db, user_id, payload).await {
+        if let Err(err) = nm.send(user_id, payload).await {
             tracing::warn!(
                 user_id,
                 achievement = %unlock.achievement_code,
