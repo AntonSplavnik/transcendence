@@ -1,7 +1,7 @@
 import {
-	Flame,
 	ChevronDown,
 	Fingerprint,
+	Flame,
 	LogOut,
 	Mail,
 	Monitor,
@@ -19,9 +19,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useAchievements } from '../hooks/useAchievements';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { useStats } from '../hooks/useStats';
 import AchievementsModal from './modals/AchievementsModal';
-import useDocumentTitle from '../hooks/useDocumentTitle';
 import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import DataPrivacyModal from './modals/DataPrivacyModal';
@@ -363,13 +363,6 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 							</div>
 						</div>
 					)}
-				</Card>
-
-				<Card>
-					<h2 className="text-xl font-bold mb-2 text-stone-50">Recent History</h2>
-					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-350 text-sm italic">
-						No recent battles recorded.
-					</div>
 				</Card>
 
 				{/* Achievements preview */}
