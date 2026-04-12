@@ -1,0 +1,21 @@
+serve_dir = "/www"
+# ACME automatically provisions TLS certificates via Let's Encrypt.
+# Do NOT set [tls] when using a domain — ACME handles it.
+domain = "yourdomain.com"
+# ACME will only work if these ports match the ports via which the domain is reachable
+# that means the ports inside the docker container must match the host's ports
+listen_http_port = 80
+listen_https_port = 443
+
+[log]
+format = "compact"
+filter_level = "info"
+
+[email]
+smtp_host = "email-smtp.eu-west-1.amazonaws.com"
+smtp_port = 465
+smtp_tls = true
+smtp_username = "AKIA..."
+smtp_password = "..."
+from_address = "noreply@yourdomain.com"
+base_url = "https://yourdomain.com"

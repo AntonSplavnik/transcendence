@@ -1,13 +1,13 @@
 import apiClient from './client';
 import type {
 	AuthResponse,
-	Session,
-	TwoFactorStartResponse,
-	TwoFactorConfirmResponse,
-	PasswordMfaPayload,
-	SessionManagementPayload,
 	ChangePasswordPayload,
 	UserStats,
+	PasswordMfaPayload,
+	Session,
+	SessionManagementPayload,
+	TwoFactorConfirmResponse,
+	TwoFactorStartResponse,
 } from './types';
 
 // ==================== USER INFO ====================
@@ -103,6 +103,12 @@ export async function deleteSessions(
 		mfa_code,
 	};
 	await apiClient.delete('/user/sessions', { data: payload });
+}
+
+// ==================== EMAIL CONFIRMATION ====================
+
+export async function sendConfirmationEmail(): Promise<void> {
+	await apiClient.post('/email/send-confirmation');
 }
 
 export async function logout(): Promise<void> {

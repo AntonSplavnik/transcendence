@@ -1,4 +1,4 @@
-//! Adds ApiClient wrapping a TestClient
+//! Adds `ApiClient` wrapping a `TestClient`
 
 use cookie::CookieJar;
 use salvo::{
@@ -17,17 +17,28 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(server: &Server) -> Self {
-        ApiClient {
+        Self {
             server: server.clone(),
             headers: HeaderMap::new(),
             cookies: CookieJar::new(),
         }
     }
 
+    /// Create a new client connected to a different server but carrying
+    /// over all cookies and headers. Useful for testing against a server
+    /// with a different `ToS` timestamp (same DB).
+    pub fn rebind(&self, server: &Server) -> Self {
+        Self {
+            server: server.clone(),
+            headers: self.headers.clone(),
+            cookies: self.cookies.clone(),
+        }
+    }
+
     /// Create a new client connected to the same server but without any
     /// cookies or custom headers — i.e. an unauthenticated twin.
-    pub fn unauthenticated(&self) -> ApiClient {
-        ApiClient {
+    pub fn unauthenticated(&self) -> Self {
+        Self {
             server: self.server.clone(),
             headers: HeaderMap::new(),
             cookies: CookieJar::new(),
@@ -60,7 +71,7 @@ impl ApiClient {
             }
         });
         let mut req = RequestBuilder::new(format!("{}{}", self.server.host, path), method);
-        for (k, v) in self.headers.iter() {
+        for (k, v) in &self.headers {
             req = req.add_header(k.clone(), v.clone(), true);
         }
         req = req.add_header(COOKIE, cookie_header, true);

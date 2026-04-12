@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
 import { Shield } from 'lucide-react';
-import { Button, Modal, Input, Alert } from '../ui';
+import { useRef, useState } from 'react';
+import { getErrorBrief, getErrorMessage } from '../../api/error';
 import { useAuth } from '../../contexts/AuthContext';
-import { getErrorMessage, getErrorBrief } from '../../api/error';
 import { validateMfaCode } from '../../utils/validation';
+import { Alert, Button, Input, Modal } from '../ui';
 
 interface TwoFactorLoginModalProps {
 	email: string;

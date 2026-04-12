@@ -12,17 +12,22 @@ use crate::prelude::*;
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
         .oapi_tag("users")
-        .push(Router::new().requires_user_login().append(&mut vec![
-                Router::with_path("by-id")
-                    .user_rate_limit(&RateLimit::per_5_minutes(200))
-                    .post(get_users_by_id),
-                Router::with_path("by-nickname")
-                    .user_rate_limit(&RateLimit::per_5_minutes(50))
-                    .post(get_users_by_nickname),
-                Router::with_path("nickname")
-                    .user_rate_limit(&RateLimit::per_5_minutes(500))
-                    .post(get_nicknames_by_ids),
-            ]))
+        .push(
+            Router::new()
+                .requires_user_login()
+                .requires_tos_accepted()
+                .append(&mut vec![
+                    Router::with_path("by-id")
+                        .user_rate_limit(&RateLimit::per_5_minutes(200))
+                        .post(get_users_by_id),
+                    Router::with_path("by-nickname")
+                        .user_rate_limit(&RateLimit::per_5_minutes(50))
+                        .post(get_users_by_nickname),
+                    Router::with_path("nickname")
+                        .user_rate_limit(&RateLimit::per_5_minutes(500))
+                        .post(get_nicknames_by_ids),
+                ]),
+        )
         .push(
             Router::with_path("nickname-exists")
                 .ip_rate_limit(&RateLimit::per_15_minutes(60))
@@ -30,7 +35,7 @@ pub fn router(path: &str) -> Router {
         )
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PublicUser {
     pub id: i32,
     pub nickname: Nickname,
@@ -65,7 +70,7 @@ async fn check_nickname(json: JsonBody<Nickname>, db: Db) -> JsonResult<CheckNic
     use crate::schema::users::dsl::*;
     let input = json.into_inner();
     let valid = crate::validate::nickname(&input).is_ok();
-    let input_clone = input.clone();
+    let input_clone = input;
 
     let exists = db
         .read(move |conn| {

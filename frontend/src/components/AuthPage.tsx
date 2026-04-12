@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Swords, User, Lock, Mail } from 'lucide-react';
-import { Button, Card, Input, Alert } from './ui';
-import { useAuth } from '../contexts/AuthContext';
+import { Lock, Mail, Swords, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getErrorBrief, getErrorMessage } from '../api/error';
 import * as usersApi from '../api/users';
-import { getErrorMessage, getErrorBrief } from '../api/error';
-import { validateNickname, validateEmail } from '../utils/validation';
+import { useAuth } from '../contexts/AuthContext';
+import { validateEmail, validateNickname } from '../utils/validation';
 import TwoFactorLoginModal from './modals/TwoFactorLoginModal';
+import { Alert, Button, Card, Input } from './ui';
 
 const NICKNAME_DEBOUNCE_MS = 500;
 
@@ -27,6 +28,7 @@ export default function AuthPage({
 	const [passwordError, setPasswordError] = useState('');
 	const [nicknameValidation, setNicknameValidation] = useState('');
 	const [isCheckingNickname, setIsCheckingNickname] = useState(false);
+	const [tosAccepted, setTosAccepted] = useState(false);
 	const [showMfaModal, setShowMfaModal] = useState(false);
 	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
@@ -98,7 +100,7 @@ export default function AuthPage({
 			if (isLogin) {
 				await login(email, password);
 			} else {
-				await register(username, email, password);
+				await register(username, email, password, tosAccepted);
 			}
 
 			if (passwordRef.current) {
@@ -229,12 +231,35 @@ export default function AuthPage({
 						required
 					/>
 
+					{!isLogin && (
+						<label className="flex items-start gap-2 text-sm text-stone-300 cursor-pointer select-none">
+							<input
+								type="checkbox"
+								checked={tosAccepted}
+								onChange={(e) => setTosAccepted(e.target.checked)}
+								className="mt-0.5 accent-gold-400"
+							/>
+							<span>
+								I agree to the{' '}
+								<Link
+									to="/terms"
+									className="text-gold-400 hover:underline"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Terms of Service
+								</Link>
+							</span>
+						</label>
+					)}
+
 					<Button
 						type="submit"
 						loading={isLoading}
 						loadingText={isLogin ? 'Signing In...' : 'Creating Account...'}
 						fullWidth
 						className="mt-4"
+						disabled={!isLogin && !tosAccepted}
 					>
 						{isLogin ? 'Sign In' : 'Create Account'}
 					</Button>

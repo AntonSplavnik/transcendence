@@ -1,1 +1,7 @@
+node_modules/
+.DS_Store
+*.exe
+game_server
 *__pycache__
+compile_commands.json
+.vscode

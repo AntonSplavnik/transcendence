@@ -1,20 +1,26 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import { retrieveStoredError } from './api/error';
 import type { StoredError } from './api/error';
+import { retrieveStoredError } from './api/error';
 import AuthPage from './components/AuthPage';
 import GameBoard from './components/GameBoard';
 import Home from './components/Home';
 import LandingPage from './components/LandingPage';
+import LobbyOverlay from './components/LobbyOverlay';
+import LobbyPage from './components/LobbyPage';
 import DisplacedModal from './components/modals/DisplacedModal';
+import TosModal from './components/modals/TosModal';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import SessionManagement from './components/SessionManagement';
 import TermsOfService from './components/TermsOfService';
 import ConnectionStatusBanner from './components/ui/ConnectionStatusBanner';
 import ErrorBanner from './components/ui/ErrorBanner';
+import FriendsDrawer from './components/friends/FriendsDrawer';
 import Layout from './components/ui/Layout';
 import NotificationToast from './components/ui/NotificationToast';
+import { useAuth } from './contexts/AuthContext';
+import { useGame } from './contexts/GameContext';
+import { useLobby } from './contexts/LobbyContext';
 import { useStream } from './contexts/StreamContext';
 import type { ConnectionState } from './stream/types';
 
@@ -43,6 +49,32 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 	const { user } = useAuth();
 	if (user) {
 		return <Navigate to="/home" replace />;
+	}
+	return <>{children}</>;
+}
+
+/**
+ * Redirects to /game while a game session is active for the current player.
+ *
+ * Checks both `gameState.status` (set when the game stream opens) and
+ * `lobbyState.gameActive` (set when the `GameStarting` lobby message
+ * arrives, slightly earlier).  The dual check closes the brief window
+ * between the countdown firing and the game stream fully opening.
+ *
+ * Spectators (in the lobby but not in the players map) are intentionally
+ * excluded — they stay on the lobby page and see the "Game in progress" badge.
+ */
+function InGameGuard({ children }: { children: React.ReactNode }) {
+	const { gameState } = useGame();
+	const { lobbyState } = useLobby();
+	const { user } = useAuth();
+	const isSpectator =
+		!!user && lobbyState.status === 'active' && !lobbyState.players.has(user.id);
+	const isGameActive =
+		gameState.status === 'active' ||
+		(lobbyState.status === 'active' && lobbyState.gameActive && !isSpectator);
+	if (isGameActive) {
+		return <Navigate to="/game" replace />;
 	}
 	return <>{children}</>;
 }
@@ -77,16 +109,44 @@ function DelayedConnectionStatusBanner({ state }: { state: DelayedBannerConnecti
 	return <ConnectionStatusBanner state={state} />;
 }
 
+/**
+ * Show the non-dismissible ToS acceptance modal when an authenticated user
+ * has not accepted the current Terms of Service.
+ *
+ * Waits for `tosLoaded` to avoid flashing the modal before we know whether
+ * acceptance is actually needed. `tosLoaded` becomes true either when the
+ * /api/tos timestamp is fetched OR when the backend returns 403 TosNotAccepted
+ * on any gated endpoint (see AuthContext for details).
+ *
+ * Hidden on `/terms` where the full ToS page has its own inline accept button.
+ */
+function TosGate() {
+	const { user, authChecked, hasAcceptedTos, tosLoaded } = useAuth();
+	const location = useLocation();
+
+	if (!authChecked || !user || !tosLoaded || hasAcceptedTos) {
+		return null;
+	}
+	// On /terms the TermsOfService component shows its own accept button,
+	// so we skip the modal to avoid double UI.
+	if (location.pathname === '/terms') {
+		return null;
+	}
+	return <TosModal />;
+}
+
+/**
+ * Connection status banners, displacement modal, and notification toasts.
+ * Only rendered for authenticated users who have accepted the current ToS
+ * (the stream is intentionally disconnected otherwise).
+ */
 function RealtimeStatusOverlays() {
-	const { user, authChecked } = useAuth();
+	const { user, authChecked, hasAcceptedTos } = useAuth();
 	const { connectionState } = useStream();
 	const [dismissedDisplacementState, setDismissedDisplacementState] =
 		useState<ConnectionState | null>(null);
 
-	// These overlays only make sense for authenticated users. On public pages
-	// the stream is intentionally disconnected, so showing a connection warning
-	// would be misleading noise rather than useful status information.
-	if (!authChecked || !user) {
+	if (!authChecked || !user || !hasAcceptedTos) {
 		return null;
 	}
 
@@ -104,6 +164,7 @@ function RealtimeStatusOverlays() {
 				<ConnectionStatusBanner state={connectionState} />
 			) : null}
 			<NotificationToast />
+			<LobbyOverlay />
 			{shouldShowDisplacedModal && (
 				<DisplacedModal onDismiss={() => setDismissedDisplacementState(connectionState)} />
 			)}
@@ -112,11 +173,12 @@ function RealtimeStatusOverlays() {
 }
 
 export default function AppRoutes() {
-	const { logout, authChecked } = useAuth();
+	const { user, logout, authChecked } = useAuth();
 	const { connectionManager } = useStream();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const hideFooter = location.pathname === '/game';
+	const hideFooter = location.pathname === '/game' || location.pathname === '/lobby';
+	const isGame = location.pathname === '/game';
 	const isLanding = location.pathname === '/landing' || location.pathname === '/';
 
 	const [currentError, setCurrentError] = useState<StoredError | null>(() => {
@@ -161,9 +223,15 @@ export default function AppRoutes() {
 
 	return (
 		<Layout className={isLanding ? 'h-screen overflow-hidden' : ''}>
+			<TosGate />
 			<RealtimeStatusOverlays />
 			<ErrorBanner error={currentError} onDismiss={handleDismissError} />
-			<Routes>
+			{user && !isGame && <FriendsDrawer />}
+			{/* Key on tos_accepted_at so the entire route tree remounts after
+			   ToS acceptance. Components that failed to fetch data (403
+			   TosNotAccepted) hold stale error state — a remount gives them
+			   a fresh start without requiring a full page reload. */}
+			<Routes key={user?.tos_accepted_at ?? 'pending'}>
 				<Route
 					path="/landing"
 					element={
@@ -187,11 +255,22 @@ export default function AppRoutes() {
 					path="/home"
 					element={
 						<ProtectedRoute>
-							<Home
-								onGame={() => navigate('/game')}
-								onLogout={handleLogout}
-								onSessions={() => navigate('/sessions')}
-							/>
+							<InGameGuard>
+								<Home
+									onLogout={handleLogout}
+									onSessions={() => navigate('/sessions')}
+								/>
+							</InGameGuard>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/lobby"
+					element={
+						<ProtectedRoute>
+							<InGameGuard>
+								<LobbyPage />
+							</InGameGuard>
 						</ProtectedRoute>
 					}
 				/>
@@ -199,10 +278,12 @@ export default function AppRoutes() {
 					path="/sessions"
 					element={
 						<ProtectedRoute>
-							<SessionManagement
-								onBack={() => navigate('/home')}
-								onLogout={handleLogout}
-							/>
+							<InGameGuard>
+								<SessionManagement
+									onBack={() => navigate('/home')}
+									onLogout={handleLogout}
+								/>
+							</InGameGuard>
 						</ProtectedRoute>
 					}
 				/>
@@ -210,7 +291,7 @@ export default function AppRoutes() {
 					path="/game"
 					element={
 						<ProtectedRoute>
-							<GameBoard onLeave={() => navigate('/home')} />
+							<GameBoard />
 						</ProtectedRoute>
 					}
 				/>
