@@ -97,7 +97,7 @@ namespace Presets {
 			.jumpCost          = 5.0f,     // ~24 jumps from full
 		},
 		.combat = {
-			.baseDamage         = 12.0f,
+			.baseDamage         = 22.0f,
 			.damageMultiplier   = 1.0f,
 			.criticalChance     = 0.35f,   // high crit — glass cannon
 			.criticalMultiplier = 2.0f,
