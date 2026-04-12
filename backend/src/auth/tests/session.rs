@@ -4,7 +4,7 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
-use super::two_factor::{ensure_totp_key, generate_totp_code};
+use super::two_factor::{ensure_2fa_disabled, generate_totp_code};
 
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
@@ -40,9 +40,10 @@ impl mock::User<mock::Registered> {
 
     /// `POST /api/auth/session-management/reauth` without asserting.
     pub async fn try_reauth(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self
             .client
@@ -196,7 +197,7 @@ async fn refresh_jwt_after_logout_fails() {
 async fn reauth_with_2fa_requires_mfa_code() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -216,7 +217,7 @@ async fn reauth_with_2fa_requires_mfa_code() {
 async fn reauth_with_2fa_wrong_mfa_rejected() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -236,7 +237,7 @@ async fn reauth_with_2fa_wrong_mfa_rejected() {
 async fn reauth_with_2fa_valid_mfa_accepted() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;

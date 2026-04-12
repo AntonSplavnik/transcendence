@@ -85,7 +85,7 @@ pub async fn send_confirmation_email(
     let encoded = token.encoded();
     let expires_at = Utc::now() + Duration::hours(24);
 
-    let (email_addr, nickname) = db
+    let user = db
         .write(move |conn| {
             use crate::schema::users::dsl::*;
 
@@ -97,7 +97,6 @@ pub async fn send_confirmation_email(
                 }
 
                 let user_email = user.email.clone();
-                let user_nick = user.nickname.to_string();
 
                 diesel::update(users.find(user_id))
                     .set((
@@ -107,7 +106,7 @@ pub async fn send_confirmation_email(
                     ))
                     .execute(conn)?;
 
-                Ok(Ok((user_email, user_nick)))
+                Ok(Ok(user))
             })
         })
         .await?
@@ -116,9 +115,8 @@ pub async fn send_confirmation_email(
 
     mailer
         .send(
-            &email_addr,
+            &user,
             TransactionalEmail::EmailConfirmation {
-                nickname,
                 confirmation_token: encoded,
             },
         )
@@ -190,35 +188,6 @@ pub async fn confirm_email(db: &Db, raw_token: &str) -> Result<(), ApiError> {
     .map_err(ApiError::from)
 }
 
-// ── HTML pages ───────────────────────────────────────────────────────────
-
-const CONFIRMED_HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Email Confirmed</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
-.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#22c55e;margin-bottom:.5rem}</style></head>
-<body><div class="card"><h1>Email Confirmed</h1><p>Your email has been confirmed. You can close this tab.</p></div></body>
-</html>"#;
-
-const CONFIRM_ERROR_HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Confirmation Failed</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
-.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#ef4444;margin-bottom:.5rem}</style></head>
-<body><div class="card"><h1>Confirmation Failed</h1><p>This confirmation link is invalid or has expired. Please request a new one.</p></div></body>
-</html>"#;
-
-const CONFIRM_SERVER_ERROR_HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Confirmation Failed</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}
-.card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#ef4444;margin-bottom:.5rem}</style></head>
-<body><div class="card"><h1>Something Went Wrong</h1><p>An unexpected error occurred. Please try again later.</p></div></body>
-</html>"#;
-
 // ── Router / Endpoints ───────────────────────────────────────────────────
 
 #[must_use]
@@ -248,23 +217,45 @@ async fn send_confirmation(depot: &mut Depot, db: Db) -> AppResult<()> {
 /// Confirm an email address via magic link (returns HTML).
 #[endpoint]
 async fn confirm(token: QueryParam<String, false>, res: &mut Response, db: Db) {
+    use crate::utils::html_action_result_card;
+
     let Some(token) = token.into_inner() else {
         res.status_code(StatusCode::BAD_REQUEST);
-        res.render(salvo::writing::Text::Html(CONFIRM_ERROR_HTML));
+        res.render(salvo::writing::Text::Html(html_action_result_card(
+            "Confirmation Failed",
+            "Confirmation Failed",
+            false,
+            "This confirmation link is invalid or has expired. Please request a new one.",
+        )));
         return;
     };
 
     match confirm_email(&db, &token).await {
         Ok(()) => {
-            res.render(salvo::writing::Text::Html(CONFIRMED_HTML));
+            res.render(salvo::writing::Text::Html(html_action_result_card(
+                "Email Confirmed",
+                "Email Confirmed",
+                true,
+                "Your email has been confirmed. You can close this tab.",
+            )));
         }
         Err(ApiError::EmailConfirmation(EmailConfirmationError::InvalidToken)) => {
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(CONFIRM_ERROR_HTML));
+            res.render(salvo::writing::Text::Html(html_action_result_card(
+                "Confirmation Failed",
+                "Confirmation Failed",
+                false,
+                "This confirmation link is invalid or has expired. Please request a new one.",
+            )));
         }
         Err(_) => {
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(salvo::writing::Text::Html(CONFIRM_SERVER_ERROR_HTML));
+            res.render(salvo::writing::Text::Html(html_action_result_card(
+                "Confirmation Failed",
+                "Something Went Wrong",
+                false,
+                "An unexpected error occurred. Please try again later.",
+            )));
         }
     }
 }
@@ -362,6 +353,47 @@ mod unit_tests {
         assert!(
             matches!(err, EmailConfirmationError::UnconfirmedEmail),
             "unconfirmed user must produce UnconfirmedEmail"
+        );
+    }
+
+    #[test]
+    fn encoded_token_has_expected_length() {
+        // base64url (no padding) of 32 bytes = ceil(32 * 4 / 3) = 43 chars
+        let token = ConfirmationToken([0u8; 32]);
+        assert_eq!(
+            token.encoded().len(),
+            43,
+            "base64url encoding of 32 bytes must be 43 characters"
+        );
+    }
+
+    #[test]
+    fn hash_is_32_bytes() {
+        let token = ConfirmationToken([7u8; 32]);
+        assert_eq!(
+            token.to_hash().len(),
+            32,
+            "blake3 hash output must be 32 bytes"
+        );
+    }
+
+    #[test]
+    fn hash_differs_from_raw_token_bytes() {
+        let raw = [0xab_u8; 32];
+        let token = ConfirmationToken(raw);
+        assert_ne!(
+            token.to_hash(),
+            raw.to_vec(),
+            "stored hash must differ from the raw token bytes"
+        );
+    }
+
+    #[test]
+    fn from_encoded_empty_string_returns_invalid_token() {
+        let result = ConfirmationToken::from_encoded("");
+        assert!(
+            matches!(result, Err(EmailConfirmationError::InvalidToken)),
+            "empty string must produce InvalidToken"
         );
     }
 }

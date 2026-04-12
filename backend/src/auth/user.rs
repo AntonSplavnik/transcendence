@@ -47,6 +47,16 @@ pub fn router(path: &str) -> Router {
                     Router::with_path("change-password")
                         .user_rate_limit(&RateLimit::per_15_minutes(10))
                         .post(change_pw),
+                )
+                .push(
+                    Router::with_path("delete-my-account")
+                        .user_rate_limit(&RateLimit::per_15_minutes(5))
+                        .delete(super::delete_account::delete_my_account),
+                )
+                .push(
+                    Router::with_path("export-my-data")
+                        .user_rate_limit(&RateLimit::per_15_minutes(3))
+                        .post(super::export_data::export_my_data),
                 ),
         )
 }
@@ -194,7 +204,7 @@ async fn logout(depot: &mut Depot, res: &mut Response, db: Db) -> JsonResult<()>
 
     db.write(move |conn| deauth_sessions(conn, &streams, user_id, &[session_id]))
         .await??;
-    delete_auth_cookies(res);
+    util::delete_auth_cookies(res);
     json_ok(())
 }
 
@@ -241,7 +251,7 @@ async fn logout_sessions(
     .await??;
 
     if session_ids.contains(&session_id) {
-        delete_auth_cookies(res);
+        util::delete_auth_cookies(res);
         Err(super::AuthError::DidLogout.into())
     } else {
         json_ok(())
@@ -397,16 +407,11 @@ async fn delete_sessions(
         .any(|session_id| streams.close_stream(session.user_id, Some(*session_id)));
 
     if session_ids.contains(&session_id) {
-        delete_auth_cookies(res);
+        util::delete_auth_cookies(res);
         Err(super::AuthError::DidLogout.into())
     } else {
         json_ok(())
     }
-}
-
-fn delete_auth_cookies(res: &mut Response) {
-    res.remove_cookie(super::SESSION_COOKIE_NAME);
-    res.remove_cookie(super::JWT_COOKIE_NAME);
 }
 
 fn deauth_other_sessions(

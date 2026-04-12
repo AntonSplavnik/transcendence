@@ -36,7 +36,10 @@ async fn me_returns_correct_user_info() {
     assert_eq!(info.user.id, user.user_id());
     assert_eq!(info.user.email, *user.email);
     assert_eq!(info.user.nickname.to_string(), user.nickname.to_string());
-    assert!(!info.user.totp_enabled);
+    #[cfg(not(any(feature = "2fa-totp", feature = "2fa-recovery")))]
+    assert!(!info.user.totp_enabled, "2FA must be off in default mode");
+    #[cfg(any(feature = "2fa-totp", feature = "2fa-recovery"))]
+    assert!(info.user.totp_enabled, "2FA must be on in feature modes");
 }
 
 #[tokio::test]

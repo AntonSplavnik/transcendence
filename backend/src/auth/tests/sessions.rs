@@ -5,7 +5,7 @@ use crate::utils::mock;
 use salvo::http::StatusCode;
 use salvo::test::ResponseExt;
 
-use super::two_factor::{ensure_totp_key, generate_totp_code};
+use super::two_factor::{ensure_2fa_disabled, generate_totp_code};
 
 // ── Ergonomic helpers on mock::User ────────────────────────────────────────
 
@@ -23,9 +23,10 @@ impl mock::User<mock::Registered> {
 
     /// `POST /api/user/sessions` without asserting.
     pub async fn try_all_sessions(&mut self) -> salvo::Response {
+        let mfa_code = self.mfa_code().await;
         let body = PasswordInput {
             password: self.password.to_string(),
-            mfa_code: None,
+            mfa_code,
         };
         let req = self.client.post("/api/user/sessions").json(&body);
         self.client.send(req).await
@@ -98,6 +99,8 @@ fn clone_as_second_device(
         email: user.email.clone(),
         password: user.password.clone(),
         id: mock::Registered(user.user_id()),
+        totp_secret: user.totp_secret.clone(),
+        recovery_codes: None, // uses TOTP fallback in recovery mode
     }
 }
 
@@ -168,7 +171,7 @@ async fn all_sessions_unauthenticated_unauthorized() {
 async fn all_sessions_with_2fa_requires_mfa() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -206,8 +209,9 @@ async fn logout_sessions_succeeds() {
     let second_session = second.current_session().await;
 
     // Logout the second session from the first.
+    let mfa = user.mfa_code().await;
     let res = user
-        .try_logout_sessions(&[second_session.session_id], None)
+        .try_logout_sessions(&[second_session.session_id], mfa.as_deref())
         .await;
     assert_eq!(
         res.status_code,
@@ -230,8 +234,9 @@ async fn logout_sessions_including_self_returns_did_logout() {
     let mut user = server.user().register().await;
     let own_session = user.current_session().await;
 
+    let mfa = user.mfa_code().await;
     let res = user
-        .try_logout_sessions(&[own_session.session_id], None)
+        .try_logout_sessions(&[own_session.session_id], mfa.as_deref())
         .await;
     assert_eq!(
         res.status_code,
@@ -282,7 +287,7 @@ async fn logout_sessions_unauthenticated_unauthorized() {
 async fn logout_sessions_with_2fa_requires_mfa() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -322,7 +327,8 @@ async fn logout_other_sessions_succeeds() {
     second.login().await;
 
     // Logout other sessions.
-    let res = user.try_logout_other_sessions(None).await;
+    let mfa = user.mfa_code().await;
+    let res = user.try_logout_other_sessions(mfa.as_deref()).await;
     assert_eq!(
         res.status_code,
         Some(StatusCode::OK),
@@ -382,7 +388,7 @@ async fn logout_other_sessions_unauthenticated_unauthorized() {
 async fn logout_other_sessions_with_2fa_requires_mfa() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -413,8 +419,9 @@ async fn delete_sessions_succeeds() {
     let second_session = second.current_session().await;
 
     // Delete the second session.
+    let mfa = user.mfa_code().await;
     let res = user
-        .try_delete_sessions(&[second_session.session_id], None)
+        .try_delete_sessions(&[second_session.session_id], mfa.as_deref())
         .await;
     assert_eq!(
         res.status_code,
@@ -437,8 +444,9 @@ async fn delete_sessions_including_self_returns_did_logout() {
     let mut user = server.user().register().await;
     let own_session = user.current_session().await;
 
+    let mfa = user.mfa_code().await;
     let res = user
-        .try_delete_sessions(&[own_session.session_id], None)
+        .try_delete_sessions(&[own_session.session_id], mfa.as_deref())
         .await;
     assert_eq!(
         res.status_code,
@@ -489,7 +497,7 @@ async fn delete_sessions_unauthenticated_unauthorized() {
 async fn delete_sessions_with_2fa_requires_mfa() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
-    ensure_totp_key();
+    ensure_2fa_disabled(&mut user).await;
 
     // Enable 2FA.
     let secret = user.two_fa_start().await;
@@ -520,8 +528,9 @@ async fn delete_sessions_removes_from_all_sessions_list() {
     assert_eq!(sessions.len(), 2);
 
     // Delete the second session.
+    let mfa = user.mfa_code().await;
     let res = user
-        .try_delete_sessions(&[second_session.session_id], None)
+        .try_delete_sessions(&[second_session.session_id], mfa.as_deref())
         .await;
     assert_eq!(res.status_code, Some(StatusCode::OK));
 

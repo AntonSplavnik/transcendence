@@ -7,6 +7,59 @@ use crate::db::Database;
 use crate::email::TransactionalEmail;
 use crate::utils::mock;
 
+// ── Ergonomic helpers on mock::User ─────────────────────────────────────
+
+impl mock::User<mock::Registered> {
+    /// Send a confirmation email for this user, asserting 200 OK.
+    pub async fn send_confirmation_email(&mut self) {
+        let res = self.try_send_confirmation_email().await;
+        assert_eq!(
+            res.status_code,
+            Some(StatusCode::OK),
+            "send_confirmation_email must succeed for user {}",
+            self.user_id()
+        );
+    }
+
+    /// Send a confirmation email request without asserting on the outcome.
+    pub async fn try_send_confirmation_email(&mut self) -> salvo::Response {
+        let req = self.client.post("/api/email/send-confirmation");
+        self.client.send(req).await
+    }
+
+    /// Send a confirmation email and click the link, confirming this user's email address.
+    ///
+    /// Asserts every step succeeds. Drains any accumulated emails from the mock mailer
+    /// before sending so the token extraction always finds exactly one email.
+    pub async fn confirm_email(&mut self, server: &mock::Server) {
+        server.mailer.take_emails(); // drain stale mail
+        self.send_confirmation_email().await;
+
+        let token = server
+            .mailer
+            .take_emails()
+            .into_iter()
+            .find_map(|e| {
+                if let TransactionalEmail::EmailConfirmation { confirmation_token } = e.email {
+                    Some(confirmation_token)
+                } else {
+                    None
+                }
+            })
+            .expect("no EmailConfirmation found in mock mailer after send_confirmation_email");
+
+        let mut anon = server.client();
+        let req = anon.get(format!("/api/email/confirm?token={token}"));
+        let res = anon.send(req).await;
+        assert_eq!(
+            res.status_code,
+            Some(StatusCode::OK),
+            "email confirmation must succeed for user {}",
+            self.user_id()
+        );
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 /// Extract the raw confirmation token from the first (and only) captured email.
@@ -17,6 +70,7 @@ fn extract_token_from_mock(server: &mock::Server) -> String {
         TransactionalEmail::EmailConfirmation {
             confirmation_token, ..
         } => confirmation_token.clone(),
+        _ => panic!("expected EmailConfirmation variant"),
     }
 }
 
@@ -307,5 +361,153 @@ async fn send_confirmation_stores_token_and_email_snapshot_in_db() {
         diff > Duration::hours(23) && diff < Duration::hours(25),
         "token expiry should be approximately 24 hours from now, got {}h",
         diff.num_hours()
+    );
+}
+
+#[tokio::test]
+async fn send_confirmation_new_token_overwrites_old_token() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+
+    // First confirmation email → token A
+    user.send_confirmation_email().await;
+    let token_a = extract_token_from_mock(&server);
+
+    // Second confirmation email → token B (overwrites token A in DB)
+    user.send_confirmation_email().await;
+    let token_b = extract_token_from_mock(&server);
+
+    assert_ne!(
+        token_a, token_b,
+        "each issuance must produce a distinct token"
+    );
+
+    // Token A must now be invalid (its hash was overwritten)
+    let mut anon = server.client();
+    let req = anon.get(format!("/api/email/confirm?token={token_a}"));
+    let mut res = anon.send(req).await;
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "old token must be rejected after a new one is issued"
+    );
+    let body = res.take_string().await.unwrap();
+    assert!(
+        body.contains("Confirmation Failed"),
+        "old token must show error page"
+    );
+
+    // Token B must still be valid
+    let mut anon2 = server.client();
+    let req = anon2.get(format!("/api/email/confirm?token={token_b}"));
+    let res = anon2.send(req).await;
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::OK),
+        "new token must confirm successfully"
+    );
+}
+
+#[tokio::test]
+async fn confirm_email_sets_confirmed_at_in_db() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+    let uid = user.user_id();
+
+    user.send_confirmation_email().await;
+    let token = extract_token_from_mock(&server);
+
+    // Before confirmation: email_confirmed_at must be NULL
+    let confirmed_before: Option<chrono::DateTime<Utc>> = server
+        .db
+        .read(move |conn| {
+            use crate::schema::users::dsl::*;
+            users
+                .find(uid)
+                .select(email_confirmed_at)
+                .first(conn)
+                .unwrap()
+        })
+        .await
+        .unwrap();
+    assert!(
+        confirmed_before.is_none(),
+        "email_confirmed_at must be NULL before confirmation"
+    );
+
+    // Confirm the email
+    let mut anon = server.client();
+    let req = anon.get(format!("/api/email/confirm?token={token}"));
+    let res = anon.send(req).await;
+    assert_eq!(res.status_code, Some(StatusCode::OK));
+
+    // After confirmation: email_confirmed_at must be set and token columns cleared
+    #[allow(clippy::type_complexity)]
+    let (confirmed_after, tok_hash, tok_expires, tok_email): (
+        Option<chrono::DateTime<Utc>>,
+        Option<Vec<u8>>,
+        Option<chrono::DateTime<Utc>>,
+        Option<String>,
+    ) = server
+        .db
+        .read(move |conn| {
+            use crate::schema::users::dsl::*;
+            users
+                .find(uid)
+                .select((
+                    email_confirmed_at,
+                    email_confirmation_token_hash,
+                    email_confirmation_token_expires_at,
+                    email_confirmation_token_email,
+                ))
+                .first(conn)
+                .unwrap()
+        })
+        .await
+        .unwrap();
+
+    assert!(
+        confirmed_after.is_some(),
+        "email_confirmed_at must be set after confirmation"
+    );
+    assert!(
+        tok_hash.is_none(),
+        "token hash must be cleared after confirmation"
+    );
+    assert!(
+        tok_expires.is_none(),
+        "token expiry must be cleared after confirmation"
+    );
+    assert!(
+        tok_email.is_none(),
+        "token email snapshot must be cleared after confirmation"
+    );
+}
+
+#[tokio::test]
+async fn confirm_valid_format_but_unknown_token_rejected() {
+    let server = mock::Server::default();
+    // Use a well-formed token (valid base64url, 32 bytes) that was never stored
+    let unknown_token = {
+        use base64::Engine as _;
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([
+            0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+            0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+            0x19, 0x1a, 0x1b, 0x1c,
+        ])
+    };
+
+    let mut client = server.client();
+    let req = client.get(format!("/api/email/confirm?token={unknown_token}"));
+    let mut res = client.send(req).await;
+    assert_eq!(
+        res.status_code,
+        Some(StatusCode::BAD_REQUEST),
+        "valid-format but unknown token must be rejected"
+    );
+    let body = res.take_string().await.unwrap();
+    assert!(
+        body.contains("Confirmation Failed"),
+        "unknown token must show error page"
     );
 }

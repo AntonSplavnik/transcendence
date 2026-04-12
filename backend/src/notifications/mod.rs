@@ -23,6 +23,7 @@ mod manager;
 use chrono::{DateTime, Utc};
 #[allow(unused_imports)]
 pub use manager::{NotificationError, NotificationManager};
+use salvo::oapi::ToSchema;
 
 /// Extension trait for convenient [`NotificationManager`] access from a Salvo
 /// [`Depot`](salvo::Depot).
@@ -60,7 +61,7 @@ impl NotificationManagerDepotExt for salvo::Depot {
 ///
 /// Payload variant contents must be robust enough to still work after long-term storage in the DB.
 /// Every variant must be cheaply de/serializable.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ToSchema)]
 pub enum NotificationPayload {
     /// Client successfully connected to the server's streaming infrastructure.
     ServerHello,

@@ -36,6 +36,17 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
                 .ip_rate_limit(&RateLimit::per_minute(30))
                 .get(crate::tos::current_tos),
             crate::email::confirm::router("email"),
+            Router::with_path("gdpr")
+                .oapi_tag("gdpr")
+                .ip_rate_limit(&RateLimit::per_minute(10))
+                .push(
+                    Router::with_path("confirm-account-deletion")
+                        .get(crate::auth::delete_account::confirm_account_deletion),
+                )
+                .push(
+                    Router::with_path("confirm-data-export")
+                        .get(crate::auth::export_data::confirm_data_export),
+                ),
         ]);
 
     let stream_manager = Arc::new(StreamManager::new());

@@ -1,4 +1,6 @@
+mod delete_account;
 mod description;
+mod export_data;
 mod login;
 mod logout;
 mod me;
