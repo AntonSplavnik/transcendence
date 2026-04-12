@@ -75,6 +75,8 @@ pub enum NotificationPayload {
     FriendRequestCancelled { request_id: i32 },
     /// A friend was removed.
     FriendRemoved { user_id: i32 },
+    /// A game invite was received.
+    GameInviteReceived { sender_id: i32, lobby_id: String },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
