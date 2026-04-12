@@ -8,6 +8,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLobby } from '../../contexts/LobbyContext';
+import { inviteToLobby } from '../../api/lobby';
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 
@@ -51,7 +53,7 @@ interface ContextMenuProps {
 }
 
 function UsernameContextMenu({
-	userId: _userId,
+	userId,
 	nickname,
 	anchorRect,
 	isFriend,
@@ -133,6 +135,17 @@ function UsernameContextMenu({
 		};
 	}, [onClose]);
 
+	const { lobbyState } = useLobby();
+	const canInvite = isFriend && lobbyState.status === 'active';
+
+	function handleInviteToGame() {
+		if (lobbyState.status !== 'active') return;
+		inviteToLobby(lobbyState.lobbyId, userId).catch((err) => {
+			console.warn('[Username] failed to invite to game:', err);
+		});
+		onClose();
+	}
+
 	function handleCopyUsername() {
 		navigator.clipboard.writeText(nickname).catch(() => {
 			/* silently ignore clipboard errors */
@@ -204,15 +217,25 @@ function UsernameContextMenu({
 					Friend Request
 				</button>
 			)}
-			{/* Invite to Game (stub) */}
-			<button
-				role="menuitem"
-				className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
-				disabled
-				aria-disabled="true"
-			>
-				Invite to Game
-			</button>
+			{/* Invite to Game — enabled when caller is in a lobby and target is a friend */}
+			{canInvite ? (
+				<button
+					role="menuitem"
+					onClick={handleInviteToGame}
+					className="w-full text-left px-3 py-1.5 text-stone-200 hover:bg-stone-700 focus-visible:bg-stone-700 outline-none transition-colors"
+				>
+					Invite to Game
+				</button>
+			) : (
+				<button
+					role="menuitem"
+					className="w-full text-left px-3 py-1.5 text-stone-300 cursor-not-allowed opacity-60"
+					disabled
+					aria-disabled="true"
+				>
+					Invite to Game
+				</button>
+			)}
 
 			<div role="separator" className="border-t border-stone-700 my-0.5" />
 
