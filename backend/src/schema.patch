@@ -1,5 +1,5 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 7615ccbc..5e00e68b 100644
+index 7615ccb..5e00e68 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
 @@ -2,13 +2,13 @@

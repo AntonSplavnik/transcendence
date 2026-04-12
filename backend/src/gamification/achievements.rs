@@ -49,10 +49,6 @@ fn stat_value_for_code(code: &str, stats: &UserStats) -> Option<i32> {
         "games_played" => Some(stats.games_played),
         "games_won" => Some(stats.games_won),
         "win_streak" => Some(stats.best_win_streak),
-        // Future stats not yet tracked in user_stats
-        "total_kills" | "spells_cast" | "daily_completed" | "playtime_hours" | "first_blood" => {
-            None
-        }
         _ => None,
     }
 }
