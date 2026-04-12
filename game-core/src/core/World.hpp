@@ -93,6 +93,7 @@ public:
 							  Vector3D pos);
 	void respawnPlayer(entt::entity player, const Vector3D& pos);
 	bool removePlayer(PlayerID id);
+	bool markPlayerDisconnected(PlayerID id);
 	size_t getPlayerCount() const { return m_playerToEntity.size(); }
 
 	// Input handling (forwards to controller component)
@@ -356,6 +357,26 @@ inline bool World::removePlayer(PlayerID id) {
 	unregisterPlayerIDMapping(entity);
 
 	destroyEntity(entity);
+
+	return true;
+}
+
+inline bool World::markPlayerDisconnected(PlayerID id) {
+	entt::entity entity = getEntityByPlayerID(id);
+
+	if (entity == entt::null) {
+		return false;
+	}
+
+	auto* info = m_registry.try_get<Components::PlayerInfo>(entity);
+	if (!info) {
+		return false;
+	}
+
+	info->disconnected = true;
+
+	// Unregister PlayerID mapping
+	unregisterPlayerIDMapping(entity);
 
 	return true;
 }

@@ -84,6 +84,7 @@ public:
 	// Player management
 	bool addPlayer(PlayerID playerID, const std::string& name, const std::string& characterClass);
 	bool removePlayer(PlayerID playerID);
+	bool markPlayerDisconnected(PlayerID playerID);
 
 	// Input handling
 	void setPlayerInput(PlayerID playerID, const InputState& input);
@@ -204,6 +205,10 @@ inline bool ArenaGame::addPlayer(PlayerID playerID, const std::string& name, con
 
 inline bool ArenaGame::removePlayer(PlayerID playerID) {
 	return m_world.removePlayer(playerID);
+}
+
+inline bool ArenaGame::markPlayerDisconnected(PlayerID playerID) {
+	return m_world.markPlayerDisconnected(playerID);
 }
 
 inline void ArenaGame::setPlayerInput(PlayerID playerID, const InputState& input) {

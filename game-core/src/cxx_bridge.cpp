@@ -77,7 +77,7 @@ bool GameBridge::add_player(uint32_t id, rust::Str name, rust::Str character_cla
 }
 
 bool GameBridge::remove_player(uint32_t id) {
-    return game.removePlayer(id);
+    return game.markPlayerDisconnected(id);
 }
 
 void GameBridge::set_player_input(uint32_t id, const PlayerInput& input) {

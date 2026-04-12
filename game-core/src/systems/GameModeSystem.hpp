@@ -96,7 +96,32 @@ namespace ArenaGame {
 			if (ne) ne->events.push_back(buildMatchEndEvent(*m_registry, *stats));
 		}
 
+		if (m_mode->isOver()) {
+			endMatch(*gm, *stats);
+		} else {
+			// End the match when too few human players remain (e.g. disconnect).
+			size_t playerCount = 0;
+			for ([[maybe_unused]] auto _ : m_registry->view<PlayerTag>()) ++playerCount;
+
+			if (playerCount < m_mode->minPlayers()) {
+				for (auto entity : m_registry->view<PlayerTag>()) {
+					stats->playerStats[entity].placement = 1;
+				}
+				endMatch(*gm, *stats);
+			}
+		}
+
 		ie->events.clear();
 	}
 
+	inline void GameModeSystem::endMatch(
+        Components::GameModeComponent& gm,
+        const Components::MatchStatsComponent& stats)
+    {
+        gm.matchStatus = MatchStatus::Over;
+        auto* ne = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
+        if (ne) ne->events.push_back(buildMatchEndEvent(*m_registry, stats));
+    }
+
 } // namespace ArenaGame
+
