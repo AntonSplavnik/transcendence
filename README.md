@@ -60,6 +60,7 @@ As a Product Owner, he was responsible for defining the user experience for this
 Her Project Manager role involved coordinating the team, setting impulses for meetings and strategy, and ensuring that the team stayed on track.
 
 **drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He also worked on the sound system.
+He designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, and trigger-table-driven playback), including local/remote/game-event sound behavior, anti-spam cooldown tuning, and combat-focused sound design/mix balancing for clearer gameplay feedback.
 As a developer with a full-stack role, he worked closely with all parts of the project.
 
 ---
@@ -164,6 +165,7 @@ cd backend && cargo clean
 | TypeScript | Language | Static types catch errors early, essential for complex auth + game state |
 | Tailwind CSS | Styling | Utility-first, custom theme (stone + gold palette), no CSS file context-switching |
 | Babylon.js | 3D engine | Browser-native WebGL game engine; handles scene, physics, camera, and assets |
+| Babylon AudioEngineV2 | Audio engine | Bus-based routing (`master/sfx/music/ambient/ui`), spatial audio, and shared sound playback control |
 | Axios | HTTP client | Interceptors make JWT 401-retry logic clean and centralised |
 | React Router | Client routing | Hash navigation, route guards (ProtectedRoute / PublicRoute) |
 | WebTransport | Real-time transport | HTTP/3 persistent connection to backend for game events and notifications |
@@ -330,6 +332,7 @@ SQLite was chosen because:
 | Privacy Policy | asplavnic | Accessible from footer; covers data collection, cookies, and user rights. |
 | Terms of Service | asplavnic | Accessible from footer; covers acceptable use and account rules. |
 | Sound system | drongier | Sounds for ingame elements such as footsteps. |
+| WCAG 2.1 AA accessibility | lmeubrin/drongier | Full keyboard navigation (Dropdown arrow keys, Modal focus trap), skip link, reduced-motion support, ARIA landmark regions, descriptive labels on all interactive elements. The 3D game canvas carries a descriptive text alternative under WCAG SC 1.1.1 (sensory experience exemption). |
 
 ---
 
@@ -349,8 +352,9 @@ SQLite was chosen because:
 | 8 | Two-Factor Authentication (TOTP) | User Mgmt Minor | 1 | Done |
 | 9 | File upload/management — avatar system | Web Minor | 1 | Done |
 | 10 | Custom: Session Management | Modules of choice Minor | 1 | Done |
-| | **Confirmed (modules 1, 2, 7, 8, 9, 10)** | | **8** | |
-| | **When modules 3–6 complete** | | **16** | Exceeds 14-point target |
+| 11 | Accessibility compliance (WCAG 2.1 AA) | Accessibility Major | 2 | Done |
+| | **Confirmed (modules 1, 2, 7, 8, 9, 10, 11)** | | **10** | |
+| | **When modules 3–6 complete** | | **18** | Exceeds 14-point target |
 
 ---
 
@@ -479,6 +483,41 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ---
 
+### Module 11 — Complete Accessibility Compliance (WCAG 2.1 AA)
+
+_Accessibility and Internationalization Major (2 pts) — by lmeubrin_
+
+All non-game UI conforms to WCAG 2.1 Level AA, providing full screen reader support, keyboard navigation, and assistive technology compatibility. The 3D game canvas is a real-time visual-spatial sensory experience and falls under the WCAG SC 1.1.1 sensory experience exemption; it carries a descriptive `aria-label` identifying its nature.
+This has been tested manually by just tabbing through the interface and using a screen reader (e.g. NVDA) to verify that all interactive elements are announced properly and that the user can navigate and operate the UI without a mouse. Automated tools like Lighthouse can also be used for an initial audit (Ctrl+Shift+I → Lighthouse → Accessibility).
+
+**What was implemented:**
+
+- **Keyboard navigation:** `Dropdown` component implements the full ARIA menu pattern — Arrow Up/Down navigate items, Home/End jump to first/last, Tab closes the menu. `Modal` traps Tab/Shift+Tab within its boundary and restores focus to the trigger element on close.
+- **Skip link:** Visually hidden "Skip to main content" link (first focusable element in the page) targets `<div id="main-content" tabIndex={-1}>` in `AppRoutes`, enabling keyboard users to bypass navigation on every page.
+- **Reduced motion:** `@media (prefers-reduced-motion: reduce)` disables all CSS animations and transitions for users who have enabled this OS-level accessibility preference. Affects dropdown entrance, toast slide, button transitions, and the loading spinner.
+- **ARIA landmarks:** Each route component (`Home`, `AuthPage`, `SessionManagement`, `PrivacyPolicy`, `TermsOfService`) owns its own `<main>` landmark, keeping exactly one `<main>` per page regardless of active route. The `<div id="main-content">` wrapper in `AppRoutes` is intentionally a `<div>` (not `<main>`) to avoid nested main landmarks. `<footer role="contentinfo">` marks the footer.
+- **Form accessibility:** All inputs use the Input component's built-in `aria-invalid`, `aria-describedby`, and `role="alert"` error pattern. The description textarea in `EditUserModal` gained `aria-invalid` and is linked to its error message via `aria-describedby`. Character count uses `aria-live="polite"`.
+- **Descriptive labels:** Session checkboxes now include device name in `aria-label`. Notification action buttons have context-bearing labels instead of the generic "Open". Decorative SVG icons are marked `aria-hidden="true"`.
+- **Focus management:** Modal auto-focuses the first element (respecting `autoFocus` on inputs), stores the previously focused element, and restores it on close. Focus is never lost after any interactive action.
+- **Game canvas:** `aria-label="Real-time 3D multiplayer arena game — requires visual interaction"` on the Babylon.js canvas satisfies WCAG SC 1.1.1 for the sensory experience exception.
+- **Colour contrast (WCAG 1.4.3):** A dedicated palette step `stone-350` (#8d8177, 4.59:1 on stone-900) was added for de-emphasised text that sits directly on the page background. All text inside Cards and Modals (stone-800 background) uses `stone-300` (5.2:1). Both ratios clear the 4.5:1 AA threshold for normal text.
+
+**Known Lighthouse flags (accepted exemptions)**
+
+**Placeholder text contrast** — `placeholder-stone-500` (#706058) renders at 3.0:1 on stone-900 backgrounds. Lighthouse flags this via axe-core's `color-contrast` rule. Under **WCAG 2.1 SC 1.4.3**, placeholder text qualifies as an _"inactive user interface component"_ and is explicitly exempt from the 4.5:1 contrast requirement. WCAG 2.2 added a clarifying note confirming this interpretation. The lower contrast is intentional: placeholder should be visually distinct from actual user input (`text-stone-100`, 13:1 contrast), so users can tell the difference at a glance between empty and filled fields.
+
+### Module 12 — Custom Minor: Audio System
+
+_Modules of choice Minor (1 pt) — by drongier_
+
+In a competitive multiplayer fighting game, audio is not cosmetic: it is core gameplay feedback. This module introduces a dedicated sound system that covers local responsiveness, remote synchronization, and 3D spatial perception. Players hear immediate feedback for their own actions, positional cues for opponents, and consistent mix behavior across UI, menu, and in-game contexts.
+
+**Justification:** Real time game audio design follows established middleware principles (FMOD/Wwise): event-driven playback, sound banks, mixer buses, and separation between gameplay state and audio rendering. This module addresses practical gameplay risks (audio spam, repetitive fatigue, desynced feedback) while improving accessibility and game readability. No standard module in ft_transcendence provides this end-to-end architecture.
+
+**Implementation:** The frontend uses a shared Babylon `AudioEngineV2` stack with routed buses (`master`, `sfx`, `music`, `music_ingame`, `ambient`, `ui`), a preloaded `SoundBank`, and declarative trigger tables for local input, remote snapshot deltas, and server events. Audio settings are persisted in local storage with validation and legacy migration support. Local jump/attack spam was mitigated by moving critical triggers away from raw key presses to animation/gameplay events, ensuring one-shot playback at the right moment. The backend integration relies on authoritative game events and stream delivery so every client receives consistent combat/audio outcomes while preserving immediate local feedback where needed.
+
+---
+
 ## Individual Contributions
 
 ### kwurster
@@ -519,6 +558,7 @@ In a competitive gaming platform, account security matters. This module gives us
 - Design system: 11 UI components (`Button`, `Card`, `Modal`, `Input`, `Alert`, `Badge`, `Dropdown`, `InfoBlock`, `ErrorBanner`, `LoadingSpinner`, `Layout`), stone/gold/dungeon theme, full Tailwind custom config
 - Error system: `storeError` / `retrieveStoredError` pattern, `ErrorBanner` component
 - Frontend CI/CD pipeline
+- WCAG 2.1 AA accessibility compliance (Module 11): Dropdown keyboard navigation, Modal focus trap and focus restoration, skip link, `prefers-reduced-motion` support, ARIA landmarks, descriptive labels, game canvas text alternative
 
 ### drongier
 
@@ -527,7 +567,10 @@ In a competitive gaming platform, account security matters. This module gives us
   - Frontend: image crop/resize/AVIF conversion, upload flow, avatar display components
 - Profile editing: `EditUserModal` for nickname and description changes
 - User description field: backend migration + frontend display/edit
+- WCAG 2.1 AA accessibility compliance while working on the frontend
 - Sound system (in progress, not yet merged)
+- Audio architecture: designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, trigger-table-driven playback for local/remote/game events).
+- Sound design: tuned combat/movement feedback, cooldown anti-spam behavior, and overall mix balance for clearer, more readable gameplay audio.
 
 ---
 
@@ -546,6 +589,8 @@ In a competitive gaming platform, account security matters. This module gives us
 | Argon2 RFC | https://datatracker.ietf.org/doc/rfc9106/ | Password hashing specification |
 | TOTP RFC 6238 | https://datatracker.ietf.org/doc/html/rfc6238 | Time-based OTP specification |
 | AVIF spec | https://aomediacodec.github.io/av1-avif/ | Image format used for avatars |
+| WCAG 2.1 specification | https://www.w3.org/TR/WCAG21/ | Web Content Accessibility Guidelines |
+| ARIA authoring practices | https://www.w3.org/WAI/ARIA/apg/ | ARIA patterns for menus, dialogs, widgets |
 
 ### Internal documentation
 
@@ -554,6 +599,7 @@ In a competitive gaming platform, account security matters. This module gives us
 | Backend auth | [docs/backend-auth.md](docs/backend-auth.md) | Full auth architecture, token model, endpoints, threat model |
 | Avatar backend | [docs/avatar-backend.md](docs/avatar-backend.md) | Avatar system architecture, validation rules, caching strategy |
 | Frontend | [docs/frontend.md](docs/frontend.md) | Frontend stack, design system, auth flow, JWT refresh |
+| Audio system | [docs/audio_system.md](docs/audio_system.md) | Audio architecture, bus routing, triggers, and sound system behavior |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
 | TODO | [docs/todo.md](docs/todo.md) | What still needs to be done before evaluation |

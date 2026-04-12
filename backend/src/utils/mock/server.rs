@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use parking_lot::Mutex;
 use salvo::{Service, test::SendTarget};

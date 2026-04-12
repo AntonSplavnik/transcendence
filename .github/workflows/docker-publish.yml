@@ -46,5 +46,5 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:sha-${{ steps.sha.outputs.short }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=transcendence-docker
+          cache-to: type=gha,scope=transcendence-docker,mode=max

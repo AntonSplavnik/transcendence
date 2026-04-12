@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 pub use diesel::prelude::*;
-pub use salvo::oapi::{ToSchema, endpoint, extract::JsonBody};
+pub use salvo::oapi::{ToSchema, endpoint, extract::JsonBody, extract::PathParam};
 pub use salvo::prelude::*;
 pub use serde::{Deserialize, Serialize};
 pub use validator::Validate;

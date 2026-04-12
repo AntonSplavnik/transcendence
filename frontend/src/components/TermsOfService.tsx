@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ScrollText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import { Button, Card } from './ui';
 
 interface TermsOfServiceProps {
@@ -9,6 +10,7 @@ interface TermsOfServiceProps {
 }
 
 export default function TermsOfService({ onBack }: TermsOfServiceProps) {
+	useDocumentTitle('Terms of Service');
 	const { user, hasAcceptedTos, tosLoaded, acceptTos } = useAuth();
 	const navigate = useNavigate();
 	const [accepting, setAccepting] = useState(false);
@@ -35,7 +37,7 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 			<div className="flex items-center gap-4 mb-8">
 				<button
 					onClick={onBack}
-					className="text-stone-400 hover:text-gold-400 transition-colors"
+					className="text-stone-350 hover:text-gold-400 transition-colors"
 					aria-label="Go back"
 				>
 					<ArrowLeft size={24} />
@@ -365,12 +367,15 @@ export default function TermsOfService({ onBack }: TermsOfServiceProps) {
 							loading={accepting}
 							loadingText="Accepting..."
 							className="shrink-0"
+							aria-label="accept Terms of Service and continue to the app"
 						>
 							I Accept
 						</Button>
 					</div>
 					{acceptError && (
-						<p className="text-red-400 text-sm mt-2 text-center">{acceptError}</p>
+						<p className="text-red-400 text-sm mt-2 text-center" role="alert">
+							{acceptError}
+						</p>
 					)}
 				</div>
 			)}

@@ -26,6 +26,7 @@
 mod cancel;
 mod compress_cbor_codec;
 mod sink;
+mod stream_group;
 mod stream_manager;
 mod stream_room;
 mod user_stream;
@@ -39,6 +40,8 @@ use salvo::Depot;
 pub use sink::{
     ConfirmedBatchError, ConfirmedSendError, DEFAULT_SINK_BUFFER, MAX_INIT_MESSAGES, StreamSink,
 };
+#[allow(unused_imports)]
+pub use stream_group::StreamGroup;
 #[allow(unused_imports)]
 pub use stream_manager::{
     Receiver, StreamApiError, StreamManager, StreamManagerDepotExt, StreamManagerError,
@@ -72,6 +75,8 @@ pub enum StreamType {
     /// two-step auth handshake.  Subsequent messages on this stream are
     /// [`CtrlMessage`] values.
     Ctrl(stream_manager::PendingConnectionKey),
+    Game,
+    Lobby(ulid::Ulid),
 }
 
 /// Messages sent on the [`StreamType::Ctrl`] uni stream after the header.

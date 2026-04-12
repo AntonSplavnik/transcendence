@@ -1,6 +1,6 @@
 export interface LoadingSpinnerProps {
 	size?: 'sm' | 'md' | 'lg';
-	color?: 'gold' | 'white' | 'stone';
+	color?: 'gold' | 'white' | 'stone' | 'dark';
 	className?: string;
 }
 
@@ -14,6 +14,7 @@ const colorMap = {
 	gold: 'text-gold-400',
 	white: 'text-white',
 	stone: 'text-stone-300',
+	dark: 'text-stone-900',
 };
 
 export default function LoadingSpinner({

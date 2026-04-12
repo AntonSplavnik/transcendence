@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { Lock, Mail, Swords, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Swords, User, Lock, Mail } from 'lucide-react';
-import { Button, Card, Input, Alert } from './ui';
-import { useAuth } from '../contexts/AuthContext';
+import { getErrorBrief, getErrorMessage } from '../api/error';
 import * as usersApi from '../api/users';
-import { getErrorMessage, getErrorBrief } from '../api/error';
-import { validateNickname, validateEmail } from '../utils/validation';
+import { useAuth } from '../contexts/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
+import { validateEmail, validateNickname } from '../utils/validation';
 import TwoFactorLoginModal from './modals/TwoFactorLoginModal';
+import { Alert, Button, Card, Input } from './ui';
 
 const NICKNAME_DEBOUNCE_MS = 500;
 
@@ -19,6 +20,7 @@ export default function AuthPage({
 }) {
 	const { login, register } = useAuth();
 	const [isLogin, setIsLogin] = useState(true);
+	useDocumentTitle(isLogin ? 'Sign In' : 'Register');
 	const [isLoading, setIsLoading] = useState(false);
 	const [email, setEmail] = useState('');
 	const [username, setUsername] = useState('');
@@ -127,10 +129,10 @@ export default function AuthPage({
 			return <span className="text-xs font-medium text-danger-light">{nicknameError}</span>;
 		}
 		const style = isCheckingNickname
-			? 'text-stone-400'
+			? 'text-stone-300'
 			: nicknameValidation.includes('❌')
 				? 'text-danger-light'
-				: 'text-stone-400';
+				: 'text-stone-300';
 		return (
 			<span className={`text-xs font-medium ${style}`}>
 				{isCheckingNickname ? 'Checking...' : nicknameValidation}
@@ -151,7 +153,7 @@ export default function AuthPage({
 	};
 
 	return (
-		<div className="flex items-center justify-center flex-grow p-4">
+		<main className="flex items-center justify-center flex-grow p-4">
 			<Card accent="gold" className="w-full max-w-md">
 				<div className="text-center mb-8">
 					<Swords size={48} className="mx-auto text-gold-400 mb-2" aria-hidden="true" />
@@ -246,6 +248,7 @@ export default function AuthPage({
 									className="text-gold-400 hover:underline"
 									target="_blank"
 									rel="noopener noreferrer"
+									aria-label="Terms of Service (opens in new tab)"
 								>
 									Terms of Service
 								</Link>
@@ -282,7 +285,7 @@ export default function AuthPage({
 					<button
 						type="button"
 						onClick={onBack}
-						className="text-stone-400 hover:text-stone-100 text-sm transition-colors"
+						className="text-stone-300 hover:text-stone-100 text-sm transition-colors"
 						aria-label="Go back to main menu"
 					>
 						← Back to Menu
@@ -298,6 +301,6 @@ export default function AuthPage({
 					onCancel={handleMfaCancel}
 				/>
 			)}
-		</div>
+		</main>
 	);
 }

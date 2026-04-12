@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
 import { Lock } from 'lucide-react';
-import { Button, Modal, Input, Alert } from '../ui';
-import { useAuth } from '../../contexts/AuthContext';
+import { useRef, useState } from 'react';
 import { getErrorMessage } from '../../api/error';
+import { useAuth } from '../../contexts/AuthContext';
 import { validateMfaCode } from '../../utils/validation';
+import { Alert, Button, Input, Modal } from '../ui';
 
 interface ReauthModalProps {
 	onSuccess: () => void;
