@@ -230,7 +230,7 @@ struct GameConfig {
 	static constexpr int   MAX_PHYSICS_ITERATIONS = 5;                  // Prevent spiral of death
 
 	// Map data
-	static constexpr const char* MAP_COLLIDERS_PATH = "data/map_colliders.json";
+	static constexpr const char* MAP_COLLIDERS_PATH = "assets/map_colliders.json";
 
 	// Network
 	static constexpr int   MAX_PLAYERS      = 8;
