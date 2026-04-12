@@ -21,7 +21,8 @@ pub fn router(path: impl Into<String>) -> Router {
                 .push(Router::with_path("{id}/leave").post(leave))
                 .push(Router::with_path("{id}/ready").post(set_ready))
                 .push(Router::with_path("{id}/character").post(set_character))
-                .push(Router::with_path("{id}/settings").patch(update_settings)),
+                .push(Router::with_path("{id}/settings").patch(update_settings))
+                .push(Router::with_path("{id}/invite/{target_id}").post(invite_to_lobby)),
         )
 }
 
@@ -159,6 +160,68 @@ async fn update_settings(
     depot
         .game_manager()
         .update_settings(user_id, id, req.into_inner())?;
+    json_ok(())
+}
+
+/// Invite a friend to the caller's lobby.
+#[endpoint]
+async fn invite_to_lobby(
+    id: PathParam<Ulid>,
+    target_id: PathParam<i32>,
+    depot: &mut Depot,
+    db: Db,
+) -> JsonResult<()> {
+    use crate::error::FriendError;
+    use crate::models::FriendRequestStatus;
+    use crate::notifications::NotificationPayload;
+    use crate::schema::friend_requests::dsl as fr;
+
+    let lobby_id = id.into_inner();
+    let target_id = target_id.into_inner();
+    let user_id = depot.user_id();
+
+    // Verify caller is in the specified lobby.
+    let gm = depot.game_manager();
+    match gm.user_lobby(user_id) {
+        Some(lid) if lid == lobby_id => {}
+        _ => return Err(GameError::NotInLobby.into()),
+    }
+
+    // Verify target is a friend (accepted friend request in either direction).
+    db.read(move |conn| {
+        let count: i64 = fr::friend_requests
+            .filter(fr::status.eq(FriendRequestStatus::Accepted))
+            .filter(
+                fr::sender_id
+                    .eq(user_id)
+                    .and(fr::receiver_id.eq(target_id))
+                    .or(fr::sender_id.eq(target_id).and(fr::receiver_id.eq(user_id))),
+            )
+            .count()
+            .get_result(conn)?;
+
+        if count == 0 {
+            return Err(FriendError::NotFriends.into());
+        }
+        Ok::<_, ApiError>(())
+    })
+    .await??;
+
+    // Send the notification.
+    let nm = depot.notification_manager();
+    if let Err(e) = nm
+        .send(
+            target_id,
+            NotificationPayload::GameInviteReceived {
+                sender_id: user_id,
+                lobby_id: lobby_id.to_string(),
+            },
+        )
+        .await
+    {
+        tracing::warn!(error = %e, target_id, "failed to send game invite notification");
+    }
+
     json_ok(())
 }
 
