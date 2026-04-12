@@ -75,6 +75,7 @@ WORKDIR /app
 
 COPY --from=backend /transcendence-backend ./transcendence-backend
 COPY --from=frontend /build/dist /www
+COPY --from=backend /build/backend/data ./data
 
 RUN mkdir -p data acme && chown -R app:app /app
 
