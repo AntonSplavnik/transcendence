@@ -100,6 +100,10 @@ public:
 	// Returns true once the mode has determined a winner or loss condition.
 	virtual bool isOver() const = 0;
 
+	// Minimum players required to keep the match running.
+	// Match ends when the player count drops below this.
+	virtual size_t minPlayers() const { return 2; }
+
 	static std::unique_ptr<IGameMode> create(GameModeType type);
 };
 
@@ -274,6 +278,7 @@ public:
 	void tick(float, GameModeContext&,
 			  Components::GameModeComponent&, Components::MatchStatsComponent&) override {}
 	bool isOver() const override { return false; }
+	size_t minPlayers() const override { return 1; }
 };
 
 // =============================================================================
