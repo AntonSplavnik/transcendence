@@ -183,6 +183,53 @@ function setupInspector(scene: Scene): (event: KeyboardEvent) => void {
 	};
 }
 
+// ── Spectator camera controls ──────────────────────────────────────
+
+function setupSpectatorCamera(
+	canvas: HTMLCanvasElement,
+	camera: UniversalCamera,
+	engine: Engine,
+): { cleanup: () => void; getOrtho: () => number } {
+	const cleanups: (() => void)[] = [];
+	const INITIAL_ORTHO = 18;
+	let ortho = INITIAL_ORTHO;
+	const MIN_ORTHO = 10;
+	const MAX_ORTHO = 30;
+
+	const applyOrtho = () => {
+		const a = engine.getRenderWidth() / engine.getRenderHeight();
+		camera.orthoLeft = -ortho * a;
+		camera.orthoRight = ortho * a;
+		camera.orthoTop = ortho;
+		camera.orthoBottom = -ortho;
+	};
+	applyOrtho();
+
+	// Scroll to zoom
+	const onWheel = (e: WheelEvent) => {
+		e.preventDefault();
+		ortho = Math.max(MIN_ORTHO, Math.min(MAX_ORTHO, ortho + Math.sign(e.deltaY) * 3));
+		applyOrtho();
+	};
+	canvas.addEventListener('wheel', onWheel, { passive: false });
+	cleanups.push(() => canvas.removeEventListener('wheel', onWheel));
+
+	// Resize: engine + spectator ortho recalculation
+	const onResize = () => {
+		engine.resize();
+		applyOrtho();
+	};
+	window.addEventListener('resize', onResize);
+	cleanups.push(() => window.removeEventListener('resize', onResize));
+
+	return {
+		cleanup: () => {
+			for (const fn of cleanups) fn();
+		},
+		getOrtho: () => ortho,
+	};
+}
+
 // ── React component ─────────────────────────────────────────────────
 
 interface Props {
@@ -200,6 +247,8 @@ interface Props {
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
+	/** When true, skips local player model and adds pan/zoom camera controls. */
+	isSpectator?: boolean;
 	gameAudio?: GameAudioHandle;
 }
 
@@ -210,6 +259,7 @@ export default function GameCanvas({
 	onSendInput,
 	localPlayerId,
 	characterConfig = CHARACTER_CONFIGS[DEFAULT_CHARACTER],
+	isSpectator = false,
 	gameAudio,
 }: Props) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -229,6 +279,7 @@ export default function GameCanvas({
 		window.addEventListener('focus', onFocus);
 		let onKeydown: ((event: KeyboardEvent) => void) | null = null;
 		let onResize: (() => void) | null = null;
+		let cleanupSpectator: (() => void) | null = null;
 
 		(async () => {
 			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas);
@@ -246,7 +297,7 @@ export default function GameCanvas({
 			onKeydown = setupInspector(scene);
 			window.addEventListener('keydown', onKeydown);
 
-			// Game client
+			// Game client (handles remote character rendering for both players & spectators)
 			const gameClient = new GameClient(
 				scene,
 				localPlayerId,
@@ -258,67 +309,118 @@ export default function GameCanvas({
 			);
 			gameClientInstance = gameClient;
 
-			// Start loading character (awaited below together with scene)
-			const playerReady = gameClient
-				.initLocalPlayer()
-				.catch((e) => console.error('[GameClient] Failed to load local player:', e));
+			// ── Player-only setup ──────────────────────────────────────
+			let playerReady: Promise<void> | undefined;
+			if (!isSpectator) {
+				playerReady = gameClient
+					.initLocalPlayer()
+					.catch((e) => console.error('[GameClient] Failed to load local player:', e));
 
-			// Input
-			const { input } = setupInput(scene);
+				const { input } = setupInput(scene);
 
-			// Pre-render: update local animation then clear one-shot triggers
-			scene.onBeforeRenderObservable.add(() => {
-				gameClient.updateLocalAnimation(input);
-				input.isAttacking = false;
-				input.isUsingAbility1 = false;
-				input.isUsingAbility2 = false;
-			});
+				// Pre-render: update local animation then clear one-shot triggers
+				scene.onBeforeRenderObservable.add(() => {
+					gameClient.updateLocalAnimation(input);
+					input.isAttacking = false;
+					input.isUsingAbility1 = false;
+					input.isUsingAbility2 = false;
+				});
 
-			// Track last look direction
-			const lastLookDir = { x: 0, y: 0, z: 1 };
+				// Track last look direction
+				const lastLookDir = { x: 0, y: 0, z: 1 };
 
-			// Render loop — 60 fps cap
-			const TARGET_FRAME_MS = 1000 / 60;
-			let lastFrameTime = 0;
+				// Render loop — 60 fps cap
+				const TARGET_FRAME_MS = 1000 / 60;
+				let lastFrameTime = 0;
 
-			engine.runRenderLoop(() => {
-				const now = performance.now();
-				if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
-				lastFrameTime =
-					now - lastFrameTime > TARGET_FRAME_MS * 2
-						? now
-						: lastFrameTime + TARGET_FRAME_MS;
+				engine.runRenderLoop(() => {
+					const now = performance.now();
+					if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
+					lastFrameTime =
+						now - lastFrameTime > TARGET_FRAME_MS * 2
+							? now
+							: lastFrameTime + TARGET_FRAME_MS;
 
-				// Events first, then snapshot
-				const events = eventsRef.current.splice(0);
-				if (events.length > 0) gameClient.processEvents(events);
+					const events = eventsRef.current.splice(0);
+					if (events.length > 0) gameClient.processEvents(events);
 
-				const snap = snapshotRef.current;
-				if (snap !== null) {
-					gameClient.processSnapshot(snap);
-					snapshotRef.current = null;
-				}
+					const snap = snapshotRef.current;
+					if (snap !== null) {
+						gameClient.processSnapshot(snap);
+						snapshotRef.current = null;
+					}
 
-				// Send input
-				if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
-					lastLookDir.x = input.movementDirection.x;
-					lastLookDir.z = input.movementDirection.z;
-				}
-				onSendInput(
-					input.movementDirection,
-					lastLookDir,
-					input.isAttacking,
-					input.isJumping,
-					input.isSprinting,
-					input.isUsingAbility1,
-					input.isUsingAbility2,
-				);
+					if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
+						lastLookDir.x = input.movementDirection.x;
+						lastLookDir.z = input.movementDirection.z;
+					}
+					onSendInput(
+						input.movementDirection,
+						lastLookDir,
+						input.isAttacking,
+						input.isJumping,
+						input.isSprinting,
+						input.isUsingAbility1,
+						input.isUsingAbility2,
+					);
 
-				scene.render();
-			});
+					scene.render();
+				});
+			} else {
+				// ── Spectator-only setup ───────────────────────────────
+				const spectator = setupSpectatorCamera(canvas, camera, engine);
+				cleanupSpectator = spectator.cleanup;
 
-			// Wait for map, character, and all textures before revealing the scene
-			await Promise.all([sceneLoaded.catch(() => {}), playerReady]);
+				// Reuse WASD input for camera panning (same isometric directions)
+				const { input } = setupInput(scene);
+
+				const TARGET_FRAME_MS = 1000 / 60;
+				let lastFrameTime = 0;
+
+				engine.runRenderLoop(() => {
+					const now = performance.now();
+					if (now - lastFrameTime < TARGET_FRAME_MS - 0.5) return;
+					lastFrameTime =
+						now - lastFrameTime > TARGET_FRAME_MS * 2
+							? now
+							: lastFrameTime + TARGET_FRAME_MS;
+
+					const events = eventsRef.current.splice(0);
+					if (events.length > 0) gameClient.processEvents(events);
+
+					const snap = snapshotRef.current;
+					if (snap !== null) {
+						gameClient.processSnapshot(snap);
+						snapshotRef.current = null;
+					}
+
+					// WASD pans camera (same isometric directions as player movement)
+					const dx = input.movementDirection.x;
+					const dz = input.movementDirection.z;
+					if (dx !== 0 || dz !== 0) {
+						const panSpeed =
+							(input.isSprinting ? 1.2 : 0.5) * (spectator.getOrtho() / 30);
+						camera.position.x += dx * panSpeed;
+						camera.position.z += dz * panSpeed;
+						camera.setTarget(
+							camera.position.subtract(
+								new BABYLON.Vector3(
+									ISO_CAM_OFFSET.x,
+									ISO_CAM_OFFSET.y,
+									ISO_CAM_OFFSET.z,
+								),
+							),
+						);
+					}
+
+					scene.render();
+				});
+			}
+
+			// Wait for map (+ character if player) before revealing the scene
+			const ready: Promise<unknown>[] = [sceneLoaded.catch(() => {})];
+			if (playerReady) ready.push(playerReady);
+			await Promise.all(ready);
 			await scene.whenReadyAsync();
 
 			// Render a few warm-up frames behind the loading screen to compile shaders
@@ -334,21 +436,23 @@ export default function GameCanvas({
 
 			if (!disposed) {
 				engine.hideLoadingUI();
-				gameClient.playSpawnAnimation();
+				if (!isSpectator) gameClient.playSpawnAnimation();
 				gameAudio?.playSceneAmbient('amb_forest');
 				gameAudio?.playMusicPlaylist();
 			}
 
-			// Resize handler
-			onResize = () => {
-				engine.resize();
-				const a = engine.getRenderWidth() / engine.getRenderHeight();
-				camera.orthoLeft = -ISO_ORTHO_SIZE * a;
-				camera.orthoRight = ISO_ORTHO_SIZE * a;
-				camera.orthoTop = ISO_ORTHO_SIZE;
-				camera.orthoBottom = -ISO_ORTHO_SIZE;
-			};
-			window.addEventListener('resize', onResize);
+			// Resize handler (spectators handle resize inside setupSpectatorCamera)
+			if (!isSpectator) {
+				onResize = () => {
+					engine.resize();
+					const a = engine.getRenderWidth() / engine.getRenderHeight();
+					camera.orthoLeft = -ISO_ORTHO_SIZE * a;
+					camera.orthoRight = ISO_ORTHO_SIZE * a;
+					camera.orthoTop = ISO_ORTHO_SIZE;
+					camera.orthoBottom = -ISO_ORTHO_SIZE;
+				};
+				window.addEventListener('resize', onResize);
+			}
 		})();
 
 		return () => {
@@ -358,12 +462,13 @@ export default function GameCanvas({
 			window.removeEventListener('focus', onFocus);
 			if (onKeydown) window.removeEventListener('keydown', onKeydown);
 			if (onResize) window.removeEventListener('resize', onResize);
+			cleanupSpectator?.();
 			gameClientInstance?.dispose();
 			engineInstance?.stopRenderLoop();
 			sceneInstance?.dispose();
 			engineInstance?.dispose();
 		};
-	}, [localPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [localPlayerId, isSpectator]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return (
 		<canvas

@@ -54,25 +54,21 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Redirects to /game while a game session is active for the current player.
+ * Redirects to /game while a game session is active.
  *
  * Checks both `gameState.status` (set when the game stream opens) and
  * `lobbyState.gameActive` (set when the `GameStarting` lobby message
  * arrives, slightly earlier).  The dual check closes the brief window
  * between the countdown firing and the game stream fully opening.
  *
- * Spectators (in the lobby but not in the players map) are intentionally
- * excluded — they stay on the lobby page and see the "Game in progress" badge.
+ * Both players and spectators are sent to /game — spectators receive a
+ * read-only game stream and see a "Spectating" overlay on the game view.
  */
 function InGameGuard({ children }: { children: React.ReactNode }) {
 	const { gameState } = useGame();
 	const { lobbyState } = useLobby();
-	const { user } = useAuth();
-	const isSpectator =
-		!!user && lobbyState.status === 'active' && !lobbyState.players.has(user.id);
 	const isGameActive =
-		gameState.status === 'active' ||
-		(lobbyState.status === 'active' && lobbyState.gameActive && !isSpectator);
+		gameState.status === 'active' || (lobbyState.status === 'active' && lobbyState.gameActive);
 	if (isGameActive) {
 		return <Navigate to="/game" replace />;
 	}
