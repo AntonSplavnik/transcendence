@@ -9,7 +9,7 @@ use super::xp;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
-	.requires_user_login()
+        .requires_user_login()
         .oapi_tag("stats")
         .push(
             Router::with_path("@me")

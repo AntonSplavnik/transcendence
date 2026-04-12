@@ -12,8 +12,8 @@ use crate::error::GdprError;
 use crate::models::blob::{Bytes, FixedBlob};
 use crate::models::cbor_blob::CborBlob;
 use crate::models::{
-    AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User,
-    UserAchievement, UserStats,
+    AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User, UserAchievement,
+    UserStats,
 };
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
@@ -348,7 +348,6 @@ async fn execute_export(
                 .filter(ua_dsl::user_id.eq(user_id))
                 .load::<UserAchievement>(conn)?;
 
-            
             let export = DataExport {
                 exported_at: Utc::now(),
                 user: u::users

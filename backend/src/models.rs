@@ -145,7 +145,16 @@ impl Achievement {
 }
 
 #[derive(
-    Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Deserialize, Debug, Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    Associations,
+    Serialize,
+    ToSchema,
+    Deserialize,
+    Debug,
+    Clone,
 )]
 #[diesel(table_name = crate::schema::user_achievements)]
 #[diesel(belongs_to(User))]
@@ -165,7 +174,18 @@ pub struct UserAchievement {
 // User Stats (XP/Level System)
 // ============================================================================
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Debug, Clone, ToSchema, Serialize, Deserialize)]
+#[derive(
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    Associations,
+    Debug,
+    Clone,
+    ToSchema,
+    Serialize,
+    Deserialize,
+)]
 #[diesel(table_name = crate::schema::user_stats)]
 #[diesel(belongs_to(User))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
