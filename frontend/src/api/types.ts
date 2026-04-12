@@ -128,11 +128,48 @@ export interface GdprInitiateResponse {
 export interface DataExport {
 	exported_at: string;
 	user: ExportUser;
+	stats: ExportStats;
+	achievements: ExportAchievementWithProgress[];
 	sessions: ExportSession[];
 	friend_requests: ExportFriendRequest[];
 	notifications: ExportNotification[];
 	avatar_large_base64: string | null;
 	avatar_small_base64: string | null;
+}
+
+export interface ExportStats {
+	user_id: number;
+	xp: number;
+	level: number;
+	xp_in_level: number;
+	xp_to_next: number;
+	progress_percent: number;
+	games_played: number;
+	games_won: number;
+	games_lost: number;
+	kills: number;
+	deaths: number;
+	damage_dealt: number;
+	damage_taken: number;
+	win_rate: number;
+	current_win_streak: number;
+	best_win_streak: number;
+}
+
+export interface ExportAchievementWithProgress {
+	id: number;
+	code: string;
+	name: string;
+	description: string;
+	category: string;
+	bronze_threshold: number;
+	silver_threshold: number;
+	gold_threshold: number;
+	base_xp_reward: number;
+	current_progress: number;
+	bronze_unlocked: boolean;
+	silver_unlocked: boolean;
+	gold_unlocked: boolean;
 }
 
 export interface ExportUser {

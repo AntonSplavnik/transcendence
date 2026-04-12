@@ -11,7 +11,10 @@ use crate::email::{EmailSender, TransactionalEmail};
 use crate::error::GdprError;
 use crate::models::blob::{Bytes, FixedBlob};
 use crate::models::cbor_blob::CborBlob;
-use crate::models::{AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User};
+use crate::models::{
+    Achievement, AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User,
+    UserAchievement, UserStats,
+};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
@@ -25,6 +28,8 @@ use super::router::PasswordInput;
 pub struct DataExport {
     pub exported_at: DateTime<Utc>,
     pub user: ExportUser,
+    pub stats: ExportStats,
+    pub achievements: Vec<ExportAchievementWithProgress>,
     pub sessions: Vec<ExportSession>,
     pub friend_requests: Vec<ExportFriendRequest>,
     pub notifications: Vec<ExportNotification>,
@@ -84,6 +89,66 @@ pub struct ExportNotification {
     #[salvo(schema(value_type = NotificationPayload))]
     pub data: CborBlob<NotificationPayload>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ExportStats {
+    pub user_id: i32,
+    pub xp: i32,
+    pub level: i32,
+    pub xp_in_level: i32,
+    pub xp_to_next: i32,
+    pub progress_percent: f32,
+    pub games_played: i32,
+    pub games_won: i32,
+    pub games_lost: i32,
+    pub kills: i32,
+    pub deaths: i32,
+    pub damage_dealt: f32,
+    pub damage_taken: f32,
+    pub win_rate: f32,
+    pub current_win_streak: i32,
+    pub best_win_streak: i32,
+}
+
+impl From<UserStats> for ExportStats {
+    fn from(stats: UserStats) -> Self {
+        Self {
+            user_id: stats.user_id,
+            xp: stats.xp,
+            level: stats.level,
+            xp_in_level: crate::gamification::xp::xp_in_current_level(stats.xp),
+            xp_to_next: crate::gamification::xp::xp_for_next_level(stats.level),
+            progress_percent: crate::gamification::xp::level_progress_percent(stats.xp),
+            games_played: stats.games_played,
+            games_won: stats.games_won,
+            games_lost: stats.games_lost(),
+            kills: stats.kills,
+            deaths: stats.deaths,
+            damage_dealt: stats.damage_dealt,
+            damage_taken: stats.damage_taken,
+            win_rate: stats.win_rate(),
+            current_win_streak: stats.current_win_streak,
+            best_win_streak: stats.best_win_streak,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ExportAchievementWithProgress {
+    pub id: i32,
+    pub code: String,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub bronze_threshold: i32,
+    pub silver_threshold: i32,
+    pub gold_threshold: i32,
+    pub base_xp_reward: i32,
+    pub current_progress: i32,
+    pub bronze_unlocked: bool,
+    pub silver_unlocked: bool,
+    pub gold_unlocked: bool,
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────
@@ -307,12 +372,15 @@ async fn execute_export(
 
     let (export_data, user_for_email) = db
         .write(move |conn| {
+            use crate::schema::achievements::dsl as ach_dsl;
             use crate::schema::avatars_large::dsl as al;
             use crate::schema::avatars_small::dsl as as_;
             use crate::schema::data_export_requests::dsl as der;
             use crate::schema::friend_requests::dsl as fr;
             use crate::schema::notifications::dsl as n;
             use crate::schema::sessions::dsl as s;
+            use crate::schema::user_achievements::dsl as ua_dsl;
+            use crate::schema::user_stats::dsl as us_dsl;
             use crate::schema::users::dsl as u;
 
             let request: DataExportRequest = der::data_export_requests
@@ -331,12 +399,50 @@ async fn execute_export(
 
             let user: User = u::users.find(user_id).first(conn)?;
 
+            let stats = us_dsl::user_stats
+                .filter(us_dsl::user_id.eq(user_id))
+                .first::<UserStats>(conn)
+                .optional()?
+                .unwrap_or_else(|| UserStats::new(user_id));
+
+            let all_achievements = ach_dsl::achievements
+                .order(ach_dsl::id.asc())
+                .load::<Achievement>(conn)?;
+
+            let user_progress = ua_dsl::user_achievements
+                .filter(ua_dsl::user_id.eq(user_id))
+                .load::<UserAchievement>(conn)?;
+
+            let achievements = all_achievements
+                .into_iter()
+                .map(|ach| {
+                    let progress = user_progress.iter().find(|ua| ua.achievement_id == ach.id);
+                    ExportAchievementWithProgress {
+                        id: ach.id,
+                        code: ach.code,
+                        name: ach.name,
+                        description: ach.description,
+                        category: ach.category,
+                        bronze_threshold: ach.bronze_threshold,
+                        silver_threshold: ach.silver_threshold,
+                        gold_threshold: ach.gold_threshold,
+                        base_xp_reward: ach.base_xp_reward,
+                        current_progress: progress.map_or(0, |p| p.current_progress),
+                        bronze_unlocked: progress.is_some_and(|p| p.bronze_unlocked_at.is_some()),
+                        silver_unlocked: progress.is_some_and(|p| p.silver_unlocked_at.is_some()),
+                        gold_unlocked: progress.is_some_and(|p| p.gold_unlocked_at.is_some()),
+                    }
+                })
+                .collect();
+
             let export = DataExport {
                 exported_at: Utc::now(),
                 user: u::users
                     .find(user_id)
                     .select(ExportUser::as_select())
                     .first(conn)?,
+                stats: ExportStats::from(stats),
+                achievements,
                 sessions: s::sessions
                     .filter(s::user_id.eq(user_id))
                     .select(ExportSession::as_select())

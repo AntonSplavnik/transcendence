@@ -237,6 +237,96 @@ async fn execute_export_includes_friend_requests() {
     );
 }
 
+#[tokio::test]
+async fn execute_export_includes_gamification_data() {
+    let server = mock::Server::default();
+    let mut user = server.user().register().await;
+    let user_id = user.user_id();
+
+    server
+        .db
+        .write(move |conn| {
+            use crate::schema::achievements::dsl as ach;
+            use crate::schema::user_achievements::dsl as ua;
+            use crate::schema::user_stats::dsl as us;
+            use diesel::prelude::*;
+
+            diesel::insert_into(ach::achievements)
+                .values((
+                    ach::code.eq("gdpr_export_test"),
+                    ach::name.eq("GDPR Export Test"),
+                    ach::description.eq("Achievement used by GDPR export tests"),
+                    ach::category.eq("test"),
+                    ach::bronze_threshold.eq(1),
+                    ach::silver_threshold.eq(2),
+                    ach::gold_threshold.eq(3),
+                    ach::base_xp_reward.eq(50),
+                    ach::created_at.eq(chrono::Utc::now()),
+                ))
+                .execute(conn)?;
+
+            let achievement_id: i32 = ach::achievements
+                .filter(ach::code.eq("gdpr_export_test"))
+                .select(ach::id)
+                .first(conn)?;
+
+            diesel::replace_into(us::user_stats)
+                .values(&crate::models::UserStats::new(user_id))
+                .execute(conn)?;
+
+            diesel::update(us::user_stats.filter(us::user_id.eq(user_id)))
+                .set((
+                    us::xp.eq(42),
+                    us::level.eq(2),
+                    us::games_played.eq(5),
+                    us::games_won.eq(3),
+                    us::current_win_streak.eq(2),
+                    us::best_win_streak.eq(4),
+                    us::kills.eq(11),
+                    us::deaths.eq(7),
+                    us::damage_dealt.eq(1234.5_f32),
+                    us::damage_taken.eq(987.0_f32),
+                ))
+                .execute(conn)?;
+
+            diesel::insert_into(ua::user_achievements)
+                .values((
+                    ua::user_id.eq(user_id),
+                    ua::achievement_id.eq(achievement_id),
+                    ua::current_progress.eq(2),
+                    ua::bronze_unlocked_at.eq(Some(chrono::Utc::now())),
+                    ua::silver_unlocked_at.eq(Some(chrono::Utc::now())),
+                    ua::gold_unlocked_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+                ))
+                .execute(conn)?;
+
+            Ok::<_, diesel::result::Error>(())
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    let resp = user.initiate_export().await;
+    let export = user.execute_export(&resp.token).await;
+
+    assert_eq!(export.stats.user_id, user_id);
+    assert_eq!(export.stats.xp, 42);
+    assert_eq!(export.stats.level, 2);
+    assert_eq!(export.stats.games_played, 5);
+    assert_eq!(export.stats.games_won, 3);
+    assert_eq!(export.stats.games_lost, 2);
+
+    let achievement = export
+        .achievements
+        .iter()
+        .find(|a| a.code == "gdpr_export_test")
+        .expect("export should include seeded achievement progress");
+    assert_eq!(achievement.current_progress, 2);
+    assert!(achievement.bronze_unlocked);
+    assert!(achievement.silver_unlocked);
+    assert!(!achievement.gold_unlocked);
+}
+
 // ── Execution: sensitive field leakage ────────────────────────────────────
 
 #[tokio::test]
