@@ -333,6 +333,53 @@ SQLite was chosen because:
 
 Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_id, receiver_id))` prevents duplicate requests between the same two users.
 
+### `achievements`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `code` | TEXT UNIQUE | Stable achievement key (e.g. `first_win`) |
+| `name` | TEXT | Display name |
+| `description` | TEXT | User-facing description |
+| `category` | TEXT | Grouping for UI and progression |
+| `bronze_threshold` | INTEGER | Progress required for bronze tier |
+| `silver_threshold` | INTEGER | Progress required for silver tier |
+| `gold_threshold` | INTEGER | Progress required for gold tier |
+| `base_xp_reward` | INTEGER | XP base used to compute tier rewards |
+| `created_at` | DATETIME | |
+
+### `user_achievements`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `user_id` | INTEGER FK | References `users(id)` ON DELETE CASCADE |
+| `achievement_id` | INTEGER FK | References `achievements(id)` ON DELETE CASCADE |
+| `current_progress` | INTEGER | Current numeric progress toward thresholds |
+| `bronze_unlocked_at` | DATETIME nullable | Set when bronze tier is unlocked |
+| `silver_unlocked_at` | DATETIME nullable | Set when silver tier is unlocked |
+| `gold_unlocked_at` | DATETIME nullable | Set when gold tier is unlocked |
+
+Unique constraint on `(user_id, achievement_id)` ensures one progression row per achievement per user.
+
+### `user_stats`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | INTEGER PK FK | References `users(id)` ON DELETE CASCADE |
+| `xp` | INTEGER | Total accumulated XP |
+| `level` | INTEGER | Current level derived from XP curve |
+| `games_played` | INTEGER | Total recorded games |
+| `games_won` | INTEGER | Total wins |
+| `current_win_streak` | INTEGER | Current consecutive wins |
+| `best_win_streak` | INTEGER | Best historical win streak |
+| `kills` | INTEGER | Cumulative kills |
+| `deaths` | INTEGER | Cumulative deaths |
+| `damage_dealt` | FLOAT | Cumulative outgoing damage |
+| `damage_taken` | FLOAT | Cumulative incoming damage |
+| `created_at` | DATETIME | |
+| `updated_at` | DATETIME | Updated whenever stats mutate |
+
 ### `tos_versions`
 
 | Column | Type | Notes |
@@ -348,8 +395,11 @@ Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_
 - One user has many notifications (cascade delete).
 - One user has at most one pending deletion request and one pending export request (cascade delete).
 - One user can send and receive many friend requests (cascade delete both sides).
+- One user has exactly one `user_stats` row (PK/FK on `user_id`, cascade delete).
+- One user has many `user_achievements` rows (cascade delete).
+- One achievement has many `user_achievements` rows (cascade delete).
 - `tos_versions` is a standalone lookup table (no FK to users).
-- Sessions reference users; avatars and notifications are user-scoped.
+- Sessions, avatars, notifications, and gamification state are all user-scoped.
 
 ---
 
