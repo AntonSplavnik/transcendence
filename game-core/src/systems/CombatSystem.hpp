@@ -22,6 +22,7 @@
 #include <queue>
 #include <variant>
 #include <cstdlib>
+#include <random>
 
 namespace ArenaGame {
 
@@ -59,7 +60,9 @@ namespace ArenaGame {
 // stageMultiplier comes from AttackStage::damageMultiplier or SkillDefinition::dmgMultiplier.
 inline float calculateCombatDamage(const Components::CombatController& cc, float stageMultiplier) {
 	float dmg = cc.baseDamage * stageMultiplier * cc.damageMultiplier;
-	bool isCrit = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) < cc.criticalChance;
+	thread_local std::mt19937 rng{std::random_device{}()};
+	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+	bool isCrit = dist(rng) < cc.criticalChance;
 	return isCrit ? dmg * cc.criticalMultiplier : dmg;
 }
 
