@@ -178,7 +178,7 @@ async fn xp_values_are_correct() {
     let (_, stats1, stats2) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7, "1v1")
+            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7, 0, 0)
         })
         .await
         .expect("record_game_result failed");
@@ -203,7 +203,7 @@ async fn win_streak_bonus_accumulates_and_caps() {
         server
             .db
             .transaction_write(move |conn| {
-                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, "1v1")
+                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0)
             })
             .await
             .expect("record_game_result failed");
@@ -212,7 +212,7 @@ async fn win_streak_bonus_accumulates_and_caps() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, "1v1")
+            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0)
         })
         .await
         .expect("record_game_result failed");
@@ -245,7 +245,7 @@ async fn loss_resets_streak_but_preserves_best() {
         server
             .db
             .transaction_write(move |conn| {
-                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, "1v1")
+                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0, "1v1")
             })
             .await
             .expect("record_game_result failed");
@@ -254,7 +254,7 @@ async fn loss_resets_streak_but_preserves_best() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p2_id, 0, 11, "1v1")
+            crate::games::record_game_result(conn, p1_id, p2_id, p2_id, 0, 11, 0, 0, "1v1")
         })
         .await
         .expect("record_game_result failed");
@@ -278,7 +278,7 @@ async fn level_up_is_detected() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, "1v1")
+            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0, "1v1")
         })
         .await
         .expect("record_game_result failed");

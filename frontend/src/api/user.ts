@@ -2,8 +2,8 @@ import apiClient from './client';
 import type {
 	AuthResponse,
 	ChangePasswordPayload,
-	UserStats,
 	AchievementWithProgress,
+	UserStats,
 	PasswordMfaPayload,
 	Session,
 	SessionManagementPayload,

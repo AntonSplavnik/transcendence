@@ -11,7 +11,7 @@ diesel::table! {
         silver_threshold -> Integer,
         gold_threshold -> Integer,
         base_xp_reward -> Integer,
-        created_at -> Timestamp,
+        created_at -> TimestamptzSqlite,
     }
 }
 
@@ -103,9 +103,9 @@ diesel::table! {
         user_id -> Integer,
         achievement_id -> Integer,
         current_progress -> Integer,
-        bronze_unlocked_at -> Nullable<Timestamp>,
-        silver_unlocked_at -> Nullable<Timestamp>,
-        gold_unlocked_at -> Nullable<Timestamp>,
+        bronze_unlocked_at -> Nullable<TimestamptzSqlite>,
+        silver_unlocked_at -> Nullable<TimestamptzSqlite>,
+        gold_unlocked_at -> Nullable<TimestamptzSqlite>,
     }
 }
 

@@ -133,7 +133,7 @@ async fn record_game(
                 .unwrap_or_else(|| UserStats::new(user_id));
 
             // Apply game result
-            // Legacy endpoint does not provide combat totals; keep them unchanged.
+            // This endpoint tracks only win/loss; combat totals are handled by match-end ingestion.
             let (mut xp_gained, leveled_up) = stats.record_game(input.won, 0, 0, 0.0, 0.0);
 
             // Upsert stats
@@ -226,7 +226,8 @@ async fn get_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
             .optional()?;
 
         Ok(stats.unwrap_or_else(|| UserStats::new(user_id)))
-    }).await?;
+    })
+    .await?;
 
     json_ok(StatsResponse::from(stats))
 }

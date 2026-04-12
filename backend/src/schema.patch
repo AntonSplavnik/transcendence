@@ -1,9 +1,18 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index c9cb52d..5a8ae98 100644
+index a4c8f9a..112c6ce 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -1,32 +1,32 @@
- // @generated automatically by Diesel CLI.
+@@ -8,40 +8,40 @@ diesel::table! {
+         description -> Text,
+         category -> Text,
+         bronze_threshold -> Integer,
+         silver_threshold -> Integer,
+         gold_threshold -> Integer,
+         base_xp_reward -> Integer,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
+     }
+ }
  
  diesel::table! {
      avatars_large (user_id) {
@@ -39,7 +48,7 @@ index c9cb52d..5a8ae98 100644
  diesel::table! {
      games (id) {
          id -> Integer,
-@@ -34,68 +34,68 @@ diesel::table! {
+@@ -49,81 +49,81 @@ diesel::table! {
          player2_id -> Integer,
          winner_id -> Integer,
          kills_p1 -> Integer,
@@ -101,6 +110,21 @@ index c9cb52d..5a8ae98 100644
  }
  
  diesel::table! {
+     user_achievements (id) {
+         id -> Integer,
+         user_id -> Integer,
+         achievement_id -> Integer,
+         current_progress -> Integer,
+-        bronze_unlocked_at -> Nullable<Timestamp>,
+-        silver_unlocked_at -> Nullable<Timestamp>,
+-        gold_unlocked_at -> Nullable<Timestamp>,
++        bronze_unlocked_at -> Nullable<TimestamptzSqlite>,
++        silver_unlocked_at -> Nullable<TimestamptzSqlite>,
++        gold_unlocked_at -> Nullable<TimestamptzSqlite>,
+     }
+ }
+ 
+ diesel::table! {
      user_stats (user_id) {
          user_id -> Integer,
          xp -> Integer,
@@ -119,7 +143,7 @@ index c9cb52d..5a8ae98 100644
          damage_taken -> Float,
      }
  }
-@@ -104,20 +104,20 @@ diesel::table! {
+@@ -132,20 +132,20 @@ diesel::table! {
      users (id) {
          id -> Integer,
          email -> Text,
