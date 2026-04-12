@@ -18,9 +18,14 @@ vi.mock('../../../src/api/avatar', () => ({
 	uploadAvatar: vi.fn().mockResolvedValue(undefined),
 	deleteAvatar: vi.fn().mockResolvedValue(undefined),
 }));
+// Mock lobby modals to avoid context/API dependencies
+vi.mock('../../../src/components/modals/LobbyListModal', () => ({
+	default: ({ onClose }: { onClose: () => void }) => (
+		<div data-testid="lobby-list-modal"><button onClick={onClose}>Close</button></div>
+	),
+}));
 
 describe('Home', () => {
-	const mockOnGame = vi.fn();
 	const mockOnLogout = vi.fn();
 	const mockOnSessions = vi.fn();
 
@@ -37,7 +42,7 @@ describe('Home', () => {
 			})
 		);
 
-		return render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+		return render(<Home onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 	};
 
 	describe('user info display', () => {
@@ -118,7 +123,7 @@ describe('Home', () => {
 	});
 
 	describe('play game button', () => {
-		it('calls onGame when session is valid (>30 min remaining)', async () => {
+		it('opens lobby list when Find Public Game clicked with valid session', async () => {
 			const user = userEvent.setup();
 
 			// Session with plenty of time remaining
@@ -126,29 +131,31 @@ describe('Home', () => {
 			renderHome({}, { access_expiry: futureExpiry });
 
 			await waitFor(() => {
-				expect(screen.getByText('Play a Match')).toBeInTheDocument();
+				expect(screen.getByText('Find Public Game')).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText('Play a Match'));
-
-			expect(mockOnGame).toHaveBeenCalled();
-		});
-
-		it('opens ReauthModal when session near expiry (<30 min)', async () => {
-			const user = userEvent.setup();
-
-			// Session expiring soon
-			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-			renderHome({}, { access_expiry: nearExpiry });
+			await user.click(screen.getByText('Find Public Game'));
 
 			await waitFor(() => {
-				expect(screen.getByText('Play a Match')).toBeInTheDocument();
+				expect(screen.getByTestId('lobby-list-modal')).toBeInTheDocument();
+			});
+		});
+
+		it('opens ReauthModal when session near expiry (<60 min)', async () => {
+			const user = userEvent.setup();
+
+			// Login session expiring soon (reauth checks login_expiry, threshold is 60 min)
+			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+			renderHome({}, { login_expiry: nearExpiry });
+
+			await waitFor(() => {
+				expect(screen.getByText('Find Public Game')).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText('Play a Match'));
+			await user.click(screen.getByText('Find Public Game'));
 
-			// Should show reauth modal instead of calling onGame
-			expect(mockOnGame).not.toHaveBeenCalled();
+			// Should show reauth modal instead of opening lobby list
+			expect(screen.queryByTestId('lobby-list-modal')).not.toBeInTheDocument();
 			await waitFor(() => {
 				expect(screen.getByText('Re-authenticate')).toBeInTheDocument();
 			});
@@ -231,7 +238,7 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+			render(<Home onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			// Should show loading initially
 			expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -244,11 +251,11 @@ describe('Home', () => {
 	});
 
 	describe('reauth modal flow', () => {
-		it('calls onGame after successful reauth', async () => {
+		it('opens lobby list after successful reauth', async () => {
 			const user = userEvent.setup();
 
 			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-			const authResponse = createMockAuthResponse({}, { access_expiry: nearExpiry });
+			const authResponse = createMockAuthResponse({}, { login_expiry: nearExpiry });
 
 			server.use(
 				http.get('/api/user/me', () => {
@@ -259,13 +266,13 @@ describe('Home', () => {
 				})
 			);
 
-			render(<Home onGame={mockOnGame} onLogout={mockOnLogout} onSessions={mockOnSessions} />);
+			render(<Home onLogout={mockOnLogout} onSessions={mockOnSessions} />);
 
 			await waitFor(() => {
-				expect(screen.getByText('Play a Match')).toBeInTheDocument();
+				expect(screen.getByText('Find Public Game')).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText('Play a Match'));
+			await user.click(screen.getByText('Find Public Game'));
 
 			await waitFor(() => {
 				expect(screen.getByText('Re-authenticate')).toBeInTheDocument();
@@ -275,7 +282,7 @@ describe('Home', () => {
 			await user.click(screen.getByText('Continue'));
 
 			await waitFor(() => {
-				expect(mockOnGame).toHaveBeenCalled();
+				expect(screen.getByTestId('lobby-list-modal')).toBeInTheDocument();
 			});
 		});
 
@@ -283,13 +290,13 @@ describe('Home', () => {
 			const user = userEvent.setup();
 
 			const nearExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-			renderHome({}, { access_expiry: nearExpiry });
+			renderHome({}, { login_expiry: nearExpiry });
 
 			await waitFor(() => {
-				expect(screen.getByText('Play a Match')).toBeInTheDocument();
+				expect(screen.getByText('Find Public Game')).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByText('Play a Match'));
+			await user.click(screen.getByText('Find Public Game'));
 
 			await waitFor(() => {
 				expect(screen.getByText('Re-authenticate')).toBeInTheDocument();
@@ -301,7 +308,7 @@ describe('Home', () => {
 				expect(screen.queryByText('Re-authenticate')).not.toBeInTheDocument();
 			});
 
-			expect(mockOnGame).not.toHaveBeenCalled();
+			expect(screen.queryByTestId('lobby-list-modal')).not.toBeInTheDocument();
 		});
 	});
 });

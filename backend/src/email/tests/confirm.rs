@@ -37,7 +37,7 @@ async fn happy_path_send_then_confirm() {
 
     // Confirm the email
     let mut client = server.client();
-    let req = client.get(format!("/api/email/confirm?token={}", token));
+    let req = client.get(format!("/api/email/confirm?token={token}"));
     let mut res = client.send(req).await;
     assert_eq!(res.status_code, Some(StatusCode::OK));
 
@@ -133,7 +133,7 @@ async fn confirm_expired_token_returns_error_html() {
 
     // Try to confirm
     let mut anon = server.client();
-    let req = anon.get(format!("/api/email/confirm?token={}", token));
+    let req = anon.get(format!("/api/email/confirm?token={token}"));
     let mut res = anon.send(req).await;
     assert_eq!(res.status_code, Some(StatusCode::BAD_REQUEST));
 
@@ -155,13 +155,13 @@ async fn replay_protection_second_confirm_fails() {
 
     // First confirm succeeds
     let mut anon = server.client();
-    let req = anon.get(format!("/api/email/confirm?token={}", token));
+    let req = anon.get(format!("/api/email/confirm?token={token}"));
     let res = anon.send(req).await;
     assert_eq!(res.status_code, Some(StatusCode::OK));
 
     // Second confirm with same token fails
     let mut anon2 = server.client();
-    let req = anon2.get(format!("/api/email/confirm?token={}", token));
+    let req = anon2.get(format!("/api/email/confirm?token={token}"));
     let mut res = anon2.send(req).await;
     assert_eq!(
         res.status_code,
@@ -202,7 +202,7 @@ async fn email_changed_since_issuance_returns_error_html() {
 
     // Try to confirm — should fail because email changed
     let mut anon = server.client();
-    let req = anon.get(format!("/api/email/confirm?token={}", token));
+    let req = anon.get(format!("/api/email/confirm?token={token}"));
     let mut res = anon.send(req).await;
     assert_eq!(res.status_code, Some(StatusCode::BAD_REQUEST));
 

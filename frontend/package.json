@@ -2,9 +2,13 @@
 	"name": "frontend",
 	"private": true,
 	"version": "0.0.0",
+	"engines": {
+		"node": "24.x",
+		"npm": "11.x"
+	},
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
+		"dev": "trap 'kill 0' INT; vite",
 		"build": "tsc -b && vite build",
 		"lint": "eslint . --ext .ts,.tsx --fix",
 		"typecheck": "tsc --noEmit",
@@ -21,8 +25,9 @@
 	},
 	"dependencies": {
 		"@babylonjs/core": "^8.51.2",
-		"@babylonjs/inspector": "^8.40.1",
 		"@babylonjs/loaders": "^8.51.2",
+		"@babylonjs/materials": "^8.52.0",
+		"@babylonjs/inspector": "^8.40.1",
 		"@bokuweb/zstd-wasm": "^0.0.27",
 		"@fontsource-variable/fredoka": "^5.2.10",
 		"@fontsource-variable/jetbrains-mono": "^5.2.8",
@@ -31,6 +36,7 @@
 		"@jsquash/resize": "^2.1.1",
 		"autoprefixer": "^10.4.22",
 		"axios": "^1.13.5",
+		"cannon-es": "^0.20.0",
 		"cbor-x": "^1.6.0",
 		"lucide-react": "^0.556.0",
 		"postcss": "^8.5.6",

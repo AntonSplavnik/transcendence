@@ -1,14 +1,14 @@
-import { useEffect, useRef } from 'react';
 import {
-	Engine,
-	Scene,
 	ArcRotateCamera,
-	HemisphericLight,
-	Vector3,
-	SceneLoader,
 	Color4,
+	Engine,
+	HemisphericLight,
+	Scene,
+	SceneLoader,
+	Vector3,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
+import { useEffect, useRef } from 'react';
 
 export default function LandingScene() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,7 +64,7 @@ export default function LandingScene() {
 					mesh.position.x = 3;
 				});
 			} catch (error) {
-				console.error('Failed to load models:', error);
+				console.warn('Failed to load models:', error);
 			}
 		})();
 

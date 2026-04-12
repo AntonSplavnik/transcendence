@@ -104,6 +104,7 @@ export interface AchievementWithProgress {
 export interface PublicUser {
 	id: number;
 	nickname: string;
+	description: string;
 	created_at: string;
 	online: boolean;
 }

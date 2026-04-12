@@ -402,7 +402,7 @@ async fn two_fa_disable_wrong_password_fails() {
 #[tokio::test]
 async fn two_fa_start_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     ensure_totp_key();
     user.assert_requires_auth(|c| {
         c.post("/api/user/2fa/start").json(&TwoFaStartInput {
@@ -415,7 +415,7 @@ async fn two_fa_start_unauthenticated_unauthorized() {
 #[tokio::test]
 async fn two_fa_confirm_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     ensure_totp_key();
     user.assert_requires_auth(|c| {
         c.post("/api/user/2fa/confirm").json(&TwoFaConfirmInput {
@@ -429,7 +429,7 @@ async fn two_fa_confirm_unauthenticated_unauthorized() {
 #[tokio::test]
 async fn two_fa_disable_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     ensure_totp_key();
     user.assert_requires_auth(|c| {
         c.post("/api/user/2fa/disable").json(&TwoFaDisableInput {

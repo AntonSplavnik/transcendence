@@ -14,7 +14,7 @@ pub async fn get_outgoing_requests(
     let sm = depot.stream_manager().clone();
 
     let result = db
-        .read(move |conn| load_pending_requests(conn, user_id, RequestDirection::Outgoing, &sm))
+        .read(move |conn| load_pending_requests(conn, user_id, &RequestDirection::Outgoing, &sm))
         .await??;
 
     json_ok(result)

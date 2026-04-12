@@ -16,18 +16,23 @@ use crate::prelude::*;
 pub struct ConfirmationToken([u8; 32]);
 
 impl ConfirmationToken {
+    #[must_use]
     pub fn generate() -> Self {
         Self(rand::random())
     }
 
+    #[must_use]
     pub fn to_hash(&self) -> Vec<u8> {
         blake3::hash(&self.0).as_bytes().to_vec()
     }
 
+    #[must_use]
     pub fn encoded(&self) -> String {
-        base64url.encode(&self.0)
+        base64url.encode(self.0)
     }
 
+    /// # Errors
+    /// Returns [`EmailConfirmationError::InvalidToken`] if `s` is not valid base64url or not exactly 32 bytes.
     pub fn from_encoded(s: &str) -> Result<Self, EmailConfirmationError> {
         let decoded = base64url
             .decode(s.as_bytes())
@@ -54,6 +59,9 @@ pub enum EmailConfirmationError {
 // ── Logic ────────────────────────────────────────────────────────────────
 
 /// Gate function: returns `Ok(())` if the user's email is confirmed.
+///
+/// # Errors
+/// Returns [`EmailConfirmationError::UnconfirmedEmail`] if the user has not yet confirmed their email address.
 pub fn require_email_confirmed(user: &User) -> Result<(), EmailConfirmationError> {
     if user.email_confirmed_at.is_some() {
         Ok(())
@@ -63,6 +71,10 @@ pub fn require_email_confirmed(user: &User) -> Result<(), EmailConfirmationError
 }
 
 /// Generate a confirmation token, store its hash in the DB, and send the email.
+///
+/// # Errors
+/// Returns [`ApiError`] if the user is not found, the email is already confirmed,
+/// the database write fails, or sending the confirmation email fails.
 pub async fn send_confirmation_email(
     mailer: &Mailer,
     db: &Db,
@@ -116,6 +128,9 @@ pub async fn send_confirmation_email(
 }
 
 /// Verify the raw token, mark the email as confirmed, and clear token columns.
+///
+/// # Errors
+/// Returns [`ApiError`] if the token is invalid, expired, or the database write fails.
 pub async fn confirm_email(db: &Db, raw_token: &str) -> Result<(), ApiError> {
     let token = ConfirmationToken::from_encoded(raw_token)?;
     let token_hash = token.to_hash();
@@ -132,9 +147,8 @@ pub async fn confirm_email(db: &Db, raw_token: &str) -> Result<(), ApiError> {
                 Err(_) => return Ok(Err(EmailConfirmationError::InvalidToken)),
             };
 
-            let expires = match user.email_confirmation_token_expires_at {
-                Some(e) => e,
-                None => return Ok(Err(EmailConfirmationError::InvalidToken)),
+            let Some(expires) = user.email_confirmation_token_expires_at else {
+                return Ok(Err(EmailConfirmationError::InvalidToken));
             };
 
             if Utc::now() > expires {
@@ -142,9 +156,8 @@ pub async fn confirm_email(db: &Db, raw_token: &str) -> Result<(), ApiError> {
             }
 
             // Reject if the email changed since the token was issued
-            let token_email = match user.email_confirmation_token_email.as_deref() {
-                Some(e) => e,
-                None => return Ok(Err(EmailConfirmationError::InvalidToken)),
+            let Some(token_email) = user.email_confirmation_token_email.as_deref() else {
+                return Ok(Err(EmailConfirmationError::InvalidToken));
             };
 
             if token_email != user.email {
@@ -208,6 +221,7 @@ h1{color:#ef4444;margin-bottom:.5rem}</style></head>
 
 // ── Router / Endpoints ───────────────────────────────────────────────────
 
+#[must_use]
 pub fn router(path: &str) -> Router {
     Router::with_path(path).oapi_tag("email").append(&mut vec![
         Router::with_path("send-confirmation")
@@ -234,13 +248,10 @@ async fn send_confirmation(depot: &mut Depot, db: Db) -> AppResult<()> {
 /// Confirm an email address via magic link (returns HTML).
 #[endpoint]
 async fn confirm(token: QueryParam<String, false>, res: &mut Response, db: Db) {
-    let token = match token.into_inner() {
-        Some(t) => t,
-        None => {
-            res.status_code(StatusCode::BAD_REQUEST);
-            res.render(salvo::writing::Text::Html(CONFIRM_ERROR_HTML));
-            return;
-        }
+    let Some(token) = token.into_inner() else {
+        res.status_code(StatusCode::BAD_REQUEST);
+        res.render(salvo::writing::Text::Html(CONFIRM_ERROR_HTML));
+        return;
     };
 
     match confirm_email(&db, &token).await {
@@ -303,7 +314,7 @@ mod unit_tests {
 
     #[test]
     fn from_encoded_wrong_length_returns_invalid_token() {
-        let short = base64url.encode(&[0u8; 16]);
+        let short = base64url.encode([0u8; 16]);
         let result = ConfirmationToken::from_encoded(&short);
         assert!(
             matches!(result, Err(EmailConfirmationError::InvalidToken)),

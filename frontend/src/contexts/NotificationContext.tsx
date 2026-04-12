@@ -21,6 +21,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { getNickname } from '../api/userResolver';
+import { useUIAudio } from '../audio/AudioProvider';
 import type { NotificationPayload, UniHandlerFactory, WireNotification } from '../stream/types';
 import { useStream } from './StreamContext';
 
@@ -158,6 +159,7 @@ async function prepareToast(notification: WireNotification): Promise<ToastNotifi
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
 	const { connectionManager } = useStream();
+	const audio = useUIAudio();
 
 	const [notifications, setNotifications] = useState<WireNotification[]>([]);
 	const [activeToasts, setActiveToasts] = useState<ToastNotification[]>([]);
@@ -165,6 +167,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 	const dismissToast = useCallback((id: string) => {
 		setActiveToasts((prev) => prev.filter((t) => t.id !== id));
 	}, []);
+
+	// Play notification SFX whenever a new toast appears.
+	// Comparing length is robust: it fires only on growth (not on dismiss),
+	// and the 300 ms cooldown on `ui_notif` naturally absorbs bursts.
+	const prevToastCountRef = useRef(0);
+	useEffect(() => {
+		if (activeToasts.length > prevToastCountRef.current) {
+			audio.playSound('ui_notif');
+		}
+		prevToastCountRef.current = activeToasts.length;
+	}, [activeToasts.length, audio]);
 
 	// ─── Preparation queue ───────────────────────────────────────────────
 	//

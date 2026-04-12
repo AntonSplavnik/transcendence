@@ -6,6 +6,7 @@ use thiserror::Error;
 use crate::auth::{AuthError, TwoFactorError};
 use crate::avatar::validate::AvatarValidationError;
 use crate::email::{EmailConfirmationError, EmailError};
+use crate::game::GameError;
 use crate::stream::StreamApiError;
 
 #[derive(Error, Debug, strum::IntoStaticStr)]
@@ -50,6 +51,7 @@ pub enum ApiError {
     Friend(#[from] FriendError),
     Email(#[from] EmailError),
     EmailConfirmation(#[from] EmailConfirmationError),
+    Game(#[from] GameError),
 }
 
 impl Scribe for ApiError {
@@ -63,7 +65,7 @@ impl Scribe for ApiError {
                 match err {
                     // Wrong password -> 401 Unauthorized
                     Error::Password => {
-                        return ApiError::Auth(AuthError::InvalidCredentials).render(res);
+                        return Self::Auth(AuthError::InvalidCredentials).render(res);
                     }
                     // Other hashing errors are internal
                     err => {
@@ -87,16 +89,16 @@ impl Scribe for ApiError {
                             DatabaseErrorKind::UniqueViolation => {
                                 let field = message
                                     .strip_prefix("UNIQUE constraint failed: ")
-                                    .and_then(|s| s.split('.').last())
+                                    .and_then(|s| s.split('.').next_back())
                                     .unwrap_or("Value");
-                                StatusError::conflict().brief(format!("{} already exists", field))
+                                StatusError::conflict().brief(format!("{field} already exists"))
                             }
                             // Foreign key violation -> 400 Bad Request
                             DatabaseErrorKind::ForeignKeyViolation => StatusError::bad_request()
                                 .brief("Referenced resource does not exist"),
                             // Check constraint violation -> 400 Bad Request
                             DatabaseErrorKind::CheckViolation => StatusError::bad_request()
-                                .brief(format!("Constraint violation: {}", message)),
+                                .brief(format!("Constraint violation: {message}")),
                             // Not null violation -> 400 Bad Request
                             DatabaseErrorKind::NotNullViolation => {
                                 StatusError::bad_request().brief("A required field is missing")
@@ -168,6 +170,23 @@ impl Scribe for ApiError {
                     }
                     EmailConfirmationError::InvalidToken => {
                         StatusError::bad_request().brief(variant)
+                    }
+                }
+            }
+            Self::Game(err) => {
+                let variant: &'static str = (&err).into();
+                match err {
+                    GameError::AlreadyInLobby
+                    | GameError::LobbyFull
+                    | GameError::SettingsLocked
+                    | GameError::LobbyMismatch => StatusError::bad_request().brief(variant),
+                    GameError::NotInLobby | GameError::LobbyNotFound | GameError::NotAPlayer => {
+                        StatusError::not_found().brief(variant)
+                    }
+                    GameError::NotHost => StatusError::forbidden().brief(variant),
+                    GameError::Stream(err) => {
+                        tracing::error!(error = ?err, "game stream error");
+                        StatusError::internal_server_error()
                     }
                 }
             }

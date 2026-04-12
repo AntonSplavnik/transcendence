@@ -37,7 +37,7 @@ pub use manager::{NotificationError, NotificationManager};
 ///
 /// async fn my_handler(depot: &mut Depot) {
 ///     let nm = depot.notification_manager();
-///     nm.send(depot.db(), user_id, payload).await.unwrap();
+///     nm.send(user_id, payload).await.unwrap();
 /// }
 /// ```
 pub trait NotificationManagerDepotExt {

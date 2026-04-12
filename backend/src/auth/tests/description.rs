@@ -112,7 +112,7 @@ async fn update_description_multibyte_above_max_rejected() {
 #[tokio::test]
 async fn update_description_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.put("/api/user/description")
             .json(&UpdateDescriptionInput {

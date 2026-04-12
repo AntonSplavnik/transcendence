@@ -1,4 +1,4 @@
-//! POST /api/friends/accept/{request_id} - Accept a friend request
+//! POST /`api/friends/accept/{request_id`} - Accept a friend request
 
 use crate::models::{FriendRequest, FriendRequestStatus, User};
 use crate::notifications::NotificationPayload;

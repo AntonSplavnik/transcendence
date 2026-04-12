@@ -53,7 +53,7 @@ async fn me_includes_session_info() {
 #[tokio::test]
 async fn me_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.get("/api/user/me")).await;
 }
 
