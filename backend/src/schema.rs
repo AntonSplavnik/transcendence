@@ -13,6 +13,9 @@ diesel::table! {
         base_xp_reward -> Integer,
         created_at -> TimestamptzSqlite,
     }
+}
+
+diesel::table! {
     account_deletion_requests (user_id) {
         user_id -> Integer,
         token -> Binary,
