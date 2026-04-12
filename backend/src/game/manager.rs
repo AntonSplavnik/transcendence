@@ -11,7 +11,7 @@ use ulid::Ulid;
 use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::GameClientMessage;
+use super::messages::{GameClientMessage, GameServerMessage};
 use crate::models::nickname::Nickname;
 use crate::stream::{StreamManager, StreamType};
 
@@ -330,9 +330,9 @@ impl GameManager {
                             game_streams.send(
                                 user_id,
                                 &GameServerMessage::PlayerJoined {
-                                    player_id: *uid as u32,
+                                    player_id: (*uid).cast_unsigned(),
                                     name: nick.to_string(),
-                                    character_class: character_class.clone(),
+                                    character_class: *character_class,
                                 },
                             );
                         }
