@@ -752,6 +752,7 @@ A real-time notification system that pushes events to users over WebTransport, w
 | Game | [docs/game.md](docs/game.md) | Game architecture, engine design, lobby system, and gameplay mechanics |
 | Audio engine | [docs/audio_engine.md](docs/audio_engine.md) | Audio architecture, bus routing, triggers, and sound system behavior |
 | Friends | [docs/friends.md](docs/friends.md) | Friends system design and API contract |
+| Spectator mode | [docs/spectator-mode.md](docs/spectator-mode.md) | Spectator system design, API, and stream architecture |
 | Streaming architecture | [docs/streaming-architecture.md](docs/streaming-architecture.md) | WebTransport stream types, connection lifecycle, broadcast model |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
