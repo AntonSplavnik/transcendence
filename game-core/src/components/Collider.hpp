@@ -173,6 +173,15 @@ struct Collider {
 	static Collider createWall(const Vector3D& halfExtents) {
 		Collider collider = createBox(halfExtents);
 		collider.layer = CollisionLayer::Wall;
+		collider.collidesWith = CollisionLayer::Player | CollisionLayer::Enemy | CollisionLayer::Projectile;
+		collider.isStatic = true;
+		return collider;
+	}
+
+	static Collider createStaticCylinder(float radius) {
+		Collider collider = createCylinder(radius, 0.0f);
+		collider.layer = CollisionLayer::Wall;
+		collider.collidesWith = CollisionLayer::Player | CollisionLayer::Enemy | CollisionLayer::Projectile;
 		collider.isStatic = true;
 		return collider;
 	}

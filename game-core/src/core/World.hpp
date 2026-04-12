@@ -26,13 +26,14 @@
 
 #include "../ISpawner.hpp"
 #include "../CharacterClassLookup.hpp"
+#include "EntityFactory.hpp"
+#include "MapLoader.hpp"
 
 #include "../../entt/entt.hpp"
 #include <memory>
 #include <vector>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace ArenaGame {
 
@@ -41,8 +42,7 @@ namespace ArenaGame {
 // =============================================================================
 // - Uses entt::registry for entity storage (packed arrays, cache-friendly)
 // - Maintains PlayerID ↔ entt::entity bidirectional mapping for FFI compatibility
-//
-// - Built-in entity pooling and recycling
+// - Delegates entity creation to EntityFactory
 //
 // Usage:
 //   World world;
@@ -61,14 +61,11 @@ public:
 	void initialize();
 	void shutdown();
 
-	// Update phases (identical to World.hpp)
-	void earlyUpdate(float deltaTime);   // Phase 1: Input processing
-	void fixedUpdate(float fixedDeltaTime);  // Phase 2: Physics & Collision
-	void update(float deltaTime);        // Phase 3: Game logic, Combat
-	void lateUpdate(float deltaTime);    // Phase 4: Post-processing
-
-	// Game manager entity
-	entt::entity createGameManager();
+	// Update phases
+	void earlyUpdate(float deltaTime);       // Phase 1: Input processing
+	void fixedUpdate(float fixedDeltaTime);   // Phase 2: Physics & Collision
+	void update(float deltaTime);             // Phase 3: Game logic, Combat
+	void lateUpdate(float deltaTime);         // Phase 4: Post-processing
 
 	// Set game mode
 	void setGameMode(GameModeType mode);
@@ -79,7 +76,7 @@ public:
 	// Move all queued network events out of the ECS component (one registry lookup).
 	std::vector<NetEvents::NetworkEvent> takeNetworkEvents();
 
-	// Entity management
+	// Entity management (delegates to EntityFactory)
 	entt::entity createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
 	entt::entity createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer);
 	entt::entity createProjectile(const Vector3D& pos, const Vector3D& velocity);
@@ -89,7 +86,7 @@ public:
 	bool destroyEntity(entt::entity entity);
 	void clearEntities();
 
-	// Convenience methods for player management
+	// Player management
 	bool addPlayer(PlayerID id, const std::string& name, const std::string& characterClass);
 	entt::entity createPlayer(PlayerID id, const std::string& name,
 							  const std::string& characterClass,
@@ -109,6 +106,9 @@ public:
 	entt::registry& getRegistry() { return m_registry; }
 	const entt::registry& getRegistry() const { return m_registry; }
 
+	// Factory access (for MapLoader and other external producers)
+	EntityFactory& getFactory() { return m_factory; }
+
 	// System access
 	CharacterControllerSystem* getCharacterControllerSystem() { return m_characterControllerSystem; }
 	PhysicsSystem* getPhysicsSystem() { return m_physicsSystem; }
@@ -120,6 +120,9 @@ private:
 	// EnTT registry (core data structure)
 	entt::registry m_registry;
 
+	// Entity factory (must be declared after m_registry for initialization order)
+	EntityFactory m_factory;
+
 	// System management
 	SystemManager m_systemManager;
 
@@ -130,7 +133,7 @@ private:
 	CombatSystem* m_combatSystem;
 	GameModeSystem* m_gameModeSystem;
 
-	// Game manager enitty
+	// Game manager entity
 	entt::entity m_gameManager;
 
 	// PlayerID ↔ entt::entity bidirectional mapping
@@ -140,17 +143,15 @@ private:
 	// Internal helpers
 	void registerPlayerIDMapping(entt::entity entity, PlayerID id);
 	void unregisterPlayerIDMapping(entt::entity entity);
-	entt::entity createStaticMapEntity(const Vector3D& position, Components::Collider collider);
-	void spawnHardcodedMapColliders();
 };
 
 // =============================================================================
 // Implementation
 // =============================================================================
 
-
 inline World::World()
-	: m_characterControllerSystem(nullptr)
+	: m_factory(m_registry)
+	, m_characterControllerSystem(nullptr)
 	, m_physicsSystem(nullptr)
 	, m_collisionSystem(nullptr)
 	, m_combatSystem(nullptr)
@@ -171,8 +172,11 @@ inline void World::initialize() {
 	auto gameModeSystem = std::make_unique<GameModeSystem>();
 	auto staminaSystem = std::make_unique<StaminaSystem>();
 
-	m_gameManager = createGameManager();
-	spawnHardcodedMapColliders();
+	m_gameManager = m_factory.createGameManager();
+
+	// Load map colliders from JSON
+	MapLoader mapLoader(m_factory);
+	mapLoader.loadFromFile(MAP_COLLIDERS_PATH);
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
@@ -241,22 +245,6 @@ inline void World::lateUpdate(float deltaTime) {
 	m_systemManager.lateUpdate(deltaTime);
 }
 
-// GameManager enity
-inline entt::entity World::createGameManager() {
-	auto gameManager = m_registry.create();
-	if (gameManager == entt::null) {
-		return entt::null;
-	}
-	m_registry.emplace<GameManagerTag>(gameManager);
-	m_registry.emplace<Components::GameModeComponent>(gameManager);
-	m_registry.emplace<Components::MatchStatsComponent>(gameManager);
-	m_registry.emplace<Components::InternalEventsComponent>(gameManager);
-	m_registry.emplace<Components::NetworkEventsComponent>(gameManager);
-	m_registry.emplace<Components::PendingPlayersComponent>(gameManager);
-
-	return gameManager;
-}
-
 // Set Game mode
 inline void World::setGameMode(GameModeType mode) {
 	auto* gm = m_registry.try_get<Components::GameModeComponent>(m_gameManager);
@@ -292,147 +280,26 @@ inline std::vector<NetEvents::NetworkEvent> World::takeNetworkEvents() {
 	return std::exchange(ne->events, {});  // move out, leave component empty
 }
 
-// General entity
+// Entity management — delegates to EntityFactory
 inline entt::entity World::createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	m_registry.emplace<ActorTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, pos);
-	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createFromPreset(preset.movement));
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createFromPreset(preset.collider, layer));
-	m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset.health));
-	m_registry.emplace<Components::Stamina>(entity, Components::Stamina::createFromPreset(preset.stamina));
-	m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset.combat));
-
-	return entity;
+	return m_factory.createActor(pos, preset, layer);
 }
 inline entt::entity World::createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-	auto bot = createActor(pos, preset, layer);
-	if(bot == entt::null) return entt::null;
-
-	m_registry.emplace<BotTag>(bot);
-	return bot;
+	return m_factory.createBot(pos, preset, layer);
 }
-inline entt::entity World::createProjectile(const Vector3D& spawnPos, const Vector3D& velocity) {
-
-	entt::entity entity = m_registry.create();;
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	// Initialize as projectile
-	auto physics = Components::PhysicsBody::createProjectile();
-	physics.velocity = velocity;
-
-	m_registry.emplace<ProjectileTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, spawnPos);
-	m_registry.emplace<Components::PhysicsBody>(entity, physics);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createProjectile());
-
-	return entity;
+inline entt::entity World::createProjectile(const Vector3D& pos, const Vector3D& velocity) {
+	return m_factory.createProjectile(pos, velocity);
 }
-inline entt::entity World::createStaticMapEntity(const Vector3D& position, Components::Collider collider) {
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	m_registry.emplace<WallTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, position);
-	m_registry.emplace<Components::Collider>(entity, std::move(collider));
-	m_registry.emplace<Components::PhysicsBody>(entity, Components::PhysicsBody::createStatic());
-
-	return entity;
+inline entt::entity World::createWall(const Vector3D& pos, const Vector3D& halfExtents) {
+	return m_factory.createWall(pos, halfExtents);
 }
-inline entt::entity World::createWall(const Vector3D& position, const Vector3D& halfExtents) {
-	auto collider = Components::Collider::createWall(halfExtents);
-	collider.collidesWith = Components::CollisionLayer::Player |
-		Components::CollisionLayer::Enemy |
-		Components::CollisionLayer::Projectile;
-
-	return createStaticMapEntity(position, std::move(collider));
+inline entt::entity World::createTrigger(const Vector3D& pos, float radius) {
+	return m_factory.createTrigger(pos, radius);
 }
-inline entt::entity World::createTrigger(const Vector3D& position, float radius) {
 
-	entt::entity entity = m_registry.create();
-	if (entity == entt::null) {
-		return entt::null;
-	}
-
-	// Initialize as trigger
-	m_registry.emplace<TriggerTag>(entity);
-	m_registry.emplace<Components::Transform>(entity, position);
-	m_registry.emplace<Components::Collider>(entity, Components::Collider::createTrigger(radius));
-
-	return entity;
-}
-inline void World::spawnHardcodedMapColliders() {
-	struct MapColliderSpec {
-		enum class Shape {
-			Cylinder,
-			Box,
-		};
-
-		const char* name;
-		Shape shape;
-		Vector3D position;
-		Vector3D halfExtents;
-		float radius;
-	};
-
-	static const std::vector<MapColliderSpec> specs = {
-		{ "Fontaine", MapColliderSpec::Shape::Cylinder, Vector3D(5.15f, 0.0f, 5.53f), Vector3D(0.0f, 0.0f, 0.0f), 4.06f },
-		{ "bench NE", MapColliderSpec::Shape::Box, Vector3D(5.54f, 0.0f, 11.54f), Vector3D(1.66f, 0.0f, 0.76f), 0.0f },
-		{ "bench NW", MapColliderSpec::Shape::Box, Vector3D(-0.23f, 0.0f, 5.96f), Vector3D(0.70f, 0.0f, 1.92f), 0.0f },
-		{ "bench SW", MapColliderSpec::Shape::Box, Vector3D(5.57f, 0.0f, -0.29f), Vector3D(1.64f, 0.0f, 0.70f), 0.0f },
-		{ "bench SE", MapColliderSpec::Shape::Box, Vector3D(11.10f, 0.0f, 5.12f), Vector3D(0.93f, 0.0f, 1.69f), 0.0f },
-		{ "base windmill", MapColliderSpec::Shape::Cylinder, Vector3D(17.98f, 0.0f, 19.63f), Vector3D(0.0f, 0.0f, 0.0f), 4.96f },
-		{ "ext windmill", MapColliderSpec::Shape::Box, Vector3D(20.64f, 0.0f, 15.14f), Vector3D(2.20f, 0.0f, 2.28f), 0.0f },
-		{ "buche", MapColliderSpec::Shape::Box, Vector3D(20.21f, 0.0f, 0.18f), Vector3D(2.48f, 0.0f, 1.91f), 0.0f },
-		{ "barrieres + tree", MapColliderSpec::Shape::Cylinder, Vector3D(14.50f, 0.0f, 1.34f), Vector3D(0.0f, 0.0f, 0.0f), 2.19f },
-		{ "barrieres", MapColliderSpec::Shape::Cylinder, Vector3D(18.45f, 0.0f, -0.77f), Vector3D(0.0f, 0.0f, 0.0f), 2.27f },
-		{ "small rock right side", MapColliderSpec::Shape::Cylinder, Vector3D(21.52f, 0.0f, -7.48f), Vector3D(0.0f, 0.0f, 0.0f), 2.72f },
-		{ "big Rock box corner", MapColliderSpec::Shape::Cylinder, Vector3D(21.62f, 0.0f, -19.30f), Vector3D(0.0f, 0.0f, 0.0f), 3.19f },
-		{ "big rock camping", MapColliderSpec::Shape::Cylinder, Vector3D(13.39f, 0.0f, -18.95f), Vector3D(0.0f, 0.0f, 0.0f), 2.82f },
-		{ "Tonneau", MapColliderSpec::Shape::Box, Vector3D(7.70f, 0.0f, -9.37f), Vector3D(1.08f, 0.0f, 1.61f), 0.0f },
-		{ "lower rock left forest", MapColliderSpec::Shape::Box, Vector3D(3.29f, 0.0f, -9.06f), Vector3D(1.76f, 0.0f, 3.28f), 0.0f },
-		{ "big tree forest", MapColliderSpec::Shape::Box, Vector3D(-1.79f, 0.0f, -18.12f), Vector3D(1.37f, 0.0f, 1.55f), 0.0f },
-		{ "redhouse", MapColliderSpec::Shape::Box, Vector3D(-14.20f, 0.0f, -4.21f), Vector3D(5.18f, 0.0f, 7.18f), 0.0f },
-		{ "barriere left greenfarm", MapColliderSpec::Shape::Box, Vector3D(-16.96f, 0.0f, 4.95f), Vector3D(7.58f, 0.0f, 0.88f), 0.0f },
-		{ "small part barriere left greenfarm", MapColliderSpec::Shape::Box, Vector3D(-9.21f, 0.0f, 6.75f), Vector3D(0.70f, 0.0f, 1.75f), 0.0f },
-		{ "greenfarm", MapColliderSpec::Shape::Box, Vector3D(-19.55f, 0.0f, 12.98f), Vector3D(3.32f, 0.0f, 4.70f), 0.0f },
-		{ "barriere front long greenfarm", MapColliderSpec::Shape::Box, Vector3D(-9.16f, 0.0f, 18.09f), Vector3D(0.73f, 0.0f, 4.21f), 0.0f },
-		{ "barriere right greenfarm", MapColliderSpec::Shape::Box, Vector3D(-17.02f, 0.0f, 22.63f), Vector3D(7.53f, 0.0f, 0.51f), 0.0f },
-	};
-
-	const auto mapCollisionMask = Components::CollisionLayer::Player |
-		Components::CollisionLayer::Enemy |
-		Components::CollisionLayer::Projectile;
-
-	for (const auto& spec : specs) {
-		Components::Collider collider;
-		if (spec.shape == MapColliderSpec::Shape::Box) {
-			collider = Components::Collider::createWall(spec.halfExtents);
-		} else {
-			collider = Components::Collider::createCylinder(spec.radius, spec.radius * 2.0f);
-		}
-
-		collider.layer = Components::CollisionLayer::Wall;
-		collider.collidesWith = mapCollisionMask;
-		collider.isStatic = true;
-
-		createStaticMapEntity(spec.position, std::move(collider));
-	}
-}
 inline bool World::destroyEntity(entt::entity entity) {
-
 	// Destroy entity (automatically removes all components)
 	m_registry.destroy(entity);
-
 	return true;
 }
 inline void World::clearEntities() {
@@ -464,7 +331,7 @@ inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
 	}
 
 	const CharacterPreset& preset = presetFromClass(characterClass);
-	entt::entity entity = createActor(pos, preset, Components::CollisionLayer::Player);
+	entt::entity entity = m_factory.createActor(pos, preset, Components::CollisionLayer::Player);
 
 	m_registry.emplace<PlayerTag>(entity);
 	m_registry.emplace<Components::PlayerInfo>(entity, id, name, characterClass);
@@ -480,7 +347,6 @@ inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
 inline bool World::removePlayer(PlayerID id) {
 
 	entt::entity entity = getEntityByPlayerID(id);
-
 
 	if (entity == entt::null) {
 		return false;

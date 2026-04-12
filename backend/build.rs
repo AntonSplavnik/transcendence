@@ -70,6 +70,13 @@ fn main() {
         build.flag("-g3"); // full DWARF debug info including macro definitions; zero runtime cost
     }
 
+    // Embed the absolute path to map_colliders.json so C++ can load it
+    // regardless of the working directory at runtime.
+    let map_data_path = std::fs::canonicalize(format!("{game_core_path}/data/map_colliders.json"))
+        .expect("game-core/data/map_colliders.json must exist");
+    let map_data_define = format!("\"{}\"", map_data_path.display());
+    build.define("MAP_COLLIDERS_PATH", Some(map_data_define.as_str()));
+
     build.compile("game");
 
     // Rebuild triggers
@@ -77,4 +84,6 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../game-core/src"); // all headers and sources
     println!("cargo:rerun-if-changed=../game-core/entt/entt.hpp"); // single-include EnTT header
+    println!("cargo:rerun-if-changed=../game-core/nlohmann/json.hpp"); // single-include JSON library
+    println!("cargo:rerun-if-changed=../game-core/data/map_colliders.json"); // map collider data
 }
