@@ -289,57 +289,77 @@ impl GameManager {
         }
 
         // Phase 3: sync — finalize, send snapshot, collect mid-game data (under lobby lock)
-        {
-            let (game_streams, is_game_active) = {
-                let mut lobby = lobby_arc.lock();
-                lobby.finish_add_spectator(user_id, nickname);
-                let snapshot = lobby.info();
-                lobby
-                    .lobby_streams()
-                    .send(user_id, &LobbyServerMessage::LobbySnapshot(snapshot));
-                (Arc::clone(lobby.game_streams()), lobby.is_game_active())
-            };
+        let mid_game = {
+            let mut lobby = lobby_arc.lock();
+            lobby.finish_add_spectator(user_id, nickname);
+            let snapshot = lobby.info();
+            lobby
+                .lobby_streams()
+                .send(user_id, &LobbyServerMessage::LobbySnapshot(snapshot));
 
             // If a game is already running, open a game stream for this spectator immediately
             // so they can watch. Collect the data we need (under lock) before releasing.
-            if is_game_active {
-                let result = game_streams
-                    .create_stream::<GameClientMessage>(
-                        user_id,
-                        StreamType::Game,
-                        &self.sm,
-                        |_user_id, _msg| true,
-                    )
-                    .await;
+            if lobby.is_game_active() {
+                let players = lobby.player_data().collect::<Vec<_>>();
+                let game_streams = Arc::clone(lobby.game_streams());
+                Some((players, game_streams))
+            } else {
+                None
+            }
+        };
 
-                match result {
-                    Ok(_) => {
-                        // Guard against the race where the game ended between checking is_game_active() and opening the stream —
-                        // and here: clear_game() replaces lobby.game_streams with a
-                        // fresh Arc, so the Arc we hold is now detached. If we kept
-                        // it, StreamGroup::Drop would immediately cancel the handle
-                        // when our local Arc goes out of scope.
-                        let still_active = {
-                            let lobby = lobby_arc.lock();
-                            lobby.is_game_active()
-                                && Arc::ptr_eq(lobby.game_streams(), &game_streams)
-                        };
-                        if !still_active {
-                            // Game ended in the race window; our stream handle is on a
-                            // dead group. Tear it down explicitly before the Arc drops.
-                            game_streams.destroy_handle(user_id);
-                            warn!(lobby_id = %lobby_id, user_id,
-                            "game ended before mid-game spectator stream was established; discarding");
+        // Phase 4: async — open game stream for mid-game spectator (no locks held)
+        if let Some((players, game_streams)) = mid_game {
+            let result = game_streams
+                .create_stream::<GameClientMessage>(
+                    user_id,
+                    StreamType::Game,
+                    &self.sm,
+                    |_user_id, _msg| true,
+                )
+                .await;
+
+            match result {
+                Ok(_) => {
+                    // Guard against the race where the game ended between Phase 3
+                    // and here: clear_game() replaces lobby.game_streams with a
+                    // fresh Arc, so the Arc we hold is now detached. If we kept
+                    // it, StreamGroup::Drop would immediately cancel the handle
+                    // when our local Arc goes out of scope.
+                    let still_active = {
+                        let lobby = lobby_arc.lock();
+                        lobby.is_game_active() && Arc::ptr_eq(lobby.game_streams(), &game_streams)
+                    };
+
+                    if still_active {
+                        // Send PlayerJoined for every current player so the spectator's
+                        // GameContext knows who is in the game.
+                        for (uid, nick, character_class) in &players {
+                            game_streams.send(
+                                user_id,
+                                &GameServerMessage::PlayerJoined {
+                                    player_id: (*uid).cast_unsigned(),
+                                    name: nick.to_string(),
+                                    character_class: *character_class,
+                                },
+                            );
                         }
-                    }
-                    Err(error) => {
-                        warn!(lobby_id = %lobby_id, user_id, %error,
-                        "failed to open mid-game game stream for spectator");
+                    } else {
+                        // Game ended in the race window; our stream handle is on a
+                        // dead group. Tear it down explicitly before the Arc drops.
+                        game_streams.destroy_handle(user_id);
+                        warn!(lobby_id = %lobby_id, user_id,
+                            "game ended before mid-game spectator stream was established; discarding");
                     }
                 }
+                Err(e) => {
+                    warn!(lobby_id = %lobby_id, user_id, error = %e,
+                        "failed to open mid-game game stream for spectator");
+                }
             }
-            debug!(lobby_id = %lobby_id, user_id, "spectator joined lobby");
         }
+
+        debug!(lobby_id = %lobby_id, user_id, "spectator joined lobby");
         Ok(())
     }
 
