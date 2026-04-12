@@ -60,6 +60,7 @@ As a Product Owner, he was responsible for defining the user experience for this
 Her Project Manager role involved coordinating the team, setting impulses for meetings and strategy, and ensuring that the team stayed on track.
 
 **drongier** owns the avatar system end-to-end: backend validation, caching, and router; frontend upload flow, client-side AVIF conversion, display, and ETag caching; and the profile editing modal (`EditUserModal`). He also worked on the sound system.
+He designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, and trigger-table-driven playback), including local/remote/game-event sound behavior, anti-spam cooldown tuning, and combat-focused sound design/mix balancing for clearer gameplay feedback.
 As a developer with a full-stack role, he worked closely with all parts of the project.
 
 ---
@@ -164,6 +165,7 @@ cd backend && cargo clean
 | TypeScript | Language | Static types catch errors early, essential for complex auth + game state |
 | Tailwind CSS | Styling | Utility-first, custom theme (stone + gold palette), no CSS file context-switching |
 | Babylon.js | 3D engine | Browser-native WebGL game engine; handles scene, physics, camera, and assets |
+| Babylon AudioEngineV2 | Audio engine | Bus-based routing (`master/sfx/music/ambient/ui`), spatial audio, and shared sound playback control |
 | Axios | HTTP client | Interceptors make JWT 401-retry logic clean and centralised |
 | React Router | Client routing | Hash navigation, route guards (ProtectedRoute / PublicRoute) |
 | WebTransport | Real-time transport | HTTP/3 persistent connection to backend for game events and notifications |
@@ -479,6 +481,18 @@ In a competitive gaming platform, account security matters. This module gives us
 
 ---
 
+### Module 11 — Custom Minor: Audio System
+
+_Modules of choice Minor (1 pt) — by drongier_
+
+In a competitive multiplayer fighting game, audio is not cosmetic: it is core gameplay feedback. This module introduces a dedicated sound system that covers local responsiveness, remote synchronization, and 3D spatial perception. Players hear immediate feedback for their own actions, positional cues for opponents, and consistent mix behavior across UI, menu, and in-game contexts.
+
+**Justification:** Real time game audio design follows established middleware principles (FMOD/Wwise): event-driven playback, sound banks, mixer buses, and separation between gameplay state and audio rendering. This module addresses practical gameplay risks (audio spam, repetitive fatigue, desynced feedback) while improving accessibility and game readability. No standard module in ft_transcendence provides this end-to-end architecture.
+
+**Implementation:** The frontend uses a shared Babylon `AudioEngineV2` stack with routed buses (`master`, `sfx`, `music`, `music_ingame`, `ambient`, `ui`), a preloaded `SoundBank`, and declarative trigger tables for local input, remote snapshot deltas, and server events. Audio settings are persisted in local storage with validation and legacy migration support. Local jump/attack spam was mitigated by moving critical triggers away from raw key presses to animation/gameplay events, ensuring one-shot playback at the right moment. The backend integration relies on authoritative game events and stream delivery so every client receives consistent combat/audio outcomes while preserving immediate local feedback where needed.
+
+---
+
 ## Individual Contributions
 
 ### kwurster
@@ -527,7 +541,8 @@ In a competitive gaming platform, account security matters. This module gives us
   - Frontend: image crop/resize/AVIF conversion, upload flow, avatar display components
 - Profile editing: `EditUserModal` for nickname and description changes
 - User description field: backend migration + frontend display/edit
-- Sound system (in progress, not yet merged)
+- Audio architecture: designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, trigger-table-driven playback for local/remote/game events).
+- Sound design: tuned combat/movement feedback, cooldown anti-spam behavior, and overall mix balance for clearer, more readable gameplay audio.
 
 ---
 
@@ -554,6 +569,7 @@ In a competitive gaming platform, account security matters. This module gives us
 | Backend auth | [docs/backend-auth.md](docs/backend-auth.md) | Full auth architecture, token model, endpoints, threat model |
 | Avatar backend | [docs/avatar-backend.md](docs/avatar-backend.md) | Avatar system architecture, validation rules, caching strategy |
 | Frontend | [docs/frontend.md](docs/frontend.md) | Frontend stack, design system, auth flow, JWT refresh |
+| Audio system | [docs/audio_system.md](docs/audio_system.md) | Audio architecture, bus routing, triggers, and sound system behavior |
 | 2FA frontend | [docs/frontend-2fa.md](docs/frontend-2fa.md) | 2FA modal components and enrollment flow |
 | Session management | [docs/session-management.md](docs/session-management.md) | Session management page design and backend contract |
 | TODO | [docs/todo.md](docs/todo.md) | What still needs to be done before evaluation |
