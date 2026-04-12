@@ -9,7 +9,7 @@ namespace Presets {
 	// ── Player characters ──────────────────────────────────────────────
 	inline const CharacterPreset KNIGHT = {
 		.health = {
-			.maxHealth  = 120.0f,
+			.maxHealth  = 180.0f,
 			.armor      = 5.0f,
 			.resistance = 0.1f,
 		},
@@ -47,38 +47,38 @@ namespace Presets {
 			.criticalMultiplier = 1.5f,
 			.attackChain = {
 				// Stage 0 — diagonal slice: quick opener
-				{ .damageMultiplier=0.8f, .range=2.0f, .duration=0.45f,
+				{ .damageMultiplier=0.8f, .range=3.0f, .duration=0.45f,
 				  .movementMultiplier=0.0f, .chainWindow=0.6f, .staminaCost=10.0f },
 				// Stage 1 — horizontal slice: mid combo
-				{ .damageMultiplier=0.9f, .range=2.2f, .duration=0.50f,
+				{ .damageMultiplier=0.9f, .range=3.0f, .duration=0.50f,
 				  .movementMultiplier=0.0f, .chainWindow=0.5f, .staminaCost=15.0f },
 				// Stage 2 — stab: heavy finisher, chain resets (chainWindow=0)
-				{ .damageMultiplier=1.6f, .range=1.8f, .duration=0.60f,
+				{ .damageMultiplier=1.6f, .range=3.0f, .duration=0.60f,
 				  .movementMultiplier=0.0f, .chainWindow=0.0f, .staminaCost=25.0f },
 			},
-			.skill1 = { .params = MeleeAOE{ .range=2.5f, .movementMultiplier=0.0f, .dmgMultiplier=1.8f },
+			.skill1 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.0f, .dmgMultiplier=1.8f },
 			            .cooldown=5.0f, .castDuration=0.7f, .staminaCost=20.0f },
-			.skill2 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=0.7f, .dmgMultiplier=1.5f },
+			.skill2 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.7f, .dmgMultiplier=1.5f },
 			            .cooldown=10.0f, .castDuration=0.5f, .staminaCost=30.0f },
 		},
 	};
 
 	inline const CharacterPreset ROGUE = {
 		.health = {
-			.maxHealth  = 80.0f,
+			.maxHealth  = 100.0f,
 			.armor      = 0.0f,
 			.resistance = 0.0f,
 		},
 		.movement = {
-			.movementSpeed    = 2.2f,
+			.movementSpeed    = 1.9f,
 			.rotationSpeed    = 22.0f,  // ~70ms for a 90° turn — very snappy
-			.sprintMultiplier = 3.2f,   // light armor — fast sprint
+			.sprintMultiplier = 3.0f,   // light armor — fast sprint
 			.crouchMultiplier = 0.6f,   // stealthier crouch, still quick
 			.jumpVelocity     = 7.5f,   // high jump — agile
 			.dodgeVelocity    = 11.0f,  // signature dodge — long reposition
 			.airControlFactor = 0.35f,  // good air control
-			.acceleration     = 28.0f,  // ~50ms to walk, ~140ms to sprint
-			.deceleration     = 35.0f,  // ~45ms walk stop, ~105ms sprint slide
+			.acceleration     = 22.0f,  // ~50ms to walk, ~140ms to sprint
+			.deceleration     = 30.0f,  // ~45ms walk stop, ~105ms sprint slide
 			.mass             = 60.0f,
 			.friction         = 0.7f,   // slides a bit — momentum after stops
 			.drag             = 0.0f,
@@ -103,17 +103,17 @@ namespace Presets {
 			.criticalMultiplier = 2.0f,
 			.attackChain = {
 				// Stage 0 — chop: fast opener, mobile
-				{ .damageMultiplier=0.8f, .range=1.7f, .duration=0.5f,
+				{ .damageMultiplier=0.8f, .range=3.0f, .duration=0.5f,
 				  .movementMultiplier=0.4f, .chainWindow=0.5f, .staminaCost=8.0f },
 				// Stage 1 — slice: heavier finisher, chain resets (chainWindow=0)
-				{ .damageMultiplier=1.3f, .range=1.8f, .duration=0.6f,
+				{ .damageMultiplier=1.3f, .range=3.0f, .duration=0.6f,
 				  .movementMultiplier=0.3f, .chainWindow=0.0f, .staminaCost=14.0f },
 			},
 			// Skill 1 — dash stab: quick forward lunge
-			.skill1 = { .params = MeleeAOE{ .range=2.0f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
+			.skill1 = { .params = MeleeAOE{ .range=3.0f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
 			            .cooldown=4.0f, .castDuration=0.40f, .staminaCost=15.0f },
 			// Skill 2 — kick: close-range knockback/disengage tool
-			.skill2 = { .params = MeleeAOE{ .range=1.4f, .movementMultiplier=0.2f, .dmgMultiplier=1.4f },
+			.skill2 = { .params = MeleeAOE{ .range=3.0f, .movementMultiplier=0.2f, .dmgMultiplier=1.4f },
 			            .cooldown=6.0f, .castDuration=0.45f, .staminaCost=12.0f },
 		},
 	};
