@@ -1,7 +1,7 @@
 import { User } from 'lucide-react';
-import { Modal, Card, Badge } from '../ui';
-import AvatarDisplay from '../ui/AvatarDisplay';
 import type { PublicUser } from '../../api/types';
+import { Badge, Card, Modal } from '../ui';
+import AvatarDisplay from '../ui/AvatarDisplay';
 
 interface PublicProfileModalProps {
 	user: PublicUser;
@@ -57,14 +57,6 @@ export default function PublicProfileModal({ user, onClose }: PublicProfileModal
 						</p>
 					</Card>
 				)}
-
-				{/* Recent history */}
-				<Card variant="inset">
-					<h3 className="text-sm font-semibold text-stone-300 mb-2">Recent History</h3>
-					<div className="text-center text-stone-350 text-sm italic py-2">
-						No recent battles recorded.
-					</div>
-				</Card>
 			</div>
 		</Modal>
 	);

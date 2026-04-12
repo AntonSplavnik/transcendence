@@ -2,6 +2,8 @@ import apiClient from './client';
 import type {
 	AuthResponse,
 	ChangePasswordPayload,
+	AchievementWithProgress,
+	UserStats,
 	DataExport,
 	GdprInitiateResponse,
 	PasswordMfaPayload,
@@ -116,6 +118,13 @@ export async function logout(): Promise<void> {
 	await apiClient.post('/user/logout');
 }
 
+// ==================== STATS ====================
+
+export async function getMyStats(): Promise<UserStats> {
+	const response = await apiClient.get<UserStats>('/stats/@me');
+	return response.data;
+}
+
 export async function logoutOtherSessions(password: string, mfa_code?: string): Promise<void> {
 	const payload: PasswordMfaPayload = { password, mfa_code };
 	await apiClient.post('/user/logout-other-sessions', payload);
@@ -132,6 +141,13 @@ export async function logoutSessions(
 		mfa_code,
 	};
 	await apiClient.post('/user/logout-sessions', payload);
+}
+
+// ==================== ACHIEVEMENTS ====================
+
+export async function getMyAchievements(): Promise<AchievementWithProgress[]> {
+	const response = await apiClient.get<AchievementWithProgress[]>('/stats/achievements');
+	return response.data;
 }
 
 // ==================== GDPR: ACCOUNT DELETION ====================

@@ -1,8 +1,8 @@
 diff --git a/backend/src/schema.rs b/backend/src/schema.rs
-index 0f3a639..325ef5a 100644
+index 7615ccbc..5e00e68b 100644
 --- a/backend/src/schema.rs
 +++ b/backend/src/schema.rs
-@@ -2,108 +2,108 @@
+@@ -2,13 +2,13 @@
  
  diesel::table! {
      account_deletion_requests (user_id) {
@@ -11,6 +11,21 @@ index 0f3a639..325ef5a 100644
          confirm_token -> Nullable<Binary>,
 -        expires_at -> Timestamp,
 +        expires_at -> TimestamptzSqlite,
+     }
+ }
+ 
+ diesel::table! {
+     achievements (id) {
+         id -> Integer,
+@@ -17,116 +17,116 @@ diesel::table! {
+         description -> Text,
+         category -> Text,
+         bronze_threshold -> Integer,
+         silver_threshold -> Integer,
+         gold_threshold -> Integer,
+         base_xp_reward -> Integer,
+-        created_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
      }
  }
  
@@ -105,6 +120,40 @@ index 0f3a639..325ef5a 100644
  }
  
  diesel::table! {
+     user_achievements (id) {
+         id -> Integer,
+         user_id -> Integer,
+         achievement_id -> Integer,
+         current_progress -> Integer,
+-        bronze_unlocked_at -> Nullable<Timestamp>,
+-        silver_unlocked_at -> Nullable<Timestamp>,
+-        gold_unlocked_at -> Nullable<Timestamp>,
++        bronze_unlocked_at -> Nullable<TimestamptzSqlite>,
++        silver_unlocked_at -> Nullable<TimestamptzSqlite>,
++        gold_unlocked_at -> Nullable<TimestamptzSqlite>,
+     }
+ }
+ 
+ diesel::table! {
+     user_stats (user_id) {
+         user_id -> Integer,
+         xp -> Integer,
+         level -> Integer,
+         games_played -> Integer,
+         games_won -> Integer,
+         current_win_streak -> Integer,
+         best_win_streak -> Integer,
+-        created_at -> Timestamp,
+-        updated_at -> Timestamp,
++        created_at -> TimestamptzSqlite,
++        updated_at -> TimestamptzSqlite,
+         kills -> Integer,
+         deaths -> Integer,
+         damage_dealt -> Float,
+         damage_taken -> Float,
+     }
+ }
+@@ -135,20 +135,20 @@ diesel::table! {
      users (id) {
          id -> Integer,
          email -> Text,

@@ -11,8 +11,12 @@ use ulid::Ulid;
 use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
-use super::messages::GameClientMessage;
+use super::messages::{GameClientMessage, GameServerMessage};
+use crate::db::Database as _;
+use crate::gamification::achievements;
 use crate::models::nickname::Nickname;
+use crate::notifications::{NotificationManager, NotificationPayload};
+use crate::prelude::Db;
 use crate::stream::{StreamManager, StreamType};
 
 #[derive(Debug, Error, strum::IntoStaticStr)]
@@ -68,13 +72,17 @@ impl GameManagerState {
 pub struct GameManager {
     state: Arc<Mutex<GameManagerState>>,
     sm: Arc<StreamManager>,
+    db: Db,
+    notification_manager: NotificationManager,
 }
 
 impl GameManager {
-    pub fn new(sm: Arc<StreamManager>) -> Self {
+    pub fn new(sm: Arc<StreamManager>, db: Db, notification_manager: NotificationManager) -> Self {
         Self {
             state: Arc::new(Mutex::new(GameManagerState::new())),
             sm,
+            db,
+            notification_manager,
         }
     }
 
@@ -578,6 +586,8 @@ impl GameManager {
         let lobby_weak = Arc::downgrade(&lobby_arc);
         let game_for_loop = Arc::clone(&game);
         let gm_cleanup = self.clone();
+        let db_for_match_end = self.db.clone();
+        let notification_manager = self.notification_manager.clone();
         // Capture the Tokio runtime handle before entering the std::thread,
         // where Handle::current() would panic (no reactor running).
         let rt = tokio::runtime::Handle::current();
@@ -590,7 +600,84 @@ impl GameManager {
                 // cancels all handle tokens, stopping every receive task cleanly.
                 let gs = game_streams;
                 game_for_loop.update_loop(
-                    |msg| gs.broadcast(&msg),
+                    |msg| {
+                        if let GameServerMessage::MatchEnd { players } = msg.as_ref() {
+                            let db = db_for_match_end.clone();
+                            let match_players = players
+                                .iter()
+                                .filter_map(|p| {
+                                    i32::try_from(p.player_id)
+                                        .ok()
+                                        .map(|player_id| crate::games::MatchPlayerResult {
+                                            player_id,
+                                            placement: p.placement,
+                                            kills: p.kills,
+                                            deaths: p.deaths,
+                                            damage_dealt: p.damage_dealt,
+                                            damage_taken: p.damage_taken,
+                                        })
+                                })
+                                .collect::<Vec<_>>();
+
+                            if match_players.len() != players.len() {
+                                warn!(
+                                    lobby_id = %lobby_id,
+                                    total = players.len(),
+                                    valid = match_players.len(),
+                                    "skipping out-of-range player ids while recording match-end stats"
+                                );
+                            }
+
+                            if !match_players.is_empty() {
+                                let notification_manager = notification_manager.clone();
+                                rt.spawn(async move {
+                                    let res = db
+                                        .transaction_write(move |conn| {
+                                            let updated_stats = crate::games::record_match_end_stats(
+                                                conn,
+                                                match_players,
+                                            )?;
+
+                                            let mut unlock_batches = Vec::with_capacity(updated_stats.len());
+                                            for stats in updated_stats {
+                                                let unlocks = achievements::check_achievements(
+                                                    conn,
+                                                    stats.user_id,
+                                                    &stats,
+                                                )?;
+                                                unlock_batches.push((stats.user_id, unlocks));
+                                            }
+
+                                            Ok(unlock_batches)
+                                        })
+                                        .await;
+
+                                    let Ok(unlock_batches) = res else {
+                                        if let Err(e) = res {
+                                            warn!(error = %e, "failed to persist match-end gamification stats");
+                                        }
+                                        return;
+                                    };
+
+                                    for (user_id, unlocks) in unlock_batches {
+                                        for unlock in unlocks {
+                                            let payload = NotificationPayload::AchievementUnlocked {
+                                                achievement_name: unlock.achievement_name,
+                                                tier: unlock.tier.as_str().to_string(),
+                                                xp_reward: unlock.xp_reward,
+                                            };
+
+                                            if let Err(e) = notification_manager.send(user_id, payload).await {
+                                                warn!(user_id, error = %e, "failed to send achievement notification");
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        }
+
+                        gs.broadcast(&msg);
+                    },
                     |player_id, msg| gs.send(player_id.cast_signed(), &msg),
                 );
 

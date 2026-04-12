@@ -65,6 +65,13 @@ impl NotificationManagerDepotExt for salvo::Depot {
 pub enum NotificationPayload {
     /// Client successfully connected to the server's streaming infrastructure.
     ServerHello,
+    /// An achievement tier was unlocked for the user.
+    AchievementUnlocked {
+        achievement_name: String,
+        /// "bronze", "silver", or "gold"
+        tier: String,
+        xp_reward: i32,
+    },
     /// A friend request was received.
     FriendRequestReceived { request_id: i32, sender_id: i32 },
     /// A friend request was accepted.

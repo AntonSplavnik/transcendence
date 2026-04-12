@@ -31,6 +31,7 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
             crate::friends::router("friends"),
             crate::game::router("game"),
             crate::stream::router("stream"),
+            crate::gamification::router::router("stats"),
             Router::with_path("tos")
                 .oapi_tag("tos")
                 .ip_rate_limit(&RateLimit::per_minute(30))
@@ -62,7 +63,11 @@ pub fn rest_api(database: Db, tos_timestamp: CurrentTosTimestamp, mailer: Mailer
     }
 
     let notification_manager = NotificationManager::new(database.clone());
-    let game_manager = GameManager::new(Arc::clone(&stream_manager));
+    let game_manager = GameManager::new(
+        Arc::clone(&stream_manager),
+        database.clone(),
+        notification_manager.clone(),
+    );
 
     Router::new()
         .hoop(affix_state::inject(database))

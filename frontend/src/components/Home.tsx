@@ -1,11 +1,13 @@
 import {
 	ChevronDown,
 	Fingerprint,
+	Flame,
 	LogOut,
 	Mail,
 	Monitor,
 	Pen,
 	Shield,
+	Trophy,
 	User as UserIcon,
 	Users,
 	Volume2,
@@ -15,8 +17,11 @@ import { Link } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
+import { useAchievements } from '../hooks/useAchievements';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { useStats } from '../hooks/useStats';
+import AchievementsModal from './modals/AchievementsModal';
 import AudioSettingsModal from './modals/AudioSettingsModal';
 import CreateLobbyModal from './modals/CreateLobbyModal';
 import DataPrivacyModal from './modals/DataPrivacyModal';
@@ -60,6 +65,9 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 	const pendingActionRef = useRef<(() => void) | null>(null);
 	const { avatarSmallUrl, avatarLargeUrl, setAvatarUrls } = useAvatarUrls();
 	const [description, setDescription] = useState(user?.description ?? '');
+	const { stats } = useStats();
+	const { achievements } = useAchievements();
+	const [showAchievements, setShowAchievements] = useState(false);
 
 	const requireReauth = (action: () => void) => {
 		const minutesLeft = session
@@ -291,11 +299,123 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					</div>
 				</Card>
 
-				<Card>
-					<h2 className="text-xl font-bold mb-2 text-stone-50">Recent History</h2>
-					<div className="bg-stone-900 rounded-lg p-4 text-center text-stone-350 text-sm italic">
-						No recent battles recorded.
+				{/* XP & Level bar — full width */}
+				<Card className="md:col-span-2">
+					<div className="flex items-center justify-between mb-3">
+						<div className="flex items-center gap-2">
+							<Trophy className="w-5 h-5 text-warning" aria-hidden="true" />
+							<h2 className="text-xl font-bold text-stone-50">
+								Level <span className="text-warning">{stats?.level ?? '—'}</span>
+							</h2>
+						</div>
+						{stats && (
+							<span className="text-sm text-stone-400 font-mono">
+								{stats.xp_in_level} <span className="text-stone-500">/</span>{' '}
+								{stats.xp_to_next} XP
+							</span>
+						)}
 					</div>
+
+					{/* Progress bar */}
+					<div
+						className="h-3 bg-stone-700 rounded-full overflow-hidden"
+						role="progressbar"
+						aria-valuenow={stats?.progress_percent ?? 0}
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-label={`Level progress: ${Math.round(stats?.progress_percent ?? 0)}%`}
+					>
+						<div
+							className="h-full bg-warning rounded-full transition-all duration-500"
+							style={{ width: `${stats?.progress_percent ?? 0}%` }}
+						/>
+					</div>
+
+					{/* Stats row */}
+					{stats && (
+						<div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
+								<p className="text-xs text-stone-400 mb-0.5">Games</p>
+								<p className="text-lg font-bold text-stone-100 font-mono">
+									{stats.games_played}
+								</p>
+							</div>
+							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
+								<p className="text-xs text-stone-400 mb-0.5">Wins</p>
+								<p className="text-lg font-bold text-stone-100 font-mono">
+									{stats.games_won}
+								</p>
+							</div>
+							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
+								<p className="text-xs text-stone-400 mb-0.5">Win Rate</p>
+								<p className="text-lg font-bold text-stone-100 font-mono">
+									{Math.round(stats.win_rate)}%
+								</p>
+							</div>
+							<div className="bg-stone-900 rounded-lg px-3 py-2 text-center">
+								<p className="text-xs text-stone-400 mb-0.5 flex items-center justify-center gap-1">
+									<Flame className="w-3 h-3 text-warning" aria-hidden="true" />
+									Best Streak
+								</p>
+								<p className="text-lg font-bold text-warning font-mono">
+									{stats.best_win_streak}
+								</p>
+							</div>
+						</div>
+					)}
+				</Card>
+
+				{/* Achievements preview */}
+				<Card>
+					<div className="flex items-center justify-between mb-3">
+						<div className="flex items-center gap-2">
+							<Trophy className="w-5 h-5 text-warning" aria-hidden="true" />
+							<h2 className="text-xl font-bold text-stone-50">Achievements</h2>
+						</div>
+						<button
+							onClick={() => setShowAchievements(true)}
+							className="text-sm text-stone-400 hover:text-stone-100 transition-colors"
+						>
+							View All →
+						</button>
+					</div>
+					{achievements ? (
+						(() => {
+							const unlockedTiers = achievements.reduce(
+								(sum, a) =>
+									sum +
+									(a.bronze_unlocked ? 1 : 0) +
+									(a.silver_unlocked ? 1 : 0) +
+									(a.gold_unlocked ? 1 : 0),
+								0,
+							);
+							const totalTiers = achievements.length * 3;
+							const pct =
+								totalTiers > 0 ? Math.round((unlockedTiers / totalTiers) * 100) : 0;
+							return (
+								<>
+									<p className="text-sm text-stone-400 mb-2">
+										{unlockedTiers} / {totalTiers} tiers unlocked
+									</p>
+									<div
+										className="h-2 bg-stone-700 rounded-full overflow-hidden"
+										role="progressbar"
+										aria-valuenow={pct}
+										aria-valuemin={0}
+										aria-valuemax={100}
+										aria-label={`Achievements: ${pct}%`}
+									>
+										<div
+											className="h-full bg-gold rounded-full transition-all duration-500"
+											style={{ width: `${pct}%` }}
+										/>
+									</div>
+								</>
+							);
+						})()
+					) : (
+						<div className="h-2 bg-stone-700 rounded-full" />
+					)}
 				</Card>
 			</section>
 
@@ -318,6 +438,8 @@ export default function Home({ onLogout, onSessions }: HomeProps) {
 					onDescriptionChanged={(desc) => setDescription(desc)}
 				/>
 			)}
+
+			{showAchievements && <AchievementsModal onClose={() => setShowAchievements(false)} />}
 
 			{showEmailConfirmation && (
 				<EmailConfirmationModal

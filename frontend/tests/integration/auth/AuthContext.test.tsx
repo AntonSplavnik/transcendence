@@ -34,6 +34,7 @@ describe('AuthContext', () => {
 
 		it('performs auth check on mount via /user/me', async () => {
 			const mockAuth = createMockAuthResponse();
+			localStorage.setItem('auth_hint', '1');
 			server.use(
 				http.get('/api/user/me', () => {
 					return HttpResponse.json(mockAuth);
@@ -43,11 +44,12 @@ describe('AuthContext', () => {
 			const { result } = renderHook(() => useAuth(), { wrapper });
 
 			await waitFor(() => {
-				expect(result.current.authChecked).toBe(true);
+				expect(result.current.user).toEqual(mockAuth.user);
 			});
 
 			expect(result.current.user).toEqual(mockAuth.user);
 			expect(result.current.session).toEqual(mockAuth.session);
+			expect(result.current.authChecked).toBe(true);
 		});
 
 		it('clears auth on failed initial check', async () => {

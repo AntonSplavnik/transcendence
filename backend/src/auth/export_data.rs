@@ -11,7 +11,10 @@ use crate::email::{EmailSender, TransactionalEmail};
 use crate::error::GdprError;
 use crate::models::blob::{Bytes, FixedBlob};
 use crate::models::cbor_blob::CborBlob;
-use crate::models::{AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User};
+use crate::models::{
+    AvatarLarge, AvatarSmall, DataExportRequest, FriendRequestStatus, User, UserAchievement,
+    UserStats,
+};
 use crate::notifications::NotificationPayload;
 use crate::prelude::*;
 
@@ -25,6 +28,8 @@ use super::router::PasswordInput;
 pub struct DataExport {
     pub exported_at: DateTime<Utc>,
     pub user: ExportUser,
+    pub stats: UserStats,
+    pub achievements: Vec<UserAchievement>,
     pub sessions: Vec<ExportSession>,
     pub friend_requests: Vec<ExportFriendRequest>,
     pub notifications: Vec<ExportNotification>,
@@ -313,6 +318,8 @@ async fn execute_export(
             use crate::schema::friend_requests::dsl as fr;
             use crate::schema::notifications::dsl as n;
             use crate::schema::sessions::dsl as s;
+            use crate::schema::user_achievements::dsl as ua_dsl;
+            use crate::schema::user_stats::dsl as us_dsl;
             use crate::schema::users::dsl as u;
 
             let request: DataExportRequest = der::data_export_requests
@@ -331,12 +338,24 @@ async fn execute_export(
 
             let user: User = u::users.find(user_id).first(conn)?;
 
+            let stats = us_dsl::user_stats
+                .filter(us_dsl::user_id.eq(user_id))
+                .first::<UserStats>(conn)
+                .optional()?
+                .unwrap_or_else(|| UserStats::new(user_id));
+
+            let achievements = ua_dsl::user_achievements
+                .filter(ua_dsl::user_id.eq(user_id))
+                .load::<UserAchievement>(conn)?;
+
             let export = DataExport {
                 exported_at: Utc::now(),
                 user: u::users
                     .find(user_id)
                     .select(ExportUser::as_select())
                     .first(conn)?,
+                stats,
+                achievements,
                 sessions: s::sessions
                     .filter(s::user_id.eq(user_id))
                     .select(ExportSession::as_select())
