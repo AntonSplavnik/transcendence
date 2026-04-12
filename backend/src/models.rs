@@ -58,7 +58,7 @@ pub struct User {
 impl NewUser {
     pub fn new(email: String, nickname: Nickname, password_hash: String) -> Self {
         let now = chrono::Utc::now();
-        NewUser {
+        Self {
             email,
             nickname,
             totp_enabled: false,
@@ -109,7 +109,7 @@ pub struct TwoFaRecoveryCode {
 
 impl NewTwoFaRecoveryCode {
     pub fn new(user_id: i32, code_hash: Vec<u8>) -> Self {
-        NewTwoFaRecoveryCode {
+        Self {
             user_id,
             code_hash,
             used_at: None,
@@ -269,9 +269,10 @@ impl Session {
             created_at: self.created_at,
             refreshed_at: now,
             last_used_at: now,
-            last_authenticated_at: match DO_REAUTH {
-                true => now,
-                false => self.last_authenticated_at,
+            last_authenticated_at: if DO_REAUTH {
+                now
+            } else {
+                self.last_authenticated_at
             },
         }
     }

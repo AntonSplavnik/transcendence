@@ -14,11 +14,16 @@ export default {
           600: "#5a5a5a",
           500: "#706058",
           400: "#8a7e74",
+          350: "#8d8177",
           300: "#9a9ea4",
           200: "#d0d0d0",
           100: "#e8e0d4",
           50: "#f8f0e0",
         },
+        // ── Primary aliases (map to gold-400/500 for buttons and interactive elements) ──
+        primary: "#e0a030",           // gold-400
+        "primary-hover": "#c87838",   // gold-500
+        "primary-text": "#1a1a1e",    // stone-900 — dark text on gold, WCAG 13:1
         // ── Gold primary (from KayKit dungeon texture) ──
         gold: {
           DEFAULT: "#e0a030",
@@ -48,8 +53,8 @@ export default {
         },
         warning: {
           DEFAULT: "#f08038",
-          light: "#f0c838",
-          dark: "#8a4820",
+          light: "#f0a838",
+          dark: "#7a3418",
           bg: "rgba(240, 128, 56, 0.15)",
         },
         info: {

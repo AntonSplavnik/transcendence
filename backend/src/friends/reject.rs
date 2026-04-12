@@ -1,4 +1,4 @@
-//! POST /api/friends/reject/{request_id} - Reject a friend request
+//! POST /`api/friends/reject/{request_id`} - Reject a friend request
 
 use crate::error::FriendError;
 use crate::notifications::NotificationPayload;

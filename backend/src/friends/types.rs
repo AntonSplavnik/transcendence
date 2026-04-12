@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 
-use crate::db::DepotDatabaseExt;
 use crate::error::FriendError;
 use crate::models::nickname::Nickname;
 use crate::models::{FriendRequest, FriendRequestStatus, User};
@@ -26,8 +25,7 @@ pub const MAX_FRIENDS: i64 = 100;
 /// Send a notification, logging a warning on failure.
 pub async fn send_notification(depot: &Depot, target_id: i32, payload: NotificationPayload) {
     let nm = depot.notification_manager();
-    let db = depot.db();
-    if let Err(e) = nm.send(db, target_id, payload).await {
+    if let Err(e) = nm.send(target_id, payload).await {
         tracing::warn!(error = %e, target_id, "failed to send friend notification");
     }
 }
@@ -78,7 +76,7 @@ pub enum RequestDirection {
 pub fn load_pending_requests(
     conn: &mut DbConn,
     user_id: i32,
-    direction: RequestDirection,
+    direction: &RequestDirection,
     sm: &Arc<StreamManager>,
 ) -> Result<Vec<FriendRequestResponse>, ApiError> {
     use crate::schema::friend_requests::dsl as fr;
@@ -128,16 +126,15 @@ pub fn load_pending_requests(
                 RequestDirection::Incoming => request.sender_id,
                 RequestDirection::Outgoing => request.receiver_id,
             };
-            let other = match others.get(&other_id) {
-                Some(user) => user.clone(),
-                None => {
-                    tracing::warn!(
-                        request_id = request.id,
-                        user_id = other_id,
-                        "friend request references missing user, skipping"
-                    );
-                    return None;
-                }
+            let other = if let Some(user) = others.get(&other_id) {
+                user.clone()
+            } else {
+                tracing::warn!(
+                    request_id = request.id,
+                    user_id = other_id,
+                    "friend request references missing user, skipping"
+                );
+                return None;
             };
             let (sender, receiver) = match direction {
                 RequestDirection::Incoming => (other, current_user.clone()),
@@ -168,7 +165,12 @@ impl SendFriendRequestInput {
     /// Validate that at least one identifier is provided.
     /// If both are given, `user_id` takes precedence.
     pub fn validate_target(&self) -> Result<(), FriendError> {
-        if self.user_id.is_none() && self.nickname.as_ref().is_none_or(|n| n.is_empty()) {
+        if self.user_id.is_none()
+            && self
+                .nickname
+                .as_ref()
+                .is_none_or(super::super::models::blob::VarBlob::is_empty)
+        {
             return Err(FriendError::InvalidParam(
                 "provide user_id or nickname".into(),
             ));
@@ -199,7 +201,7 @@ impl FriendRequestResponse {
             id: request.id,
             sender: PublicUser::new(sender, sender_online),
             receiver: PublicUser::new(receiver, receiver_online),
-            status: request.status.clone(),
+            status: request.status,
             created_at: request.created_at,
             updated_at: request.updated_at,
         }

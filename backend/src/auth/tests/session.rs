@@ -93,7 +93,7 @@ async fn refresh_jwt_succeeds() {
 #[tokio::test]
 async fn refresh_jwt_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.post("/api/auth/session-management/refresh-jwt"))
         .await;
 }
@@ -101,7 +101,7 @@ async fn refresh_jwt_unauthenticated_unauthorized() {
 #[tokio::test]
 async fn reauth_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| {
         c.post("/api/auth/session-management/reauth")
             .json(&PasswordInput {
@@ -157,7 +157,7 @@ async fn current_session_returns_valid_info() {
 #[tokio::test]
 async fn current_session_unauthenticated_unauthorized() {
     let server = mock::Server::default();
-    let mut user = server.user().register().await;
+    let user = server.user().register().await;
     user.assert_requires_auth(|c| c.get("/api/user/session"))
         .await;
 }

@@ -59,6 +59,6 @@ impl Handler for Logger {
             }
         }
         .instrument(span)
-        .await
+        .await;
     }
 }

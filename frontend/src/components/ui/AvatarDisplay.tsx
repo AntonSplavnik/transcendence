@@ -1,6 +1,6 @@
+import { UserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchAvatar } from '../../api/avatar';
-import { UserIcon } from 'lucide-react';
 
 interface AvatarDisplayProps {
 	userId: number;
