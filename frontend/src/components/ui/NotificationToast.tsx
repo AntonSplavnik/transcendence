@@ -82,7 +82,7 @@ function NotificationCard({ toast, actionable, onAction, onDismiss }: Notificati
 				 */}
 				{actionable ? (
 					<button
-						className="flex items-start gap-3 flex-1 min-w-0 pl-5 h-full text-left"
+						className="flex items-center gap-3 flex-1 min-w-0 pl-5 h-full text-left"
 						onClick={onDismiss}
 						aria-label={`Dismiss: ${toast.displayText}`}
 					>

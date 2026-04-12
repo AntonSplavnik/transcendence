@@ -30,6 +30,15 @@ export class GameHUD {
 		const GUI = BABYLON.GUI;
 		this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI('HUD', true, this.scene);
 
+		// The toolkit sets hardwareScalingLevel = 1/dpr, so the engine renders
+		// at native device pixels. The GUI texture inherits this higher resolution,
+		// shrinking pixel-valued elements on HiDPI displays. Scale the texture
+		// back to CSS-pixel resolution so "200px" always means 200 CSS pixels.
+		const dpr = window.devicePixelRatio || 1;
+		if (dpr > 1) {
+			this.gui.renderScale = 1 / dpr;
+		}
+
 		// Update enemy bar positions every frame by projecting world-space position.
 		// Bars start hidden and are revealed on the first successful positioning
 		// (tracked via `positioned` flag) to avoid flashing at the screen centre
