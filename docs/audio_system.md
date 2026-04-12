@@ -1,6 +1,20 @@
-# Audio Engine
+# Audio System
 
 End-to-end documentation of the audio system used in the Transcendence frontend: how sounds are loaded, routed, triggered, and persisted, plus a per-file walkthrough of every module under `frontend/src/audio/`.
+
+## Table of Contents
+
+1. [Goals](#1-goals)
+2. [Architecture overview](#2-architecture-overview)
+3. [Files in `frontend/src/audio/`](#3-files-in-frontendsrcaudio)
+4. [Module-by-module walkthrough](#4-module-by-module-walkthrough)
+5. [End-to-end flows](#5-end-to-end-flows)
+6. [Extending the system](#6-extending-the-system)
+7. [Persistence and defaults](#7-persistence-and-defaults)
+8. [Why this shape?](#8-why-this-shape)
+9. [Reference: the AudioHandle and GameAudioHandle interfaces](#9-reference-the-audiohandle-and-gameaudiohandle-interfaces)
+10. [Sound assets inventory](#10-sound-assets-inventory)
+11. [Sources](#11-sources)
 
 ---
 
@@ -14,6 +28,40 @@ The audio system has to serve very different needs at the same time:
 - **One source of truth** — a single Babylon `AudioEngineV2` and a single shared `SoundBank`, so the volume sliders and mute toggle reach every sound, and so we never load the same buffer twice.
 
 The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and exposed to React through a single context provider.
+
+### Why an Audio System ?
+
+In a multiplayer game, audio is not just a UI detail. It is part of game readability and player feedback, with hard constraints:
+
+- **Synchronization**: sound must line up with what players see locally and remotely.
+- **Spatialization**: position and distance must be audible (an enemy 2m away should not sound like one 50m away).
+- **Low perceived latency**: local actions must feel immediate, even when the server stays authoritative.
+- **Variation**: repeating the same sample hundreds of times causes fatigue; randomized pitch/volume/variation are required.
+- **Performance**: many concurrent sounds without glitching, clipping, or runaway CPU usage.
+- **Extensibility**: adding a new gameplay sound should be mostly data work, not control-flow surgery.
+
+This is why the project uses a dedicated audio architecture (engine + buses + bank + trigger tables) instead of scattered `playSound("x")` calls.
+
+### Industry References and Design Principles
+
+The design follows patterns popularized by middleware such as **Wwise** and **FMOD**, adapted to our Babylon/React stack:
+
+- **Event-driven audio**: gameplay emits semantic events, not file paths.
+- **Sound banks**: assets are loaded and reused from a central registry.
+- **Mixer buses**: category routing (`master > sfx/music/ambient/ui`) for consistent mixing and user controls.
+- **Decoupled responsibilities**: gameplay decides *what happened*; audio decides *how to render it*.
+- **Parametric randomization**: per-play variation for realism and fatigue reduction.
+- **Concurrency control**: `maxInstances`, cooldowns, and priorities to avoid audio spam.
+
+Guiding rule:
+
+```
+Gameplay never says "play jump_03.wav at volume 0.7".
+Gameplay says "a jump happened at position (x, y, z)".
+The audio system decides how to play it.
+```
+
+This separation keeps gameplay code clean and lets us iterate on assets/mix/routing without touching core game logic.
 
 ---
 
@@ -102,9 +150,9 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 
 **Key invariants:**
 
-1. **One engine, one bank.** The `GameAudioEngine` and `SoundBank` are created once by `AudioProvider` and reused by every consumer — UI, modal, game scene. There is no "second audio system" running in parallel.
+1. **One engine, one bank.** The `GameAudioEngine` and `SoundBank` are created once by `AudioProvider` and reused by every consumer : UI, modal, game scene. There is no "second audio system" running in parallel.
 2. **Two hooks, one context.** `useUIAudio()` exposes the high-level UI API (play music, set bus volumes, mute). `useGameAudio()` exposes the lower-level game API (raw engine, sound bank, listener attachment, scene-scoped music/ambient, playlist). Both read the same context — they are different views of the same state.
-3. **Bus structure is fixed.** Four output buses — `sfx`, `music`, `ambient`, `ui` — all routed through a `master` bus. The settings sliders map directly to these buses (Music → music, UI → ui, Game → sfx + ambient + music together).
+3. **Bus structure is fixed.** Four output buses : `sfx`, `music`, `ambient`, `ui` all routed through a `master` bus. The settings sliders map directly to these buses (Music → music, UI → ui, Game → sfx + ambient + music together).
 4. **All routing happens through the buses.** Individual sounds never set `volume` directly for muting; the master bus is the only gate. Setting `master.volume = 0` silences the entire app.
 5. **Music bus is context-aware.** In menus the music bus volume is driven by the "Music Volume" slider. When the in-game playlist starts, the bus switches to the "Game Volume" slider. When the game ends, it reverts to the menu slider value.
 
@@ -125,8 +173,8 @@ The system is built on Babylon's `AudioV2` API (Web Audio under the hood) and ex
 
 Plus consumer files outside the audio folder:
 
-- `frontend/src/components/modals/AudioSettingsModal.tsx` — the settings dialog with the three sliders + mute checkbox.
-- `frontend/src/components/GameBoard/GameCanvas.tsx` — the React component that mounts the Babylon scene; it consumes `useGameAudio()` and feeds the engine + bank into the `GameClient` class that runs the game loop.
+- `frontend/src/components/modals/AudioSettingsModal.tsx` the settings dialog with the three sliders + mute checkbox.
+- `frontend/src/components/GameBoard/GameCanvas.tsx` the React component that mounts the Babylon scene; it consumes `useGameAudio()` and feeds the engine + bank into the `GameClient` class that runs the game loop.
 
 ---
 
@@ -184,7 +232,7 @@ The `listenerEnabled: true` flag passed to `CreateAudioEngineAsync` is what unlo
 }
 ```
 
-The system currently knows about ~38 sound IDs grouped by category:
+The system currently knows about ~40 sound IDs grouped by category:
 
 | Category | IDs |
 |---|---|
@@ -367,13 +415,10 @@ The trigger tables in `triggerTables.ts` are pure data and define **three pipeli
 [
   { soundId: 'player_jump',         field: 'isJumping',      edge: 'rising' },
   { soundId: 'player_land',         field: 'isGrounded',     edge: 'rising', initialValue: true },
-  { soundId: 'player_attack_swing', field: 'isAttacking',    edge: 'rising', delayMs: 250 },
-  { soundId: 'player_ability1',     field: 'isUsingAbility1', edge: 'rising', delayMs: 250 },
-  { soundId: 'player_ability2',     field: 'isUsingAbility2', edge: 'rising', delayMs: 250 },
 ]
 ```
 
-`AudioEventSystem.onLocalInput(input, position)` compares the current `InputState` against the previous frame, detects rising/falling edges on the watched fields, and plays the sound. `delayMs` is used to sync the sound with an animation (e.g. attack swing should land mid-anim, not on key press). Ability sounds are masked by cooldown timers to prevent audio spam when mashing buttons during cooldown.
+`AudioEventSystem.onLocalInput(input, position)` compares the current `InputState` against the previous frame, detects rising/falling edges on the watched fields, and plays the sound.
 
 #### Pipeline 1b — local continuous (interval-throttled loops)
 
@@ -677,7 +722,7 @@ Add more variation files to the existing `music_ingame` definition in `soundDefi
 }
 ```
 
-The shuffle playlist picks from all variations automatically — no code changes needed.
+The shuffle playlist picks from all variations automatically, no code changes needed.
 
 ### Add a new bus
 
@@ -696,7 +741,7 @@ on parse error:    return defaults, never throw
 on storage error:  silently ignore (private browsing, quota exceeded)
 ```
 
-The defaults are intentionally asymmetric — music starts quieter than UI (which is in turn quieter than gameplay) so the first-time experience feels balanced without any user adjustment.
+The defaults are intentionally asymmetric, music starts quieter than UI (which is in turn quieter than gameplay) so the first-time experience feels balanced without any user adjustment.
 
 **Music bus volume context switching:** At init, the music bus uses `musicVolume` (menu context). When `playMusicPlaylist()` is called (entering game), the bus switches to `inGameVolume`. When `stopMusicPlaylist()` is called (leaving game), the bus reverts to `musicVolume`. The `inGameVolume` slider in the settings modal always writes to all three in-game buses (sfx + ambient + music), so changes take effect immediately regardless of context.
 
@@ -783,3 +828,18 @@ Located in `frontend/public/sounds/`:
 | SFX — Spawning | `player_spawn.mp3` |
 
 Total: ~56 audio files.
+
+---
+
+## 11. Sources
+
+### External references
+
+| Resource | URL | Purpose |
+|----------|-----|---------|
+| FMOD | https://www.fmod.com/ | Industry reference for event-driven audio, sound banks, and mixer buses |
+| Wwise | https://www.audiokinetic.com/ | Industry reference for middleware-style audio architecture |
+| Babylon.js Audio documentation | https://doc.babylonjs.com/features/featuresDeepDive/audio/playingSoundsMusic | Babylon audio engine reference, including buses and spatial audio |
+| Web Audio API (MDN) | https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API | Browser audio API underlying Babylon's audio layer |
+
+
