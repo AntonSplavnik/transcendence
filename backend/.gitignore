@@ -1,6 +1,7 @@
 /target
 /migration/target
 /data
+!/data/map_colliders.json
 
 # Local environment (may contain secrets)
 .env
