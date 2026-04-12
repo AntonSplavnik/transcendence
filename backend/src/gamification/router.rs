@@ -9,16 +9,15 @@ use super::xp;
 
 pub fn router(path: &str) -> Router {
     Router::with_path(path)
+	.requires_user_login()
         .oapi_tag("stats")
         .push(
             Router::with_path("@me")
-                .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(100))
                 .get(get_my_stats),
         )
         .push(
             Router::with_path("record-game")
-                .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(60))
                 .post(record_game),
         )
@@ -27,20 +26,17 @@ pub fn router(path: &str) -> Router {
                 .oapi_tag("achievements")
                 .push(
                     Router::new()
-                        .requires_user_login()
                         .user_rate_limit(&RateLimit::per_5_minutes(100))
                         .get(get_achievements),
                 )
                 .push(
                     Router::with_path("recent")
-                        .requires_user_login()
                         .user_rate_limit(&RateLimit::per_5_minutes(100))
                         .get(get_recent_achievements),
                 ),
         )
         .push(
             Router::with_path("{user_id}")
-                .requires_user_login()
                 .user_rate_limit(&RateLimit::per_5_minutes(200))
                 .get(get_user_stats),
         )
