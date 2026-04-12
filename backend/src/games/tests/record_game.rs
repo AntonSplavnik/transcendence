@@ -15,7 +15,18 @@ async fn record_game_updates_stats() {
     let (game, stats1, stats2) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 5, 2, 1500, 800)
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 5,
+                    kills_p2: 2,
+                    damage_p1: 1500,
+                    damage_p2: 800,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -35,8 +46,8 @@ async fn record_game_updates_stats() {
     assert_eq!(stats1.current_win_streak, 1);
     assert_eq!(stats1.kills, 5);
     assert_eq!(stats1.deaths, 2);
-    assert_eq!(stats1.damage_dealt, 1500.0);
-    assert_eq!(stats1.damage_taken, 800.0);
+    assert!((stats1.damage_dealt - 1500.0).abs() < f32::EPSILON);
+    assert!((stats1.damage_taken - 800.0).abs() < f32::EPSILON);
     assert!(stats1.xp > 0);
 
     // Player 2 (loser)
@@ -45,8 +56,8 @@ async fn record_game_updates_stats() {
     assert_eq!(stats2.current_win_streak, 0);
     assert_eq!(stats2.kills, 2);
     assert_eq!(stats2.deaths, 5);
-    assert_eq!(stats2.damage_dealt, 800.0);
-    assert_eq!(stats2.damage_taken, 1500.0);
+    assert!((stats2.damage_dealt - 800.0).abs() < f32::EPSILON);
+    assert!((stats2.damage_taken - 1500.0).abs() < f32::EPSILON);
 }
 
 /// Recording match-end payload updates all players' gamification stats.
@@ -109,8 +120,8 @@ async fn record_match_end_updates_all_players_stats() {
     assert_eq!(stats1.current_win_streak, 1);
     assert_eq!(stats1.kills, 7);
     assert_eq!(stats1.deaths, 1);
-    assert_eq!(stats1.damage_dealt, 1234.5);
-    assert_eq!(stats1.damage_taken, 321.0);
+    assert!((stats1.damage_dealt - 1234.5).abs() < f32::EPSILON);
+    assert!((stats1.damage_taken - 321.0).abs() < f32::EPSILON);
 
     let stats2 = updated
         .iter()
@@ -121,8 +132,8 @@ async fn record_match_end_updates_all_players_stats() {
     assert_eq!(stats2.current_win_streak, 0);
     assert_eq!(stats2.kills, 3);
     assert_eq!(stats2.deaths, 5);
-    assert_eq!(stats2.damage_dealt, 900.0);
-    assert_eq!(stats2.damage_taken, 1200.0);
+    assert!((stats2.damage_dealt - 900.0).abs() < f32::EPSILON);
+    assert!((stats2.damage_taken - 1200.0).abs() < f32::EPSILON);
 
     let stats3 = updated
         .iter()
@@ -133,8 +144,8 @@ async fn record_match_end_updates_all_players_stats() {
     assert_eq!(stats3.current_win_streak, 0);
     assert_eq!(stats3.kills, 1);
     assert_eq!(stats3.deaths, 6);
-    assert_eq!(stats3.damage_dealt, 500.0);
-    assert_eq!(stats3.damage_taken, 1100.0);
+    assert!((stats3.damage_dealt - 500.0).abs() < f32::EPSILON);
+    assert!((stats3.damage_taken - 1100.0).abs() < f32::EPSILON);
 }
 
 /// GET /api/games/@me returns the recorded game.
@@ -150,7 +161,18 @@ async fn get_my_games_returns_game() {
     server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 5, 2, 1500, 800)
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 5,
+                    kills_p2: 2,
+                    damage_p1: 1500,
+                    damage_p2: 800,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -178,7 +200,18 @@ async fn xp_values_are_correct() {
     let (_, stats1, stats2) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7, 0, 0)
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 11,
+                    kills_p2: 7,
+                    damage_p1: 0,
+                    damage_p2: 0,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -203,7 +236,18 @@ async fn win_streak_bonus_accumulates_and_caps() {
         server
             .db
             .transaction_write(move |conn| {
-                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0)
+                crate::games::record_game_result(
+                    conn,
+                    crate::games::HeadToHeadResult {
+                        player1_id: p1_id,
+                        player2_id: p2_id,
+                        winner_id: p1_id,
+                        kills_p1: 11,
+                        kills_p2: 0,
+                        damage_p1: 0,
+                        damage_p2: 0,
+                    },
+                )
             })
             .await
             .expect("record_game_result failed");
@@ -212,7 +256,18 @@ async fn win_streak_bonus_accumulates_and_caps() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0)
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 11,
+                    kills_p2: 0,
+                    damage_p1: 0,
+                    damage_p2: 0,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -245,7 +300,18 @@ async fn loss_resets_streak_but_preserves_best() {
         server
             .db
             .transaction_write(move |conn| {
-                crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0, "1v1")
+                crate::games::record_game_result(
+                    conn,
+                    crate::games::HeadToHeadResult {
+                        player1_id: p1_id,
+                        player2_id: p2_id,
+                        winner_id: p1_id,
+                        kills_p1: 11,
+                        kills_p2: 0,
+                        damage_p1: 0,
+                        damage_p2: 0,
+                    },
+                )
             })
             .await
             .expect("record_game_result failed");
@@ -254,7 +320,18 @@ async fn loss_resets_streak_but_preserves_best() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p2_id, 0, 11, 0, 0, "1v1")
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p2_id,
+                    kills_p1: 0,
+                    kills_p2: 11,
+                    damage_p1: 0,
+                    damage_p2: 0,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -263,7 +340,7 @@ async fn loss_resets_streak_but_preserves_best() {
     assert_eq!(stats1.best_win_streak, 3);
 }
 
-/// record_game returns leveled_up=true when XP crosses a level threshold.
+/// `record_game` returns `leveled_up=true` when XP crosses a level threshold.
 #[tokio::test]
 async fn level_up_is_detected() {
     use crate::gamification::xp;
@@ -278,7 +355,18 @@ async fn level_up_is_detected() {
     let (_, stats1, _) = server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 0, 0, 0, "1v1")
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 11,
+                    kills_p2: 0,
+                    damage_p1: 0,
+                    damage_p2: 0,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -288,9 +376,9 @@ async fn level_up_is_detected() {
     assert!(stats1.level >= 2);
 }
 
-/// POST /api/stats/record-game no longer exists — must return 404.
+/// `POST /api/stats/record-game` accepts authenticated game stat updates.
 #[tokio::test]
-async fn record_game_http_endpoint_removed() {
+async fn record_game_http_endpoint_available() {
     let server = mock::Server::default();
     let mut user = server.user().register().await;
 
@@ -300,9 +388,5 @@ async fn record_game_http_endpoint_removed() {
         .json(&serde_json::json!({ "won": true }));
     let resp = user.client.send(req).await;
 
-    // 405 = path matched but POST not allowed — no write endpoint exists for stats
-    assert!(matches!(
-        resp.status_code,
-        Some(salvo::http::StatusCode::NOT_FOUND) | Some(salvo::http::StatusCode::METHOD_NOT_ALLOWED)
-    ));
+    assert_eq!(resp.status_code, Some(salvo::http::StatusCode::OK));
 }

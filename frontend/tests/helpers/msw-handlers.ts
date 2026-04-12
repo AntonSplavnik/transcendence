@@ -136,6 +136,28 @@ export const handlers = [
 		return HttpResponse.json([defaultSession]);
 	}),
 
+	// Stats endpoints used by Home dashboard hooks
+	http.get('/api/stats/@me', () => {
+		return HttpResponse.json({
+			user_id: defaultUser.id,
+			xp: 0,
+			level: 1,
+			xp_in_level: 0,
+			xp_to_next: 25,
+			progress_percent: 0,
+			games_played: 0,
+			games_won: 0,
+			games_lost: 0,
+			win_rate: 0,
+			current_win_streak: 0,
+			best_win_streak: 0,
+		});
+	}),
+
+	http.get('/api/stats/achievements', () => {
+		return HttpResponse.json([]);
+	}),
+
 	// Friends endpoints
 	http.get('/api/friends', () => {
 		return HttpResponse.json([]);

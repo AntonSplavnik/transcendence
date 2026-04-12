@@ -144,7 +144,9 @@ impl Achievement {
     }
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Debug, Clone)]
+#[derive(
+    Queryable, Selectable, Insertable, AsChangeset, Associations, Serialize, ToSchema, Debug, Clone,
+)]
 #[diesel(table_name = crate::schema::user_achievements)]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(Achievement))]
@@ -188,7 +190,7 @@ impl NewGame {
         damage_p1: i32,
         damage_p2: i32,
     ) -> Self {
-        NewGame {
+        Self {
             player1_id,
             player2_id,
             winner_id,
@@ -257,6 +259,7 @@ impl UserStats {
         self.games_played - self.games_won
     }
 
+    #[allow(clippy::cast_precision_loss)] // Display metric; f32 precision is sufficient for percentage.
     pub fn win_rate(&self) -> f32 {
         if self.games_played == 0 {
             0.0

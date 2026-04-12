@@ -5,7 +5,11 @@ const HOOK_XP: [i32; 5] = [25, 38, 50, 63, 75];
 pub fn xp_for_next_level(current_level: i32) -> i32 {
     match current_level {
         // Phase 1: Hook (Lvl 1-5) - Very fast, 1-3 matches
-        1..=5 => HOOK_XP[(current_level - 1) as usize],
+        1..=5 => {
+            let idx = usize::try_from(current_level - 1)
+                .expect("hook phase levels are in the range 1..=5");
+            HOOK_XP[idx]
+        }
 
         // Phase 2: Learning (Lvl 6-20) - Progressive slowdown, 4-10 matches
         6..=20 => 100 + (current_level - 6) * 10,
@@ -40,6 +44,7 @@ pub fn xp_in_current_level(total_xp: i32) -> i32 {
 }
 
 /// Calculate progress percentage to next level (0.0 to 100.0)
+#[allow(clippy::cast_precision_loss)] // UI-facing percentage; minor precision loss is acceptable.
 pub fn level_progress_percent(total_xp: i32) -> f32 {
     let current_level = level_from_xp(total_xp);
     let xp_into_level = xp_in_current_level(total_xp);

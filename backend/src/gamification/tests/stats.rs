@@ -38,7 +38,18 @@ async fn get_my_stats_reflects_game_result() {
     server
         .db
         .transaction_write(move |conn| {
-            crate::games::record_game_result(conn, p1_id, p2_id, p1_id, 11, 7, "1v1")
+            crate::games::record_game_result(
+                conn,
+                crate::games::HeadToHeadResult {
+                    player1_id: p1_id,
+                    player2_id: p2_id,
+                    winner_id: p1_id,
+                    kills_p1: 11,
+                    kills_p2: 7,
+                    damage_p1: 0,
+                    damage_p2: 0,
+                },
+            )
         })
         .await
         .expect("record_game_result failed");
@@ -68,10 +79,13 @@ async fn get_my_stats_requires_auth() {
     let req = user.client.get("/api/stats/@me");
     let resp = user.client.send(req).await;
 
-    assert_eq!(resp.status_code, Some(salvo::http::StatusCode::UNAUTHORIZED));
+    assert_eq!(
+        resp.status_code,
+        Some(salvo::http::StatusCode::UNAUTHORIZED)
+    );
 }
 
-/// GET /api/stats/<user_id> returns stats for another user.
+/// `GET /api/stats/{user_id}` returns stats for another user.
 #[tokio::test]
 async fn get_user_stats_returns_other_user() {
     let server = mock::Server::default();
@@ -86,7 +100,7 @@ async fn get_user_stats_returns_other_user() {
     assert_eq!(body["user_id"], p1_id);
 }
 
-/// GET /api/stats/<user_id> returns 404 for a non-existent user.
+/// `GET /api/stats/{user_id}` returns 404 for a non-existent user.
 #[tokio::test]
 async fn get_user_stats_unknown_user_is_404() {
     let server = mock::Server::default();
@@ -98,7 +112,7 @@ async fn get_user_stats_unknown_user_is_404() {
     assert_eq!(resp.status_code, Some(salvo::http::StatusCode::NOT_FOUND));
 }
 
-/// win_rate is correctly computed and exposed.
+/// `win_rate` is correctly computed and exposed.
 #[tokio::test]
 async fn win_rate_is_correct() {
     let server = mock::Server::default();
@@ -112,7 +126,18 @@ async fn win_rate_is_correct() {
         server
             .db
             .transaction_write(move |conn| {
-                crate::games::record_game_result(conn, p1_id, p2_id, winner, 11, 0, "1v1")
+                crate::games::record_game_result(
+                    conn,
+                    crate::games::HeadToHeadResult {
+                        player1_id: p1_id,
+                        player2_id: p2_id,
+                        winner_id: winner,
+                        kills_p1: 11,
+                        kills_p2: 0,
+                        damage_p1: 0,
+                        damage_p2: 0,
+                    },
+                )
             })
             .await
             .expect("record_game_result failed");

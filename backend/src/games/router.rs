@@ -85,11 +85,7 @@ async fn get_recent_games(user_id: i32, db: Db) -> JsonResult<Vec<GameResponse>>
         .transaction_readonly(move |conn| {
             use crate::schema::games::dsl;
             dsl::games
-                .filter(
-                    dsl::player1_id
-                        .eq(user_id)
-                        .or(dsl::player2_id.eq(user_id)),
-                )
+                .filter(dsl::player1_id.eq(user_id).or(dsl::player2_id.eq(user_id)))
                 .order(dsl::played_at.desc())
                 .limit(20)
                 .load::<Game>(conn)

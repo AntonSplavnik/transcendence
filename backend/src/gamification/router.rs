@@ -210,24 +210,25 @@ async fn get_user_stats(req: &mut Request, db: Db) -> JsonResult<StatsResponse> 
 }
 
 async fn get_stats(user_id: i32, db: Db) -> JsonResult<StatsResponse> {
-    let stats = db.transaction_readonly(move |conn| {
-        use crate::schema::user_stats::dsl;
+    let stats = db
+        .transaction_readonly(move |conn| {
+            use crate::schema::user_stats::dsl;
 
-        // Verify user exists (will return NotFound error if not)
-        use crate::schema::users;
-        users::table
-            .filter(users::id.eq(user_id))
-            .select(users::id)
-            .first::<i32>(conn)?;
+            // Verify user exists (will return NotFound error if not)
+            use crate::schema::users;
+            users::table
+                .filter(users::id.eq(user_id))
+                .select(users::id)
+                .first::<i32>(conn)?;
 
-        let stats = dsl::user_stats
-            .filter(dsl::user_id.eq(user_id))
-            .first::<UserStats>(conn)
-            .optional()?;
+            let stats = dsl::user_stats
+                .filter(dsl::user_id.eq(user_id))
+                .first::<UserStats>(conn)
+                .optional()?;
 
-        Ok(stats.unwrap_or_else(|| UserStats::new(user_id)))
-    })
-    .await?;
+            Ok(stats.unwrap_or_else(|| UserStats::new(user_id)))
+        })
+        .await?;
 
     json_ok(StatsResponse::from(stats))
 }

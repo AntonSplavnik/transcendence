@@ -16,9 +16,9 @@ pub enum AchievementTier {
 impl AchievementTier {
     pub fn as_str(self) -> &'static str {
         match self {
-            AchievementTier::Bronze => "bronze",
-            AchievementTier::Silver => "silver",
-            AchievementTier::Gold => "gold",
+            Self::Bronze => "bronze",
+            Self::Silver => "silver",
+            Self::Gold => "gold",
         }
     }
 }
@@ -26,9 +26,9 @@ impl AchievementTier {
 impl AchievementTier {
     fn xp_multiplier(self) -> i32 {
         match self {
-            AchievementTier::Bronze => 1,
-            AchievementTier::Silver => 2,
-            AchievementTier::Gold => 3,
+            Self::Bronze => 1,
+            Self::Silver => 2,
+            Self::Gold => 3,
         }
     }
 }
@@ -42,16 +42,17 @@ pub struct AchievementUnlock {
     pub xp_reward: i32,
 }
 
-/// Map an achievement code to the corresponding stat value from UserStats.
-/// Returns None for stats that don't exist yet in user_stats.
+/// Map an achievement code to the corresponding stat value from `UserStats`.
+/// Returns `None` for stats that don't exist yet in `user_stats`.
 fn stat_value_for_code(code: &str, stats: &UserStats) -> Option<i32> {
     match code {
         "games_played" => Some(stats.games_played),
         "games_won" => Some(stats.games_won),
         "win_streak" => Some(stats.best_win_streak),
         // Future stats not yet tracked in user_stats
-        "total_kills" | "spells_cast" | "daily_completed"
-        | "playtime_hours" | "first_blood" => None,
+        "total_kills" | "spells_cast" | "daily_completed" | "playtime_hours" | "first_blood" => {
+            None
+        }
         _ => None,
     }
 }
@@ -83,7 +84,11 @@ pub fn check_achievements(
             .optional()?;
 
         let (mut bronze_at, mut silver_at, mut gold_at) = match &existing {
-            Some(ua) => (ua.bronze_unlocked_at, ua.silver_unlocked_at, ua.gold_unlocked_at),
+            Some(ua) => (
+                ua.bronze_unlocked_at,
+                ua.silver_unlocked_at,
+                ua.gold_unlocked_at,
+            ),
             None => (None, None, None),
         };
 
@@ -105,16 +110,21 @@ pub fn check_achievements(
 
         if new_unlocks_for_this.is_empty() {
             // Still update progress if it changed
-            if existing.as_ref().is_none_or(|ua| ua.current_progress != current_value) {
+            if existing
+                .as_ref()
+                .is_none_or(|ua| ua.current_progress != current_value)
+            {
                 upsert_user_achievement(
                     conn,
-                    user_id,
-                    achievement.id,
-                    current_value,
-                    bronze_at,
-                    silver_at,
-                    gold_at,
-                    existing.is_some(),
+                    &UpsertUserAchievement {
+                        user_id,
+                        achievement_id: achievement.id,
+                        current_progress: current_value,
+                        bronze_unlocked_at: bronze_at,
+                        silver_unlocked_at: silver_at,
+                        gold_unlocked_at: gold_at,
+                        exists: existing.is_some(),
+                    },
                 )?;
             }
             continue;
@@ -123,13 +133,15 @@ pub fn check_achievements(
         // Upsert the user_achievement row
         upsert_user_achievement(
             conn,
-            user_id,
-            achievement.id,
-            current_value,
-            bronze_at,
-            silver_at,
-            gold_at,
-            existing.is_some(),
+            &UpsertUserAchievement {
+                user_id,
+                achievement_id: achievement.id,
+                current_progress: current_value,
+                bronze_unlocked_at: bronze_at,
+                silver_unlocked_at: silver_at,
+                gold_unlocked_at: gold_at,
+                exists: existing.is_some(),
+            },
         )?;
 
         for tier in new_unlocks_for_this {
@@ -146,8 +158,7 @@ pub fn check_achievements(
     Ok(unlocks)
 }
 
-fn upsert_user_achievement(
-    conn: &mut DbConn,
+struct UpsertUserAchievement {
     user_id: i32,
     achievement_id: i32,
     current_progress: i32,
@@ -155,31 +166,36 @@ fn upsert_user_achievement(
     silver_unlocked_at: Option<DateTime<Utc>>,
     gold_unlocked_at: Option<DateTime<Utc>>,
     exists: bool,
+}
+
+fn upsert_user_achievement(
+    conn: &mut DbConn,
+    upsert: &UpsertUserAchievement,
 ) -> Result<(), diesel::result::Error> {
     use crate::schema::user_achievements::dsl;
 
-    if exists {
+    if upsert.exists {
         diesel::update(
             dsl::user_achievements
-                .filter(dsl::user_id.eq(user_id))
-                .filter(dsl::achievement_id.eq(achievement_id)),
+                .filter(dsl::user_id.eq(upsert.user_id))
+                .filter(dsl::achievement_id.eq(upsert.achievement_id)),
         )
         .set((
-            dsl::current_progress.eq(current_progress),
-            dsl::bronze_unlocked_at.eq(bronze_unlocked_at),
-            dsl::silver_unlocked_at.eq(silver_unlocked_at),
-            dsl::gold_unlocked_at.eq(gold_unlocked_at),
+            dsl::current_progress.eq(upsert.current_progress),
+            dsl::bronze_unlocked_at.eq(upsert.bronze_unlocked_at),
+            dsl::silver_unlocked_at.eq(upsert.silver_unlocked_at),
+            dsl::gold_unlocked_at.eq(upsert.gold_unlocked_at),
         ))
         .execute(conn)?;
     } else {
         diesel::insert_into(dsl::user_achievements)
             .values((
-                dsl::user_id.eq(user_id),
-                dsl::achievement_id.eq(achievement_id),
-                dsl::current_progress.eq(current_progress),
-                dsl::bronze_unlocked_at.eq(bronze_unlocked_at),
-                dsl::silver_unlocked_at.eq(silver_unlocked_at),
-                dsl::gold_unlocked_at.eq(gold_unlocked_at),
+                dsl::user_id.eq(upsert.user_id),
+                dsl::achievement_id.eq(upsert.achievement_id),
+                dsl::current_progress.eq(upsert.current_progress),
+                dsl::bronze_unlocked_at.eq(upsert.bronze_unlocked_at),
+                dsl::silver_unlocked_at.eq(upsert.silver_unlocked_at),
+                dsl::gold_unlocked_at.eq(upsert.gold_unlocked_at),
             ))
             .execute(conn)?;
     }

@@ -12,10 +12,10 @@ use super::ffi::CharacterClass;
 use super::lobby::{Lobby, LobbyInfo, LobbySettings, LobbySettingsPatch};
 use super::lobby_messages::LobbyServerMessage;
 use super::messages::{GameClientMessage, GameServerMessage};
-use crate::gamification::achievements;
 use crate::db::Database as _;
-use crate::notifications::{NotificationManager, NotificationPayload};
+use crate::gamification::achievements;
 use crate::models::nickname::Nickname;
+use crate::notifications::{NotificationManager, NotificationPayload};
 use crate::prelude::Db;
 use crate::stream::{StreamManager, StreamType};
 
@@ -635,7 +635,7 @@ impl GameManager {
                             }
                         }
 
-                        gs.broadcast(&msg)
+                        gs.broadcast(&msg);
                     },
                     |player_id, msg| gs.send(player_id.cast_signed(), &msg),
                 );
