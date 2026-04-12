@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use parking_lot::Mutex;
 use salvo::Depot;
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use ulid::Ulid;
 
 use super::ffi::CharacterClass;
@@ -595,105 +595,130 @@ impl GameManager {
         std::thread::Builder::new()
             .name(format!("game-{lobby_id}"))
             .spawn(move || {
-                // `gs` is the last Arc clone of the old game_streams; when this
-                // thread exits gs is dropped, refcount → 0, and StreamGroup::Drop
-                // cancels all handle tokens, stopping every receive task cleanly.
-                let gs = game_streams;
-                game_for_loop.update_loop(
-                    |msg| {
-                        if let GameServerMessage::MatchEnd { players } = msg.as_ref() {
-                            let db = db_for_match_end.clone();
-                            let match_players = players
-                                .iter()
-                                .filter_map(|p| {
-                                    i32::try_from(p.player_id)
-                                        .ok()
-                                        .map(|player_id| crate::games::MatchPlayerResult {
-                                            player_id,
-                                            placement: p.placement,
-                                            kills: p.kills,
-                                            deaths: p.deaths,
-                                            damage_dealt: p.damage_dealt,
-                                            damage_taken: p.damage_taken,
-                                        })
-                                })
-                                .collect::<Vec<_>>();
+                // Clone the runtime handle for cleanup; the original moves into
+                // the catch_unwind closure alongside the game loop.
+                let rt_cleanup = rt.clone();
 
-                            if match_players.len() != players.len() {
-                                warn!(
-                                    lobby_id = %lobby_id,
-                                    total = players.len(),
-                                    valid = match_players.len(),
-                                    "skipping out-of-range player ids while recording match-end stats"
-                                );
-                            }
+                // Wrap the entire game loop in catch_unwind so that a C++ exception
+                // (translated to a Rust panic by CXX) or any other panic is caught
+                // and logged instead of silently killing the thread.
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    // `gs` lives inside catch_unwind: on panic it is dropped during
+                    // unwinding, which cancels all stream handles cleanly.
+                    let gs = game_streams;
+                    game_for_loop.update_loop(
+                        |msg| {
+                            if let GameServerMessage::MatchEnd { players } = msg.as_ref() {
+                                let db = db_for_match_end.clone();
+                                let match_players = players
+                                    .iter()
+                                    .filter_map(|p| {
+                                        i32::try_from(p.player_id)
+                                            .ok()
+                                            .map(|player_id| crate::games::MatchPlayerResult {
+                                                player_id,
+                                                placement: p.placement,
+                                                kills: p.kills,
+                                                deaths: p.deaths,
+                                                damage_dealt: p.damage_dealt,
+                                                damage_taken: p.damage_taken,
+                                            })
+                                    })
+                                    .collect::<Vec<_>>();
 
-                            if !match_players.is_empty() {
-                                let notification_manager = notification_manager.clone();
-                                rt.spawn(async move {
-                                    let res = db
-                                        .transaction_write(move |conn| {
-                                            let updated_stats = crate::games::record_match_end_stats(
-                                                conn,
-                                                match_players,
-                                            )?;
+                                if match_players.len() != players.len() {
+                                    warn!(
+                                        lobby_id = %lobby_id,
+                                        total = players.len(),
+                                        valid = match_players.len(),
+                                        "skipping out-of-range player ids while recording match-end stats"
+                                    );
+                                }
 
-                                            let mut unlock_batches = Vec::with_capacity(updated_stats.len());
-                                            for stats in updated_stats {
-                                                let unlocks = achievements::check_achievements(
+                                if !match_players.is_empty() {
+                                    let notification_manager = notification_manager.clone();
+                                    rt.spawn(async move {
+                                        let res = db
+                                            .transaction_write(move |conn| {
+                                                let updated_stats = crate::games::record_match_end_stats(
                                                     conn,
-                                                    stats.user_id,
-                                                    &stats,
+                                                    match_players,
                                                 )?;
-                                                unlock_batches.push((stats.user_id, unlocks));
+
+                                                let mut unlock_batches = Vec::with_capacity(updated_stats.len());
+                                                for stats in updated_stats {
+                                                    let unlocks = achievements::check_achievements(
+                                                        conn,
+                                                        stats.user_id,
+                                                        &stats,
+                                                    )?;
+                                                    unlock_batches.push((stats.user_id, unlocks));
+                                                }
+
+                                                Ok(unlock_batches)
+                                            })
+                                            .await;
+
+                                        let Ok(unlock_batches) = res else {
+                                            if let Err(e) = res {
+                                                warn!(error = %e, "failed to persist match-end gamification stats");
                                             }
+                                            return;
+                                        };
 
-                                            Ok(unlock_batches)
-                                        })
-                                        .await;
+                                        for (user_id, unlocks) in unlock_batches {
+                                            for unlock in unlocks {
+                                                let payload = NotificationPayload::AchievementUnlocked {
+                                                    achievement_name: unlock.achievement_name,
+                                                    tier: unlock.tier.as_str().to_string(),
+                                                    xp_reward: unlock.xp_reward,
+                                                };
 
-                                    let Ok(unlock_batches) = res else {
-                                        if let Err(e) = res {
-                                            warn!(error = %e, "failed to persist match-end gamification stats");
-                                        }
-                                        return;
-                                    };
-
-                                    for (user_id, unlocks) in unlock_batches {
-                                        for unlock in unlocks {
-                                            let payload = NotificationPayload::AchievementUnlocked {
-                                                achievement_name: unlock.achievement_name,
-                                                tier: unlock.tier.as_str().to_string(),
-                                                xp_reward: unlock.xp_reward,
-                                            };
-
-                                            if let Err(e) = notification_manager.send(user_id, payload).await {
-                                                warn!(user_id, error = %e, "failed to send achievement notification");
+                                                if let Err(e) = notification_manager.send(user_id, payload).await {
+                                                    warn!(user_id, error = %e, "failed to send achievement notification");
+                                                }
                                             }
                                         }
-                                    }
-                                });
+                                    });
+                                }
                             }
-                        }
 
-                        gs.broadcast(&msg);
-                    },
-                    |player_id, msg| gs.send(player_id.cast_signed(), &msg),
-                );
+                            gs.broadcast(&msg);
+                        },
+                        |player_id, msg| gs.send(player_id.cast_signed(), &msg),
+                    );
+                    // Clean exit: gs drops here → StreamGroup refcount decremented.
+                }));
 
-                // Game loop ended — clear state and schedule lobby cleanup if empty.
+                if let Err(panic_info) = &result {
+                    // Extract a human-readable message from the panic payload.
+                    let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                        (*s).to_string()
+                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        format!("{panic_info:?}")
+                    };
+                    error!(
+                        lobby_id = %lobby_id,
+                        panic = %msg,
+                        "game thread panicked (likely a C++ exception via CXX)"
+                    );
+                }
+
+                // Cleanup runs regardless of panic or clean exit.
                 if let Some(lobby_arc) = lobby_weak.upgrade() {
                     let mut lobby = lobby_arc.lock();
                     // Replaces lobby.game_streams with a fresh group, so old Arc
-                    // refcount goes 2 → 1 (only gs still holds it above).
+                    // refcount goes to 0 (gs was already dropped above) and
+                    // StreamGroup::Drop cancels all remaining handle tokens.
                     lobby.clear_game();
 
                     if lobby.is_empty() {
                         let gm = gm_cleanup;
-                        lobby.schedule_cleanup(&rt, move |lid| gm.destroy_lobby(lid));
+                        lobby.schedule_cleanup(&rt_cleanup, move |lid| gm.destroy_lobby(lid));
                     }
                 }
-                // gs drops here → old StreamGroup dropped → all handles cancelled
             })
             .expect("failed to spawn game thread");
 
