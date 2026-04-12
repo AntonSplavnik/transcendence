@@ -465,7 +465,9 @@ Unique constraint on the ordered pair `(MIN(sender_id, receiver_id), MAX(sender_
 | 15 | Game customization options | Gaming Minor | 1 | Done |
 | 16 | Notification system | Web Minor | 1 | Done |
 | 17 | User interaction — chat, friends, profiles | Web Major | 2 | In progress |
-| | **Total (excluding module 17)** | | **24** | Exceeds 14-point target |
+| 18 | Gamification system | Web Minor | 1 | Done |
+
+| | **Total (excluding module 17)** | | **25** | Exceeds 14-point target |
 
 ---
 
@@ -686,6 +688,22 @@ A social layer alongside the game: user profile pages, a friends system (add/rem
 
 ---
 
+### Module 18 — Gamification system
+
+_Web Minor (1 pt) — by kwurster(backend) and drongier(backend & frontend)_
+
+A persistent gamification layer that rewards user actions, tracks long-term progression, and gives players immediate and understandable feedback.
+
+**Implementation:**
+- **Achievements:** Achievement definitions are stored in the `achievements` table and per-user progress/unlock state in `user_achievements` (bronze/silver/gold tiers with thresholds).
+- **XP / level progression:** User progression is stored in `user_stats` (`xp`, `level`, win/loss streaks, combat totals). XP gain is computed through explicit reward rules and level is recalculated from total XP.
+- **Rewards mechanics:** Achievement tier unlocks grant XP rewards, which are immediately merged into the player progression state.
+- **Persistent by design:** All progression and unlock data is database-backed and survives reconnects/restarts (Diesel models + migrations).
+- **Visual feedback:** Newly unlocked achievement tiers emit real-time notifications and progression metrics (`xp_in_level`, `xp_to_next`, `progress_percent`) are exposed for frontend progress bars and UI indicators.
+- **Clear progression rules:** Unlock tiers are threshold-based, XP rewards are deterministic, and progression formulas are centralized in the backend (`gamification/xp.rs` and achievements checks), making behavior predictable and auditable.
+
+---
+
 ## Individual Contributions
 
 ### kwurster
@@ -748,6 +766,7 @@ A social layer alongside the game: user profile pages, a friends system (add/rem
 - Audio architecture: designed and implemented the in-game audio stack (Babylon `AudioEngineV2` buses, shared `SoundBank`, trigger-table-driven playback for local/remote/game events)
 - Sound design: tuned combat/movement feedback, cooldown anti-spam behavior, and overall mix balance for clearer, more readable gameplay audio
 - 3D engine contributions: audio integration for the game engine, minor 3D engine fixes
+- Gamification : integrated progression and achievement for user
 
 ---
 
