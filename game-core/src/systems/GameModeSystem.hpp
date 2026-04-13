@@ -4,7 +4,6 @@
 #include "../components/MatchStatsComponent.hpp"
 #include "../components/InternalEventsComponent.hpp"
 #include "../components/NetworkEventsComponent.hpp"
-#include "../components/PlayerInfo.hpp"
 #include "../components/Tags.hpp"
 #include "../events/InternalEvents.hpp"
 #include "../events/NetworkEvents.hpp"
@@ -17,24 +16,21 @@
 namespace ArenaGame {
 
 	// Builds the MatchEnd payload from final match stats.
-	// Skips bots (human-facing modal) and entities missing PlayerInfo.
+	// Identity is stored in PlayerStats at match start, so disconnected
+	// players are included even after their entity is destroyed.
 	inline NetEvents::MatchEndEvent buildMatchEndEvent(
-		const entt::registry& registry,
 		const Components::MatchStatsComponent& stats)
 	{
 		NetEvents::MatchEndEvent out;
 		out.players.reserve(stats.playerStats.size());
 
 		for (const auto& [entity, ps] : stats.playerStats) {
-			if (registry.all_of<BotTag>(entity)) continue;
-
-			const auto* info = registry.try_get<Components::PlayerInfo>(entity);
-			if (!info) continue;
+			if (ps.playerID == 0) continue; // skip bots / uninitialized
 
 			out.players.push_back(NetEvents::PlayerMatchStats{
-				info->playerID,
-				info->name,
-				info->characterClass,
+				ps.playerID,
+				ps.name,
+				ps.characterClass,
 				ps.kills,
 				ps.deaths,
 				ps.damageDealt,
@@ -124,7 +120,7 @@ namespace ArenaGame {
 	{
 		gm.matchStatus = MatchStatus::Over;
 		auto* ne = m_registry->try_get<Components::NetworkEventsComponent>(m_gameManager);
-		if (ne) ne->events.push_back(buildMatchEndEvent(*m_registry, stats));
+		if (ne) ne->events.push_back(buildMatchEndEvent(stats));
 	}
 
 } // namespace ArenaGame
