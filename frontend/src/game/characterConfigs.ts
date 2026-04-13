@@ -10,6 +10,7 @@ import combatMeleeAnims from '@/assets/animations/Rig_Medium_CombatMelee.glb';
 import swordModel from '@/assets/character-weapons/sword_1handed.glb';
 import shieldModel from '@/assets/character-weapons/shield_badge_color.glb';
 import daggerModel from '@/assets/character-weapons/dagger.glb';
+import axe2hModel from '@/assets/character-weapons/axe-2heand/axe_2handed.gltf';
 
 export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage' | 'RogueHooded';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
@@ -138,14 +139,23 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		characterClass: 'Berserker',
 		model: barbarianModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
-		equipment: [],
+		equipment: [
+			{ model: axe2hModel, bone: 'handslot.r' },
+		],
 		scale: 1,
 		previewBgColor: '#c45c2c',
-		idleAnimation: { name: 'Idle_A' },
+		idleAnimation: { name: 'Melee_2H_Idle' },
 		walkAnimation: { name: 'Walking_B' },
 		runAnimation: { name: 'Running_B' },
-		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
-		skillAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
+		attackAnimations: [
+			{ name: 'Melee_1H_Attack_Stab' },          // stage 0
+			{ name: 'Melee_2H_Attack_Chop' },           // stage 1
+			{ name: 'Melee_2H_Attack_Stab' },           // stage 2 — finisher
+		],
+		skillAnimations: [
+			{ name: 'Melee_2H_Attack_Spin' },           // skill 1
+			{ name: 'Melee_2H_Attack_Spinning' },       // skill 2
+		],
 		trailColor: {
 			base: [255, 140, 60],
 			tip: [255, 80, 30],

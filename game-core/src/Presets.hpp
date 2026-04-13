@@ -102,17 +102,20 @@ namespace Presets {
 			.criticalChance     = 0.20f,
 			.criticalMultiplier = 1.8f,
 			.attackChain = {
-				// Stage 0 — wide swing: heavy opener, some forward movement
-				{ .damageMultiplier=1.0f, .range=3.5f, .duration=0.55f,
-				  .movementMultiplier=0.2f, .chainWindow=0.5f, .staminaCost=12.0f },
-				// Stage 1 — overhead smash: devastating finisher, rooted
+				// Stage 0 — stab: quick opener, some forward movement
+				{ .damageMultiplier=0.9f, .range=3.5f, .duration=0.50f,
+				  .movementMultiplier=0.2f, .chainWindow=0.55f, .staminaCost=10.0f },
+				// Stage 1 — chop: heavy mid-swing
+				{ .damageMultiplier=1.2f, .range=3.5f, .duration=0.55f,
+				  .movementMultiplier=0.1f, .chainWindow=0.5f, .staminaCost=15.0f },
+				// Stage 2 — stab finisher: devastating, rooted
 				{ .damageMultiplier=1.8f, .range=3.5f, .duration=0.65f,
 				  .movementMultiplier=0.0f, .chainWindow=0.0f, .staminaCost=20.0f },
 			},
-			// Skill 1 — ground slam: high-damage AOE, roots caster
+			// Skill 1 — spin attack: high-damage AOE, roots caster
 			.skill1 = { .params = MeleeAOE{ .range=4.5f, .movementMultiplier=0.0f, .dmgMultiplier=2.2f },
 			            .cooldown=6.0f, .castDuration=0.8f, .staminaCost=25.0f },
-			// Skill 2 — berserker cleave: wide arc, high damage, some movement
+			// Skill 2 — spinning cleave: sustained AOE, some movement
 			.skill2 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.3f, .dmgMultiplier=2.0f },
 			            .cooldown=8.0f, .castDuration=0.6f, .staminaCost=20.0f },
 		},
