@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractHudState, hudStateEqual, type HudState } from '@/components/GameBoard/hud/types';
+import { extractHudState, hudStateEqual } from '@/components/GameBoard/hud/types';
 import type { CharacterSnapshot } from '@/game/types';
 
 const baseChar: CharacterSnapshot = {

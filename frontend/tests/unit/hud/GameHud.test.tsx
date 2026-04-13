@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import GameHud, { useHudState } from '@/components/GameBoard/hud/GameHud';
+import GameHud from '@/components/GameBoard/hud/GameHud';
+import { useHudState } from '@/components/GameBoard/hud/useHudState';
 import { renderHook } from '@testing-library/react';
 import type { GameStateSnapshot } from '@/game/types';
 
