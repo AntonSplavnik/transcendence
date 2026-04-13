@@ -19,7 +19,7 @@ export default function AbilitySlot({ icon, label, timer, cooldown, color }: Abi
 					width: 32,
 					height: 32,
 					borderRadius: 8,
-					backgroundColor: 'rgba(0,0,0,0.35)',
+					backgroundColor: 'rgba(0,0,0,0.45)',
 				}}
 			>
 				<span className="text-sm z-10 leading-none">{icon}</span>

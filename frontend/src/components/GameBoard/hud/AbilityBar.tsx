@@ -13,14 +13,14 @@ export default function AbilityBar({ hud }: AbilityBarProps) {
 				label="Q"
 				timer={hud.ability1Timer}
 				cooldown={hud.ability1Cooldown}
-				color="rgba(52,152,219,0.2)"
+				color="rgba(52,152,219,1)"
 			/>
 			<AbilitySlot
 				icon="🔮"
-				label="E"
+				label="F"
 				timer={hud.ability2Timer}
 				cooldown={hud.ability2Cooldown}
-				color="rgba(155,89,182,0.2)"
+				color="rgba(155,89,182,1)"
 			/>
 		</div>
 	);

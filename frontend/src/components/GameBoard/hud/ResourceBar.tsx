@@ -10,7 +10,7 @@ interface ResourceBarProps {
 const CONFIG = {
 	health: {
 		icon: '❤️',
-		iconBg: 'rgba(46,204,113,0.15)',
+		iconBg: 'rgba(46,204,113,0.65)',
 		fillColor: '#2ecc71',
 		lowColor: '#2ecc71',
 		width: 200,
@@ -19,7 +19,7 @@ const CONFIG = {
 	},
 	stamina: {
 		icon: '⚡',
-		iconBg: 'rgba(224,160,48,0.15)',
+		iconBg: 'rgba(224,160,48,0.65)',
 		fillColor: '#e0a030',
 		lowColor: '#d35400',
 		width: 160,
@@ -59,7 +59,7 @@ export default function ResourceBar({ type, current, max, exhausted = false }: R
 					width: cfg.width,
 					height: cfg.height,
 					borderRadius: cfg.radius,
-					backgroundColor: 'rgba(0,0,0,0.4)',
+					backgroundColor: 'rgba(0,0,0,0.2)',
 				}}
 				data-testid="resource-bg"
 			>

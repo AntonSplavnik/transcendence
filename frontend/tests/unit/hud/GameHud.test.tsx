@@ -91,6 +91,7 @@ describe('GameHud', () => {
 	beforeEach(() => {
 		rafCallbacks = [];
 		rafId = 0;
+		Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true });
 		vi.stubGlobal('requestAnimationFrame', (cb: (time: number) => void) => {
 			rafCallbacks.push(cb);
 			return ++rafId;
