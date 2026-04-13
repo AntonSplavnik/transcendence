@@ -139,22 +139,20 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		characterClass: 'Berserker',
 		model: barbarianModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
-		equipment: [
-			{ model: axe2hModel, bone: 'handslot.r' },
-		],
+		equipment: [{ model: axe2hModel, bone: 'handslot.r' }],
 		scale: 1,
 		previewBgColor: '#c45c2c',
 		idleAnimation: { name: 'Melee_2H_Idle' },
 		walkAnimation: { name: 'Walking_B' },
 		runAnimation: { name: 'Running_B' },
 		attackAnimations: [
-			{ name: 'Melee_1H_Attack_Stab' },          // stage 0
-			{ name: 'Melee_2H_Attack_Chop' },           // stage 1
-			{ name: 'Melee_2H_Attack_Stab' },           // stage 2 — finisher
+			{ name: 'Melee_1H_Attack_Stab' }, // stage 0
+			{ name: 'Melee_2H_Attack_Chop' }, // stage 1
+			{ name: 'Melee_2H_Attack_Stab' }, // stage 2 — finisher
 		],
 		skillAnimations: [
-			{ name: 'Melee_2H_Attack_Spin' },           // skill 1
-			{ name: 'Melee_2H_Attack_Spinning' },       // skill 2
+			{ name: 'Melee_2H_Attack_Spin' }, // skill 1
+			{ name: 'Melee_2H_Attack_Spinning' }, // skill 2
 		],
 		trailColor: {
 			base: [255, 140, 60],
