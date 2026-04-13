@@ -63,6 +63,61 @@ namespace Presets {
 		},
 	};
 
+	inline const CharacterPreset BARBARIAN = {
+		.health = {
+			.maxHealth  = 150.0f,
+			.armor      = 2.0f,
+			.resistance = 0.05f,
+		},
+		.movement = {
+			.movementSpeed    = 1.7f,
+			.rotationSpeed    = 14.0f,  // ~100ms for a 90° turn — mid-weight
+			.sprintMultiplier = 2.7f,   // moderate sprint
+			.crouchMultiplier = 0.5f,
+			.jumpVelocity     = 6.0f,   // decent jump
+			.dodgeVelocity    = 8.0f,   // short dodge — relies on aggression, not evasion
+			.airControlFactor = 0.2f,   // moderate air control
+			.acceleration     = 20.0f,  // ~65ms to walk, ~170ms to sprint
+			.deceleration     = 22.0f,  // ~55ms walk stop, ~175ms sprint slide — carries momentum
+			.mass             = 85.0f,
+			.friction         = 0.8f,   // slight slide on stop
+			.drag             = 0.0f,
+			.maxSpeed         = 9.0f,
+			.maxFallSpeed     = 58.0f,
+		},
+		.collider = {
+			.radius = 0.45f,
+			.height = 1.85f,           // big frame, slightly shorter than knight
+		},
+		.stamina = {
+			.maxStamina        = 110.0f,
+			.baseRegenRate     = 45.0f,    // effective: 4.5/s (10% floor) to 45.0/s
+			.drainDelaySeconds = 1.2f,     // medium recovery window
+			.sprintCostPerSec  = 12.0f,    // ~9s of continuous sprint
+			.jumpCost          = 7.0f,     // ~15 jumps from full
+		},
+		.combat = {
+			.baseDamage         = 25.0f,
+			.damageMultiplier   = 1.0f,
+			.criticalChance     = 0.20f,
+			.criticalMultiplier = 1.8f,
+			.attackChain = {
+				// Stage 0 — wide swing: heavy opener, some forward movement
+				{ .damageMultiplier=1.0f, .range=3.5f, .duration=0.55f,
+				  .movementMultiplier=0.2f, .chainWindow=0.5f, .staminaCost=12.0f },
+				// Stage 1 — overhead smash: devastating finisher, rooted
+				{ .damageMultiplier=1.8f, .range=3.5f, .duration=0.65f,
+				  .movementMultiplier=0.0f, .chainWindow=0.0f, .staminaCost=20.0f },
+			},
+			// Skill 1 — ground slam: high-damage AOE, roots caster
+			.skill1 = { .params = MeleeAOE{ .range=4.5f, .movementMultiplier=0.0f, .dmgMultiplier=2.2f },
+			            .cooldown=6.0f, .castDuration=0.8f, .staminaCost=25.0f },
+			// Skill 2 — berserker cleave: wide arc, high damage, some movement
+			.skill2 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.3f, .dmgMultiplier=2.0f },
+			            .cooldown=8.0f, .castDuration=0.6f, .staminaCost=20.0f },
+		},
+	};
+
 	inline const CharacterPreset ROGUE = {
 		.health = {
 			.maxHealth  = 100.0f,

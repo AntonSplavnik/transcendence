@@ -181,6 +181,7 @@ impl From<GameMode> for bridge::GameModeType {
 pub enum CharacterClass {
     #[default]
     Knight,
+    Barbarian,
     Rogue,
 }
 
@@ -188,6 +189,7 @@ impl CharacterClass {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Knight => "knight",
+            Self::Barbarian => "barbarian",
             Self::Rogue => "rogue",
         }
     }
@@ -196,6 +198,7 @@ impl CharacterClass {
 impl From<&str> for CharacterClass {
     fn from(s: &str) -> Self {
         match s {
+            "barbarian" => Self::Barbarian,
             "rogue" => Self::Rogue,
             _ => Self::Knight,
         }
