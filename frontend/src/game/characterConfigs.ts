@@ -1,15 +1,15 @@
-import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
-import rogueModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue.glb';
-import barbarianModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Barbarian.glb';
-import rangerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Ranger.glb';
-import mageModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Mage.glb';
-import rogueHoodedModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue_Hooded.glb';
-import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
-import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
-import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
-import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1handed.glb';
-import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
-import daggerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.glb';
+import knightModel from '@/assets/character-models/Knight.glb';
+import rogueModel from '@/assets/character-models/Rogue.glb';
+import barbarianModel from '@/assets/character-models/Barbarian.glb';
+import rangerModel from '@/assets/character-models/Ranger.glb';
+import mageModel from '@/assets/character-models/Mage.glb';
+import rogueHoodedModel from '@/assets/character-models/Rogue_Hooded.glb';
+import generalAnims from '@/assets/animations/Rig_Medium_General.glb';
+import movementBasicAnims from '@/assets/animations/Rig_Medium_MovementBasic.glb';
+import combatMeleeAnims from '@/assets/animations/Rig_Medium_CombatMelee.glb';
+import swordModel from '@/assets/character-weapons/sword_1handed.glb';
+import shieldModel from '@/assets/character-weapons/shield_badge_color.glb';
+import daggerModel from '@/assets/character-weapons/dagger.glb';
 
 export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage' | 'RogueHooded';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
