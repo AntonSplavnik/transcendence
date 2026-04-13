@@ -4,7 +4,7 @@ import type { CharacterSnapshot, GameStateSnapshot, Vector3D } from './types';
 import type { CharacterConfig } from './characterConfigs';
 import type { AnimatedCharacter } from './AnimatedCharacter';
 import type { CharacterManager } from './CharacterManager';
-import type { GameHUD } from './HUD';
+import type { EnemyHealthBars } from './EnemyHealthBars';
 import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
 import { AnimationNames, CharacterState, ISO_CAM_OFFSET } from './constants';
 
@@ -70,7 +70,7 @@ export class SnapshotProcessor {
 	processSnapshot(
 		snapshot: GameStateSnapshot,
 		mgr: CharacterManager,
-		hud: GameHUD,
+		hud: EnemyHealthBars,
 		camera: UniversalCamera,
 	): void {
 		const activePlayerIDs = new Set<number>();
@@ -89,7 +89,7 @@ export class SnapshotProcessor {
 			);
 
 			if (charData.player_id === mgr.localPlayerID) {
-				this.processLocalPlayer(charData, snapshot.timestamp, mgr, hud, camera);
+				this.processLocalPlayer(charData, snapshot.timestamp, mgr, camera);
 			} else {
 				positions.set(charData.player_id, charData.position);
 				this.processRemotePlayer(charData, snapshot.timestamp, mgr, hud);
@@ -115,7 +115,6 @@ export class SnapshotProcessor {
 		charData: CharacterSnapshot,
 		_timestamp: number,
 		mgr: CharacterManager,
-		hud: GameHUD,
 		camera: UniversalCamera,
 	): void {
 		const visual = this.positionStrategy.getVisualState(charData.player_id, _timestamp);
@@ -132,14 +131,6 @@ export class SnapshotProcessor {
 			);
 		}
 
-		// Health
-		const healthPct = charData.max_health > 0 ? charData.health / charData.max_health : 0;
-		hud.updateLocalHealth(healthPct, charData.state === CharacterState.Dead);
-
-		// Stamina
-		const staminaPct = charData.max_stamina > 0 ? charData.stamina / charData.max_stamina : 0;
-		hud.updateLocalStamina(staminaPct);
-
 		// Death
 		if (charData.state === CharacterState.Dead && !mgr.localIsDead && mgr.localCharacter) {
 			mgr.localIsDead = true;
@@ -152,17 +143,6 @@ export class SnapshotProcessor {
 			}
 			mgr.localAnimSM.enter(AnimPhase.Death);
 		}
-
-		// Cooldowns
-		const cd1 =
-			charData.ability1_cooldown > 0
-				? charData.ability1_timer / charData.ability1_cooldown
-				: 0;
-		const cd2 =
-			charData.ability2_cooldown > 0
-				? charData.ability2_timer / charData.ability2_cooldown
-				: 0;
-		hud.updateCooldowns(charData.swing_progress, cd1, cd2);
 
 		// Camera follow
 		camera.position.copyFromFloats(
@@ -177,7 +157,7 @@ export class SnapshotProcessor {
 		charData: CharacterSnapshot,
 		_timestamp: number,
 		mgr: CharacterManager,
-		hud: GameHUD,
+		hud: EnemyHealthBars,
 	): void {
 		const remoteChar = mgr.characters.get(charData.player_id);
 
