@@ -136,7 +136,6 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 	Barbarian: {
 		label: 'Barbarian',
 		characterClass: 'Berserker',
-		locked: true,
 		model: barbarianModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
 		equipment: [],
