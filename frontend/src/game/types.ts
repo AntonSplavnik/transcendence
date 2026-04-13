@@ -25,6 +25,7 @@ export interface CharacterSnapshot {
 	// Stamina data
 	stamina: number;
 	max_stamina: number;
+	exhausted: boolean;
 }
 
 export interface GameStateSnapshot {

@@ -30,6 +30,7 @@ struct CharacterSnapshot {
 	// Stamina data for HUD
 	float stamina;
 	float maxStamina;
+	bool exhausted;
 
 	CharacterSnapshot() = default;
 };
@@ -258,6 +259,7 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 		charSnapshot.isGrounded       = physics.isGrounded;
 		charSnapshot.stamina    = stam.current;
 		charSnapshot.maxStamina = stam.maximum;
+		charSnapshot.exhausted  = stam.isExhausted();
 
 		snapshot.characters.push_back(charSnapshot);
 	});
