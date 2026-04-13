@@ -12,13 +12,13 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
 				<div className="mb-12">
 					<Swords size={80} className="mx-auto text-gold-400 mb-4" aria-hidden="true" />
 					<h1 className="text-5xl font-extrabold tracking-tight mb-2">
-						Hit &apos;em good.
+						Wind Hollow
 					</h1>
 					{/* <p className="text-teal-400 text-xl font-bold">Some Game.</p> */}
 				</div>
 
 				<div className="flex flex-col gap-7 p-10">
-					<p className="text-teal-400 text-xl font-bold">Some Game.</p>
+					<p className="text-teal-400 text-xl font-bold">Let's Fight !</p>
 				</div>
 
 				<div className="flex flex-col gap-4 p-10">
