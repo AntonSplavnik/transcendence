@@ -1,6 +1,26 @@
 import '@testing-library/jest-dom';
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
+// Node.js 25 ships a built-in localStorage stub that lacks setItem/getItem
+// unless --localstorage-file is provided. Vitest's jsdom environment should
+// override it, but the global may leak through. Provide a minimal in-memory
+// fallback so beforeEach/afterEach calls don't throw.
+if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
+	const store: Record<string, string> = {};
+	Object.defineProperty(globalThis, 'localStorage', {
+		value: {
+			getItem: (k: string) => store[k] ?? null,
+			setItem: (k: string, v: string) => { store[k] = String(v); },
+			removeItem: (k: string) => { delete store[k]; },
+			clear: () => { Object.keys(store).forEach(k => delete store[k]); },
+			key: (i: number) => Object.keys(store)[i] ?? null,
+			get length() { return Object.keys(store).length; },
+		},
+		writable: true,
+		configurable: true,
+	});
+}
+
 // ModelPreview uses BabylonJS + WebGL which are unavailable in jsdom
 vi.mock('@/components/ui/ModelPreview', () => ({ default: () => null }));
 
