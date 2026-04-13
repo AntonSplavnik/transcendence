@@ -4,6 +4,10 @@ import barbarianModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf
 import rangerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Ranger.glb';
 import mageModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Mage.glb';
 import rogueHoodedModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue_Hooded.glb';
+import knightSkill1 from '@/assets/HUD/skills/knight/icon_11.png';
+import knightSkill2 from '@/assets/HUD/skills/knight/icon_12.png';
+import rogueSkill1 from '@/assets/HUD/skills/rogue/icon_9.png';
+import rogueSkill2 from '@/assets/HUD/skills/rogue/icon_10.png';
 import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
@@ -63,6 +67,10 @@ export interface CharacterConfig {
 	description: string;
 	/** Human-readable weapon names shown in character selector. */
 	weapons: string[];
+	/** Ability icon images [ability1, ability2]. Falls back to emoji if omitted. */
+	abilityIcons?: [string, string];
+	/** Ability cooldown overlay colors [ability1, ability2]. Falls back to blue/purple if omitted. */
+	abilityColors?: [string, string];
 }
 
 export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
@@ -99,6 +107,8 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		stats: { attack: 7, defense: 9, speed: 4, health: 10 },
 		description: 'Durable front-liner. High armor, slow movement.',
 		weapons: ['Sword', 'Shield'],
+		abilityIcons: [knightSkill1, knightSkill2],
+		abilityColors: ['rgba(0,0,0,1)', 'rgba(0,0,0,1)'],
 	},
 	Rogue: {
 		label: 'Rogue',
@@ -132,6 +142,8 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		stats: { attack: 9, defense: 4, speed: 10, health: 6 },
 		description: 'High burst damage. Glass cannon. Hit and run.',
 		weapons: ['Dagger (R)', 'Dagger (L)'],
+		abilityIcons: [rogueSkill1, rogueSkill2],
+		abilityColors: ['rgba(0,0,0,1)', 'rgba(0,0,0,1)'],
 	},
 	Barbarian: {
 		label: 'Barbarian',

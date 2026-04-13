@@ -1,3 +1,5 @@
+import healthIcon from '@/assets/HUD/health-bar/icon_5.png';
+import staminaIcon from '@/assets/HUD/energy-bar/icon_6.png';
 import './hud.css';
 
 interface ResourceBarProps {
@@ -9,8 +11,7 @@ interface ResourceBarProps {
 
 const CONFIG = {
 	health: {
-		icon: '❤️',
-		iconBg: 'rgba(46,204,113,0.65)',
+		icon: healthIcon,
 		fillColor: '#2ecc71',
 		lowColor: '#2ecc71',
 		width: 200,
@@ -18,8 +19,7 @@ const CONFIG = {
 		radius: 4,
 	},
 	stamina: {
-		icon: '⚡',
-		iconBg: 'rgba(224,160,48,0.65)',
+		icon: staminaIcon,
 		fillColor: '#e0a030',
 		lowColor: '#d35400',
 		width: 160,
@@ -42,16 +42,15 @@ export default function ResourceBar({ type, current, max, exhausted = false }: R
 			data-testid="resource-bar"
 		>
 			<div
-				className="flex items-center justify-center rounded-[5px] hud-bar-icon"
+				className="hud-bar-icon"
 				style={{
-					width: 20,
-					height: 20,
-					backgroundColor: cfg.iconBg,
+					width: 26,
+					height: 26,
 					opacity: isExhausted ? 0.4 : 1,
 				}}
 				data-testid="resource-icon"
 			>
-				<span className="text-xs leading-none">{cfg.icon}</span>
+				<img src={cfg.icon} alt={type} className="w-full h-full object-contain" />
 			</div>
 			<div
 				className={`relative overflow-hidden ${isExhausted ? 'hud-exhaust-bg' : ''}`}

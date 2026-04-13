@@ -26,9 +26,11 @@ function useHudScale() {
 interface GameHudProps {
 	snapshotRef: RefObject<GameStateSnapshot | null>;
 	localPlayerId: number;
+	abilityIcons?: [string, string];
+	abilityColors?: [string, string];
 }
 
-export default function GameHud({ snapshotRef, localPlayerId }: GameHudProps) {
+export default function GameHud({ snapshotRef, localPlayerId, abilityIcons, abilityColors }: GameHudProps) {
 	const hud = useHudState(snapshotRef, localPlayerId);
 	const scale = useHudScale();
 	if (!hud) return null;
@@ -46,8 +48,8 @@ export default function GameHud({ snapshotRef, localPlayerId }: GameHudProps) {
 			}}
 			data-testid="game-hud"
 		>
-			<div className="mb-2">
-				<AbilityBar hud={hud} />
+			<div className="mb-1">
+				<AbilityBar hud={hud} abilityIcons={abilityIcons} abilityColors={abilityColors} />
 			</div>
 			<div className="mb-1">
 				<ResourceBar type="health" current={hud.health} max={hud.maxHealth} />

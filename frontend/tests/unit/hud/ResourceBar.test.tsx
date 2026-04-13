@@ -10,9 +10,10 @@ describe('ResourceBar', () => {
 			expect(fill.style.width).toBe('75%');
 		});
 
-		it('renders heart icon', () => {
+		it('renders health icon', () => {
 			render(<ResourceBar type="health" current={100} max={100} />);
-			expect(screen.getByText('❤️')).toBeInTheDocument();
+			const icon = screen.getByTestId('resource-icon');
+			expect(icon.querySelector('img')).toBeInTheDocument();
 		});
 
 		it('uses green fill color', () => {
@@ -29,9 +30,10 @@ describe('ResourceBar', () => {
 			expect(fill.style.width).toBe('60%');
 		});
 
-		it('renders lightning icon', () => {
+		it('renders stamina icon', () => {
 			render(<ResourceBar type="stamina" current={100} max={100} />);
-			expect(screen.getByText('⚡')).toBeInTheDocument();
+			const icon = screen.getByTestId('resource-icon');
+			expect(icon.querySelector('img')).toBeInTheDocument();
 		});
 
 		it('uses gold fill when above 20%', () => {

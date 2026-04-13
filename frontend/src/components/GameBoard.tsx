@@ -58,7 +58,14 @@ export default function GameBoard() {
 				isSpectator={isSpectator}
 				gameAudio={gameAudio}
 			/>
-			{!isSpectator && <GameHud snapshotRef={snapshotRef} localPlayerId={user.id} />}
+			{!isSpectator && (
+				<GameHud
+					snapshotRef={snapshotRef}
+					localPlayerId={user.id}
+					abilityIcons={characterConfig.abilityIcons}
+					abilityColors={characterConfig.abilityColors}
+				/>
+			)}
 			{isSpectator && (
 				<div className="absolute top-4 right-4 z-10">
 					<Badge

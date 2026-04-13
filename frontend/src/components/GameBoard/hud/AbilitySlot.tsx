@@ -6,9 +6,10 @@ interface AbilitySlotProps {
 	timer: number;
 	cooldown: number;
 	color: string;
+	isImage?: boolean;
 }
 
-export default function AbilitySlot({ icon, label, timer, cooldown, color }: AbilitySlotProps) {
+export default function AbilitySlot({ icon, label, timer, cooldown, color, isImage = false }: AbilitySlotProps) {
 	const fillPct = cooldown > 0 ? Math.max(0, Math.min(1, timer / cooldown)) * 100 : 0;
 
 	return (
@@ -16,22 +17,26 @@ export default function AbilitySlot({ icon, label, timer, cooldown, color }: Abi
 			<div
 				className="relative flex items-center justify-center overflow-hidden"
 				style={{
-					width: 32,
-					height: 32,
+					width: 38,
+					height: 38,
 					borderRadius: 8,
 					backgroundColor: 'rgba(0,0,0,0.45)',
 				}}
 			>
-				<span className="text-sm z-10 leading-none">{icon}</span>
+				{isImage ? (
+					<img src={icon} alt={label} className="w-full h-full object-cover rounded-[8px]" />
+				) : (
+					<span className="text-sm z-10 leading-none">{icon}</span>
+				)}
 				{fillPct > 0 && (
 					<div
-						className="absolute bottom-0 left-0 w-full hud-cooldown-fill"
-						style={{ height: `${fillPct}%`, backgroundColor: color }}
+						className="absolute bottom-0 left-0 w-full z-20 hud-cooldown-fill"
+						style={{ height: `${fillPct}%`, backgroundColor: color, opacity: 0.5 }}
 						data-testid="cooldown-fill"
 					/>
 				)}
 			</div>
-			<span className="text-[9px] font-semibold leading-none" style={{ color: '#888' }}>
+			<span className="text-[10px] font-bold leading-none" style={{ color: '#c8a84e' }}>
 				{label}
 			</span>
 		</div>

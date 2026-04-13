@@ -124,8 +124,7 @@ describe('GameHud', () => {
 		act(() => flushRaf(100));
 
 		expect(screen.getByTestId('game-hud')).toBeInTheDocument();
-		expect(screen.getByText('❤️')).toBeInTheDocument();
-		expect(screen.getByText('⚡')).toBeInTheDocument();
+		expect(screen.getAllByRole('img')).toHaveLength(2);
 		expect(screen.getByTestId('ability-bar')).toBeInTheDocument();
 	});
 
