@@ -9,7 +9,14 @@ interface AbilitySlotProps {
 	isImage?: boolean;
 }
 
-export default function AbilitySlot({ icon, label, timer, cooldown, color, isImage = false }: AbilitySlotProps) {
+export default function AbilitySlot({
+	icon,
+	label,
+	timer,
+	cooldown,
+	color,
+	isImage = false,
+}: AbilitySlotProps) {
 	const fillPct = cooldown > 0 ? Math.max(0, Math.min(1, timer / cooldown)) * 100 : 0;
 
 	return (
@@ -24,7 +31,11 @@ export default function AbilitySlot({ icon, label, timer, cooldown, color, isIma
 				}}
 			>
 				{isImage ? (
-					<img src={icon} alt={label} className="w-full h-full object-cover rounded-[8px]" />
+					<img
+						src={icon}
+						alt={label}
+						className="w-full h-full object-cover rounded-[8px]"
+					/>
 				) : (
 					<span className="text-sm z-10 leading-none">{icon}</span>
 				)}

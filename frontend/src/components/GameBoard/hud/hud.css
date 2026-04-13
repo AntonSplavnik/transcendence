@@ -1,7 +1,9 @@
 /* ── Bar fill transitions ─────────────────────────────────────────── */
 
 .hud-bar-fill {
-	transition: width 66ms linear, background-color 300ms ease;
+	transition:
+		width 66ms linear,
+		background-color 300ms ease;
 }
 
 /* ── Icon opacity transition ──────────────────────────────────────── */
@@ -19,8 +21,13 @@
 /* ── Exhaustion pulse animation ───────────────────────────────────── */
 
 @keyframes hud-exhaust-pulse {
-	0%, 100% { background-color: rgba(0, 0, 0, 0.6); }
-	50% { background-color: rgba(192, 57, 43, 0.7); }
+	0%,
+	100% {
+		background-color: rgba(0, 0, 0, 0.6);
+	}
+	50% {
+		background-color: rgba(192, 57, 43, 0.7);
+	}
 }
 
 .hud-exhaust-bg {

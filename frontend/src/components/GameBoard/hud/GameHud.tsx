@@ -30,7 +30,12 @@ interface GameHudProps {
 	abilityColors?: [string, string];
 }
 
-export default function GameHud({ snapshotRef, localPlayerId, abilityIcons, abilityColors }: GameHudProps) {
+export default function GameHud({
+	snapshotRef,
+	localPlayerId,
+	abilityIcons,
+	abilityColors,
+}: GameHudProps) {
 	const hud = useHudState(snapshotRef, localPlayerId);
 	const scale = useHudScale();
 	if (!hud) return null;
