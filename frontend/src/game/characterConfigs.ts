@@ -10,7 +10,7 @@ import combatMeleeAnims from '@/assets/animations/Rig_Medium_CombatMelee.glb';
 import swordModel from '@/assets/character-weapons/sword_1handed.glb';
 import shieldModel from '@/assets/character-weapons/shield_badge_color.glb';
 import daggerModel from '@/assets/character-weapons/dagger.glb';
-import axe2hModel from '@/assets/character-weapons/axe-2heand/axe_2handed.gltf';
+import axe2hModel from '@/assets/character-weapons/axe_2handed.glb';
 
 export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage' | 'RogueHooded';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
@@ -139,7 +139,7 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		characterClass: 'Berserker',
 		model: barbarianModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
-		equipment: [{ model: axe2hModel, bone: 'handslot.r' }],
+		equipment: [{ model: axe2hModel, bone: 'handslot.r', position: [0, 0.1, 0] }],
 		scale: 1,
 		previewBgColor: '#c45c2c',
 		idleAnimation: { name: 'Melee_2H_Idle' },
