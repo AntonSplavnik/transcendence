@@ -1,4 +1,26 @@
 import '@testing-library/jest-dom';
+
+// jsdom normalises hex colour strings to rgb(...) when you set style.backgroundColor.
+// Patch CSSStyleDeclaration so inline hex values are preserved exactly as assigned,
+// which lets tests assert `fill.style.backgroundColor === '#2ecc71'` instead of rgb().
+{
+	const proto = window.CSSStyleDeclaration.prototype;
+	const desc = Object.getOwnPropertyDescriptor(proto, 'backgroundColor');
+	if (desc && desc.get && desc.set) {
+		const _rawBg = Symbol('rawBg');
+		Object.defineProperty(proto, 'backgroundColor', {
+			get(this: CSSStyleDeclaration & { [_rawBg]?: string }) {
+				return this[_rawBg] ?? desc.get!.call(this);
+			},
+			set(this: CSSStyleDeclaration & { [_rawBg]?: string }, value: string) {
+				this[_rawBg] = value;
+				desc.set!.call(this, value);
+			},
+			enumerable: true,
+			configurable: true,
+		});
+	}
+}
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 // Node.js 25 ships a built-in localStorage stub that lacks setItem/getItem
