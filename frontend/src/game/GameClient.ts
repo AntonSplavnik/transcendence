@@ -167,8 +167,7 @@ export class GameClient {
 		// server's state transition out of Casting is the end signal.
 		// One-shot skill animations (loop=false) must be allowed to finish
 		// naturally; animSM.tick handles that when isPlaying goes false.
-		const currentIsLooping =
-			this.mgr.localCharacter.currentAnimation?.loopAnimation === true;
+		const currentIsLooping = this.mgr.localCharacter.currentAnimation?.loopAnimation === true;
 		if (
 			this.mgr.localAnimSM.phase === AnimPhase.Skill &&
 			serverState !== CharacterState.Casting &&

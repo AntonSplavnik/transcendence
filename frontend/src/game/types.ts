@@ -105,7 +105,7 @@ export interface InputState {
 	isGrounded: boolean;
 	isUsingAbility1: boolean;
 	isUsingAbility2: boolean;
-	isHoldingAbility2: boolean;  // true while F is held — drives channeled skills
+	isHoldingAbility2: boolean; // true while F is held — drives channeled skills
 }
 
 export type GameClientMessage =
