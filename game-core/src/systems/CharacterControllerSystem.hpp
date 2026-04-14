@@ -75,8 +75,13 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		return;
 	}
 
-	// Skip if movement is disabled (stunned, casting, etc.)
+	// Skip if movement is disabled (stunned, rooted cast, etc.). Zero
+	// horizontal velocity so prior momentum doesn't carry the character
+	// through the root — otherwise pressing a rooting skill while running
+	// leaves the player sliding for the length of the cast.
 	if (!controller.canMove) {
+		physics.velocity.x = 0.0f;
+		physics.velocity.z = 0.0f;
 		return;
 	}
 
