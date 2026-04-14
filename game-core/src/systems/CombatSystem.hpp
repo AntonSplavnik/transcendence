@@ -150,11 +150,12 @@ private:
 	                  Components::CharacterController& charcon,
 	                  const SkillDefinition& def,
 	                  bool& channeling, float& channelElapsed, float& tickTimer,
+	                  float& spinAngle,
 	                  Components::NetworkEventsComponent* ne,
 	                  entt::entity entity, uint8_t slot);
 
 	void tickChannelSlot(bool& channeling, float& channelElapsed, float& tickTimer,
-	                     float& cooldownTimer,
+	                     float& spinAngle, float& cooldownTimer,
 	                     const SkillDefinition& def, bool isHeld,
 	                     entt::entity entity,
 	                     Components::CombatController& combat,
@@ -167,6 +168,10 @@ private:
 	// ── Hit detection ────────────────────────────────────────────────────
 	void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
 	void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
+	// Swept-arc hit: damages targets whose direction-from-caster (in the
+	// caster's local frame) falls within [sweepFromLocal, sweepToLocal] rad.
+	void hitInSweep(SkillContext& ctx, float range, float dmgMultiplier,
+	                float sweepFromLocal, float sweepToLocal);
 	void executeSkill(const SkillDefinition& skill, SkillContext& ctx);
 
 	// ── Utilities ────────────────────────────────────────────────────────
@@ -202,7 +207,10 @@ inline void CombatSystem::applySkillMovementLock(
 	};
 	std::visit(overloaded{
 		[&](const MeleeAOE& s)       { apply(s.movementMultiplier); },
-		[&](const ChanneledCone& s)  { apply(s.movementMultiplier); }
+		// Lock rotation during the spin: the sweep arc is in the caster's
+		// local frame, so letting input steer yaw makes the arc oscillate
+		// with WASD and causes targets to slip out of the per-tick window.
+		[&](const ChanneledCone& s)  { apply(s.movementMultiplier); c.disableRotation(); }
 	}, params);
 }
 
@@ -216,7 +224,7 @@ inline void CombatSystem::removeSkillMovementLock(
 	};
 	std::visit(overloaded{
 		[&](const MeleeAOE& s)       { remove(s.movementMultiplier); },
-		[&](const ChanneledCone& s)  { remove(s.movementMultiplier); }
+		[&](const ChanneledCone& s)  { remove(s.movementMultiplier); c.enableRotation(); }
 	}, params);
 }
 
@@ -229,7 +237,10 @@ inline void CombatSystem::triggerSkill(
 		float& castTimer, bool& hitPending,
 		Components::NetworkEventsComponent* ne,
 		entt::entity entity, uint8_t slot) {
-	castTimer  = def.castDuration;
+	// triggerSkill is only invoked for one-shot variants (MeleeAOE).
+	// Channeled skills go through startChannel.
+	const auto& melee = std::get<MeleeAOE>(def.params);
+	castTimer  = melee.castDuration;
 	hitPending = true;
 	charcon.setState(CharacterState::Casting);
 	applySkillMovementLock(charcon, def.params);
@@ -241,11 +252,13 @@ inline void CombatSystem::startChannel(
 		Components::CharacterController& charcon,
 		const SkillDefinition& def,
 		bool& channeling, float& channelElapsed, float& tickTimer,
+		float& spinAngle,
 		Components::NetworkEventsComponent* ne,
 		entt::entity entity, uint8_t slot) {
 	channeling     = true;
 	channelElapsed = 0.0f;
 	tickTimer      = 0.0f;
+	spinAngle      = 0.0f;  // axe starts at caster forward
 	charcon.setState(CharacterState::Casting);
 	applySkillMovementLock(charcon, def.params);
 	if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), slot });
@@ -254,6 +267,16 @@ inline void CombatSystem::startChannel(
 // Returns true if the skill variant is a held/channeled type.
 inline bool isChanneledSkill(const SkillDefinition& def) {
 	return std::holds_alternative<ChanneledCone>(def.params);
+}
+
+// Stamina required to initiate the skill. One-shot skills pay a flat cost
+// on completion (MeleeAOE::staminaCost) but still gate start on it via
+// canAfford. Channeled skills pay over time and start at no entry cost.
+inline float skillEntryStaminaCost(const SkillDefinition& def) {
+	return std::visit(overloaded{
+		[](const MeleeAOE& s)      -> float { return s.staminaCost; },
+		[](const ChanneledCone&)   -> float { return 0.0f; }
+	}, def.params);
 }
 
 inline void CombatSystem::processInputAttacks() {
@@ -291,10 +314,10 @@ inline void CombatSystem::processInputAttacks() {
 					|| !stamina.canAfford(comcon.currentStage().staminaCost)))
 			toFire = CombatController::BufferedAction::None;
 		if (toFire == CombatController::BufferedAction::Skill1
-				&& !stamina.canAfford(comcon.ability1.staminaCost))
+				&& !stamina.canAfford(skillEntryStaminaCost(comcon.ability1)))
 			toFire = CombatController::BufferedAction::None;
 		if (toFire == CombatController::BufferedAction::Skill2
-				&& !stamina.canAfford(comcon.ability2.staminaCost))
+				&& !stamina.canAfford(skillEntryStaminaCost(comcon.ability2)))
 			toFire = CombatController::BufferedAction::None;
 
 		const bool wantsAttack = charcon.input.isAttacking     || toFire == CombatController::BufferedAction::Attack;
@@ -302,21 +325,23 @@ inline void CombatSystem::processInputAttacks() {
 		const bool wantsSkill2 = charcon.input.isUsingAbility2 || toFire == CombatController::BufferedAction::Skill2;
 
 		// Priority: Skill2 > Skill1 > Attack
-		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(comcon.ability2.staminaCost)) {
+		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(skillEntryStaminaCost(comcon.ability2))) {
 			if (isChanneledSkill(comcon.ability2)) {
 				startChannel(comcon, charcon, comcon.ability2,
 				             comcon.skill2Channeling, comcon.skill2ChannelElapsed,
-				             comcon.skill2TickTimer, ne, entity, 2);
+				             comcon.skill2TickTimer, comcon.skill2SpinAngle,
+				             ne, entity, 2);
 			} else {
 				triggerSkill(comcon, charcon, comcon.ability2,
 				             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
 			}
 
-		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(comcon.ability1.staminaCost)) {
+		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(skillEntryStaminaCost(comcon.ability1))) {
 			if (isChanneledSkill(comcon.ability1)) {
 				startChannel(comcon, charcon, comcon.ability1,
 				             comcon.skill1Channeling, comcon.skill1ChannelElapsed,
-				             comcon.skill1TickTimer, ne, entity, 1);
+				             comcon.skill1TickTimer, comcon.skill1SpinAngle,
+				             ne, entity, 1);
 			} else {
 				triggerSkill(comcon, charcon, comcon.ability1,
 				             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
@@ -370,6 +395,53 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 
 		Vector3D toTarget = (targetTransform.position - ctx.attackerTransform.position).normalized();
 		if (forward.dot(toTarget) < cosAngle) return;
+
+		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
+		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
+	});
+}
+
+// Swept-arc hit: sweepFromLocal and sweepToLocal are axe angles in the
+// caster's LOCAL frame (radians, 0 = caster forward). A target is hit if
+// its direction-from-caster projected into the caster's local frame falls
+// inside that arc. Sweep width >= 2π clamps to full-circle.
+inline void CombatSystem::hitInSweep(
+		SkillContext& ctx, float range, float dmgMultiplier,
+		float sweepFromLocal, float sweepToLocal) {
+	constexpr float kTwoPi = 6.283185307179586f;
+	auto targets = m_registry->view<Components::Transform, Components::Health>();
+
+	const float yaw = ctx.attackerTransform.rotation.y;
+	float sweepWidth = sweepToLocal - sweepFromLocal;
+	// Normalize width into [0, 2π]; if negative or zero, nothing is hit.
+	if (sweepWidth <= 0.0f) return;
+	if (sweepWidth >= kTwoPi) sweepWidth = kTwoPi;  // full circle
+
+	// Sweep midpoint in local frame; we'll compare each target's local
+	// direction against this midpoint via shortest signed arc distance.
+	const float midLocal = sweepFromLocal + sweepWidth * 0.5f;
+	const float halfWidth = sweepWidth * 0.5f;
+
+	targets.each([&](entt::entity target,
+					 Components::Transform& targetTransform,
+					 Components::Health&    targetHealth) {
+		if (target == ctx.attackerEntity) return;
+		if (!targetHealth.isAlive()) return;
+
+		const Vector3D delta = targetTransform.position - ctx.attackerTransform.position;
+		const float distSq = delta.x * delta.x + delta.z * delta.z;
+		if (distSq > range * range) return;
+
+		// Transform.getForwardDirection uses (sin(yaw), 0, cos(yaw)), so the
+		// world-space angle of a direction (dx, dz) is atan2(dx, dz).
+		const float worldAngle = std::atan2(delta.x, delta.z);
+		// Direction relative to caster's current forward.
+		float localAngle = worldAngle - yaw;
+		// Shortest signed arc distance from sweep midpoint.
+		float diff = localAngle - midLocal;
+		while (diff >  3.141592653589793f) diff -= kTwoPi;
+		while (diff < -3.141592653589793f) diff += kTwoPi;
+		if (std::abs(diff) > halfWidth) return;
 
 		float dmg = calculateCombatDamage(ctx.combatCon, dmgMultiplier);
 		ctx.pendingHits.push({ctx.attackerEntity, target, dmg});
@@ -501,9 +573,10 @@ inline void CombatSystem::tickSkillSlot(
 	cooldownTimer = def.cooldown;
 
 	if (hitPending) {
-		// Consume stamina when cast completes
+		// Consume stamina when cast completes. tickSkillSlot only runs for
+		// one-shot (MeleeAOE) skills — channeled skills never set castTimer.
 		if (auto* stamina = m_registry->try_get<Components::Stamina>(entity))
-			stamina->consume(def.staminaCost);
+			stamina->consume(std::get<MeleeAOE>(def.params).staminaCost);
 		if (health.isAlive()) {
 			SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
 			executeSkill(def, ctx);
@@ -519,7 +592,7 @@ inline void CombatSystem::tickSkillSlot(
 
 inline void CombatSystem::tickChannelSlot(
 		bool& channeling, float& channelElapsed, float& tickTimer,
-		float& cooldownTimer,
+		float& spinAngle, float& cooldownTimer,
 		const SkillDefinition& def, bool isHeld,
 		entt::entity entity,
 		Components::CombatController& combat,
@@ -536,14 +609,22 @@ inline void CombatSystem::tickChannelSlot(
 	// Drain stamina continuously
 	if (stamina) stamina->consume(channel->staminaCostPerSec * m_deltaTime);
 
+	// Advance the axe's angular position every frame so the sweep tracks
+	// time, not tick count. Each damage tick hits the arc covered since
+	// the previous tick — this is what makes targets register once per
+	// pass rather than once per frame.
 	channelElapsed += m_deltaTime;
 	tickTimer      += m_deltaTime;
+	spinAngle      += channel->rotationSpeed * m_deltaTime;
 
-	// Fire damage ticks as often as the interval elapses.
+	// Fire damage ticks for each interval that has elapsed.
 	while (tickTimer >= channel->tickInterval && health.isAlive()) {
 		tickTimer -= channel->tickInterval;
+		const float sweepWidth = channel->rotationSpeed * channel->tickInterval;
+		const float sweepTo    = spinAngle - tickTimer * channel->rotationSpeed;
+		const float sweepFrom  = sweepTo - sweepWidth;
 		SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
-		hitInArc(ctx, channel->range, channel->dmgPerTickMultiplier, channel->attackAngle);
+		hitInSweep(ctx, channel->range, channel->dmgPerTickMultiplier, sweepFrom, sweepTo);
 	}
 
 	// End conditions: released, stamina depleted, max duration, or death.
@@ -557,6 +638,7 @@ inline void CombatSystem::tickChannelSlot(
 	channeling     = false;
 	channelElapsed = 0.0f;
 	tickTimer      = 0.0f;
+	spinAngle      = 0.0f;
 	cooldownTimer  = def.cooldown;
 
 	if (!controller.isDead()) {
@@ -591,11 +673,11 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 		// Slot 1 has no held input wired yet — channel never starts for it,
 		// so isHeld=false is safe until a channeled skill1 is introduced.
 		tickChannelSlot(combat.skill1Channeling, combat.skill1ChannelElapsed, combat.skill1TickTimer,
-		                combat.skill1CooldownTimer, combat.ability1,
+		                combat.skill1SpinAngle, combat.skill1CooldownTimer, combat.ability1,
 		                false,
 		                entity, combat, controller, health, trans, physics, stamina);
 		tickChannelSlot(combat.skill2Channeling, combat.skill2ChannelElapsed, combat.skill2TickTimer,
-		                combat.skill2CooldownTimer, combat.ability2,
+		                combat.skill2SpinAngle, combat.skill2CooldownTimer, combat.ability2,
 		                controller.input.isHoldingAbility2,
 		                entity, combat, controller, health, trans, physics, stamina);
 	});

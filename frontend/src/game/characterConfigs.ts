@@ -147,9 +147,9 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		walkAnimation: { name: 'Walking_B' },
 		runAnimation: { name: 'Running_B' },
 		attackAnimations: [
-			{ name: 'Melee_2H_Attack_Slice' }, // stage 0
-			{ name: 'Melee_2H_Attack_Stab' }, // stage 2 — finisher
-			{ name: 'Melee_2H_Attack_Chop' }, // stage 1
+			{ name: 'Melee_2H_Attack_Slice', speed: 1.0 }, // stage 0
+			{ name: 'Melee_2H_Attack_Stab', speed: 1.0}, // stage 2 — finisher
+			{ name: 'Melee_2H_Attack_Chop', speed: 1.0 }, // stage 1
 		],
 		skillAnimations: [
 			{ name: 'Melee_2H_Attack_Spin' }, // skill 1

@@ -74,9 +74,11 @@ struct CombatController {
 	bool  skill1Channeling      = false;
 	float skill1ChannelElapsed  = 0.0f;  // total time channel has been active
 	float skill1TickTimer       = 0.0f;  // counts up to ChanneledCone::tickInterval
+	float skill1SpinAngle       = 0.0f;  // cumulative axe angle (rad) offset from caster forward
 	bool  skill2Channeling      = false;
 	float skill2ChannelElapsed  = 0.0f;
 	float skill2TickTimer       = 0.0f;
+	float skill2SpinAngle       = 0.0f;
 
 	// ── Capability flags ─────────────────────────────────────────────────────
 

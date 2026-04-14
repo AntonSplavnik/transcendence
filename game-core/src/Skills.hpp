@@ -4,20 +4,30 @@
 
 namespace ArenaGame {
 
+	// One-shot AOE cast. Player is locked for castDuration, then damage
+	// is applied once to every target in range.
 	struct MeleeAOE {
 		float range;
 		float movementMultiplier;  // 0=rooted, 1=full movement during skill
 		float dmgMultiplier;
+		float castDuration;        // seconds the caster is locked after triggering
+		float staminaCost;         // flat cost consumed when the cast completes
 	};
 
-	// Channeled frontal-cone AOE. Caster keeps firing tick-sized hits
-	// every tickInterval seconds for as long as the channel is held, up to
-	// maxDuration. Channel ends on any of: key release, stamina depletion,
-	// or maxDuration elapsed. Damage is applied only to targets inside a
-	// cone of half-angle attackAngle centered on the caster's forward.
+	// Channeled spinning-sweep attack. An axe angle rotates around the
+	// caster at rotationSpeed (rad/s, cumulative offset from caster forward).
+	// Each tick, damage is applied to every target whose direction-from-
+	// caster falls inside the arc swept since the previous tick. Ends on
+	// key release, stamina depletion, maxDuration, or death.
+	//
+	// Notes:
+	//   - Coverage is continuous: a stationary target at a given direction
+	//     is hit exactly once per full rotation, independent of tickInterval.
+	//   - The caster can still steer by turning; the swept arc is a local
+	//     offset that follows the caster's current forward.
 	struct ChanneledCone {
 		float range;
-		float attackAngle;          // half-angle radians of the damage cone
+		float rotationSpeed;        // axe angular velocity (rad/s) around the caster
 		float tickInterval;         // seconds between damage ticks
 		float dmgPerTickMultiplier; // applied per tick (vs CombatController::baseDamage)
 		float maxDuration;          // hard cap on channel length (seconds)
@@ -29,11 +39,11 @@ namespace ArenaGame {
 
 	// Pure preset data — no mutable fields, no methods.
 	// All runtime state (timers, hitPending) lives on CombatController.
+	// Only fields universal to every variant belong here; variant-specific
+	// timings / costs live inside the variant struct itself.
 	struct SkillDefinition {
 		SkillVariant params;
-		float cooldown     = 0.0f;  // cooldown duration after cast ends
-		float castDuration = 0.0f;  // how long player is locked into this skill
-		float staminaCost  = 0.0f;  // stamina consumed when cast completes
+		float cooldown = 0.0f;  // cooldown duration after the skill ends
 	};
 
 	struct AttackStage {
