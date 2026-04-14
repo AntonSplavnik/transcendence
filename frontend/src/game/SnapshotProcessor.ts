@@ -239,6 +239,19 @@ export class SnapshotProcessor {
 		const isMoving =
 			charData.state === CharacterState.Walking ||
 			charData.state === CharacterState.Sprinting;
+
+		// Force-exit Skill phase only for LOOPING skill animations (channeled
+		// skills). One-shot skill animations must finish on their own so we
+		// don't cut them off the frame server state transitions.
+		const currentIsLooping = char.currentAnimation?.loopAnimation === true;
+		if (
+			animSM.phase === AnimPhase.Skill &&
+			charData.state !== CharacterState.Casting &&
+			currentIsLooping
+		) {
+			animSM.reset();
+		}
+
 		const transitioned = animSM.tick(isPlaying, isMoving);
 
 		// If attack/skill was cancelled by movement, immediately start move animation

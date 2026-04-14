@@ -10,7 +10,22 @@ namespace ArenaGame {
 		float dmgMultiplier;
 	};
 
-	using SkillVariant = std::variant<MeleeAOE>;
+	// Channeled frontal-cone AOE. Caster keeps firing tick-sized hits
+	// every tickInterval seconds for as long as the channel is held, up to
+	// maxDuration. Channel ends on any of: key release, stamina depletion,
+	// or maxDuration elapsed. Damage is applied only to targets inside a
+	// cone of half-angle attackAngle centered on the caster's forward.
+	struct ChanneledCone {
+		float range;
+		float attackAngle;          // half-angle radians of the damage cone
+		float tickInterval;         // seconds between damage ticks
+		float dmgPerTickMultiplier; // applied per tick (vs CombatController::baseDamage)
+		float maxDuration;          // hard cap on channel length (seconds)
+		float staminaCostPerSec;    // continuous drain while channeling
+		float movementMultiplier;   // 0=rooted, 1=full movement during channel
+	};
+
+	using SkillVariant = std::variant<MeleeAOE, ChanneledCone>;
 
 	// Pure preset data — no mutable fields, no methods.
 	// All runtime state (timers, hitPending) lives on CombatController.

@@ -84,12 +84,13 @@ void GameBridge::set_player_input(uint32_t id, const PlayerInput& input) {
     ::ArenaGame::InputState state;
     state.movementDirection = from_vec3(input.movement);
     state.lookDirection     = from_vec3(input.look_direction);
-    state.isAttacking     = input.attacking;
-    state.isJumping       = input.jumping;
-    state.isUsingAbility1 = input.ability1;
-    state.isUsingAbility2 = input.ability2;
-    state.isDodging       = input.dodging;
-    state.isSprinting     = input.sprinting;
+    state.isAttacking      = input.attacking;
+    state.isJumping        = input.jumping;
+    state.isUsingAbility1  = input.ability1;
+    state.isUsingAbility2  = input.ability2;
+    state.isHoldingAbility2 = input.ability2_held;
+    state.isDodging        = input.dodging;
+    state.isSprinting      = input.sprinting;
     game.setPlayerInput(id, state);
 }
 

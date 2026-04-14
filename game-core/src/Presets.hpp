@@ -115,9 +115,18 @@ namespace Presets {
 			// Skill 1 — spin attack: high-damage AOE, roots caster
 			.skill1 = { .params = MeleeAOE{ .range=4.5f, .movementMultiplier=0.0f, .dmgMultiplier=2.2f },
 			            .cooldown=6.0f, .castDuration=0.8f, .staminaCost=25.0f },
-			// Skill 2 — spinning cleave: sustained AOE, some movement
-			.skill2 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.3f, .dmgMultiplier=2.0f },
-			            .cooldown=8.0f, .castDuration=0.6f, .staminaCost=20.0f },
+			// Skill 2 — channeled spin: held while F is down, drains stamina,
+			// ticks a frontal cone every 0.25s for up to 3s.
+			.skill2 = { .params = ChanneledCone{
+			                .range=3.5f,
+			                .attackAngle=0.785f,          // half-angle ≈ 45° → 90° frontal cone
+			                .tickInterval=0.25f,
+			                .dmgPerTickMultiplier=0.45f,  // ~1.8×base dmg/s @ 4 ticks/s
+			                .maxDuration=3.0f,
+			                .staminaCostPerSec=35.0f,     // ~3.1s until full-stamina depletion
+			                .movementMultiplier=0.5f,
+			            },
+			            .cooldown=8.0f, .castDuration=1.0f, .staminaCost=0.0f },
 		},
 	};
 

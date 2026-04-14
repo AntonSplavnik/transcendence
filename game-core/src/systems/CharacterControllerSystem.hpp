@@ -136,7 +136,11 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	// Update movement state. While coasting to a stop, stay in Walking until
 	// horizontal speed drops below a small threshold so animations don't pop
 	// to Idle mid-slide.
-	if (hasInput) {
+	// CombatSystem owns the Casting state during channels/casts with
+	// movementMultiplier > 0 (canMove stays true); don't stamp over it.
+	if (controller.state == CharacterState::Casting) {
+		// preserved
+	} else if (hasInput) {
 		controller.setState(controller.isSprinting
 			? CharacterState::Sprinting
 			: CharacterState::Walking);

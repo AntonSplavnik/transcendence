@@ -53,7 +53,7 @@ export function processEvents(events: GameEvent[], mgr: CharacterManager): void 
 				if (entry) {
 					mgr.getChar(event.player_id)?.playAnimation(
 						entry.name,
-						false,
+						entry.loop ?? false,
 						entry.speed ?? 1.0,
 					);
 				}

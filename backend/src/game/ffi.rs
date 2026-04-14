@@ -36,6 +36,7 @@ mod bridge {
         jumping: bool,
         ability1: bool,
         ability2: bool,
+        ability2_held: bool,
         dodging: bool,
         sprinting: bool,
     }
@@ -393,6 +394,7 @@ impl GameHandle {
         jumping: bool,
         ability1: bool,
         ability2: bool,
+        ability2_held: bool,
         dodging: bool,
         sprinting: bool,
     ) {
@@ -411,6 +413,7 @@ impl GameHandle {
             jumping,
             ability1,
             ability2,
+            ability2_held,
             dodging,
             sprinting,
         };

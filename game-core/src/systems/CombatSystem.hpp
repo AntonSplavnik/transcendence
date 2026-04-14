@@ -146,6 +146,24 @@ private:
 	                  Components::NetworkEventsComponent* ne,
 	                  entt::entity entity, uint8_t slot);
 
+	void startChannel(Components::CombatController& comcon,
+	                  Components::CharacterController& charcon,
+	                  const SkillDefinition& def,
+	                  bool& channeling, float& channelElapsed, float& tickTimer,
+	                  Components::NetworkEventsComponent* ne,
+	                  entt::entity entity, uint8_t slot);
+
+	void tickChannelSlot(bool& channeling, float& channelElapsed, float& tickTimer,
+	                     float& cooldownTimer,
+	                     const SkillDefinition& def, bool isHeld,
+	                     entt::entity entity,
+	                     Components::CombatController& combat,
+	                     Components::CharacterController& controller,
+	                     Components::Health& health,
+	                     Components::Transform& trans,
+	                     Components::PhysicsBody& physics,
+	                     Components::Stamina* stamina);
+
 	// ── Hit detection ────────────────────────────────────────────────────
 	void hitAllInRange(SkillContext& ctx, float range, float dmgMultiplier);
 	void hitInArc(SkillContext& ctx, float range, float dmgMultiplier, float attackAngle);
@@ -176,25 +194,29 @@ inline void CombatSystem::update(float deltaTime) {
 
 inline void CombatSystem::applySkillMovementLock(
 		Components::CharacterController& c, const SkillVariant& params) {
+	auto apply = [&](float mult) {
+		if (mult == 0.0f)
+			c.canMove = false;
+		else if (mult < 1.0f)
+			c.activeMovementMultiplier = mult;
+	};
 	std::visit(overloaded{
-		[&](const MeleeAOE& s) {
-			if (s.movementMultiplier == 0.0f)
-				c.canMove = false;
-			else if (s.movementMultiplier < 1.0f)
-				c.activeMovementMultiplier = s.movementMultiplier;
-		}
+		[&](const MeleeAOE& s)       { apply(s.movementMultiplier); },
+		[&](const ChanneledCone& s)  { apply(s.movementMultiplier); }
 	}, params);
 }
 
 inline void CombatSystem::removeSkillMovementLock(
 		Components::CharacterController& c, const SkillVariant& params) {
+	auto remove = [&](float mult) {
+		if (mult == 0.0f)
+			c.canMove = true;
+		else if (mult > 0.0f && mult < 1.0f)
+			c.activeMovementMultiplier = 1.0f;
+	};
 	std::visit(overloaded{
-		[&](const MeleeAOE& s) {
-			if (s.movementMultiplier == 0.0f)
-				c.canMove = true;
-			else if (s.movementMultiplier > 0.0f && s.movementMultiplier < 1.0f)
-				c.activeMovementMultiplier = 1.0f;
-		}
+		[&](const MeleeAOE& s)       { remove(s.movementMultiplier); },
+		[&](const ChanneledCone& s)  { remove(s.movementMultiplier); }
 	}, params);
 }
 
@@ -212,6 +234,26 @@ inline void CombatSystem::triggerSkill(
 	charcon.setState(CharacterState::Casting);
 	applySkillMovementLock(charcon, def.params);
 	if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), slot });
+}
+
+inline void CombatSystem::startChannel(
+		Components::CombatController& comcon,
+		Components::CharacterController& charcon,
+		const SkillDefinition& def,
+		bool& channeling, float& channelElapsed, float& tickTimer,
+		Components::NetworkEventsComponent* ne,
+		entt::entity entity, uint8_t slot) {
+	channeling     = true;
+	channelElapsed = 0.0f;
+	tickTimer      = 0.0f;
+	charcon.setState(CharacterState::Casting);
+	applySkillMovementLock(charcon, def.params);
+	if (ne) ne->events.push_back(NetEvents::SkillUsedEvent{ getPlayerID(entity), slot });
+}
+
+// Returns true if the skill variant is a held/channeled type.
+inline bool isChanneledSkill(const SkillDefinition& def) {
+	return std::holds_alternative<ChanneledCone>(def.params);
 }
 
 inline void CombatSystem::processInputAttacks() {
@@ -232,7 +274,7 @@ inline void CombatSystem::processInputAttacks() {
 		if (!health.isAlive()) return;
 
 		// Buffer input while committed to an action. Last input wins (Skill2 > Skill1 > Attack).
-		if (comcon.isAttacking || comcon.isAbility1Casting() || comcon.isAbility2Casting()) {
+		if (comcon.isAttacking || comcon.isAbility1Active() || comcon.isAbility2Active()) {
 			if (charcon.input.isAttacking)      comcon.bufferedAction = CombatController::BufferedAction::Attack;
 			if (charcon.input.isUsingAbility1)  comcon.bufferedAction = CombatController::BufferedAction::Skill1;
 			if (charcon.input.isUsingAbility2)  comcon.bufferedAction = CombatController::BufferedAction::Skill2;
@@ -261,12 +303,24 @@ inline void CombatSystem::processInputAttacks() {
 
 		// Priority: Skill2 > Skill1 > Attack
 		if (wantsSkill2 && comcon.canUseAbility2() && stamina.canAfford(comcon.ability2.staminaCost)) {
-			triggerSkill(comcon, charcon, comcon.ability2,
-			             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
+			if (isChanneledSkill(comcon.ability2)) {
+				startChannel(comcon, charcon, comcon.ability2,
+				             comcon.skill2Channeling, comcon.skill2ChannelElapsed,
+				             comcon.skill2TickTimer, ne, entity, 2);
+			} else {
+				triggerSkill(comcon, charcon, comcon.ability2,
+				             comcon.skill2CastTimer, comcon.skill2HitPending, ne, entity, 2);
+			}
 
 		} else if (wantsSkill1 && comcon.canUseAbility1() && stamina.canAfford(comcon.ability1.staminaCost)) {
-			triggerSkill(comcon, charcon, comcon.ability1,
-			             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
+			if (isChanneledSkill(comcon.ability1)) {
+				startChannel(comcon, charcon, comcon.ability1,
+				             comcon.skill1Channeling, comcon.skill1ChannelElapsed,
+				             comcon.skill1TickTimer, ne, entity, 1);
+			} else {
+				triggerSkill(comcon, charcon, comcon.ability1,
+				             comcon.skill1CastTimer, comcon.skill1HitPending, ne, entity, 1);
+			}
 
 		} else if (wantsAttack && comcon.canPerformAttack() && stamina.canAfford(comcon.currentStage().staminaCost)) {
 			const AttackStage& stage = comcon.currentStage();
@@ -324,7 +378,10 @@ inline void CombatSystem::hitInArc(SkillContext& ctx, float range, float dmgMult
 
 inline void CombatSystem::executeSkill(const SkillDefinition& skill, SkillContext& ctx) {
 	std::visit(overloaded {
-		[&](const MeleeAOE& s) { hitAllInRange(ctx, s.range, s.dmgMultiplier); }
+		[&](const MeleeAOE& s) { hitAllInRange(ctx, s.range, s.dmgMultiplier); },
+		// ChanneledCone is driven per-tick from tickChannelSlot, not via the
+		// one-shot cast → executeSkill path. Nothing to do here.
+		[&](const ChanneledCone&) { (void)ctx; }
 	}, skill.params);
 }
 
@@ -460,6 +517,54 @@ inline void CombatSystem::tickSkillSlot(
 	}
 }
 
+inline void CombatSystem::tickChannelSlot(
+		bool& channeling, float& channelElapsed, float& tickTimer,
+		float& cooldownTimer,
+		const SkillDefinition& def, bool isHeld,
+		entt::entity entity,
+		Components::CombatController& combat,
+		Components::CharacterController& controller,
+		Components::Health& health,
+		Components::Transform& trans,
+		Components::PhysicsBody& physics,
+		Components::Stamina* stamina) {
+	if (!channeling) return;
+
+	const auto* channel = std::get_if<ChanneledCone>(&def.params);
+	if (!channel) { channeling = false; return; }  // defensive
+
+	// Drain stamina continuously
+	if (stamina) stamina->consume(channel->staminaCostPerSec * m_deltaTime);
+
+	channelElapsed += m_deltaTime;
+	tickTimer      += m_deltaTime;
+
+	// Fire damage ticks as often as the interval elapses.
+	while (tickTimer >= channel->tickInterval && health.isAlive()) {
+		tickTimer -= channel->tickInterval;
+		SkillContext ctx{ *m_registry, entity, trans, physics, controller, combat, m_pendingHits };
+		hitInArc(ctx, channel->range, channel->dmgPerTickMultiplier, channel->attackAngle);
+	}
+
+	// End conditions: released, stamina depleted, max duration, or death.
+	const bool stamOut   = stamina && stamina->current <= 0.0f;
+	const bool timedOut  = channelElapsed >= channel->maxDuration;
+	const bool dead      = !health.isAlive();
+	const bool shouldEnd = !isHeld || stamOut || timedOut || dead;
+
+	if (!shouldEnd) return;
+
+	channeling     = false;
+	channelElapsed = 0.0f;
+	tickTimer      = 0.0f;
+	cooldownTimer  = def.cooldown;
+
+	if (!controller.isDead()) {
+		removeSkillMovementLock(controller, def.params);
+		controller.restoreMovementState();
+	}
+}
+
 inline void CombatSystem::updateCooldowns(float deltaTime) {
 	using namespace Components;
 
@@ -481,6 +586,18 @@ inline void CombatSystem::updateCooldowns(float deltaTime) {
 		              combat.ability1, entity, combat, controller, health, trans, physics);
 		tickSkillSlot(combat.skill2CastTimer, combat.skill2HitPending, combat.skill2CooldownTimer,
 		              combat.ability2, entity, combat, controller, health, trans, physics);
+
+		auto* stamina = m_registry->try_get<Stamina>(entity);
+		// Slot 1 has no held input wired yet — channel never starts for it,
+		// so isHeld=false is safe until a channeled skill1 is introduced.
+		tickChannelSlot(combat.skill1Channeling, combat.skill1ChannelElapsed, combat.skill1TickTimer,
+		                combat.skill1CooldownTimer, combat.ability1,
+		                false,
+		                entity, combat, controller, health, trans, physics, stamina);
+		tickChannelSlot(combat.skill2Channeling, combat.skill2ChannelElapsed, combat.skill2TickTimer,
+		                combat.skill2CooldownTimer, combat.ability2,
+		                controller.input.isHoldingAbility2,
+		                entity, combat, controller, health, trans, physics, stamina);
 	});
 }
 

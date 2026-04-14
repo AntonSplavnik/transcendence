@@ -131,6 +131,7 @@ export class GameClient {
 				isGrounded: this.mgr.localIsGrounded,
 				isUsingAbility1: input.isUsingAbility1 && this.localAbility1Timer <= 0,
 				isUsingAbility2: input.isUsingAbility2 && this.localAbility2Timer <= 0,
+				isHoldingAbility2: input.isHoldingAbility2,
 			},
 			{ x: this.mgr.position.x, y: this.mgr.position.y, z: this.mgr.position.z },
 		);
@@ -160,6 +161,21 @@ export class GameClient {
 		const isMoving =
 			serverState === CharacterState.Walking || serverState === CharacterState.Sprinting;
 		const isSprinting = serverState === CharacterState.Sprinting;
+
+		// Force-exit Skill phase only for LOOPING skill animations.
+		// Channeled skills loop, so isPlaying never flips to false — the
+		// server's state transition out of Casting is the end signal.
+		// One-shot skill animations (loop=false) must be allowed to finish
+		// naturally; animSM.tick handles that when isPlaying goes false.
+		const currentIsLooping =
+			this.mgr.localCharacter.currentAnimation?.loopAnimation === true;
+		if (
+			this.mgr.localAnimSM.phase === AnimPhase.Skill &&
+			serverState !== CharacterState.Casting &&
+			currentIsLooping
+		) {
+			this.mgr.localAnimSM.reset();
+		}
 
 		const transitioned = this.mgr.localAnimSM.tick(isPlaying, isMoving);
 

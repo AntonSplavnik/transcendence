@@ -105,6 +105,7 @@ export interface InputState {
 	isGrounded: boolean;
 	isUsingAbility1: boolean;
 	isUsingAbility2: boolean;
+	isHoldingAbility2: boolean;  // true while F is held — drives channeled skills
 }
 
 export type GameClientMessage =
@@ -117,6 +118,7 @@ export type GameClientMessage =
 			sprinting?: boolean;
 			ability1?: boolean;
 			ability2?: boolean;
+			ability2_held?: boolean;
 			dodging?: boolean;
 	  }
 	| { type: 'RegisterHit'; victim_id: number; damage: number }

@@ -69,6 +69,7 @@ impl Game {
                 jumping,
                 ability1,
                 ability2,
+                ability2_held,
                 dodging,
                 sprinting,
             } => {
@@ -80,6 +81,7 @@ impl Game {
                     jumping,
                     ability1,
                     ability2,
+                    ability2_held,
                     dodging,
                     sprinting,
                 );

@@ -142,6 +142,7 @@ export interface GameContextType {
 		sprinting: boolean,
 		ability1: boolean,
 		ability2: boolean,
+		ability2Held: boolean,
 	): void;
 }
 
@@ -365,6 +366,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 			sprinting: boolean,
 			ability1: boolean,
 			ability2: boolean,
+			ability2Held: boolean,
 		) => {
 			if (
 				gameStateRef.current.status !== 'active' ||
@@ -381,6 +383,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 				sprinting,
 				ability1,
 				ability2,
+				ability2_held: ability2Held,
 			});
 		},
 		[], // stable — all state accessed via refs
