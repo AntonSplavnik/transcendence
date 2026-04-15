@@ -97,4 +97,3 @@ export const ISO_DIRECTIONS: Record<number, [number, number]> = {
 	11: [S, S], // W+S+D
 	7: [S, -S], // A+S+D
 };
-

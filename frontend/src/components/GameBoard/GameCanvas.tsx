@@ -301,7 +301,10 @@ export default function GameCanvas({
 		let cleanupSpectator: (() => void) | null = null;
 
 		(async () => {
-			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas, isSpectator);
+			const { engine, scene, camera, sceneLoaded } = await createArenaScene(
+				canvas,
+				isSpectator,
+			);
 			if (disposed) {
 				engine.dispose();
 				return;
