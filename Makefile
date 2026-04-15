@@ -261,6 +261,10 @@ bear:
 
 # ── Cleanup ───────────────────────────────────────────────────
 
+clean-chrome:
+	@rm -rf /tmp/chrome-dev-wt
+
+
 clean:
 	@echo "🗑️  Cleaning build artifacts..."
 	@rm -rf frontend/dist
