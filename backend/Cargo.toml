@@ -148,7 +148,7 @@ ahash = "0.8.12"
 # in-memory caching
 quick_cache = "0.6.18"
 # efficient rate-limiting
-pingora-limits = "0.7"
+pingora-limits = "0.8"
 # dependency for h3-quinn (just need an error type from it)
 h3 = "0.0.8"
 # manual json conversions

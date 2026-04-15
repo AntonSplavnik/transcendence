@@ -3091,9 +3091,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pingora-limits"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c952fa1c197d5cecae4a6df55a198a41118a8f68fe6ee45edbbe365b65e70a29"
+checksum = "c7568624fc0e2f11fa32d27053ac862048b40bad98140b07a11d82f1b4989700"
 dependencies = [
  "ahash 0.8.12",
 ]
