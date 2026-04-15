@@ -6,7 +6,7 @@ import type { AnimatedCharacter } from './AnimatedCharacter';
 import type { CharacterManager } from './CharacterManager';
 import type { GameHUD } from './HUD';
 import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
-import { AnimationNames, CharacterState, ISO_CAM_OFFSET } from './constants';
+import { AnimationNames, CharacterState, TP_CAM_OFFSET, TP_CAM_LERP } from './constants';
 
 // ── Position strategy (interpolation injection point) ───────────────
 
@@ -153,22 +153,14 @@ export class SnapshotProcessor {
 			mgr.localAnimSM.enter(AnimPhase.Death);
 		}
 
-		// Cooldowns
-		const cd1 =
-			charData.ability1_cooldown > 0
-				? charData.ability1_timer / charData.ability1_cooldown
-				: 0;
-		const cd2 =
-			charData.ability2_cooldown > 0
-				? charData.ability2_timer / charData.ability2_cooldown
-				: 0;
-		hud.updateCooldowns(charData.swing_progress, cd1, cd2);
-
-		// Camera follow
+		// Camera follow — smooth lerp toward (player + offset)
+		const targetX = mgr.position.x + TP_CAM_OFFSET.x;
+		const targetY = mgr.position.y + TP_CAM_OFFSET.y;
+		const targetZ = mgr.position.z + TP_CAM_OFFSET.z;
 		camera.position.copyFromFloats(
-			mgr.position.x + ISO_CAM_OFFSET.x,
-			mgr.position.y + ISO_CAM_OFFSET.y,
-			mgr.position.z + ISO_CAM_OFFSET.z,
+			camera.position.x + (targetX - camera.position.x) * TP_CAM_LERP,
+			camera.position.y + (targetY - camera.position.y) * TP_CAM_LERP,
+			camera.position.z + (targetZ - camera.position.z) * TP_CAM_LERP,
 		);
 		camera.setTarget(mgr.position);
 	}

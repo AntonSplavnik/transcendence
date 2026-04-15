@@ -5,7 +5,13 @@ import { useEffect, useRef } from 'react';
 import type { GameEvent, GameStateSnapshot, Vector3D } from '../../game/types';
 import type { CharacterConfig } from '@/game/characterConfigs';
 import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
-import { ISO_CAM_OFFSET, ISO_ORTHO_SIZE, ISO_DIRECTIONS } from '@/game/constants';
+import {
+	ISO_CAM_OFFSET,
+	ISO_ORTHO_SIZE,
+	ISO_DIRECTIONS,
+	TP_CAM_OFFSET,
+	TP_CAM_FOV_RAD,
+} from '@/game/constants';
 import type { InputState } from '@/game/constants';
 import { GameClient } from '@/game/GameClient';
 import type { GameAudioHandle } from '@/audio/AudioProvider';
@@ -15,7 +21,10 @@ declare const TOOLKIT: { SceneManager: { InitializeRuntime(engine: Engine): Prom
 
 // ── Scene setup ─────────────────────────────────────────────────────
 
-async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
+async function createArenaScene(
+	canvas: HTMLCanvasElement,
+	isSpectator: boolean,
+): Promise<{
 	engine: Engine;
 	scene: Scene;
 	camera: UniversalCamera;
@@ -26,24 +35,31 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 
 	const scene = new BABYLON.Scene(engine);
 
-	// Isometric camera: 35.264deg elevation, 45deg rotation, orthographic
 	const arenaCenter = new BABYLON.Vector3(0, 0, 0);
+	const camOffset = isSpectator ? ISO_CAM_OFFSET : TP_CAM_OFFSET;
 	const camera = new BABYLON.UniversalCamera(
 		'camera',
 		new BABYLON.Vector3(
-			arenaCenter.x + ISO_CAM_OFFSET.x,
-			arenaCenter.y + ISO_CAM_OFFSET.y,
-			arenaCenter.z + ISO_CAM_OFFSET.z,
+			arenaCenter.x + camOffset.x,
+			arenaCenter.y + camOffset.y,
+			arenaCenter.z + camOffset.z,
 		),
 		scene,
 	);
 	camera.setTarget(arenaCenter);
-	camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-	const aspect = engine.getRenderWidth() / engine.getRenderHeight();
-	camera.orthoLeft = -ISO_ORTHO_SIZE * aspect;
-	camera.orthoRight = ISO_ORTHO_SIZE * aspect;
-	camera.orthoTop = ISO_ORTHO_SIZE;
-	camera.orthoBottom = -ISO_ORTHO_SIZE;
+	if (isSpectator) {
+		// Isometric orthographic: 35.264° elevation, 45° rotation
+		camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+		const aspect = engine.getRenderWidth() / engine.getRenderHeight();
+		camera.orthoLeft = -ISO_ORTHO_SIZE * aspect;
+		camera.orthoRight = ISO_ORTHO_SIZE * aspect;
+		camera.orthoTop = ISO_ORTHO_SIZE;
+		camera.orthoBottom = -ISO_ORTHO_SIZE;
+	} else {
+		// Third-person perspective following the local player
+		camera.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+		camera.fov = TP_CAM_FOV_RAD;
+	}
 	camera.minZ = 0.1;
 	camera.maxZ = 500;
 
@@ -69,7 +85,7 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 					{ width: 1000, height: 1000 },
 					scene,
 				);
-				bgGround.position.y = -0.01;
+				bgGround.position.y = -0.05;
 				const bgMat = new BABYLON.StandardMaterial('bg-ground-mat', scene);
 				bgMat.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.1);
 				bgMat.specularColor = BABYLON.Color3.Black();
@@ -117,7 +133,10 @@ async function createArenaScene(canvas: HTMLCanvasElement): Promise<{
 
 // ── Input setup ─────────────────────────────────────────────────────
 
-function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
+function setupInput(
+	scene: Scene,
+	directions: Record<number, [number, number]>,
+): { input: InputState; cleanup: () => void } {
 	const input: InputState = {
 		movementDirection: { x: 0, y: 0, z: 0 },
 		isAttacking: false,
@@ -149,7 +168,7 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 			(keysPressed.has('a') ? 4 : 0) |
 			(keysPressed.has('s') ? 2 : 0) |
 			(keysPressed.has('d') ? 1 : 0);
-		const dir = ISO_DIRECTIONS[bits] || [0, 0];
+		const dir = directions[bits] || [0, 0];
 		input.movementDirection.x = dir[0];
 		input.movementDirection.z = dir[1];
 		input.isJumping = keysPressed.has(' ');
@@ -282,7 +301,7 @@ export default function GameCanvas({
 		let cleanupSpectator: (() => void) | null = null;
 
 		(async () => {
-			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas);
+			const { engine, scene, camera, sceneLoaded } = await createArenaScene(canvas, isSpectator);
 			if (disposed) {
 				engine.dispose();
 				return;
@@ -316,7 +335,7 @@ export default function GameCanvas({
 					.initLocalPlayer()
 					.catch((e) => console.error('[GameClient] Failed to load local player:', e));
 
-				const { input } = setupInput(scene);
+				const { input } = setupInput(scene, ISO_DIRECTIONS);
 
 				// Pre-render: update local animation then clear one-shot triggers
 				scene.onBeforeRenderObservable.add(() => {
@@ -372,7 +391,7 @@ export default function GameCanvas({
 				cleanupSpectator = spectator.cleanup;
 
 				// Reuse WASD input for camera panning (same isometric directions)
-				const { input } = setupInput(scene);
+				const { input } = setupInput(scene, ISO_DIRECTIONS);
 
 				const TARGET_FRAME_MS = 1000 / 60;
 				let lastFrameTime = 0;
@@ -443,14 +462,7 @@ export default function GameCanvas({
 
 			// Resize handler (spectators handle resize inside setupSpectatorCamera)
 			if (!isSpectator) {
-				onResize = () => {
-					engine.resize();
-					const a = engine.getRenderWidth() / engine.getRenderHeight();
-					camera.orthoLeft = -ISO_ORTHO_SIZE * a;
-					camera.orthoRight = ISO_ORTHO_SIZE * a;
-					camera.orthoTop = ISO_ORTHO_SIZE;
-					camera.orthoBottom = -ISO_ORTHO_SIZE;
-				};
+				onResize = () => engine.resize();
 				window.addEventListener('resize', onResize);
 			}
 		})();
