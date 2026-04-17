@@ -8,6 +8,8 @@ import knightSkill1 from '@/assets/HUD/skills/knight/icon_11.png';
 import knightSkill2 from '@/assets/HUD/skills/knight/icon_12.png';
 import rogueSkill1 from '@/assets/HUD/skills/rogue/icon_9.png';
 import rogueSkill2 from '@/assets/HUD/skills/rogue/icon_10.png';
+import barbarianSkill1 from '@/assets/HUD/skills/barbarian/icon_13.png';
+import barbarianSkill2 from '@/assets/HUD/skills/barbarian/icon_14.png';
 import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
 import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
 import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
@@ -169,6 +171,8 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 		stats: { attack: 10, defense: 6, speed: 5, health: 8 },
 		description: 'Reckless brawler. Raw damage, low finesse.',
 		weapons: ['Greataxe'],
+		abilityIcons: [barbarianSkill1, barbarianSkill2],
+		abilityColors: ['rgba(0,0,0,1)', 'rgba(0,0,0,1)'],
 	},
 	Ranger: {
 		label: 'Ranger',
