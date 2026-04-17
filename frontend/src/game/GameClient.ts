@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import type { CharacterSnapshot, GameEvent, GameStateSnapshot } from './types';
 import type { CharacterConfig } from './characterConfigs';
 import { CharacterManager } from './CharacterManager';
-import { GameHUD } from './HUD';
+import { EnemyHealthBars } from './EnemyHealthBars';
 import { SnapshotProcessor, DirectPositionStrategy } from './SnapshotProcessor';
 import { processEvents } from './EventProcessor';
 import { AnimPhase, JumpState, tickJumpState } from './AnimationStateMachine';
@@ -18,7 +18,7 @@ import { AudioEventSystem } from '../audio/AudioEventSystem';
  */
 export class GameClient {
 	private mgr: CharacterManager;
-	private hud: GameHUD;
+	private hud: EnemyHealthBars;
 	private snapshotProcessor: SnapshotProcessor;
 	private camera: UniversalCamera;
 	private characterConfig: CharacterConfig;
@@ -43,7 +43,7 @@ export class GameClient {
 		this.characterClassesRef = characterClassesRef;
 
 		this.mgr = new CharacterManager(scene, localPlayerID);
-		this.hud = new GameHUD(
+		this.hud = new EnemyHealthBars(
 			scene,
 			localPlayerID,
 			(id) => this.mgr.getChar(id)?.rootNode.getAbsolutePosition() ?? null,

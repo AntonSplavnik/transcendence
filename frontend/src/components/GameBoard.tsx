@@ -10,6 +10,7 @@ import { CHARACTER_CONFIGS, DEFAULT_CHARACTER } from '@/game/characterConfigs';
 import type { CharacterChoice } from '@/game/characterConfigs';
 import { useGameAudio } from '@/audio/AudioProvider';
 import GameCanvas from './GameBoard/GameCanvas';
+import GameHud from './GameBoard/hud/GameHud';
 import GameEndModal from './modals/GameEndModal';
 import { Badge } from './ui';
 
@@ -57,6 +58,14 @@ export default function GameBoard() {
 				isSpectator={isSpectator}
 				gameAudio={gameAudio}
 			/>
+			{!isSpectator && (
+				<GameHud
+					snapshotRef={snapshotRef}
+					localPlayerId={user.id}
+					abilityIcons={characterConfig.abilityIcons}
+					abilityColors={characterConfig.abilityColors}
+				/>
+			)}
 			{isSpectator && (
 				<div className="absolute top-4 right-4 z-10">
 					<Badge

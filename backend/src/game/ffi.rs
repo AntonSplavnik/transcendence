@@ -56,6 +56,7 @@ mod bridge {
         is_grounded: bool,
         stamina: f32,
         max_stamina: f32,
+        exhausted: bool,
     }
 
     struct GameStateSnapshot {
@@ -236,6 +237,7 @@ pub struct CharacterSnapshot {
     pub is_grounded: bool,
     pub stamina: f32,
     pub max_stamina: f32,
+    pub exhausted: bool,
 }
 
 impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
@@ -264,6 +266,7 @@ impl From<bridge::CharacterSnapshot> for CharacterSnapshot {
             is_grounded: c.is_grounded,
             stamina: c.stamina,
             max_stamina: c.max_stamina,
+            exhausted: c.exhausted,
         }
     }
 }

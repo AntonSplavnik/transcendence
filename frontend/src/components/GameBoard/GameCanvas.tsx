@@ -332,6 +332,7 @@ export default function GameCanvas({
 				// Render loop — 60 fps cap
 				const TARGET_FRAME_MS = 1000 / 60;
 				let lastFrameTime = 0;
+				let lastSnapFrame = -1;
 
 				engine.runRenderLoop(() => {
 					const now = performance.now();
@@ -345,9 +346,9 @@ export default function GameCanvas({
 					if (events.length > 0) gameClient.processEvents(events);
 
 					const snap = snapshotRef.current;
-					if (snap !== null) {
+					if (snap !== null && snap.frame_number !== lastSnapFrame) {
 						gameClient.processSnapshot(snap);
-						snapshotRef.current = null;
+						lastSnapFrame = snap.frame_number;
 					}
 
 					if (input.movementDirection.x !== 0 || input.movementDirection.z !== 0) {
@@ -376,6 +377,7 @@ export default function GameCanvas({
 
 				const TARGET_FRAME_MS = 1000 / 60;
 				let lastFrameTime = 0;
+				let lastSnapFrame = -1;
 
 				engine.runRenderLoop(() => {
 					const now = performance.now();
@@ -389,9 +391,9 @@ export default function GameCanvas({
 					if (events.length > 0) gameClient.processEvents(events);
 
 					const snap = snapshotRef.current;
-					if (snap !== null) {
+					if (snap !== null && snap.frame_number !== lastSnapFrame) {
 						gameClient.processSnapshot(snap);
-						snapshotRef.current = null;
+						lastSnapFrame = snap.frame_number;
 					}
 
 					// WASD pans camera (same isometric directions as player movement)

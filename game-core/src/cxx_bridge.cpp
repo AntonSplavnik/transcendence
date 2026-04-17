@@ -121,6 +121,7 @@ GameStateSnapshot GameBridge::get_snapshot() const {
             /* is_grounded       */ c.isGrounded,
             /* stamina           */ c.stamina,
             /* max_stamina       */ c.maxStamina,
+            /* exhausted         */ c.exhausted,
         });
     }
 

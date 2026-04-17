@@ -1,5 +1,47 @@
 import '@testing-library/jest-dom';
+
+// jsdom normalises hex colour strings to rgb(...) when you set style.backgroundColor.
+// Patch CSSStyleDeclaration so inline hex values are preserved exactly as assigned,
+// which lets tests assert `fill.style.backgroundColor === '#2ecc71'` instead of rgb().
+{
+	const proto = window.CSSStyleDeclaration.prototype;
+	const desc = Object.getOwnPropertyDescriptor(proto, 'backgroundColor');
+	if (desc && desc.get && desc.set) {
+		const _rawBg = Symbol('rawBg');
+		Object.defineProperty(proto, 'backgroundColor', {
+			get(this: CSSStyleDeclaration & { [_rawBg]?: string }) {
+				return this[_rawBg] ?? desc.get!.call(this);
+			},
+			set(this: CSSStyleDeclaration & { [_rawBg]?: string }, value: string) {
+				this[_rawBg] = value;
+				desc.set!.call(this, value);
+			},
+			enumerable: true,
+			configurable: true,
+		});
+	}
+}
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+
+// Node.js 25 ships a built-in localStorage stub that lacks setItem/getItem
+// unless --localstorage-file is provided. Vitest's jsdom environment should
+// override it, but the global may leak through. Provide a minimal in-memory
+// fallback so beforeEach/afterEach calls don't throw.
+if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
+	const store: Record<string, string> = {};
+	Object.defineProperty(globalThis, 'localStorage', {
+		value: {
+			getItem: (k: string) => store[k] ?? null,
+			setItem: (k: string, v: string) => { store[k] = String(v); },
+			removeItem: (k: string) => { delete store[k]; },
+			clear: () => { Object.keys(store).forEach(k => delete store[k]); },
+			key: (i: number) => Object.keys(store)[i] ?? null,
+			get length() { return Object.keys(store).length; },
+		},
+		writable: true,
+		configurable: true,
+	});
+}
 
 // ModelPreview uses BabylonJS + WebGL which are unavailable in jsdom
 vi.mock('@/components/ui/ModelPreview', () => ({ default: () => null }));
