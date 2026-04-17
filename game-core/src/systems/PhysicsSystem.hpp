@@ -36,11 +36,11 @@ public:
 		float minVelocity = GameConfig::MIN_VELOCITY;
 		float groundY     = GameConfig::GROUND_Y;
 
-		// Raw arena edges (centred at origin) — collider radius offset applied per-entity
-		float arenaMinX = -(GameConfig::ARENA_WIDTH  / 2.0f);
-		float arenaMaxX =  (GameConfig::ARENA_WIDTH  / 2.0f);
-		float arenaMinZ = -(GameConfig::ARENA_LENGTH / 2.0f);
-		float arenaMaxZ =  (GameConfig::ARENA_LENGTH / 2.0f);
+		// Arena bounds — set by World::initialize() from map data
+		float arenaMinX = 0.0f;
+		float arenaMaxX = 0.0f;
+		float arenaMinZ = 0.0f;
+		float arenaMaxZ = 0.0f;
 	};
 
 	const Config& getConfig() const { return m_config; }
