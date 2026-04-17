@@ -76,7 +76,6 @@ WORKDIR /app
 COPY --from=backend /transcendence-backend ./transcendence-backend
 COPY --from=frontend /build/dist /www
 COPY --from=backend /build/backend/data/ ./assets/
-COPY --from=backend /build/backend/data/map_colliders.json ./assets/map_colliders.json
 
 
 RUN mkdir -p data acme && chown -R app:app /app
