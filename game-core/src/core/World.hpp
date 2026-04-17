@@ -109,6 +109,9 @@ public:
 	// Factory access (for MapLoader and other external producers)
 	EntityFactory& getFactory() { return m_factory; }
 
+	// Map data access
+	const MapData& getMapData() const { return m_mapData; }
+
 	// System access
 	CharacterControllerSystem* getCharacterControllerSystem() { return m_characterControllerSystem; }
 	PhysicsSystem* getPhysicsSystem() { return m_physicsSystem; }
@@ -132,6 +135,9 @@ private:
 	CollisionSystem* m_collisionSystem;
 	CombatSystem* m_combatSystem;
 	GameModeSystem* m_gameModeSystem;
+
+	// Loaded map data (arena dimensions, spawn points)
+	MapData m_mapData;
 
 	// Game manager entity
 	entt::entity m_gameManager;
@@ -174,9 +180,9 @@ inline void World::initialize() {
 
 	m_gameManager = m_factory.createGameManager();
 
-	// Load map colliders from JSON (path relative to backend/ working directory)
+	// Load map data from JSON (path relative to backend/ working directory)
 	MapLoader mapLoader(m_factory);
-	mapLoader.loadFromFile(GameConfig::MAP_COLLIDERS_PATH);
+	m_mapData = mapLoader.loadFromFile(GameConfig::MAP_PATH);
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
@@ -186,6 +192,15 @@ inline void World::initialize() {
 	gameModeSystem->setRegistry(&m_registry);
 	staminaSystem->setRegistry(&m_registry);
 	gameModeSystem->setSpawner(this);
+	gameModeSystem->setMapData(&m_mapData);
+
+	// Configure physics arena bounds from map data
+	PhysicsSystem::Config physConfig;
+	physConfig.arenaMinX = -(m_mapData.arenaWidth  / 2.0f);
+	physConfig.arenaMaxX =  (m_mapData.arenaWidth  / 2.0f);
+	physConfig.arenaMinZ = -(m_mapData.arenaLength / 2.0f);
+	physConfig.arenaMaxZ =  (m_mapData.arenaLength / 2.0f);
+	physicsSystem->setConfig(physConfig);
 
 	// Pass GameManager to systems
 	characterControllerSystem->setGameManager(m_gameManager);
