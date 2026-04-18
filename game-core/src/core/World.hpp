@@ -28,6 +28,9 @@
 #include "../CharacterClassLookup.hpp"
 #include "EntityFactory.hpp"
 #include "MapLoader.hpp"
+#include "CharacterPresetLoader.hpp"
+#include "../Presets.hpp" // TEMPORARY — parity oracle during preset migration; remove in Task 8
+#include <cmath>          // TEMPORARY — parity check helper
 
 #include "../../entt/entt.hpp"
 #include <memory>
@@ -51,6 +54,85 @@ namespace ArenaGame {
 //   entt::entity player = world.createCharacter(1, "Player", Vector3D(0, 0, 0));
 //   world.update(deltaTime);  // Updates all systems
 // =============================================================================
+
+// TEMPORARY — removed in Task 8 after the registry is wired through createPlayer.
+// Compares a preset loaded from JSON against the authoritative compile-time preset
+// in Presets.hpp. Throws on any float mismatch beyond 1e-6 epsilon.
+inline void verifyPresetParity(const CharacterPreset& loaded, const CharacterPreset& expected, const std::string& label) {
+	auto eq = [](float a, float b) { return std::fabs(a - b) < 1e-6f; };
+	auto fail = [&label](const std::string& field, float l, float e) {
+		throw std::runtime_error("preset parity mismatch: " + label + "." + field
+			+ " loaded=" + std::to_string(l) + " expected=" + std::to_string(e));
+	};
+	#define CHECK(expr_loaded, expr_expected, name) do { \
+		if (!eq((expr_loaded), (expr_expected))) fail((name), (expr_loaded), (expr_expected)); \
+	} while (0)
+
+	CHECK(loaded.health.maxHealth,  expected.health.maxHealth,  "health.maxHealth");
+	CHECK(loaded.health.armor,      expected.health.armor,      "health.armor");
+	CHECK(loaded.health.resistance, expected.health.resistance, "health.resistance");
+
+	CHECK(loaded.movement.movementSpeed,    expected.movement.movementSpeed,    "movement.movementSpeed");
+	CHECK(loaded.movement.rotationSpeed,    expected.movement.rotationSpeed,    "movement.rotationSpeed");
+	CHECK(loaded.movement.sprintMultiplier, expected.movement.sprintMultiplier, "movement.sprintMultiplier");
+	CHECK(loaded.movement.crouchMultiplier, expected.movement.crouchMultiplier, "movement.crouchMultiplier");
+	CHECK(loaded.movement.jumpVelocity,     expected.movement.jumpVelocity,     "movement.jumpVelocity");
+	CHECK(loaded.movement.dodgeVelocity,    expected.movement.dodgeVelocity,    "movement.dodgeVelocity");
+	CHECK(loaded.movement.airControlFactor, expected.movement.airControlFactor, "movement.airControlFactor");
+	CHECK(loaded.movement.acceleration,     expected.movement.acceleration,     "movement.acceleration");
+	CHECK(loaded.movement.deceleration,     expected.movement.deceleration,     "movement.deceleration");
+	CHECK(loaded.movement.mass,             expected.movement.mass,             "movement.mass");
+	CHECK(loaded.movement.friction,         expected.movement.friction,         "movement.friction");
+	CHECK(loaded.movement.drag,             expected.movement.drag,             "movement.drag");
+	CHECK(loaded.movement.maxSpeed,         expected.movement.maxSpeed,         "movement.maxSpeed");
+	CHECK(loaded.movement.maxFallSpeed,     expected.movement.maxFallSpeed,     "movement.maxFallSpeed");
+
+	CHECK(loaded.collider.radius, expected.collider.radius, "collider.radius");
+	CHECK(loaded.collider.height, expected.collider.height, "collider.height");
+
+	CHECK(loaded.stamina.maxStamina,        expected.stamina.maxStamina,        "stamina.maxStamina");
+	CHECK(loaded.stamina.baseRegenRate,     expected.stamina.baseRegenRate,     "stamina.baseRegenRate");
+	CHECK(loaded.stamina.drainDelaySeconds, expected.stamina.drainDelaySeconds, "stamina.drainDelaySeconds");
+	CHECK(loaded.stamina.sprintCostPerSec,  expected.stamina.sprintCostPerSec,  "stamina.sprintCostPerSec");
+	CHECK(loaded.stamina.jumpCost,          expected.stamina.jumpCost,          "stamina.jumpCost");
+
+	CHECK(loaded.combat.baseDamage,         expected.combat.baseDamage,         "combat.baseDamage");
+	CHECK(loaded.combat.damageMultiplier,   expected.combat.damageMultiplier,   "combat.damageMultiplier");
+	CHECK(loaded.combat.criticalChance,     expected.combat.criticalChance,     "combat.criticalChance");
+	CHECK(loaded.combat.criticalMultiplier, expected.combat.criticalMultiplier, "combat.criticalMultiplier");
+
+	if (loaded.combat.attackChain.size() != expected.combat.attackChain.size()) {
+		throw std::runtime_error("preset parity mismatch: " + label + ".attackChain size");
+	}
+	for (std::size_t i = 0; i < expected.combat.attackChain.size(); ++i) {
+		const auto& l = loaded.combat.attackChain[i];
+		const auto& e = expected.combat.attackChain[i];
+		const std::string pfx = "attackChain[" + std::to_string(i) + "].";
+		CHECK(l.damageMultiplier,   e.damageMultiplier,   pfx + "damageMultiplier");
+		CHECK(l.range,              e.range,              pfx + "range");
+		CHECK(l.duration,           e.duration,           pfx + "duration");
+		CHECK(l.movementMultiplier, e.movementMultiplier, pfx + "movementMultiplier");
+		CHECK(l.chainWindow,        e.chainWindow,        pfx + "chainWindow");
+		CHECK(l.attackAngle,        e.attackAngle,        pfx + "attackAngle");
+		CHECK(l.staminaCost,        e.staminaCost,        pfx + "staminaCost");
+	}
+
+	auto checkSkill = [&](const SkillDefinition& l, const SkillDefinition& e, const std::string& name) {
+		CHECK(l.cooldown,     e.cooldown,     name + ".cooldown");
+		CHECK(l.castDuration, e.castDuration, name + ".castDuration");
+		CHECK(l.staminaCost,  e.staminaCost,  name + ".staminaCost");
+		const auto* lp = std::get_if<MeleeAOE>(&l.params);
+		const auto* ep = std::get_if<MeleeAOE>(&e.params);
+		if (!lp || !ep) throw std::runtime_error("preset parity: " + name + " skill variant mismatch");
+		CHECK(lp->range,              ep->range,              name + ".params.range");
+		CHECK(lp->movementMultiplier, ep->movementMultiplier, name + ".params.movementMultiplier");
+		CHECK(lp->dmgMultiplier,      ep->dmgMultiplier,      name + ".params.dmgMultiplier");
+	};
+	checkSkill(loaded.combat.skill1, expected.combat.skill1, "skill1");
+	checkSkill(loaded.combat.skill2, expected.combat.skill2, "skill2");
+
+	#undef CHECK
+}
 
 class World : public ISpawner {
 public:
@@ -183,6 +265,13 @@ inline void World::initialize() {
 	// Load map data from JSON (path relative to backend/ working directory)
 	MapLoader mapLoader(m_factory);
 	m_mapData = mapLoader.loadFromFile(GameConfig::MAP_PATH);
+
+	// TEMPORARY — parity check during preset migration. Removed in Task 8.
+	{
+		CharacterPresetLoader presetLoader;
+		auto knight = presetLoader.loadFromFile(std::string(GameConfig::PRESETS_DIR) + "/players/knight.json");
+		verifyPresetParity(knight, Presets::KNIGHT, "knight");
+	}
 
 	// Pass registry to systems
 	characterControllerSystem->setRegistry(&m_registry);
