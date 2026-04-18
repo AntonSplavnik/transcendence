@@ -225,7 +225,10 @@ struct GameConfig {
 	static constexpr int   MAX_PHYSICS_ITERATIONS = 5;                  // Prevent spiral of death
 
 	// Map data
-	static constexpr const char* MAP_PATH = "assets/map.json";
+	static constexpr const char* MAP_PATH     = "assets/map.json";
+
+	// Character presets
+	static constexpr const char* PRESETS_DIR  = "assets/presets";
 
 	// Network
 	static constexpr int   MAX_PLAYERS      = 8;
