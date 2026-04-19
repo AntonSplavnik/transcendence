@@ -79,4 +79,5 @@ fn main() {
     println!("cargo:rerun-if-changed=../game-core/entt/entt.hpp"); // single-include EnTT header
     println!("cargo:rerun-if-changed=../game-core/nlohmann/json.hpp"); // single-include JSON library
     println!("cargo:rerun-if-changed=../game-core/assets/map.json"); // unified map data
+    println!("cargo:rerun-if-changed=../game-core/assets/presets"); // character preset JSONs
 }
