@@ -26,12 +26,45 @@ private:
 };
 
 // =============================================================================
-// Implementation (added in Task 6)
+// Implementation
 // =============================================================================
 
+} // namespace ArenaGame
+
+#include "CharacterPresetLoader.hpp"
+#include <filesystem>
+
+namespace ArenaGame {
+
 inline void CharacterPresetRegistry::loadFromDirectory(const std::string& dirPath) {
-	(void)dirPath;
-	throw std::runtime_error("CharacterPresetRegistry::loadFromDirectory: not implemented");
+	namespace fs = std::filesystem;
+
+	if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
+		throw std::runtime_error("CharacterPresetRegistry: presets directory not found '" + dirPath + "'");
+	}
+
+	CharacterPresetLoader loader;
+	std::size_t parsed = 0;
+	for (const auto& entry : fs::recursive_directory_iterator(dirPath)) {
+		if (!entry.is_regular_file()) continue;
+		if (entry.path().extension() != ".json") continue;
+
+		const std::string filename = entry.path().string();
+		const std::string id       = entry.path().stem().string();
+
+		if (m_presets.find(id) != m_presets.end()) {
+			throw std::runtime_error("CharacterPresetRegistry: duplicate preset id '" + id
+				+ "' (second file: " + filename + ")");
+		}
+
+		CharacterPreset preset = loader.loadFromFile(filename);
+		m_presets.emplace(id, std::move(preset));
+		++parsed;
+	}
+
+	if (parsed == 0) {
+		throw std::runtime_error("CharacterPresetRegistry: no preset files found in '" + dirPath + "'");
+	}
 }
 
 inline const CharacterPreset& CharacterPresetRegistry::get(const std::string& id) const {
