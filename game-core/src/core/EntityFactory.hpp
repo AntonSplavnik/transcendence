@@ -13,7 +13,6 @@
 #include "../components/InternalEventsComponent.hpp"
 #include "../components/PendingPlayersComponent.hpp"
 #include "../components/PresetBinding.hpp"
-#include "../CharacterClassLookup.hpp"
 
 #include "../../entt/entt.hpp"
 
