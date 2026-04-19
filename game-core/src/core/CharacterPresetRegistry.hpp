@@ -31,11 +31,17 @@ private:
 
 } // namespace ArenaGame
 
+// #include directives must be at global namespace scope. Close here,
+// include, then reopen below for the inline function definitions.
 #include "CharacterPresetLoader.hpp"
 #include <filesystem>
 
 namespace ArenaGame {
 
+// Single-shot initialization. If any file in the directory fails to parse,
+// the exception propagates to the caller and m_presets is left partially
+// populated with the files that succeeded before the failure. Callers
+// (World::initialize) treat a throw here as a fatal startup error.
 inline void CharacterPresetRegistry::loadFromDirectory(const std::string& dirPath) {
 	namespace fs = std::filesystem;
 
@@ -45,6 +51,8 @@ inline void CharacterPresetRegistry::loadFromDirectory(const std::string& dirPat
 
 	CharacterPresetLoader loader;
 	std::size_t parsed = 0;
+	// Default iterator: does NOT follow directory symlinks (prevents cycles).
+	// File symlinks are resolved by is_regular_file() below.
 	for (const auto& entry : fs::recursive_directory_iterator(dirPath)) {
 		if (!entry.is_regular_file()) continue;
 		if (entry.path().extension() != ".json") continue;
