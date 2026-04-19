@@ -28,6 +28,7 @@
 #include "../CharacterClassLookup.hpp"
 #include "EntityFactory.hpp"
 #include "MapLoader.hpp"
+#include "CharacterPresetRegistry.hpp"
 #include "CharacterPresetLoader.hpp"
 #include "../Presets.hpp" // TEMPORARY — parity oracle during preset migration; remove in Task 8
 #include <cmath>          // TEMPORARY — parity check helper
@@ -159,8 +160,8 @@ public:
 	std::vector<NetEvents::NetworkEvent> takeNetworkEvents();
 
 	// Entity management (delegates to EntityFactory)
-	entt::entity createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
-	entt::entity createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer);
+	entt::entity createActor(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
+	entt::entity createBot(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer);
 	entt::entity createProjectile(const Vector3D& pos, const Vector3D& velocity);
 	entt::entity createWall(const Vector3D& pos, const Vector3D& halfExtents);
 	entt::entity createTrigger(const Vector3D& pos, float radius);
@@ -221,6 +222,9 @@ private:
 	// Loaded map data (arena dimensions, spawn points)
 	MapData m_mapData;
 
+	// Character preset registry (JSON-loaded preset catalog)
+	CharacterPresetRegistry m_presetRegistry;
+
 	// Game manager entity
 	entt::entity m_gameManager;
 
@@ -261,6 +265,8 @@ inline void World::initialize() {
 	auto staminaSystem = std::make_unique<StaminaSystem>();
 
 	m_gameManager = m_factory.createGameManager();
+
+	m_presetRegistry.loadFromDirectory(GameConfig::PRESETS_DIR);
 
 	// Load map data from JSON (path relative to backend/ working directory)
 	MapLoader mapLoader(m_factory);
@@ -387,11 +393,11 @@ inline std::vector<NetEvents::NetworkEvent> World::takeNetworkEvents() {
 }
 
 // Entity management — delegates to EntityFactory
-inline entt::entity World::createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-	return m_factory.createActor(pos, preset, layer);
+inline entt::entity World::createActor(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer) {
+	return m_factory.createActor(pos, presetId, preset, layer);
 }
-inline entt::entity World::createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-	return m_factory.createBot(pos, preset, layer);
+inline entt::entity World::createBot(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer) {
+	return m_factory.createBot(pos, presetId, preset, layer);
 }
 inline entt::entity World::createProjectile(const Vector3D& pos, const Vector3D& velocity) {
 	return m_factory.createProjectile(pos, velocity);
@@ -436,8 +442,8 @@ inline entt::entity World::createPlayer(PlayerID id, const std::string& name,
 		return entt::null;
 	}
 
-	const CharacterPreset& preset = presetFromClass(characterClass);
-	entt::entity entity = m_factory.createActor(pos, preset, Components::CollisionLayer::Player);
+	const CharacterPreset& preset = m_presetRegistry.get(characterClass);
+	entt::entity entity = m_factory.createActor(pos, characterClass, preset, Components::CollisionLayer::Player);
 
 	m_registry.emplace<PlayerTag>(entity);
 	m_registry.emplace<Components::PlayerInfo>(entity, id, name, characterClass);

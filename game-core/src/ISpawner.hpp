@@ -7,7 +7,7 @@ namespace ArenaGame {
 	class ISpawner {
 	public:
 		virtual ~ISpawner() = default;
-		virtual entt::entity createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) = 0;
+		virtual entt::entity createBot(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer) = 0;
 		virtual void respawnPlayer(entt::entity player, const Vector3D& pos) = 0;
 		virtual entt::entity createPlayer(PlayerID id, const std::string& name,
 										const std::string& characterClass,

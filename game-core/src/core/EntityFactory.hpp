@@ -12,6 +12,7 @@
 #include "../components/NetworkEventsComponent.hpp"
 #include "../components/InternalEventsComponent.hpp"
 #include "../components/PendingPlayersComponent.hpp"
+#include "../components/PresetBinding.hpp"
 #include "../CharacterClassLookup.hpp"
 
 #include "../../entt/entt.hpp"
@@ -38,9 +39,9 @@ public:
 	entt::entity createGameManager();
 
 	// Actors (characters, bots)
-	entt::entity createActor(const Vector3D& pos, const CharacterPreset& preset,
+	entt::entity createActor(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset,
 							 Components::CollisionLayer layer = Components::CollisionLayer::Enemy);
-	entt::entity createBot(const Vector3D& pos, const CharacterPreset& preset,
+	entt::entity createBot(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset,
 						   Components::CollisionLayer layer);
 
 	// Projectiles
@@ -74,7 +75,7 @@ inline entt::entity EntityFactory::createGameManager() {
 	return gameManager;
 }
 
-inline entt::entity EntityFactory::createActor(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
+inline entt::entity EntityFactory::createActor(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer) {
 	entt::entity entity = m_registry.create();
 	if (entity == entt::null) {
 		return entt::null;
@@ -87,12 +88,13 @@ inline entt::entity EntityFactory::createActor(const Vector3D& pos, const Charac
 	m_registry.emplace<Components::Health>(entity, Components::Health::createFromPreset(preset.health));
 	m_registry.emplace<Components::Stamina>(entity, Components::Stamina::createFromPreset(preset.stamina));
 	m_registry.emplace<Components::CombatController>(entity, Components::CombatController::createFromPreset(preset.combat));
+	m_registry.emplace<Components::PresetBinding>(entity, Components::PresetBinding{presetId});
 
 	return entity;
 }
 
-inline entt::entity EntityFactory::createBot(const Vector3D& pos, const CharacterPreset& preset, Components::CollisionLayer layer) {
-	auto bot = createActor(pos, preset, layer);
+inline entt::entity EntityFactory::createBot(const Vector3D& pos, const std::string& presetId, const CharacterPreset& preset, Components::CollisionLayer layer) {
+	auto bot = createActor(pos, presetId, preset, layer);
 	if (bot == entt::null) return entt::null;
 
 	m_registry.emplace<BotTag>(bot);
