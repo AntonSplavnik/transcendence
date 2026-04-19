@@ -99,3 +99,12 @@ language = "system"
 files = '^frontend/.*\.(ts|tsx)$'
 pass_filenames = false
 stages = ["pre-push", "manual"]
+
+[[repos.hooks]]
+id = "validate-character-presets"
+name = "Character Preset Schema Validation"
+entry = "bash -c 'npx --yes ajv-cli validate -s docs/schemas/character-preset.v1.json -d \"game-core/assets/presets/**/*.json\"'"
+language = "system"
+files = '^(game-core/assets/presets/.*\.json|docs/schemas/character-preset\.v1\.json)$'
+pass_filenames = false
+stages = ["pre-push", "manual"]
