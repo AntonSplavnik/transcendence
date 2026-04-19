@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "rogue",
+  "health": {
+    "maxHealth":  100.0,
+    "armor":      0.0,
+    "resistance": 0.0
+  },
+  "movement": {
+    "movementSpeed":    1.9,
+    "rotationSpeed":    22.0,
+    "sprintMultiplier": 3.0,
+    "crouchMultiplier": 0.6,
+    "jumpVelocity":     7.5,
+    "dodgeVelocity":    11.0,
+    "airControlFactor": 0.35,
+    "acceleration":     22.0,
+    "deceleration":     30.0,
+    "mass":             60.0,
+    "friction":         0.7,
+    "drag":             0.0,
+    "maxSpeed":         10.0,
+    "maxFallSpeed":     55.0
+  },
+  "collider": {
+    "radius": 0.35,
+    "height": 1.75
+  },
+  "stamina": {
+    "maxStamina":         120.0,
+    "baseRegenRate":      55.0,
+    "drainDelaySeconds":  1.0,
+    "sprintCostPerSec":   10.0,
+    "jumpCost":           5.0
+  },
+  "combat": {
+    "baseDamage":         22.0,
+    "damageMultiplier":   1.0,
+    "criticalChance":     0.35,
+    "criticalMultiplier": 2.0,
+    "attackChain": [
+      { "damageMultiplier": 0.8, "range": 3.0, "duration": 0.5, "movementMultiplier": 0.4, "chainWindow": 0.5, "staminaCost": 8.0 },
+      { "damageMultiplier": 1.3, "range": 3.0, "duration": 0.6, "movementMultiplier": 0.3, "chainWindow": 0.0, "staminaCost": 14.0 }
+    ],
+    "skill1": {
+      "params":       { "type": "melee_aoe", "range": 3.0, "movementMultiplier": 1.0, "dmgMultiplier": 1.6 },
+      "cooldown":     4.0,
+      "castDuration": 0.40,
+      "staminaCost":  15.0
+    },
+    "skill2": {
+      "params":       { "type": "melee_aoe", "range": 3.0, "movementMultiplier": 0.2, "dmgMultiplier": 1.4 },
+      "cooldown":     6.0,
+      "castDuration": 0.45,
+      "staminaCost":  12.0
+    }
+  }
+}

@@ -271,6 +271,8 @@ inline void World::initialize() {
 		CharacterPresetLoader presetLoader;
 		auto knight = presetLoader.loadFromFile(std::string(GameConfig::PRESETS_DIR) + "/players/knight.json");
 		verifyPresetParity(knight, Presets::KNIGHT, "knight");
+		auto rogue  = presetLoader.loadFromFile(std::string(GameConfig::PRESETS_DIR) + "/players/rogue.json");
+		verifyPresetParity(rogue, Presets::ROGUE, "rogue");
 	}
 
 	// Pass registry to systems
