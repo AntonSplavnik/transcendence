@@ -93,6 +93,7 @@ public:
 	uint64_t getFrameNumber() const { return m_frameNumber; }
 	double getGameTime() const { return m_gameTime; }
 	size_t getPlayerCount() const { return m_world.getPlayerCount(); }
+	std::vector<NetEvents::NetworkEvent> takeNetworkEvents() { return m_world.takeNetworkEvents(); }
 
 	// World access (for advanced usage)
 	World& getWorld() { return m_world; }

@@ -133,7 +133,7 @@ GameStateSnapshot GameBridge::get_snapshot() const {
 
 std::unique_ptr<EventQueue> GameBridge::take_events() {
     auto eq = std::make_unique<EventQueue>();
-    eq->events = game.getWorld().takeNetworkEvents();
+    eq->events = game.takeNetworkEvents();
     return eq;
 }
 
