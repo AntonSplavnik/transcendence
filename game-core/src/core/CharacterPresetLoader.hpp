@@ -28,8 +28,8 @@ namespace ArenaGame {
 
 class CharacterPresetLoader {
 public:
-	CharacterPreset loadFromFile(const std::string& filePath);
-	CharacterPreset loadFromString(const std::string& jsonString, const std::string& sourceName);
+	CharacterPreset loadFromFile(const std::string& filePath, const std::string& expectedId = "");
+	CharacterPreset loadFromString(const std::string& jsonString, const std::string& sourceName, const std::string& expectedId = "");
 };
 
 // =============================================================================
@@ -194,16 +194,16 @@ inline CombatPreset parseCombat(const nlohmann::json& obj, const std::string& pa
 
 } // namespace detail
 
-inline CharacterPreset CharacterPresetLoader::loadFromFile(const std::string& filePath) {
+inline CharacterPreset CharacterPresetLoader::loadFromFile(const std::string& filePath, const std::string& expectedId) {
 	std::ifstream file(filePath);
 	if (!file.is_open()) {
 		throw std::runtime_error("CharacterPresetLoader: cannot open file '" + filePath + "'");
 	}
 	std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-	return loadFromString(contents, filePath);
+	return loadFromString(contents, filePath, expectedId);
 }
 
-inline CharacterPreset CharacterPresetLoader::loadFromString(const std::string& jsonString, const std::string& sourceName) {
+inline CharacterPreset CharacterPresetLoader::loadFromString(const std::string& jsonString, const std::string& sourceName, const std::string& expectedId) {
 	nlohmann::json root;
 	try {
 		root = nlohmann::json::parse(jsonString);
@@ -223,6 +223,10 @@ inline CharacterPreset CharacterPresetLoader::loadFromString(const std::string& 
 	}
 	if (!root["id"].is_string() || root["id"].get<std::string>().empty()) {
 		throw std::runtime_error("CharacterPresetLoader: " + sourceName + ".id must be a non-empty string");
+	}
+	if (!expectedId.empty() && root["id"].get<std::string>() != expectedId) {
+		throw std::runtime_error("CharacterPresetLoader: " + sourceName + ".id '" + root["id"].get<std::string>()
+			+ "' does not match expected '" + expectedId + "'");
 	}
 
 	CharacterPreset preset;

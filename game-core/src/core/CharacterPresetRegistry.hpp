@@ -31,8 +31,7 @@ private:
 
 } // namespace ArenaGame
 
-// #include directives must be at global namespace scope. Close here,
-// include, then reopen below for the inline function definitions.
+
 #include "CharacterPresetLoader.hpp"
 #include <filesystem>
 
@@ -65,7 +64,7 @@ inline void CharacterPresetRegistry::loadFromDirectory(const std::string& dirPat
 				+ "' (second file: " + filename + ")");
 		}
 
-		CharacterPreset preset = loader.loadFromFile(filename);
+		CharacterPreset preset = loader.loadFromFile(filename, id);
 		m_presets.emplace(id, std::move(preset));
 		++parsed;
 	}
