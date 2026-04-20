@@ -224,6 +224,10 @@ inline CombatPreset parseCombat(const nlohmann::json& obj, const std::string& pa
 	if (!obj["attackChain"].is_array() || obj["attackChain"].empty()) {
 		throw std::runtime_error("CharacterPresetLoader: " + path + ".attackChain must be a non-empty array");
 	}
+	if (obj["attackChain"].size() > 8) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + ".attackChain exceeds maximum of 8 stages (got "
+			+ std::to_string(obj["attackChain"].size()) + ")");
+	}
 	c.attackChain.reserve(obj["attackChain"].size());
 	for (std::size_t i = 0; i < obj["attackChain"].size(); ++i) {
 		c.attackChain.push_back(parseAttackStage(obj["attackChain"][i], path + ".attackChain[" + std::to_string(i) + "]"));
