@@ -12,9 +12,9 @@
       "required": ["maxHealth", "armor", "resistance"],
       "additionalProperties": false,
       "properties": {
-        "maxHealth":  { "type": "number" },
-        "armor":      { "type": "number" },
-        "resistance": { "type": "number" }
+        "maxHealth":  { "type": "number", "exclusiveMinimum": 0 },
+        "armor":      { "type": "number", "minimum": 0 },
+        "resistance": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
     "movement": {
@@ -26,20 +26,20 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "movementSpeed":    { "type": "number" },
-        "rotationSpeed":    { "type": "number" },
-        "sprintMultiplier": { "type": "number" },
-        "crouchMultiplier": { "type": "number" },
-        "jumpVelocity":     { "type": "number" },
-        "dodgeVelocity":    { "type": "number" },
-        "airControlFactor": { "type": "number" },
-        "acceleration":     { "type": "number" },
-        "deceleration":     { "type": "number" },
-        "mass":             { "type": "number" },
-        "friction":         { "type": "number" },
-        "drag":             { "type": "number" },
-        "maxSpeed":         { "type": "number" },
-        "maxFallSpeed":     { "type": "number" }
+        "movementSpeed":    { "type": "number", "exclusiveMinimum": 0 },
+        "rotationSpeed":    { "type": "number", "exclusiveMinimum": 0 },
+        "sprintMultiplier": { "type": "number", "exclusiveMinimum": 0 },
+        "crouchMultiplier": { "type": "number", "exclusiveMinimum": 0 },
+        "jumpVelocity":     { "type": "number", "minimum": 0 },
+        "dodgeVelocity":    { "type": "number", "minimum": 0 },
+        "airControlFactor": { "type": "number", "minimum": 0, "maximum": 1 },
+        "acceleration":     { "type": "number", "exclusiveMinimum": 0 },
+        "deceleration":     { "type": "number", "exclusiveMinimum": 0 },
+        "mass":             { "type": "number", "exclusiveMinimum": 0 },
+        "friction":         { "type": "number", "minimum": 0, "maximum": 1 },
+        "drag":             { "type": "number", "minimum": 0 },
+        "maxSpeed":         { "type": "number", "exclusiveMinimum": 0 },
+        "maxFallSpeed":     { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "collider": {
@@ -47,8 +47,8 @@
       "required": ["radius", "height"],
       "additionalProperties": false,
       "properties": {
-        "radius": { "type": "number" },
-        "height": { "type": "number" }
+        "radius": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "stamina": {
@@ -56,11 +56,11 @@
       "required": ["maxStamina", "baseRegenRate", "drainDelaySeconds", "sprintCostPerSec", "jumpCost"],
       "additionalProperties": false,
       "properties": {
-        "maxStamina":         { "type": "number" },
-        "baseRegenRate":      { "type": "number" },
-        "drainDelaySeconds":  { "type": "number" },
-        "sprintCostPerSec":   { "type": "number" },
-        "jumpCost":           { "type": "number" }
+        "maxStamina":         { "type": "number", "exclusiveMinimum": 0 },
+        "baseRegenRate":      { "type": "number", "minimum": 0 },
+        "drainDelaySeconds":  { "type": "number", "minimum": 0 },
+        "sprintCostPerSec":   { "type": "number", "minimum": 0 },
+        "jumpCost":           { "type": "number", "minimum": 0 }
       }
     },
     "combat": {
@@ -68,10 +68,10 @@
       "required": ["baseDamage", "damageMultiplier", "criticalChance", "criticalMultiplier", "attackChain", "skill1", "skill2"],
       "additionalProperties": false,
       "properties": {
-        "baseDamage":         { "type": "number" },
-        "damageMultiplier":   { "type": "number" },
-        "criticalChance":     { "type": "number" },
-        "criticalMultiplier": { "type": "number" },
+        "baseDamage":         { "type": "number", "minimum": 0 },
+        "damageMultiplier":   { "type": "number", "exclusiveMinimum": 0 },
+        "criticalChance":     { "type": "number", "minimum": 0, "maximum": 1 },
+        "criticalMultiplier": { "type": "number", "minimum": 1 },
         "attackChain": {
           "type": "array",
           "minItems": 1,
@@ -88,13 +88,13 @@
       "required": ["damageMultiplier", "range", "duration", "movementMultiplier", "chainWindow", "staminaCost"],
       "additionalProperties": false,
       "properties": {
-        "damageMultiplier":   { "type": "number" },
-        "range":              { "type": "number" },
-        "duration":           { "type": "number" },
-        "movementMultiplier": { "type": "number" },
-        "chainWindow":        { "type": "number" },
-        "attackAngle":        { "type": "number", "default": 0.7 },
-        "staminaCost":        { "type": "number" }
+        "damageMultiplier":   { "type": "number", "exclusiveMinimum": 0 },
+        "range":              { "type": "number", "exclusiveMinimum": 0 },
+        "duration":           { "type": "number", "exclusiveMinimum": 0 },
+        "movementMultiplier": { "type": "number", "minimum": 0, "maximum": 1 },
+        "chainWindow":        { "type": "number", "minimum": 0 },
+        "attackAngle":        { "type": "number", "default": 0.7, "exclusiveMinimum": 0 },
+        "staminaCost":        { "type": "number", "minimum": 0 }
       }
     },
     "skill": {
@@ -103,9 +103,9 @@
       "additionalProperties": false,
       "properties": {
         "params":       { "$ref": "#/definitions/skillParams" },
-        "cooldown":     { "type": "number", "default": 0.0 },
-        "castDuration": { "type": "number", "default": 0.0 },
-        "staminaCost":  { "type": "number", "default": 0.0 }
+        "cooldown":     { "type": "number", "default": 0.0, "minimum": 0 },
+        "castDuration": { "type": "number", "default": 0.0, "minimum": 0 },
+        "staminaCost":  { "type": "number", "default": 0.0, "minimum": 0 }
       }
     },
     "skillParams": {
@@ -116,9 +116,9 @@
           "additionalProperties": false,
           "properties": {
             "type":               { "const": "melee_aoe" },
-            "range":              { "type": "number" },
-            "movementMultiplier": { "type": "number" },
-            "dmgMultiplier":      { "type": "number" }
+            "range":              { "type": "number", "exclusiveMinimum": 0 },
+            "movementMultiplier": { "type": "number", "minimum": 0, "maximum": 1 },
+            "dmgMultiplier":      { "type": "number", "exclusiveMinimum": 0 }
           }
         }
       ]

@@ -73,12 +73,50 @@ inline float readFloatOr(const nlohmann::json& obj, const std::string& key, floa
 	return obj[key].get<float>();
 }
 
+inline float readPositiveFloat(const nlohmann::json& obj, const std::string& key, const std::string& path) {
+	float val = readFloat(obj, key, path);
+	if (!(val > 0.0f)) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + "." + key
+			+ " must be > 0 (got " + std::to_string(val) + ")");
+	}
+	return val;
+}
+
+inline float readNonNegativeFloat(const nlohmann::json& obj, const std::string& key, const std::string& path) {
+	float val = readFloat(obj, key, path);
+	if (val < 0.0f) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + "." + key
+			+ " must be >= 0 (got " + std::to_string(val) + ")");
+	}
+	return val;
+}
+
+inline float readFloatInRange(const nlohmann::json& obj, const std::string& key,
+                               float lo, float hi, const std::string& path) {
+	float val = readFloat(obj, key, path);
+	if (!(val >= lo && val <= hi)) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + "." + key
+			+ " must be in [" + std::to_string(lo) + ", " + std::to_string(hi)
+			+ "] (got " + std::to_string(val) + ")");
+	}
+	return val;
+}
+
+inline float readNonNegativeFloatOr(const nlohmann::json& obj, const std::string& key, float dflt, const std::string& path) {
+	float val = readFloatOr(obj, key, dflt, path);
+	if (val < 0.0f) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + "." + key
+			+ " must be >= 0 (got " + std::to_string(val) + ")");
+	}
+	return val;
+}
+
 inline HealthPreset parseHealth(const nlohmann::json& obj, const std::string& path) {
 	requireKeysExactly(obj, {"maxHealth", "armor", "resistance"}, {}, path);
 	return HealthPreset{
-		readFloat(obj, "maxHealth",  path),
-		readFloat(obj, "armor",      path),
-		readFloat(obj, "resistance", path),
+		readPositiveFloat(obj, "maxHealth",                path),
+		readNonNegativeFloat(obj, "armor",                 path),
+		readFloatInRange(obj, "resistance", 0.0f, 1.0f,   path),
 	};
 }
 
@@ -89,39 +127,39 @@ inline MovementPreset parseMovement(const nlohmann::json& obj, const std::string
 		"deceleration", "mass", "friction", "drag", "maxSpeed", "maxFallSpeed"
 	}, {}, path);
 	return MovementPreset{
-		readFloat(obj, "movementSpeed",    path),
-		readFloat(obj, "rotationSpeed",    path),
-		readFloat(obj, "sprintMultiplier", path),
-		readFloat(obj, "crouchMultiplier", path),
-		readFloat(obj, "jumpVelocity",     path),
-		readFloat(obj, "dodgeVelocity",    path),
-		readFloat(obj, "airControlFactor", path),
-		readFloat(obj, "acceleration",     path),
-		readFloat(obj, "deceleration",     path),
-		readFloat(obj, "mass",             path),
-		readFloat(obj, "friction",         path),
-		readFloat(obj, "drag",             path),
-		readFloat(obj, "maxSpeed",         path),
-		readFloat(obj, "maxFallSpeed",     path),
+		readPositiveFloat(obj, "movementSpeed",                path),
+		readPositiveFloat(obj, "rotationSpeed",                path),
+		readPositiveFloat(obj, "sprintMultiplier",             path),
+		readPositiveFloat(obj, "crouchMultiplier",             path),
+		readNonNegativeFloat(obj, "jumpVelocity",              path),
+		readNonNegativeFloat(obj, "dodgeVelocity",             path),
+		readFloatInRange(obj, "airControlFactor", 0.0f, 1.0f, path),
+		readPositiveFloat(obj, "acceleration",                 path),
+		readPositiveFloat(obj, "deceleration",                 path),
+		readPositiveFloat(obj, "mass",                         path),
+		readFloatInRange(obj, "friction", 0.0f, 1.0f,         path),
+		readNonNegativeFloat(obj, "drag",                      path),
+		readPositiveFloat(obj, "maxSpeed",                     path),
+		readPositiveFloat(obj, "maxFallSpeed",                 path),
 	};
 }
 
 inline ColliderPreset parseCollider(const nlohmann::json& obj, const std::string& path) {
 	requireKeysExactly(obj, {"radius", "height"}, {}, path);
 	return ColliderPreset{
-		readFloat(obj, "radius", path),
-		readFloat(obj, "height", path),
+		readPositiveFloat(obj, "radius", path),
+		readPositiveFloat(obj, "height", path),
 	};
 }
 
 inline StaminaPreset parseStamina(const nlohmann::json& obj, const std::string& path) {
 	requireKeysExactly(obj, {"maxStamina", "baseRegenRate", "drainDelaySeconds", "sprintCostPerSec", "jumpCost"}, {}, path);
 	return StaminaPreset{
-		readFloat(obj, "maxStamina",        path),
-		readFloat(obj, "baseRegenRate",     path),
-		readFloat(obj, "drainDelaySeconds", path),
-		readFloat(obj, "sprintCostPerSec",  path),
-		readFloat(obj, "jumpCost",          path),
+		readPositiveFloat(obj, "maxStamina",            path),
+		readNonNegativeFloat(obj, "baseRegenRate",      path),
+		readNonNegativeFloat(obj, "drainDelaySeconds",  path),
+		readNonNegativeFloat(obj, "sprintCostPerSec",   path),
+		readNonNegativeFloat(obj, "jumpCost",           path),
 	};
 }
 
@@ -133,13 +171,13 @@ inline AttackStage parseAttackStage(const nlohmann::json& obj, const std::string
 		path
 	);
 	AttackStage s;
-	s.damageMultiplier   = readFloat(obj, "damageMultiplier",   path);
-	s.range              = readFloat(obj, "range",              path);
-	s.duration           = readFloat(obj, "duration",           path);
-	s.movementMultiplier = readFloat(obj, "movementMultiplier", path);
-	s.chainWindow        = readFloat(obj, "chainWindow",        path);
-	s.attackAngle        = readFloatOr(obj, "attackAngle", 0.7f, path);
-	s.staminaCost        = readFloat(obj, "staminaCost",        path);
+	s.damageMultiplier   = readPositiveFloat(obj, "damageMultiplier",                path);
+	s.range              = readPositiveFloat(obj, "range",                           path);
+	s.duration           = readPositiveFloat(obj, "duration",                        path);
+	s.movementMultiplier = readFloatInRange(obj, "movementMultiplier", 0.0f, 1.0f,  path);
+	s.chainWindow        = readNonNegativeFloat(obj, "chainWindow",                  path);
+	s.attackAngle        = readNonNegativeFloatOr(obj, "attackAngle", 0.7f,          path);
+	s.staminaCost        = readNonNegativeFloat(obj, "staminaCost",                  path);
 	return s;
 }
 
@@ -151,9 +189,9 @@ inline SkillVariant parseSkillParams(const nlohmann::json& obj, const std::strin
 	if (type == "melee_aoe") {
 		requireKeysExactly(obj, {"type", "range", "movementMultiplier", "dmgMultiplier"}, {}, path);
 		return MeleeAOE{
-			readFloat(obj, "range",              path),
-			readFloat(obj, "movementMultiplier", path),
-			readFloat(obj, "dmgMultiplier",      path),
+			readPositiveFloat(obj, "range",                                path),
+			readFloatInRange(obj, "movementMultiplier", 0.0f, 1.0f,      path),
+			readPositiveFloat(obj, "dmgMultiplier",                       path),
 		};
 	}
 	throw std::runtime_error("CharacterPresetLoader: " + path + ".type unknown skill type '" + type + "'");
@@ -163,9 +201,9 @@ inline SkillDefinition parseSkill(const nlohmann::json& obj, const std::string& 
 	requireKeysExactly(obj, {"params"}, {"cooldown", "castDuration", "staminaCost"}, path);
 	SkillDefinition s;
 	s.params       = parseSkillParams(obj["params"], path + ".params");
-	s.cooldown     = readFloatOr(obj, "cooldown",     0.0f, path);
-	s.castDuration = readFloatOr(obj, "castDuration", 0.0f, path);
-	s.staminaCost  = readFloatOr(obj, "staminaCost",  0.0f, path);
+	s.cooldown     = readNonNegativeFloatOr(obj, "cooldown",     0.0f, path);
+	s.castDuration = readNonNegativeFloatOr(obj, "castDuration", 0.0f, path);
+	s.staminaCost  = readNonNegativeFloatOr(obj, "staminaCost",  0.0f, path);
 	return s;
 }
 
@@ -174,10 +212,14 @@ inline CombatPreset parseCombat(const nlohmann::json& obj, const std::string& pa
 		{"baseDamage", "damageMultiplier", "criticalChance", "criticalMultiplier", "attackChain", "skill1", "skill2"},
 		{}, path);
 	CombatPreset c;
-	c.baseDamage         = readFloat(obj, "baseDamage",         path);
-	c.damageMultiplier   = readFloat(obj, "damageMultiplier",   path);
-	c.criticalChance     = readFloat(obj, "criticalChance",     path);
-	c.criticalMultiplier = readFloat(obj, "criticalMultiplier", path);
+	c.baseDamage         = readNonNegativeFloat(obj, "baseDamage",                   path);
+	c.damageMultiplier   = readPositiveFloat(obj, "damageMultiplier",                path);
+	c.criticalChance     = readFloatInRange(obj, "criticalChance", 0.0f, 1.0f,      path);
+	c.criticalMultiplier = readFloat(obj, "criticalMultiplier",                      path);
+	if (c.criticalMultiplier < 1.0f) {
+		throw std::runtime_error("CharacterPresetLoader: " + path + ".criticalMultiplier must be >= 1 (got "
+			+ std::to_string(c.criticalMultiplier) + ")");
+	}
 
 	if (!obj["attackChain"].is_array() || obj["attackChain"].empty()) {
 		throw std::runtime_error("CharacterPresetLoader: " + path + ".attackChain must be a non-empty array");
