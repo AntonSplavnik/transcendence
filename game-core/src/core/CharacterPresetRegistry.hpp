@@ -50,8 +50,6 @@ inline void CharacterPresetRegistry::loadFromDirectory(const std::string& dirPat
 
 	CharacterPresetLoader loader;
 	std::size_t parsed = 0;
-	// Default iterator: does NOT follow directory symlinks (prevents cycles).
-	// File symlinks are resolved by is_regular_file() below.
 	for (const auto& entry : fs::recursive_directory_iterator(dirPath)) {
 		if (!entry.is_regular_file()) continue;
 		if (entry.path().extension() != ".json") continue;
