@@ -66,6 +66,10 @@ size_t GameBridge::get_player_count() const {
     return game.getPlayerCount();
 }
 
+bool GameBridge::has_preset(rust::Str id) const {
+    return game.hasPreset(std::string(id.data(), id.size()));
+}
+
 // =============================================================================
 // Player management
 // =============================================================================

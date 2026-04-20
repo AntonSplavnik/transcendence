@@ -94,6 +94,7 @@ public:
 	double getGameTime() const { return m_gameTime; }
 	size_t getPlayerCount() const { return m_world.getPlayerCount(); }
 	std::vector<NetEvents::NetworkEvent> takeNetworkEvents() { return m_world.takeNetworkEvents(); }
+	bool hasPreset(const std::string& id) const { return m_world.hasPreset(id); }
 
 	// World access (for advanced usage)
 	World& getWorld() { return m_world; }

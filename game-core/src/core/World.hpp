@@ -94,6 +94,7 @@ public:
 	void respawnPlayer(entt::entity player, const Vector3D& pos);
 	bool removePlayer(PlayerID id);
 	size_t getPlayerCount() const { return m_playerToEntity.size(); }
+	bool hasPreset(const std::string& id) const { return m_presetRegistry.contains(id); }
 
 	// Input handling (forwards to controller component)
 	void setPlayerInput(PlayerID id, const InputState& input);

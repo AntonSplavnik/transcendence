@@ -52,6 +52,7 @@ struct GameBridge {
     void update();
     bool is_running() const;
     size_t get_player_count() const;
+    bool has_preset(rust::Str id) const;
 
     // Player management
     bool add_player(uint32_t id, rust::Str name, rust::Str character_class);
