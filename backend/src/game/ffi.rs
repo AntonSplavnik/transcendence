@@ -122,6 +122,7 @@ mod bridge {
         fn update(self: Pin<&mut GameBridge>);
         fn is_running(self: &GameBridge) -> bool;
         fn get_player_count(self: &GameBridge) -> usize;
+        fn has_preset(self: &GameBridge, id: &str) -> bool;
 
         fn add_player(
             self: Pin<&mut GameBridge>,
@@ -185,19 +186,31 @@ pub enum CharacterClass {
 }
 
 impl CharacterClass {
-    pub fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Knight => "knight",
             Self::Rogue => "rogue",
         }
+    }
+
+    pub fn all_ids() -> &'static [&'static str] {
+        static IDS: [&str; 2] = [
+            CharacterClass::Knight.as_str(),
+            CharacterClass::Rogue.as_str(),
+        ];
+        &IDS
     }
 }
 
 impl From<&str> for CharacterClass {
     fn from(s: &str) -> Self {
         match s {
+            "knight" => Self::Knight,
             "rogue" => Self::Rogue,
-            _ => Self::Knight,
+            other => panic!(
+                "CharacterClass: unknown preset id '{other}' — \
+                 Rust enum and C++ presets are out of sync"
+            ),
         }
     }
 }
@@ -352,6 +365,17 @@ impl GameHandle {
 
     pub fn start(&mut self, mode: GameMode) {
         self.game.pin_mut().start(mode.into());
+
+        let missing: Vec<&str> = CharacterClass::all_ids()
+            .iter()
+            .copied()
+            .filter(|id| !self.game.has_preset(id))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "CharacterClass/preset mismatch — no loaded JSON preset for: {missing:?}"
+        );
     }
 
     // pub fn stop(&mut self) {
