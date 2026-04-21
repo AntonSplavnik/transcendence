@@ -857,7 +857,7 @@ pub async fn connect_stream(
                             connection_id,
                             "Connection displaced by newer session"
                         );
-                        tokio::time::sleep(Duration::from_millis(1000)).await; // Give the message a moment to be processed by the client
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                         break;
                     }
                 }
