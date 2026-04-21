@@ -126,20 +126,27 @@ function setupInput(scene: Scene): { input: InputState; cleanup: () => void } {
 		isGrounded: false,
 		isUsingAbility1: false,
 		isUsingAbility2: false,
+		isHoldingAbility2: false,
 	};
 	const keysPressed = new Set<string>();
 
 	scene.onKeyboardObservable.add((kbInfo) => {
+		const key = kbInfo.event.key.toLowerCase();
 		if (kbInfo.type === 1) {
-			keysPressed.add(kbInfo.event.key.toLowerCase());
-			if (kbInfo.event.key.toLowerCase() === 'e' && !(kbInfo.event as KeyboardEvent).repeat)
-				input.isAttacking = true;
-			if (kbInfo.event.key.toLowerCase() === 'q' && !(kbInfo.event as KeyboardEvent).repeat)
-				input.isUsingAbility1 = true;
-			if (kbInfo.event.key.toLowerCase() === 'f' && !(kbInfo.event as KeyboardEvent).repeat)
-				input.isUsingAbility2 = true;
+			keysPressed.add(key);
+			const repeat = (kbInfo.event as KeyboardEvent).repeat;
+			if (key === 'e' && !repeat) input.isAttacking = true;
+			if (key === 'q' && !repeat) input.isUsingAbility1 = true;
+			if (key === 'f' && !repeat) input.isUsingAbility2 = true;
+			// Held state must be set synchronously with the press — the render
+			// loop reads input before the next onBeforeRender, so deferring
+			// this to the pre-render tick means the server sees ability2=true
+			// with ability2_held=false on the first frame of a channeled skill,
+			// which ends the channel a tick after it starts.
+			if (key === 'f') input.isHoldingAbility2 = true;
 		} else if (kbInfo.type === 2) {
-			keysPressed.delete(kbInfo.event.key.toLowerCase());
+			keysPressed.delete(key);
+			if (key === 'f') input.isHoldingAbility2 = false;
 		}
 	});
 
@@ -244,6 +251,7 @@ interface Props {
 		sprinting: boolean,
 		ability1: boolean,
 		ability2: boolean,
+		ability2Held: boolean,
 	) => void;
 	localPlayerId: number;
 	characterConfig?: CharacterConfig;
@@ -362,6 +370,7 @@ export default function GameCanvas({
 						input.isSprinting,
 						input.isUsingAbility1,
 						input.isUsingAbility2,
+						input.isHoldingAbility2,
 					);
 
 					scene.render();

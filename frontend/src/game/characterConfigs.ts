@@ -1,15 +1,16 @@
-import knightModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Knight.glb';
-import rogueModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue.glb';
-import barbarianModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Barbarian.glb';
-import rangerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Ranger.glb';
-import mageModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Mage.glb';
-import rogueHoodedModel from '@/assets/KayKit_Adventurers_2.0_FREE/Characters/gltf/Rogue_Hooded.glb';
-import generalAnims from '@/assets/Rig_Medium/Rig_Medium_General.glb';
-import movementBasicAnims from '@/assets/Rig_Medium/Rig_Medium_MovementBasic.glb';
-import combatMeleeAnims from '@/assets/Rig_Medium/Rig_Medium_CombatMelee.glb';
-import swordModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1handed.glb';
-import shieldModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_badge_color.glb';
-import daggerModel from '@/assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.glb';
+import knightModel from '@/assets/character-models/Knight.glb';
+import rogueModel from '@/assets/character-models/Rogue.glb';
+import barbarianModel from '@/assets/character-models/Barbarian.glb';
+import rangerModel from '@/assets/character-models/Ranger.glb';
+import mageModel from '@/assets/character-models/Mage.glb';
+import rogueHoodedModel from '@/assets/character-models/Rogue_Hooded.glb';
+import generalAnims from '@/assets/animations/Rig_Medium_General.glb';
+import movementBasicAnims from '@/assets/animations/Rig_Medium_MovementBasic.glb';
+import combatMeleeAnims from '@/assets/animations/Rig_Medium_CombatMelee.glb';
+import swordModel from '@/assets/character-weapons/sword_1handed.glb';
+import shieldModel from '@/assets/character-weapons/shield_badge_color.glb';
+import daggerModel from '@/assets/character-weapons/dagger.glb';
+import axe2hModel from '@/assets/character-weapons/axe_2handed.glb';
 
 export type CharacterChoice = 'Knight' | 'Rogue' | 'Barbarian' | 'Ranger' | 'Mage' | 'RogueHooded';
 export const DEFAULT_CHARACTER: CharacterChoice = 'Knight';
@@ -32,6 +33,7 @@ export interface CharacterStatValues {
 export interface AnimationEntry {
 	name: string;
 	speed?: number; // playback speed multiplier (default 1.0)
+	loop?: boolean; // loop playback (used for channeled skills so the animation sustains)
 }
 
 export interface TrailColor {
@@ -136,17 +138,23 @@ export const CHARACTER_CONFIGS: Record<CharacterChoice, CharacterConfig> = {
 	Barbarian: {
 		label: 'Barbarian',
 		characterClass: 'Berserker',
-		locked: true,
 		model: barbarianModel,
 		animationSets: [generalAnims, movementBasicAnims, combatMeleeAnims],
-		equipment: [],
+		equipment: [{ model: axe2hModel, bone: 'handslot.r', position: [-0.01, 0.2, -0.02] }],
 		scale: 1,
 		previewBgColor: '#c45c2c',
-		idleAnimation: { name: 'Idle_A' },
+		idleAnimation: { name: 'Melee_2H_Idle' },
 		walkAnimation: { name: 'Walking_B' },
 		runAnimation: { name: 'Running_B' },
-		attackAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
-		skillAnimations: [{ name: 'Melee_Dualwield_Attack_Chop' }],
+		attackAnimations: [
+			{ name: 'Melee_2H_Attack_Slice', speed: 1.0 }, // stage 0
+			{ name: 'Melee_2H_Attack_Stab', speed: 1.0 }, // stage 2 — finisher
+			{ name: 'Melee_2H_Attack_Chop', speed: 1.0 }, // stage 1
+		],
+		skillAnimations: [
+			{ name: 'Melee_2H_Attack_Spin' }, // skill 1
+			{ name: 'Melee_2H_Attack_Spinning', loop: true }, // skill 2 — channeled spin
+		],
 		trailColor: {
 			base: [255, 140, 60],
 			tip: [255, 80, 30],

@@ -99,7 +99,6 @@ export default function ModelPreview({
 		if (characterConfig) {
 			const previewConfig = {
 				...characterConfig,
-				animationSets: [characterConfig.animationSets[0]],
 			};
 			const char = new AnimatedCharacter(scene);
 			char.rootNode.scaling.setAll(0);

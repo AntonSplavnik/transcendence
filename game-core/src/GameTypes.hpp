@@ -136,6 +136,7 @@ struct InputState {
 	bool isAttacking;
 	bool isUsingAbility1;
 	bool isUsingAbility2;
+	bool isHoldingAbility2;   // steady "F held" state for channeled skills
 	bool isJumping;
 	bool isDodging;
 	bool isSprinting;
@@ -155,6 +156,7 @@ struct InputState {
 		, isAttacking(false)
 		, isUsingAbility1(false)
 		, isUsingAbility2(false)
+		, isHoldingAbility2(false)
 		, isJumping(false)
 		, isDodging(false)
 		, isSprinting(false)
@@ -169,6 +171,7 @@ struct InputState {
 		isAttacking = false;
 		isUsingAbility1 = false;
 		isUsingAbility2 = false;
+		isHoldingAbility2 = false;
 		isJumping = false;
 		isDodging = false;
 		hasTarget = false;
