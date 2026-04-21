@@ -213,11 +213,6 @@ enum class MatchStatus : uint8_t {
 // =============================================================================
 
 struct GameConfig {
-	// Arena dimensions (3D space)
-	static constexpr float ARENA_WIDTH  = 50.0f;  // X axis (visual terrain is 50×50, centred at origin)
-	static constexpr float ARENA_LENGTH = 50.0f;  // Z axis
-	static constexpr float ARENA_HEIGHT = 20.0f;  // Y axis (ceiling)
-
 	// Physics
 	static constexpr float GRAVITY      = -20.0f;  // Gravity acceleration (m/s^2)
 	static constexpr float GROUND_Y     =   0.0f;  // Ground level
@@ -230,7 +225,7 @@ struct GameConfig {
 	static constexpr int   MAX_PHYSICS_ITERATIONS = 5;                  // Prevent spiral of death
 
 	// Map data
-	static constexpr const char* MAP_COLLIDERS_PATH = "assets/map_colliders.json";
+	static constexpr const char* MAP_PATH = "assets/map.json";
 
 	// Network
 	static constexpr int   MAX_PLAYERS      = 8;
