@@ -43,7 +43,7 @@ const MAX_SESSIONS_PER_USER: i64 = 10;
 ///
 /// Server-side rules (rolling expiry / forced reauth) still apply; this just
 /// allows reactivation of long-lived sessions at a later time.
-const SESSION_COOKIE_MAX_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 365 * 10);
+const SESSION_COOKIE_MAX_AGE: Duration = Duration::from_hours(87600);
 
 /// Dont care about old JWT tokens when server restarts,
 /// clients can just refresh their access tokens.

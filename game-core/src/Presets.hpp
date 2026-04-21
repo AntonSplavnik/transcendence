@@ -31,14 +31,14 @@ namespace Presets {
 		},
 		.collider = {
 			.radius = 0.45f,
-			.height = 1.9f,            // tall with armor
+			.height = 1.9f,             // tall with armor
 		},
 		.stamina = {
 			.maxStamina        = 100.0f,
-			.baseRegenRate     = 40.0f,    // effective: 4.0/s (10% floor) to 40.0/s
-			.drainDelaySeconds = 1.5f,     // pause after full depletion
-			.sprintCostPerSec  = 15.0f,    // ~6.6s of continuous sprint
-			.jumpCost          = 8.0f,     // ~12 jumps from full
+			.baseRegenRate     = 40.0f, // effective: 4.0/s (10% floor) to 40.0/s
+			.drainDelaySeconds = 1.5f,  // pause after full depletion
+			.sprintCostPerSec  = 15.0f, // ~6.6s of continuous sprint
+			.jumpCost          = 8.0f,  // ~12 jumps from full
 		},
 		.combat = {
 			.baseDamage         = 18.0f,
@@ -47,19 +47,150 @@ namespace Presets {
 			.criticalMultiplier = 1.5f,
 			.attackChain = {
 				// Stage 0 — diagonal slice: quick opener
-				{ .damageMultiplier=0.8f, .range=3.0f, .duration=0.45f,
-				  .movementMultiplier=0.0f, .chainWindow=0.6f, .staminaCost=10.0f },
+				{
+					.damageMultiplier   = 0.8f,
+					.range              = 3.0f,
+					.duration           = 0.45f,
+					.movementMultiplier = 0.0f,
+					.chainWindow        = 0.6f,
+					.staminaCost        = 10.0f,
+				},
 				// Stage 1 — horizontal slice: mid combo
-				{ .damageMultiplier=0.9f, .range=3.0f, .duration=0.50f,
-				  .movementMultiplier=0.0f, .chainWindow=0.5f, .staminaCost=15.0f },
+				{
+					.damageMultiplier   = 0.9f,
+					.range              = 3.0f,
+					.duration           = 0.50f,
+					.movementMultiplier = 0.0f,
+					.chainWindow        = 0.5f,
+					.staminaCost        = 15.0f,
+				},
 				// Stage 2 — stab: heavy finisher, chain resets (chainWindow=0)
-				{ .damageMultiplier=1.6f, .range=3.0f, .duration=0.60f,
-				  .movementMultiplier=0.0f, .chainWindow=0.0f, .staminaCost=25.0f },
+				{
+					.damageMultiplier   = 1.6f,
+					.range              = 3.0f,
+					.duration           = 0.60f,
+					.movementMultiplier = 0.0f,
+					.chainWindow        = 0.0f,
+					.staminaCost        = 25.0f,
+				},
 			},
-			.skill1 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.0f, .dmgMultiplier=1.8f },
-			            .cooldown=5.0f, .castDuration=0.7f, .staminaCost=20.0f },
-			.skill2 = { .params = MeleeAOE{ .range=4.0f, .movementMultiplier=0.7f, .dmgMultiplier=1.5f },
-			            .cooldown=10.0f, .castDuration=0.5f, .staminaCost=30.0f },
+			.skill1 = {
+				.params = MeleeAOE{
+					.range              = 4.0f,
+					.movementMultiplier = 0.0f,
+					.dmgMultiplier      = 1.8f,
+					.castDuration       = 0.7f,
+					.staminaCost        = 20.0f,
+				},
+				.cooldown = 5.0f,
+			},
+			.skill2 = {
+				.params = MeleeAOE{
+					.range              = 4.0f,
+					.movementMultiplier = 0.7f,
+					.dmgMultiplier      = 1.5f,
+					.castDuration       = 0.5f,
+					.staminaCost        = 30.0f,
+				},
+				.cooldown = 10.0f,
+			},
+		},
+	};
+
+	inline const CharacterPreset BARBARIAN = {
+		.health = {
+			.maxHealth  = 150.0f,
+			.armor      = 2.0f,
+			.resistance = 0.05f,
+		},
+		.movement = {
+			.movementSpeed    = 1.7f,
+			.rotationSpeed    = 14.0f,  // ~100ms for a 90° turn — mid-weight
+			.sprintMultiplier = 2.7f,   // moderate sprint
+			.crouchMultiplier = 0.5f,
+			.jumpVelocity     = 6.0f,   // decent jump
+			.dodgeVelocity    = 8.0f,   // short dodge — relies on aggression, not evasion
+			.airControlFactor = 0.2f,   // moderate air control
+			.acceleration     = 20.0f,  // ~65ms to walk, ~170ms to sprint
+			.deceleration     = 22.0f,  // ~55ms walk stop, ~175ms sprint slide — carries momentum
+			.mass             = 85.0f,
+			.friction         = 0.8f,   // slight slide on stop
+			.drag             = 0.0f,
+			.maxSpeed         = 9.0f,
+			.maxFallSpeed     = 58.0f,
+		},
+		.collider = {
+			.radius = 0.45f,
+			.height = 1.85f,            // big frame, slightly shorter than knight
+		},
+		.stamina = {
+			.maxStamina        = 110.0f,
+			.baseRegenRate     = 45.0f, // effective: 4.5/s (10% floor) to 45.0/s
+			.drainDelaySeconds = 1.2f,  // medium recovery window
+			.sprintCostPerSec  = 12.0f, // ~9s of continuous sprint
+			.jumpCost          = 7.0f,  // ~15 jumps from full
+		},
+		.combat = {
+			.baseDamage         = 25.0f,
+			.damageMultiplier   = 1.0f,
+			.criticalChance     = 0.20f,
+			.criticalMultiplier = 1.8f,
+			.attackChain = {
+				// Stage 0 — swing
+				{
+					.damageMultiplier   = 0.9f,
+					.range              = 3.5f,
+					.duration           = 0.65f,
+					.movementMultiplier = 0.2f,
+					.chainWindow        = 0.55f,
+					.staminaCost        = 10.0f,
+				},
+				// Stage 1 — stab
+				{
+					.damageMultiplier   = 1.2f,
+					.range              = 3.5f,
+					.duration           = 0.65f,
+					.movementMultiplier = 0.1f,
+					.chainWindow        = 0.5f,
+					.staminaCost        = 15.0f,
+				},
+				// Stage 2 — chop
+				{
+					.damageMultiplier   = 1.8f,
+					.range              = 3.5f,
+					.duration           = 1.0f,
+					.movementMultiplier = 0.0f,
+					.chainWindow        = 0.0f,
+					.staminaCost        = 20.0f,
+				},
+			},
+			// Skill 1 — spin attack: high-damage AOE, roots caster
+			.skill1 = {
+				.params = MeleeAOE{
+					.range              = 4.5f,
+					.movementMultiplier = 0.0f,
+					.dmgMultiplier      = 2.2f,
+					.castDuration       = 1.3f,
+					.staminaCost        = 25.0f,
+				},
+				.cooldown = 6.0f,
+			},
+			// Skill 2 — channeled spin: held while F is down, drains stamina.
+			// An axe angle rotates around the caster; each tick hits whatever
+			// the axe has swept past since the previous tick. A target at a
+			// fixed direction is hit once per full rotation.
+			.skill2 = {
+				.params = ChanneledCone{
+					.range                = 3.5f,
+					.rotationSpeed        = 12.566f,  // 4π rad/s = 2 full rotations per second
+					.tickInterval         = 0.1f,     // finer ticks give a smoother sweep — target is still hit once per rotation
+					.dmgPerTickMultiplier = 0.5f,     // each pass ≈ 0.5×base dmg; 2 passes/s → ~75 dmg over full 3s channel
+					.maxDuration          = 3.0f,
+					.staminaCostPerSec    = 35.0f,    // ~3.1s until full-stamina depletion
+					.movementMultiplier   = 0.5f,
+				},
+				.cooldown = 8.0f,
+			},
 		},
 	};
 
@@ -87,34 +218,62 @@ namespace Presets {
 		},
 		.collider = {
 			.radius = 0.35f,
-			.height = 1.75f,           // slimmer than knight
+			.height = 1.75f,            // slimmer than knight
 		},
 		.stamina = {
 			.maxStamina        = 120.0f,
-			.baseRegenRate     = 55.0f,    // effective: 5.5/s (10% floor) to 55.0/s
-			.drainDelaySeconds = 1.0f,     // short pause — recovers fast
-			.sprintCostPerSec  = 10.0f,    // ~12s of continuous sprint
-			.jumpCost          = 5.0f,     // ~24 jumps from full
+			.baseRegenRate     = 55.0f, // effective: 5.5/s (10% floor) to 55.0/s
+			.drainDelaySeconds = 1.0f,  // short pause — recovers fast
+			.sprintCostPerSec  = 10.0f, // ~12s of continuous sprint
+			.jumpCost          = 5.0f,  // ~24 jumps from full
 		},
 		.combat = {
 			.baseDamage         = 22.0f,
 			.damageMultiplier   = 1.0f,
-			.criticalChance     = 0.35f,   // high crit — glass cannon
+			.criticalChance     = 0.35f, // high crit — glass cannon
 			.criticalMultiplier = 2.0f,
 			.attackChain = {
 				// Stage 0 — chop: fast opener, mobile
-				{ .damageMultiplier=0.8f, .range=3.0f, .duration=0.5f,
-				  .movementMultiplier=0.4f, .chainWindow=0.5f, .staminaCost=8.0f },
+				{
+					.damageMultiplier   = 0.8f,
+					.range              = 3.0f,
+					.duration           = 0.5f,
+					.movementMultiplier = 0.4f,
+					.chainWindow        = 0.5f,
+					.staminaCost        = 8.0f,
+				},
 				// Stage 1 — slice: heavier finisher, chain resets (chainWindow=0)
-				{ .damageMultiplier=1.3f, .range=3.0f, .duration=0.6f,
-				  .movementMultiplier=0.3f, .chainWindow=0.0f, .staminaCost=14.0f },
+				{
+					.damageMultiplier   = 1.3f,
+					.range              = 3.0f,
+					.duration           = 0.6f,
+					.movementMultiplier = 0.3f,
+					.chainWindow        = 0.0f,
+					.staminaCost        = 14.0f,
+				},
 			},
 			// Skill 1 — dash stab: quick forward lunge
-			.skill1 = { .params = MeleeAOE{ .range=3.0f, .movementMultiplier=1.0f, .dmgMultiplier=1.6f },
-			            .cooldown=4.0f, .castDuration=0.40f, .staminaCost=15.0f },
+			.skill1 = {
+				.params = MeleeAOE{
+					.range              = 3.0f,
+					.movementMultiplier = 1.0f,
+					.dmgMultiplier      = 1.6f,
+					.castDuration       = 0.40f,
+					.staminaCost        = 15.0f,
+				},
+				.cooldown = 4.0f,
+			},
 			// Skill 2 — kick: close-range knockback/disengage tool
-			.skill2 = { .params = MeleeAOE{ .range=3.0f, .movementMultiplier=0.2f, .dmgMultiplier=1.4f },
-			            .cooldown=6.0f, .castDuration=0.45f, .staminaCost=12.0f },
+			.skill2 = {
+				.params = MeleeAOE{
+					.range              = 3.0f,
+					.movementMultiplier = 0.2f,
+					.dmgMultiplier      = 1.4f,
+					.castDuration       = 0.45f,
+					.staminaCost        = 12.0f,
+				},
+				.cooldown = 6.0f,
+			},
 		},
 	};
 /*

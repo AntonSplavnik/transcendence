@@ -70,6 +70,16 @@ struct CombatController {
 	float skill2CastTimer     = 0.0f;
 	bool  skill2HitPending    = false;
 
+	// Channeled-skill runtime state (only used for ChanneledCone skills)
+	bool  skill1Channeling      = false;
+	float skill1ChannelElapsed  = 0.0f;  // total time channel has been active
+	float skill1TickTimer       = 0.0f;  // counts up to ChanneledCone::tickInterval
+	float skill1SpinAngle       = 0.0f;  // cumulative axe angle (rad) offset from caster forward
+	bool  skill2Channeling      = false;
+	float skill2ChannelElapsed  = 0.0f;
+	float skill2TickTimer       = 0.0f;
+	float skill2SpinAngle       = 0.0f;
+
 	// ── Capability flags ─────────────────────────────────────────────────────
 
 	bool canAttack       = true;
@@ -89,18 +99,54 @@ struct CombatController {
 
 	bool isAbility1Casting() const { return skill1CastTimer > 0.0f; }
 	bool isAbility2Casting() const { return skill2CastTimer > 0.0f; }
+	bool isAbility1Channeling() const { return skill1Channeling; }
+	bool isAbility2Channeling() const { return skill2Channeling; }
+	bool isAbility1Active() const { return isAbility1Casting() || isAbility1Channeling(); }
+	bool isAbility2Active() const { return isAbility2Casting() || isAbility2Channeling(); }
 
-	// Ready to accept an attack input — not mid-swing, not casting, and attacks are enabled.
+	// Ready to accept an attack input — not mid-swing, not casting/channeling, and attacks are enabled.
 	bool canPerformAttack() const {
 		return canAttack && !isAttacking && !attackChain.empty()
-			&& !isAbility1Casting() && !isAbility2Casting();
+			&& !isAbility1Active() && !isAbility2Active();
 	}
 
 	bool canUseAbility1() const {
-		return canUseAbilities && !isAttacking && skill1CooldownTimer <= 0.0f && !isAbility1Casting();
+		return canUseAbilities && !isAttacking && skill1CooldownTimer <= 0.0f && !isAbility1Active();
 	}
 	bool canUseAbility2() const {
-		return canUseAbilities && !isAttacking && skill2CooldownTimer <= 0.0f && !isAbility2Casting();
+		return canUseAbilities && !isAttacking && skill2CooldownTimer <= 0.0f && !isAbility2Active();
+	}
+
+	// 0..1 progress through the currently visible weapon swing — drives the
+	// frontend trail ribbon. Non-zero during normal attacks, one-shot skill
+	// casts, and channeled sweeps; monotonically increases within each.
+	// The ribbon uses a 0.5-unit rolling window to prune old points.
+	float computeSwingProgress() const {
+		if (isAttacking && !attackChain.empty())
+			return swingTimer / currentStage().duration;
+
+		// One-shot skill cast: castTimer counts down from castDuration to 0.
+		if (skill1CastTimer > 0.0f) {
+			const auto* m = std::get_if<MeleeAOE>(&ability1.params);
+			if (m && m->castDuration > 0.0f)
+				return 1.0f - skill1CastTimer / m->castDuration;
+		}
+		if (skill2CastTimer > 0.0f) {
+			const auto* m = std::get_if<MeleeAOE>(&ability2.params);
+			if (m && m->castDuration > 0.0f)
+				return 1.0f - skill2CastTimer / m->castDuration;
+		}
+
+		// Channeled skill: progress grows with elapsed time (no cap). The scale
+		// paired with TAIL_FRACTION=0.5 in SwingTrail.ts gives ~0.25s of ribbon,
+		// matching the visual length of a normal attack swing.
+		constexpr float kChannelSwingSeconds = 0.5f;
+		if (skill1Channeling)
+			return skill1ChannelElapsed / kChannelSwingSeconds;
+		if (skill2Channeling)
+			return skill2ChannelElapsed / kChannelSwingSeconds;
+
+		return 0.0f;
 	}
 
 	// ── State transitions (called by CombatSystem) ───────────────────────────

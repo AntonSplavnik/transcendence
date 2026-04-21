@@ -78,11 +78,12 @@ inline void StaminaSystem::lateUpdate(float deltaTime) {
 			}
 		}
 
-		// 4. No regen while actively spending stamina
+		// 4. No regen while actively spending stamina. Channeled skills
+		// drain per-second, so they count as "active" just like casts.
 		if (controller.isSprinting) return;
 		if (combat.isAttacking) return;
-		if (combat.isAbility1Casting()) return;
-		if (combat.isAbility2Casting()) return;
+		if (combat.isAbility1Active()) return;
+		if (combat.isAbility2Active()) return;
 
 		// 5. Scaled regen with 10% minimum floor
 		float ratio = stamina.current / stamina.maximum;

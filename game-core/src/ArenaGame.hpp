@@ -252,9 +252,7 @@ inline GameStateSnapshot ArenaGame::createSnapshot() const {
 		charSnapshot.ability1Cooldown = combat.ability1.cooldown;
 		charSnapshot.ability2Timer    = combat.skill2CooldownTimer;
 		charSnapshot.ability2Cooldown = combat.ability2.cooldown;
-		charSnapshot.swingProgress    = (combat.isAttacking && !combat.attackChain.empty())
-			? combat.swingTimer / combat.currentStage().duration
-			: 0.0f;
+		charSnapshot.swingProgress    = combat.computeSwingProgress();
 		charSnapshot.isGrounded       = physics.isGrounded;
 		charSnapshot.stamina    = stam.current;
 		charSnapshot.maxStamina = stam.maximum;

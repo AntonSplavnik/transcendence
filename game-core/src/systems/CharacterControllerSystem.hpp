@@ -75,8 +75,13 @@ inline void CharacterControllerSystem::processCharacterMovement(
 		return;
 	}
 
-	// Skip if movement is disabled (stunned, casting, etc.)
+	// Skip if movement is disabled (stunned, rooted cast, etc.). Zero
+	// horizontal velocity so prior momentum doesn't carry the character
+	// through the root — otherwise pressing a rooting skill while running
+	// leaves the player sliding for the length of the cast.
 	if (!controller.canMove) {
+		physics.velocity.x = 0.0f;
+		physics.velocity.z = 0.0f;
 		return;
 	}
 
@@ -136,7 +141,11 @@ inline void CharacterControllerSystem::processCharacterMovement(
 	// Update movement state. While coasting to a stop, stay in Walking until
 	// horizontal speed drops below a small threshold so animations don't pop
 	// to Idle mid-slide.
-	if (hasInput) {
+	// CombatSystem owns the Casting state during channels/casts with
+	// movementMultiplier > 0 (canMove stays true); don't stamp over it.
+	if (controller.state == CharacterState::Casting) {
+		// preserved
+	} else if (hasInput) {
 		controller.setState(controller.isSprinting
 			? CharacterState::Sprinting
 			: CharacterState::Walking);
