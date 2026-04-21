@@ -178,9 +178,8 @@ impl From<GameMode> for bridge::GameModeType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub enum CharacterClass {
-    #[default]
     Knight,
     Rogue,
 }

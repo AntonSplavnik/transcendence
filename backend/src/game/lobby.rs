@@ -235,7 +235,7 @@ impl Lobby {
             PlayerState {
                 ready: false,
                 nickname,
-                character_class: CharacterClass::default(),
+                character_class: CharacterClass::Knight,
             },
         );
 
