@@ -71,6 +71,8 @@ pub enum GameClientMessage {
         #[serde(default)]
         ability2: bool,
         #[serde(default)]
+        ability2_held: bool,
+        #[serde(default)]
         dodging: bool,
         #[serde(default)]
         sprinting: bool,

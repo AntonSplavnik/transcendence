@@ -19,7 +19,7 @@ use super::messages::GameServerMessage;
 use crate::models::nickname::Nickname;
 use crate::stream::StreamGroup;
 
-const COUNTDOWN_DEFAULT: Duration = Duration::from_secs(60);
+const COUNTDOWN_DEFAULT: Duration = Duration::from_mins(1);
 const COUNTDOWN_ALL_READY: Duration = Duration::from_secs(3);
 const COUNTDOWN_FULL: Duration = Duration::from_secs(10);
 const CLEANUP_DELAY: Duration = Duration::from_secs(30);

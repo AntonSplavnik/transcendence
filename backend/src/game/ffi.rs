@@ -36,6 +36,7 @@ mod bridge {
         jumping: bool,
         ability1: bool,
         ability2: bool,
+        ability2_held: bool,
         dodging: bool,
         sprinting: bool,
     }
@@ -181,6 +182,7 @@ impl From<GameMode> for bridge::GameModeType {
 pub enum CharacterClass {
     #[default]
     Knight,
+    Barbarian,
     Rogue,
 }
 
@@ -188,6 +190,7 @@ impl CharacterClass {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Knight => "knight",
+            Self::Barbarian => "barbarian",
             Self::Rogue => "rogue",
         }
     }
@@ -196,6 +199,7 @@ impl CharacterClass {
 impl From<&str> for CharacterClass {
     fn from(s: &str) -> Self {
         match s {
+            "barbarian" => Self::Barbarian,
             "rogue" => Self::Rogue,
             _ => Self::Knight,
         }
@@ -390,6 +394,7 @@ impl GameHandle {
         jumping: bool,
         ability1: bool,
         ability2: bool,
+        ability2_held: bool,
         dodging: bool,
         sprinting: bool,
     ) {
@@ -408,6 +413,7 @@ impl GameHandle {
             jumping,
             ability1,
             ability2,
+            ability2_held,
             dodging,
             sprinting,
         };
