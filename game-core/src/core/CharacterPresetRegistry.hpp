@@ -19,6 +19,9 @@ public:
 
 	const CharacterPreset& get(const std::string& id) const;
 	bool contains(const std::string& id) const;
+	void loadOrReplace(const std::string& id, CharacterPreset preset) {
+		m_presets.insert_or_assign(id, std::move(preset));
+	}
 	std::size_t size() const { return m_presets.size(); }
 
 private:
