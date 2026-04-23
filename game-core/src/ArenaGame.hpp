@@ -6,6 +6,10 @@
 #include <vector>
 #include <chrono>
 
+#ifndef NDEBUG
+#include "core/DevPresetReloader.hpp"
+#endif
+
 namespace ArenaGame {
 
 // =============================================================================
@@ -111,6 +115,11 @@ private:
 	float m_accumulator;
 	std::chrono::steady_clock::time_point m_lastUpdateTime;
 
+#ifndef NDEBUG
+	DevPresetReloader m_devReloader;
+	int m_devReloadCounter = 0;
+#endif
+
 };
 
 // =============================================================================
@@ -122,6 +131,9 @@ inline ArenaGame::ArenaGame()
 	, m_frameNumber(0)
 	, m_gameTime(0.0)
 	, m_accumulator(0.0)
+#ifndef NDEBUG
+	, m_devReloader(m_world.getRegistry(), m_world.getPresetRegistry())
+#endif
 {
 	// Initialize world (creates and initializes all systems)
 	m_world.initialize();
@@ -187,6 +199,13 @@ inline void ArenaGame::update() {
 
 	// PHASE 5: Stop the loop if the active game mode has concluded.
 	checkMatchOver();
+
+#ifndef NDEBUG
+	if (++m_devReloadCounter >= GameConfig::TARGET_FPS) {
+		m_devReloadCounter = 0;
+		m_devReloader.checkAndReload();
+	}
+#endif
 }
 
 inline void ArenaGame::checkMatchOver() {
