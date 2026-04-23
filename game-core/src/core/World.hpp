@@ -110,6 +110,9 @@ public:
 	// Factory access (for MapLoader and other external producers)
 	EntityFactory& getFactory() { return m_factory; }
 
+	// Preset registry access (for DevPresetReloader)
+	CharacterPresetRegistry& getPresetRegistry() { return m_presetRegistry; }
+
 	// Map data access
 	const MapData& getMapData() const { return m_mapData; }
 
