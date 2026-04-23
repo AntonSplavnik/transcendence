@@ -66,6 +66,10 @@ size_t GameBridge::get_player_count() const {
     return game.getPlayerCount();
 }
 
+bool GameBridge::has_preset(rust::Str id) const {
+    return game.hasPreset(std::string(id.data(), id.size()));
+}
+
 // =============================================================================
 // Player management
 // =============================================================================
@@ -133,7 +137,7 @@ GameStateSnapshot GameBridge::get_snapshot() const {
 
 std::unique_ptr<EventQueue> GameBridge::take_events() {
     auto eq = std::make_unique<EventQueue>();
-    eq->events = game.getWorld().takeNetworkEvents();
+    eq->events = game.takeNetworkEvents();
     return eq;
 }
 

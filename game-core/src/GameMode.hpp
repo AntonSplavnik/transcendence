@@ -3,6 +3,7 @@
 #include "GameTypes.hpp"
 #include "events/InternalEvents.hpp"
 #include "ISpawner.hpp"
+#include "core/MapLoader.hpp"
 #include "components/GameModeComponent.hpp"
 #include "components/MatchStatsComponent.hpp"
 #include "components/PendingPlayersComponent.hpp"
@@ -25,25 +26,12 @@ namespace ArenaGame {
 // =============================================================================
 
 struct SpawnPositions {
-	static constexpr size_t NUM_SPOTS = 5;
-	static constexpr float SPOTS[NUM_SPOTS][2] = {
-		{  12.0f,  -3.0f },
-		{  -4.0f,  -3.0f },
-		{ -12.0f,  11.0f },
-		{  -4.0f,  18.0f },
-		{   7.7f,  18.7f },
-	};
-
 	std::vector<Vector3D> positions;
 	size_t nextIndex = 0;
 	std::mt19937 rng{std::random_device{}()};
 
-	void initialize([[maybe_unused]] int numPlayers) {
-		positions.clear();
-		positions.reserve(NUM_SPOTS);
-		for (size_t i = 0; i < NUM_SPOTS; ++i) {
-			positions.push_back(Vector3D(SPOTS[i][0], GameConfig::GROUND_Y, SPOTS[i][1]));
-		}
+	void initialize(const std::vector<Vector3D>& spawns) {
+		positions = spawns;
 		nextIndex = 0;
 	}
 
@@ -68,6 +56,7 @@ struct SpawnPositions {
 struct GameModeContext {
 	entt::registry& registry;
 	ISpawner&       spawner;
+	const MapData&  mapData;
 };
 
 // =============================================================================
@@ -130,7 +119,7 @@ public:
 		auto* pp = ctx.registry.try_get<Components::PendingPlayersComponent>(gameManager);
 		if (!pp || pp->players.empty()) return;
 
-		m_spawns.initialize(static_cast<int>(pp->players.size()));
+		m_spawns.initialize(ctx.mapData.spawns);
 
 		for (const auto& p : pp->players) {
 			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());
@@ -206,7 +195,7 @@ public:
 		auto* pp = ctx.registry.try_get<Components::PendingPlayersComponent>(gameManager);
 		if (!pp || pp->players.empty()) return;
 
-		m_spawns.initialize(static_cast<int>(pp->players.size()));
+		m_spawns.initialize(ctx.mapData.spawns);
 
 		for (const auto& p : pp->players) {
 			entt::entity entity = ctx.spawner.createPlayer(p.id, p.name, p.characterClass, m_spawns.next());

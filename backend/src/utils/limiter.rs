@@ -29,7 +29,7 @@ pub fn periodic_rate_limit_report() {
     use tokio::time::interval;
 
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(60 * 10));
+        let mut interval = interval(Duration::from_mins(10));
         loop {
             interval.tick().await;
             let total = RATE_LIMITED_COUNTERS.iter().fold(0, |out, counter| {
@@ -76,22 +76,22 @@ impl RateLimit {
 
     #[must_use]
     pub fn per_minute(limit: u32) -> Self {
-        Self::new(limit, Duration::from_secs(60))
+        Self::new(limit, Duration::from_mins(1))
     }
 
     #[must_use]
     pub fn per_5_minutes(limit: u32) -> Self {
-        Self::new(limit, Duration::from_secs(300))
+        Self::new(limit, Duration::from_mins(5))
     }
 
     #[must_use]
     pub fn per_15_minutes(limit: u32) -> Self {
-        Self::new(limit, Duration::from_secs(900))
+        Self::new(limit, Duration::from_mins(15))
     }
 
     #[must_use]
     pub fn per_day(limit: u32) -> Self {
-        Self::new(limit, Duration::from_secs(86400))
+        Self::new(limit, Duration::from_hours(24))
     }
 
     fn rate_limit<T: std::hash::Hash>(&self, key: &T, res: &mut Response, ctrl: &mut FlowCtrl) {
