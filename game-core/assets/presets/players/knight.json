@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "knight",
+  "health": {
+    "maxHealth":  180.0,
+    "armor":      5.0,
+    "resistance": 0.1
+  },
+  "movement": {
+    "movementSpeed":    1.5,
+    "rotationSpeed":    12.0,
+    "sprintMultiplier": 2.5,
+    "crouchMultiplier": 0.4,
+    "jumpVelocity":     5.0,
+    "dodgeVelocity":    7.0,
+    "airControlFactor": 0.1,
+    "acceleration":     18.0,
+    "deceleration":     25.0,
+    "mass":             90.0,
+    "friction":         0.9,
+    "drag":             0.0,
+    "maxSpeed":         8.0,
+    "maxFallSpeed":     60.0
+  },
+  "collider": {
+    "radius": 0.45,
+    "height": 1.9
+  },
+  "stamina": {
+    "maxStamina":         100.0,
+    "baseRegenRate":      40.0,
+    "drainDelaySeconds":  1.5,
+    "sprintCostPerSec":   15.0,
+    "jumpCost":           8.0
+  },
+  "combat": {
+    "baseDamage":         18.0,
+    "damageMultiplier":   1.0,
+    "criticalChance":     0.15,
+    "criticalMultiplier": 1.5,
+    "attackChain": [
+      { "damageMultiplier": 0.8, "range": 3.0, "duration": 0.45, "movementMultiplier": 0.0, "chainWindow": 0.6, "staminaCost": 10.0 },
+      { "damageMultiplier": 0.9, "range": 3.0, "duration": 0.50, "movementMultiplier": 0.0, "chainWindow": 0.5, "staminaCost": 15.0 },
+      { "damageMultiplier": 1.6, "range": 3.0, "duration": 0.60, "movementMultiplier": 0.0, "chainWindow": 0.0, "staminaCost": 25.0 }
+    ],
+    "skill1": {
+      "params":       { "type": "melee_aoe", "range": 4.0, "movementMultiplier": 0.0, "dmgMultiplier": 1.8 },
+      "cooldown":     5.0,
+      "castDuration": 0.7,
+      "staminaCost":  20.0
+    },
+    "skill2": {
+      "params":       { "type": "melee_aoe", "range": 4.0, "movementMultiplier": 0.7, "dmgMultiplier": 1.5 },
+      "cooldown":     10.0,
+      "castDuration": 0.5,
+      "staminaCost":  30.0
+    }
+  }
+}

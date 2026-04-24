@@ -78,5 +78,5 @@ fn main() {
     println!("cargo:rerun-if-changed=../game-core/src"); // all headers and sources
     println!("cargo:rerun-if-changed=../game-core/entt/entt.hpp"); // single-include EnTT header
     println!("cargo:rerun-if-changed=../game-core/nlohmann/json.hpp"); // single-include JSON library
-    println!("cargo:rerun-if-changed=data/map_colliders.json"); // map collider data
+    println!("cargo:rerun-if-changed=../game-core/assets/map.json"); // unified map data
 }

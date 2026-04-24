@@ -12,6 +12,7 @@ services:
       - db-data:/app/data
       - acme-cache:/app/acme
       - ./backend/config.toml:/app/config.toml:ro
+      - ./game-core/assets/presets:/app/assets/presets
     secrets:
       - tls_cert
       - tls_key

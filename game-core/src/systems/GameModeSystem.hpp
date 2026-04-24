@@ -52,6 +52,7 @@ namespace ArenaGame {
 		bool needsUpdate()     const override { return false; }
 
 		void setSpawner(ISpawner* spawner) { m_spawner = spawner; }
+		void setMapData(const MapData* data) { m_mapData = data; }
 
 		void notifyPlayerRemove(entt::entity entity) {
 			if (!m_mode) return;
@@ -66,6 +67,7 @@ namespace ArenaGame {
 
 		std::unique_ptr<IGameMode> m_mode;
 		ISpawner* m_spawner = nullptr;
+		const MapData* m_mapData = nullptr;
 	};
 
 	inline void GameModeSystem::startMode() {
@@ -74,7 +76,7 @@ namespace ArenaGame {
 		if (!gm || !stats) return;
 		assert(gm->modeType != GameModeType::None && "GameMode was never set before startMode()");
 		m_mode = IGameMode::create(gm->modeType);
-		GameModeContext ctx { *m_registry, *m_spawner };
+		GameModeContext ctx { *m_registry, *m_spawner, *m_mapData };
 		m_mode->onStart(ctx, *gm, *stats);
 	}
 
@@ -86,7 +88,7 @@ namespace ArenaGame {
 
 		if (!gm || !stats || !ie || gm->matchStatus != MatchStatus::InProgress) return;
 
-		GameModeContext ctx { *m_registry, *m_spawner };
+		GameModeContext ctx { *m_registry, *m_spawner, *m_mapData };
 
 		for (const auto& event : ie->events) {
 			std::visit(overloaded {

@@ -35,5 +35,5 @@ pub fn html_action_result_card(title: &str, heading: &str, success: bool, messag
 /// Time-to-idle duration for the nickname cache.
 ///
 /// Entries not accessed within this window are evicted automatically.
-pub const NICK_CACHE_TTI: Duration = Duration::from_secs(30 * 60); // 30 minutes
+pub const NICK_CACHE_TTI: Duration = Duration::from_mins(30);
 pub type NickCache = nick_cache::NickTTICache;
