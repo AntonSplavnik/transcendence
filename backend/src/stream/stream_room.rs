@@ -14,6 +14,14 @@
 //! lock acquisition (step 3). The broadcast-before-init race is eliminated by
 //! construction: there is no window between "member visible" and "init sent."
 //!
+//! Join failure is split explicitly:
+//! - Real departures use `RoomProtocol::on_member_left` with a concrete [`LeaveReason`].
+//! - Failed joins use `RoomProtocol::on_join_rollback` for room-local undo only.
+//!
+//! This keeps registry and dispatcher side effects out of rollback paths and makes
+//! the difference between "member really left" and "join never became active"
+//! unmistakable in protocol code.
+//!
 //! # Concurrency Model
 //!
 //! - Single `parking_lot::Mutex` protects all room state.
@@ -45,11 +53,13 @@
 //!
 //! # Callback Panic Recovery
 //!
-//! `PendingGuard::drop()` re-acquires the lock on panic. Partial state mutations
-//! from `on_member_joining` are NOT rolled back (Rust has no transaction
-//! semantics). `on_member_left` is NOT called after a panic. The room is
-//! effectively broken after a callback panic — the correct response is to
-//! discard the `Arc<StreamRoom>` and not use it further.
+//! Ordinary join failures after `on_member_joining` use `on_join_rollback` to undo
+//! room-local state. Panics are different: `PendingGuard::drop()` re-acquires the
+//! lock on unwind, but Rust has no transaction semantics, so partial mutations from
+//! a panicking callback are NOT rolled back. `on_member_left` and `on_join_rollback`
+//! are both skipped after panic. The room is effectively broken after a callback
+//! panic — the correct response is to discard the `Arc<StreamRoom>` and not use it
+//! further.
 
 use std::convert::Infallible;
 use std::future::Future;
@@ -76,6 +86,52 @@ use super::{StreamType, spawn_receive_loop};
 /// `Box<dyn Stream>` is always `Unpin` — satisfies `spawn_receive_loop` bounds.
 type BoxStream<R> = Pin<Box<dyn Stream<Item = Result<R, anyhow::Error>> + Send>>;
 
+/// Dispatches authoritative leave and destroy events outside the room lock.
+///
+/// `StreamRoom` stores this as `Box<dyn LeaveDispatcher>` instead of adding a new
+/// `B: LeaveDispatcher` type parameter. The room protocol already determines the
+/// state and message types; threading an additional bridge type parameter through
+/// every `StreamRoom<P>` user would widen the public API and force standalone rooms
+/// to name an otherwise-unused type. A trait object keeps the default constructor
+/// (`StreamRoom::new`) zero-configuration for local-only rooms while still letting
+/// registry-backed rooms opt into bridge dispatch.
+pub trait LeaveDispatcher: Send + Sync + 'static {
+    fn dispatch_leave(&self, user_id: i32, disposition: LeaveDisposition);
+    fn dispatch_destroy(&self);
+}
+
+/// Why a member left the room protocol.
+///
+/// This is used only for real departures. Join rollback is handled separately by
+/// [`RoomProtocol::on_join_rollback`] so protocols can keep registry-free local undo
+/// logic distinct from authoritative leave handling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LeaveReason {
+    Disconnect(CancelReason),
+    Removed,
+}
+
+/// What the authoritative bridge should do after a real leave.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeaveDisposition {
+    Leave,
+    Reserve,
+}
+
+/// Result of a real member departure.
+pub struct MemberLeftResult<Msg> {
+    /// Optional room-local departure broadcast.
+    pub broadcast: Option<Msg>,
+    /// Authoritative bridge disposition for this real leave.
+    pub disposition: LeaveDisposition,
+    /// Whether the authoritative room should be destroyed after this leave.
+    ///
+    /// Task 5 carries this through the callback contract so callers can migrate to
+    /// the new API. Standalone rooms remain local-only, and full post-lock destroy
+    /// wiring is deferred to the registry bridge work in Task 6.
+    pub destroy_after: bool,
+}
+
 /// Protocol trait defining room lifecycle callbacks.
 ///
 /// Implementors provide the Send/Recv message types and lifecycle callbacks
@@ -89,6 +145,8 @@ type BoxStream<R> = Pin<Box<dyn Stream<Item = Result<R, anyhow::Error>> + Send>>
 ///   NOT rolled back). The room is effectively broken after a callback panic.
 /// - **Block or perform I/O** — holds the lock, starving other operations.
 /// - **Acquire other locks** — risks deadlock.
+/// - **Call back into external systems** — registry dispatch happens after the room
+///   lock is released; callbacks must stay room-local.
 ///
 /// Callbacks should be simple, infallible state transformations.
 /// `on_member_joining` may return `Err` to reject a join — this is the
@@ -121,10 +179,11 @@ pub trait RoomProtocol: Send + 'static {
     ///
     /// # Contract
     ///
-    /// - On `Ok`: state was modified. If join fails later (e.g., `try_send`
-    ///   error), `on_member_left` is called to undo.
+    /// - On `Ok`: state was modified. If join must be undone later,
+    ///   `on_join_rollback` is called to roll that state back locally.
     /// - On `Err`: state MUST NOT have been modified. `on_member_left` will
-    ///   NOT be called. The rejection reason is returned to the caller via
+    ///   NOT be called, and `on_join_rollback` is not needed. The rejection
+    ///   reason is returned to the caller via
     ///   `JoinError::Rejected`.
     ///
     /// # WARNING: Validate BEFORE mutating
@@ -183,16 +242,26 @@ pub trait RoomProtocol: Send + 'static {
         None
     }
 
-    /// Called when a member disconnects or is removed. Under lock.
+    /// Called for a real member departure. Under lock.
     ///
-    /// Return a broadcast message or `None`. Also called to undo
-    /// `on_member_joining` if join fails after `Ok` (e.g., `try_send` error).
-    /// NOT called if `on_member_joining` returned `Err`.
+    /// This callback is ONLY for members that were already active or whose prior
+    /// active entry is being self-healed. It receives the concrete leave cause and
+    /// may request a room-local broadcast plus bridge-side disposition handling.
     ///
-    /// Default: no broadcast.
-    fn on_member_left(&mut self, _user_id: i32) -> Option<Self::Send> {
-        None
-    }
+    /// This callback is NOT used to undo a failed join. Join rollback is handled by
+    /// [`RoomProtocol::on_join_rollback`], which must stay room-local: no broadcast,
+    /// no registry interaction, and no assumptions that the user ever became active.
+    fn on_member_left(&mut self, user_id: i32, reason: LeaveReason)
+    -> MemberLeftResult<Self::Send>;
+
+    /// Undo room-local state from a join that was accepted by `on_member_joining`
+    /// but never became an active membership.
+    ///
+    /// This is the explicit split from [`RoomProtocol::on_member_left`]: rollback is
+    /// not a real leave. The member may have reserved local state during join, but
+    /// they never became active, so there is no departure broadcast and no bridge or
+    /// registry side effect.
+    fn on_join_rollback(&mut self, user_id: i32);
 }
 
 impl<T> super::StreamProtocol for T
@@ -211,6 +280,10 @@ where
 /// Fully managed room with co-located state and broadcast.
 ///
 /// See [module documentation](self) for design, invariants, and concurrency model.
+/// Standalone rooms usually use [`StreamRoom::new`], which leaves `dispatcher`
+/// unset and keeps all behavior local. Registry-backed rooms can opt into
+/// authoritative leave notifications with [`StreamRoom::with_dispatcher`] without
+/// changing the `StreamRoom<P>` type seen by the rest of the code.
 ///
 /// # Invariants
 ///
@@ -226,6 +299,7 @@ where
 /// No other locks acquired while held.
 pub struct StreamRoom<P: RoomProtocol> {
     inner: Mutex<StreamRoomInner<P>>,
+    dispatcher: Option<Box<dyn LeaveDispatcher>>,
     #[cfg(test)]
     test_gate: Option<Arc<tokio::sync::Notify>>,
 }
@@ -234,6 +308,13 @@ struct StreamRoomInner<P: RoomProtocol> {
     state: P,
     handles: IndexMap<i32, StreamSink<P::Send>, ahash::RandomState>,
     pending: IndexSet<i32, ahash::RandomState>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DeferredDispatch {
+    user_id: i32,
+    disposition: LeaveDisposition,
+    destroy_after: bool,
 }
 
 /// RAII guard that removes a user from the pending set on drop.
@@ -305,6 +386,10 @@ pub enum JoinError<R: std::error::Error + Send + 'static = Infallible> {
     /// The protocol rejected the join via `on_member_joining`.
     #[error("join rejected: {0}")]
     Rejected(R),
+
+    /// The join was cancelled before the member became active.
+    #[error("join cancelled for user {user_id} before activation")]
+    Cancelled { user_id: i32 },
 }
 
 impl<P: RoomProtocol> StreamRoom<P> {
@@ -313,16 +398,82 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// Returns `Arc<Self>` — cleanup tasks hold `Weak<StreamRoom>`, and
     /// `join_with()` requires `self: &Arc<Self>`. Forcing `Arc` at
     /// construction prevents use-before-Arc bugs.
+    ///
+    /// Standalone rooms should use this constructor. It keeps the room local-only
+    /// with no leave bridge configured.
     pub fn new(state: P) -> Arc<Self> {
+        Self::new_with_optional_dispatcher(state, None)
+    }
+
+    /// Create a room that dispatches authoritative leave signals.
+    ///
+    /// This opt-in constructor preserves [`StreamRoom::new`] for standalone rooms
+    /// while letting registry-backed callers provide a bridge without widening the
+    /// `StreamRoom<P>` type.
+    pub fn with_dispatcher(state: P, dispatcher: Box<dyn LeaveDispatcher>) -> Arc<Self> {
+        Self::new_with_optional_dispatcher(state, Some(dispatcher))
+    }
+
+    fn new_with_optional_dispatcher(
+        state: P,
+        dispatcher: Option<Box<dyn LeaveDispatcher>>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             inner: Mutex::new(StreamRoomInner {
                 state,
                 handles: IndexMap::with_hasher(ahash::RandomState::new()),
                 pending: IndexSet::with_hasher(ahash::RandomState::new()),
             }),
+            dispatcher,
             #[cfg(test)]
             test_gate: None,
         })
+    }
+
+    fn disconnect_leave_reason(cancel_handle: &CancelHandle) -> LeaveReason {
+        LeaveReason::Disconnect(
+            cancel_handle
+                .reason()
+                .cloned()
+                .unwrap_or(CancelReason::TransportError),
+        )
+    }
+
+    fn apply_member_left(
+        inner: &mut StreamRoomInner<P>,
+        user_id: i32,
+        reason: LeaveReason,
+        exclude_user: Option<i32>,
+    ) -> DeferredDispatch {
+        let result = inner.state.on_member_left(user_id, reason);
+        if let Some(msg) = result.broadcast.as_ref() {
+            if let Some(exclude_user) = exclude_user {
+                broadcast_except_inner(&inner.handles, msg, exclude_user);
+            } else {
+                broadcast_inner(&inner.handles, msg);
+            }
+        }
+
+        inner.handles.swap_remove(&user_id);
+
+        DeferredDispatch {
+            user_id,
+            disposition: result.disposition,
+            destroy_after: result.destroy_after,
+        }
+    }
+
+    fn dispatch_deferred(&self, deferred: Option<DeferredDispatch>) {
+        let Some(deferred) = deferred else {
+            return;
+        };
+
+        let Some(dispatcher) = self.dispatcher.as_ref() else {
+            return;
+        };
+
+        dispatcher.dispatch_leave(deferred.user_id, deferred.disposition);
+        let _ = deferred.destroy_after;
     }
 
     /// Step 1 of `join_with`: acquire lock, self-heal cancelled entries, check and
@@ -331,13 +482,17 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// Returns `Err(AlreadyMember)` if the user already has an active or pending entry.
     fn reserve_pending(&self, user_id: i32) -> Result<StreamType, JoinError<P::JoinReject>> {
         let mut inner = self.inner.lock();
+        let mut deferred = None;
 
         if let Some(existing) = inner.handles.get(&user_id) {
             if existing.is_cancelled() {
-                if let Some(msg) = inner.state.on_member_left(user_id) {
-                    broadcast_except_inner(&inner.handles, &msg, user_id);
-                }
-                inner.handles.swap_remove(&user_id);
+                let reason = Self::disconnect_leave_reason(existing.cancel_handle());
+                deferred = Some(Self::apply_member_left(
+                    &mut inner,
+                    user_id,
+                    reason,
+                    Some(user_id),
+                ));
             } else {
                 return Err(JoinError::AlreadyMember { user_id });
             }
@@ -348,7 +503,10 @@ impl<P: RoomProtocol> StreamRoom<P> {
         }
 
         inner.pending.insert(user_id);
-        Ok(inner.state.stream_type())
+        let stream_type = inner.state.stream_type();
+        drop(inner);
+        self.dispatch_deferred(deferred);
+        Ok(stream_type)
     }
 
     /// Step 3 of `join_with`: acquire lock, call `on_member_joining`, send init
@@ -362,6 +520,11 @@ impl<P: RoomProtocol> StreamRoom<P> {
         guard: &mut PendingGuard<P>,
     ) -> Result<CancelHandle, JoinError<P::JoinReject>> {
         let mut inner = self.inner.lock();
+
+        if !inner.pending.contains(&user_id) {
+            sink.cancel(CancelReason::Removed);
+            return Err(JoinError::Cancelled { user_id });
+        }
 
         if let Err(reason) = inner.state.on_member_joining(user_id, context) {
             sink.cancel(CancelReason::Removed);
@@ -380,7 +543,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
 
         for msg in init_msgs.into_iter().take(MAX_INIT_MESSAGES) {
             if let Err(err) = sink.try_send(msg) {
-                let _ = inner.state.on_member_left(user_id);
+                inner.state.on_join_rollback(user_id);
                 let reason = match err {
                     tokio::sync::mpsc::error::TrySendError::Full(_) => {
                         CancelReason::BackpressureFull
@@ -426,6 +589,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
             };
 
             let mut inner = room.inner.lock();
+            let mut deferred = None;
 
             let is_match = inner
                 .handles
@@ -433,12 +597,17 @@ impl<P: RoomProtocol> StreamRoom<P> {
                 .is_some_and(|s| *s == sink_snapshot);
 
             if is_match {
-                if let Some(msg) = inner.state.on_member_left(cleanup_user_id) {
-                    broadcast_except_inner(&inner.handles, &msg, cleanup_user_id);
-                }
-                inner.handles.swap_remove(&cleanup_user_id);
+                let reason = Self::disconnect_leave_reason(&cleanup_cancel);
+                deferred = Some(Self::apply_member_left(
+                    &mut inner,
+                    cleanup_user_id,
+                    reason,
+                    Some(cleanup_user_id),
+                ));
             }
             drop(inner);
+
+            room.dispatch_deferred(deferred);
 
             if is_match {
                 tracing::debug!(
@@ -491,12 +660,15 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// Cancel-safe at every point:
     /// - Before step 1: no state change.
     /// - During step 2 (stream open): `PendingGuard` removes pending on drop.
+    /// - If another task clears the pending marker before activation, join fails with
+    ///   `JoinError::Cancelled` and no room callback or dispatcher hook runs.
     /// - Step 3 is synchronous (under lock) — cannot be cancelled mid-execution.
     /// - After step 3: member is fully joined, cleanup task handles disconnect.
     ///
     /// # Errors
     ///
     /// - `AlreadyMember` — user is already in handles or pending.
+    /// - `Cancelled` — the pending reservation disappeared before activation began.
     /// - `StreamOpen` — `StreamManager` failed to open the transport stream.
     /// - `StreamDied` — channel closed during init message send.
     /// - `Rejected` — protocol's `on_member_joining` returned `Err`.
@@ -733,7 +905,8 @@ impl<P: RoomProtocol> StreamRoom<P> {
     /// - **In handles**: calls `on_member_left`, conditionally broadcasts
     ///   the departure, removes from handles, cancels with `Removed`.
     /// - **Only in pending**: removes from pending set (no callback, no
-    ///   broadcast — user never fully joined).
+    ///   broadcast — user never fully joined). Any join still waiting to activate
+    ///   will observe this as `JoinError::Cancelled` before protocol callbacks run.
     ///
     /// Returns `true` if found in either, `false` if in neither.
     #[must_use]
@@ -743,18 +916,28 @@ impl<P: RoomProtocol> StreamRoom<P> {
         if let Some(sink) = inner.handles.get(&user_id) {
             // Clone sink for cancel after removal (cancel is lock-free).
             let sink = sink.clone();
-            if let Some(msg) = inner.state.on_member_left(user_id) {
-                broadcast_except_inner(&inner.handles, &msg, user_id);
-            }
-            inner.handles.swap_remove(&user_id);
+            let deferred = Some(Self::apply_member_left(
+                &mut inner,
+                user_id,
+                LeaveReason::Removed,
+                Some(user_id),
+            ));
+            drop(inner);
             sink.cancel(CancelReason::Removed);
-            true
-        } else if inner.pending.swap_remove(&user_id) {
-            // Pending only — no callback, no broadcast.
+            self.dispatch_deferred(deferred);
+            return true;
+        }
+
+        let removed = if inner.pending.swap_remove(&user_id) {
+            // Pending only — activation will observe the missing reservation and roll
+            // back any local join state if step 3 had already started.
             true
         } else {
             false
-        }
+        };
+
+        drop(inner);
+        removed
     }
 
     /// IDs of all Active members.
@@ -1046,6 +1229,7 @@ impl<P: RoomProtocol> StreamRoom<P> {
                 handles: IndexMap::with_hasher(ahash::RandomState::new()),
                 pending: IndexSet::with_hasher(ahash::RandomState::new()),
             }),
+            dispatcher: None,
             test_gate: Some(Arc::clone(&gate)),
         });
         (room, GateHandle { gate })
@@ -1057,8 +1241,9 @@ impl<P: RoomProtocol> Drop for StreamRoom<P> {
     ///
     /// Does NOT call `on_member_left` — protocol state is destroyed with
     /// the room. Departure mutations are pointless, and `Drop` cannot do
-    /// I/O or send messages. If departure messages are needed when a room
-    /// shuts down, explicitly `remove()` each member before dropping.
+    /// I/O, Tokio-dependent cleanup, or registry/dispatcher work. If departure
+    /// messages or authoritative destroy actions are needed, perform them before
+    /// dropping the room.
     fn drop(&mut self) {
         let inner = self.inner.get_mut();
         for (_, sink) in inner.handles.drain(..) {

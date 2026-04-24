@@ -1,10 +1,14 @@
 use std::convert::Infallible;
 
+use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::super::cancel::CancelReason;
-use super::super::stream_room::{JoinError, RoomProtocol, StreamRoom};
+use super::super::stream_room::{
+    JoinError, LeaveDispatcher, LeaveDisposition, LeaveReason, MemberLeftResult, RoomProtocol,
+    StreamRoom,
+};
 use super::super::{MAX_INIT_MESSAGES, StreamType};
 
 /// Stamp out the common associated types and `stream_type()` for test protocols.
@@ -24,6 +28,22 @@ macro_rules! simple_test_protocol {
     };
 }
 
+fn leave_broadcast(msg: String) -> MemberLeftResult<String> {
+    MemberLeftResult {
+        broadcast: Some(msg),
+        disposition: LeaveDisposition::Leave,
+        destroy_after: false,
+    }
+}
+
+fn leave_silent() -> MemberLeftResult<String> {
+    MemberLeftResult {
+        broadcast: None,
+        disposition: LeaveDisposition::Leave,
+        destroy_after: false,
+    }
+}
+
 // ── EchoProtocol ────────────────────────────────────────────────
 
 /// Simple test protocol with no join context or rejection.
@@ -31,6 +51,8 @@ macro_rules! simple_test_protocol {
 struct EchoProtocol {
     join_count: usize,
     leave_count: usize,
+    leave_reasons: Vec<LeaveReason>,
+    rollback_count: usize,
 }
 
 impl EchoProtocol {
@@ -38,6 +60,8 @@ impl EchoProtocol {
         Self {
             join_count: 0,
             leave_count: 0,
+            leave_reasons: Vec::new(),
+            rollback_count: 0,
         }
     }
 }
@@ -51,9 +75,15 @@ impl RoomProtocol for EchoProtocol {
         self.join_count += 1;
         Some(format!("joined:{user_id}"))
     }
-    fn on_member_left(&mut self, user_id: i32) -> Option<String> {
+
+    fn on_member_left(&mut self, user_id: i32, reason: LeaveReason) -> MemberLeftResult<String> {
         self.leave_count += 1;
-        Some(format!("left:{user_id}"))
+        self.leave_reasons.push(reason);
+        leave_broadcast(format!("left:{user_id}"))
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {
+        self.rollback_count += 1;
     }
 }
 
@@ -71,6 +101,12 @@ impl RoomProtocol for EmptyInitProtocol {
     fn on_member_joined(&mut self, user_id: i32) -> Option<String> {
         Some(format!("joined:{user_id}"))
     }
+
+    fn on_member_left(&mut self, user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
+        leave_broadcast(format!("left:{user_id}"))
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
 }
 
 // ── ContextProtocol ─────────────────────────────────────────────
@@ -111,9 +147,13 @@ impl RoomProtocol for ContextProtocol {
         Some(format!("joined:{}", self.members[&user_id]))
     }
 
-    fn on_member_left(&mut self, user_id: i32) -> Option<String> {
+    fn on_member_left(&mut self, user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
         self.members.remove(&user_id);
-        Some(format!("left:{user_id}"))
+        leave_broadcast(format!("left:{user_id}"))
+    }
+
+    fn on_join_rollback(&mut self, user_id: i32) {
+        self.members.remove(&user_id);
     }
 }
 
@@ -144,9 +184,41 @@ impl RoomProtocol for CountingProtocol {
         self.join_count.fetch_add(1, Ordering::SeqCst);
         Some(format!("joined:{user_id}"))
     }
-    fn on_member_left(&mut self, user_id: i32) -> Option<String> {
+    fn on_member_left(&mut self, user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
         self.leave_count.fetch_add(1, Ordering::SeqCst);
-        Some(format!("left:{user_id}"))
+        leave_broadcast(format!("left:{user_id}"))
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
+}
+
+#[derive(Debug, Default)]
+struct RollbackProtocol {
+    joining: Vec<i32>,
+    left: Vec<(i32, LeaveReason)>,
+    rollbacks: Vec<i32>,
+}
+
+impl RoomProtocol for RollbackProtocol {
+    simple_test_protocol!();
+
+    fn on_member_joining(&mut self, user_id: i32, _: ()) -> Result<(), Infallible> {
+        self.joining.push(user_id);
+        Ok(())
+    }
+
+    fn init_messages(&self, _user_id: i32) -> Vec<String> {
+        Vec::new()
+    }
+
+    fn on_member_left(&mut self, user_id: i32, reason: LeaveReason) -> MemberLeftResult<String> {
+        self.left.push((user_id, reason));
+        leave_silent()
+    }
+
+    fn on_join_rollback(&mut self, user_id: i32) {
+        self.joining.retain(|joined| *joined != user_id);
+        self.rollbacks.push(user_id);
     }
 }
 
@@ -180,10 +252,12 @@ impl RoomProtocol for CountingNoBroadcastProtocol {
         self.join_count.fetch_add(1, Ordering::SeqCst);
         None // no broadcast → other members' buffers never fill
     }
-    fn on_member_left(&mut self, _user_id: i32) -> Option<String> {
+    fn on_member_left(&mut self, _user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
         self.leave_count.fetch_add(1, Ordering::SeqCst);
-        None
+        leave_silent()
     }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
 }
 
 // ── OverflowInitProtocol ────────────────────────────────────────
@@ -199,6 +273,12 @@ impl RoomProtocol for OverflowInitProtocol {
     fn init_messages(&self, _user_id: i32) -> Vec<String> {
         (0..self.init_count).map(|i| format!("init:{i}")).collect()
     }
+
+    fn on_member_left(&mut self, _user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
+        leave_silent()
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
 }
 
 // ── MaxInitProtocol ─────────────────────────────────────────────
@@ -220,6 +300,12 @@ impl RoomProtocol for MaxInitProtocol {
     fn on_member_joined(&mut self, user_id: i32) -> Option<String> {
         Some(format!("joined:{user_id}"))
     }
+
+    fn on_member_left(&mut self, _user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
+        leave_silent()
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
 }
 
 // ── UniEchoProtocol ─────────────────────────────────────────────
@@ -256,11 +342,60 @@ impl RoomProtocol for UniEchoProtocol {
         self.join_count += 1;
         Some(format!("joined:{user_id}"))
     }
-    fn on_member_left(&mut self, user_id: i32) -> Option<String> {
+
+    fn on_member_left(&mut self, user_id: i32, _reason: LeaveReason) -> MemberLeftResult<String> {
         self.leave_count += 1;
-        Some(format!("left:{user_id}"))
+        leave_broadcast(format!("left:{user_id}"))
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
+}
+
+#[derive(Debug, Default)]
+struct RecordingDispatcher {
+    leaves: Mutex<Vec<(i32, LeaveDisposition)>>,
+    destroy_calls: AtomicUsize,
+}
+
+impl LeaveDispatcher for RecordingDispatcher {
+    fn dispatch_leave(&self, user_id: i32, disposition: LeaveDisposition) {
+        self.leaves.lock().push((user_id, disposition));
+    }
+
+    fn dispatch_destroy(&self) {
+        self.destroy_calls.fetch_add(1, Ordering::SeqCst);
     }
 }
+
+#[derive(Debug, Default)]
+struct ReserveLeaveProtocol {
+    left: Vec<(i32, LeaveReason)>,
+}
+
+impl RoomProtocol for ReserveLeaveProtocol {
+    simple_test_protocol!();
+
+    fn init_messages(&self, _user_id: i32) -> Vec<String> {
+        vec!["welcome".to_string()]
+    }
+
+    fn on_member_joined(&mut self, user_id: i32) -> Option<String> {
+        Some(format!("joined:{user_id}"))
+    }
+
+    fn on_member_left(&mut self, user_id: i32, reason: LeaveReason) -> MemberLeftResult<String> {
+        self.left.push((user_id, reason));
+        MemberLeftResult {
+            broadcast: Some(format!("reserved:{user_id}")),
+            disposition: LeaveDisposition::Reserve,
+            destroy_after: true,
+        }
+    }
+
+    fn on_join_rollback(&mut self, _user_id: i32) {}
+}
+
+fn assert_reserve_leave_room_type(_room: &Arc<StreamRoom<ReserveLeaveProtocol>>) {}
 
 /// No-op handler for tests that don't care about incoming messages.
 async fn noop_handler(_msg: String) {}
@@ -474,6 +609,23 @@ async fn test_stream_room_disconnect_triggers_left() {
     // Leave count should be 1.
     room.with_state(|state| {
         assert_eq!(state.leave_count, 1);
+        assert_eq!(
+            state.leave_reasons,
+            vec![LeaveReason::Disconnect(CancelReason::TransportError)]
+        );
+    });
+}
+
+#[tokio::test]
+async fn test_stream_room_remove_uses_removed_reason() {
+    let room = StreamRoom::new(EchoProtocol::new());
+
+    let (_h1, _c1, _s1) = room.join(1, noop_handler).await.unwrap();
+
+    assert!(room.remove(1));
+
+    room.with_state(|state| {
+        assert_eq!(state.leave_reasons, vec![LeaveReason::Removed]);
     });
 }
 
@@ -517,6 +669,7 @@ async fn test_stream_room_remove_calls_on_member_left() {
 
     room.with_state(|state| {
         assert_eq!(state.leave_count, 1);
+        assert_eq!(state.leave_reasons, vec![LeaveReason::Removed]);
     });
 }
 
@@ -1214,6 +1367,154 @@ async fn test_stream_room_join_failure_calls_on_member_left() {
     room.with_state(|state| {
         assert_eq!(state.members.get(&1).unwrap(), "Alice2");
     });
+}
+
+#[tokio::test]
+async fn test_stream_room_remove_pending_returns_cancelled_without_callbacks() {
+    let (room, gate) = StreamRoom::new_gated(RollbackProtocol::default());
+
+    let room2 = Arc::clone(&room);
+    let join_task = tokio::spawn(async move { room2.join(7, noop_handler).await });
+
+    tokio::task::yield_now().await;
+    tokio::task::yield_now().await;
+
+    assert!(
+        room.user_is_pending(7),
+        "user 7 should be pending before rollback"
+    );
+    assert!(room.remove(7), "remove should clear a pending join");
+
+    gate.open();
+    let join_result = join_task.await.expect("join task must not panic");
+    assert!(
+        matches!(join_result, Err(JoinError::Cancelled { user_id: 7 })),
+        "pending removal during join must report Cancelled, got {join_result:?}"
+    );
+
+    room.with_state(|state| {
+        assert_eq!(state.left, Vec::<(i32, LeaveReason)>::new());
+        assert_eq!(state.rollbacks, Vec::<i32>::new());
+        assert_eq!(state.joining, Vec::<i32>::new());
+    });
+    assert!(
+        room.pending_is_empty(),
+        "pending cancellation must leave no reserved slot behind"
+    );
+    assert_eq!(
+        room.member_count(),
+        0,
+        "pre-activation cancellation must not create an active membership"
+    );
+    assert!(
+        !room.contains(7),
+        "pre-activation cancellation must not leave the user in handles"
+    );
+}
+
+#[tokio::test]
+async fn test_stream_room_with_dispatcher_tracks_leave_without_destroy_dispatch() {
+    let dispatcher = Arc::new(RecordingDispatcher::default());
+    let room = StreamRoom::with_dispatcher(
+        EchoProtocol::new(),
+        Box::new(Arc::clone(&dispatcher)) as Box<dyn LeaveDispatcher>,
+    );
+
+    let (_h1, _c1, _s1) = room.join(11, noop_handler).await.unwrap();
+
+    assert!(room.remove(11));
+    drop(room);
+
+    assert_eq!(
+        *dispatcher.leaves.lock(),
+        vec![(11, LeaveDisposition::Leave)],
+        "dispatcher should observe real leaves"
+    );
+    assert_eq!(
+        dispatcher.destroy_calls.load(Ordering::SeqCst),
+        0,
+        "drop must stay local-only and must not dispatch destroy"
+    );
+}
+
+#[tokio::test]
+async fn test_stream_room_with_dispatcher_disconnect_dispatches_member_left_result() {
+    let dispatcher = Arc::new(RecordingDispatcher::default());
+    let room = StreamRoom::with_dispatcher(
+        ReserveLeaveProtocol::default(),
+        Box::new(Arc::clone(&dispatcher)) as Box<dyn LeaveDispatcher>,
+    );
+    assert_reserve_leave_room_type(&room);
+
+    let (_h1, mut c1, _s1) = room.join(21, noop_handler).await.unwrap();
+    let (_h2, mut c2, _s2) = room.join(22, noop_handler).await.unwrap();
+
+    c1.drain(3).await;
+    c2.drain(2).await;
+
+    let cancel = room.cancel_handle_for(21);
+    cancel.cancel(CancelReason::TransportError);
+
+    tokio::task::yield_now().await;
+    tokio::task::yield_now().await;
+
+    c2.expect(&"reserved:21".to_string()).await;
+
+    room.with_state(|state| {
+        assert_eq!(
+            state.left,
+            vec![(21, LeaveReason::Disconnect(CancelReason::TransportError))],
+            "disconnect cleanup must pass the concrete LeaveReason into on_member_left"
+        );
+    });
+    assert_eq!(
+        *dispatcher.leaves.lock(),
+        vec![(21, LeaveDisposition::Reserve)],
+        "dispatcher-backed rooms must forward MemberLeftResult disposition for real leaves"
+    );
+    assert_eq!(
+        dispatcher.destroy_calls.load(Ordering::SeqCst),
+        0,
+        "Task 5 must not dispatch destroy even when on_member_left requests it"
+    );
+}
+
+#[tokio::test]
+async fn test_stream_room_new_keeps_member_left_result_local_only() {
+    let room = StreamRoom::new(ReserveLeaveProtocol::default());
+    assert_reserve_leave_room_type(&room);
+
+    let (_h1, mut c1, _s1) = room.join(31, noop_handler).await.unwrap();
+    let (_h2, mut c2, _s2) = room.join(32, noop_handler).await.unwrap();
+
+    c1.drain(3).await;
+    c2.drain(2).await;
+
+    assert!(room.remove(31), "remove should still succeed in standalone mode");
+    c2.expect(&"reserved:31".to_string()).await;
+
+    room.with_state(|state| {
+        assert_eq!(
+            state.left,
+            vec![(31, LeaveReason::Removed)],
+            "standalone rooms must still pass real leave reasons to on_member_left"
+        );
+    });
+    assert_eq!(
+        room.member_ids(),
+        vec![32],
+        "standalone rooms must keep leave handling local without any dispatcher semantics"
+    );
+}
+
+impl LeaveDispatcher for Arc<RecordingDispatcher> {
+    fn dispatch_leave(&self, user_id: i32, disposition: LeaveDisposition) {
+        self.as_ref().dispatch_leave(user_id, disposition);
+    }
+
+    fn dispatch_destroy(&self) {
+        self.as_ref().dispatch_destroy();
+    }
 }
 
 // 42. Cleanup task logs the CancelReason after disconnect.
