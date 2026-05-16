@@ -146,7 +146,7 @@ woothee = "0.13.0"
 # fast (but DOS-resistant) hashing
 ahash = "0.8.12"
 # in-memory caching
-quick_cache = "0.6.18"
+quick_cache = "0.6.21"
 # efficient rate-limiting
 pingora-limits = "0.7"
 # dependency for h3-quinn (just need an error type from it)
