@@ -28,6 +28,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
 
-      - uses: j178/prek-action@v1
+      - uses: j178/prek-action@v2
         with:
           extra_args: --all-files --stage manual
